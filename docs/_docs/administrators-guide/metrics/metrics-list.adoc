@@ -1,0 +1,323 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Available Metrics
+
+This topic lists all metrics available in Ignite 3.
+
+== client.handler
+
+The metrics provided by the client handler and related to active clients.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| BytesReceived | The total number of bytes received.
+| BytesSent | The total number of bytes sent.
+| ConnectionsInitiated | The total number of initiated connections.
+| CursorsActive | The number of active cursors.
+| RequestsActive | The number of requests in progress.
+| RequestsProcessed | The total number of processed requests.
+| RequestsFailed | The total number of failed requests.
+| SessionsAccepted | The total number of accepted sessions.
+| SessionsActive | The number of currently active sessions.
+| SessionsRejected | The total number of sessions rejected due to handshake errors.
+| SessionsRejectedTls | The total number of sessions rejected due to TLS handshake errors.
+| SessionsRejectedTimeout | The total number of sessions rejected due to a timeout.
+| TransactionsActive | The number of active transactions.
+|=======================================================================
+
+== clock.service
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| ClockSkewExceedingMaxClockSkew | The observed clock skew that exceeded the maximum clock skew.
+|=======================================================================
+
+== jvm
+
+The metrics for Ignite Java Virtual Machine resource use.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| UpTime | The uptime of the Java virtual machine in milliseconds.
+| gc.CollectionTime | The approximate total time spent on garbage collection in milliseconds, summed across all collectors.
+| memory.heap.Committed | The committed amount of heap memory.
+| memory.heap.Init | The initial amount of heap memory.
+| memory.heap.Max | The maximum amount of heap memory.
+| memory.heap.Used | The currently used amount of heap memory.
+| memory.non-heap.Committed | The committed amount of non-heap memory.
+| memory.non-heap.Init | The initial amount of non-heap memory.
+| memory.non-heap.Max | The maximum amount of non-heap memory.
+| memory.non-heap.Used | The used amount of non-heap memory.
+|=======================================================================
+
+== metastorage
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| IdempotentCacheSize | The current size of the cache of idempotent commands' results.
+| SafeTimeLag | The number of milliseconds the local MetaStorage SafeTime lags behind the local logical clock.
+|=======================================================================
+
+== os
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| CpuLoad | The CPU load. The value is between 0.0 and 1.0, where 0.0 means no CPU load and 1.0 means 100% CPU load. If the CPU load information is not available, a negative value is returned.
+| LoadAverage | The system load average for the last minute. The system load average is the sum of the number of runnable entities queued to the available processors and the number of runnable entities running on the available processors, averaged over a period of time. The way in which the load average is calculated depends on the operating system. If the load average is not available, a negative value is returned.
+|=======================================================================
+
+== placement-driver
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| AcceptedLeases | The number of active leases. Equals the number of replication groups for which a primary replica has been elected.
+| LeaseNegotiations | The number of leases currently in negotiation. Represents the number of replication groups for which the primary replica has not yet been selected.
+| ReplicationGroups | The total number of replication groups. Each group first appears in `LeaseNegotiations`. After the primary is elected, its entry moves to `AcceptedLeases` and is removed from `LeaseNegotiations`.
+|=======================================================================
+
+== raft
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| raft.fsmcaller.disruptor.Stripes | The histogram of distribution data by stripes in the state machine for partitions.
+| raft.fsmcaller.disruptor.Batch | The histogram of the batch size to handle in the state machine for partitions.
+| raft.logmanager.disruptor.Batch | The histogram of the batch size to handle in the log for partitions.
+| raft.logmanager.disruptor.Stripes | The histogram of distribution data by stripes in the log for partitions.
+| raft.nodeimpl.disruptor.Batch | The histogram of the batch size to handle node operations for partitions.
+| raft.nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions.
+| raft.readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions.
+| raft.readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions.
+|=======================================================================
+
+== resource.vacuum
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| MarkedForVacuumTransactionMetaCount | The count of transaction metas that have been marked for vacuum.
+| SkippedForFurtherProcessingUnfinishedTransactionCount | The current number of unfinished transactions that are skipped by the vacuumizer for further processing.
+| VacuumizedPersistentTransactionMetaCount | The count of persistent transaction metas that have been vacuumized.
+| VacuumizedVolatileTxnMetaCount | The count of volatile transaction metas that have been vacuumized.
+|=======================================================================
+
+== storage.aipersist.{profile}
+
+NOTE: Each link:administrators-guide/storage/storage-overview[storage profile] with `aipersist` storage engine has an individual metrics exporter.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| CpTotalPages | The number of pages in the current checkpoint.
+| CpEvictedPages | The number of evicted pages in the current checkpoint.
+| CpWrittenPages | The number of written pages in the current checkpoint.
+| CpSyncedPages | The number of fsynced pages in the current checkpoint.
+| CpWriteSpeed | The checkpoint write speed, in pages per second. The value is averaged over the last 3 checkpoints plus the current one.
+| CurrDirtyRatio | The current ratio of dirty pages (dirty vs total), expressed as a fraction. The fraction is computed for each segment in the current region, and the highest value becomes "current."
+| DirtyPages | Current number of dirty pages in memory.
+| LastEstimatedSpeedForMarkAll | The last estimated speed of marking all clean pages dirty to the end of a checkpoint, in pages per second.
+| LoadedPages | Current number of pages loaded in memory.
+| MaxSize | The maximum in-memory region size in bytes.
+| MarkDirtySpeed | The speed of marking pages dirty, in pages per second. The value is averaged over the last 3 fragments, 0.25 sec each, plus the current fragment, 0–0.25 sec (0.75–1.0 sec total).
+| PageReplacements | Number of times a page was replaced (evicted) from the page cache.
+| PageCacheHits | Number of times a page was found in the page cache.
+| PageCacheMisses | Number of times a page was not found in the page cache and had to be loaded from disk.
+| PageCacheHitRate | Page cache hit rate over the last 5 minutes.
+| PageAcquireTime | Distribution of page acquisition time in nanoseconds.
+| SpeedBasedThrottlingPercentage | The fraction of throttling time within average marking time (e.g., "quarter" = 0.25).
+| TargetDirtyRatio | The ratio of dirty pages (dirty vs total), expressed as a fraction. Throttling starts when this ratio is reached.
+| ThrottleParkTime | The park (sleep) time for the write operation, in nanoseconds. The value is averaged over the last 3 fragments, 0.25 sec each, plus the current fragment, 0–0.25 sec (0.75–1.0 sec total). It defines park periods for either the checkpoint buffer protection or the clean page pool protection.
+| TotalAllocatedSize | The total size of allocated pages on disk in bytes.
+| TotalUsedSize | The total size of non-empty allocated pages on disk in bytes.
+|=======================================================================
+
+== sql.client
+
+SQL client metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| OpenCursors | The number of currently open cursors.
+|=======================================================================
+
+== sql.memory
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| Limit | The SQL memory limit (bytes).
+| MaxReserved | The maximum memory usage by SQL so far (bytes).
+| Reserved | The current memory usage by SQL (bytes).
+| StatementLimit | The memory limit per SQL statement (bytes).
+|=======================================================================
+
+== sql.plan.cache
+
+Metrics for SQL cache planning.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| Hits | The total number of cache plan hits.
+| Misses | The total number of cache plan misses.
+|=======================================================================
+
+== sql.queries
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| Canceled | The total number of canceled queries.
+| Failed | The total number of failed queries. This metric includes all unsuccessful queries, regardless of reason.
+| Succeeded | The total number of successful queries.
+| TimedOut | The total number of queries that failed due to a time-out.
+|=======================================================================
+
+== tables.{table_name}
+
+Table metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| RwReads | The total number of reads performed within read-write transactions.
+| RoReads | The total number of reads performed within read-only transactions.
+| Writes | The total number of write operations for this table.
+|=======================================================================
+
+== index.builder
+
+Index builder metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| TotalIndexesBuilding | Total number of indexes that node builds at the moment.
+| IndexesReadingStorage | Number of indexes that are currently reading data from storage.
+| IndexesWaitingForTransactions | Number of indexes that are currently waiting for transactions to complete.
+| TransactionsWaitingFor | Number of transactions that indexes are currently waiting for.
+| IndexesWaitingForReplica | Number of indexes that are currently waiting for replica response.
+|=======================================================================
+
+== thread.pools.{thread-pool-executor-name}
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| ActiveCount | The approximate number of threads that are actively executing tasks.
+| CompletedTaskCount | The approximate total number of tasks that have completed execution.
+| CorePoolSize | The core number of threads.
+| KeepAliveTime | The thread keep-alive time, which is the amount of time threads in excess of the core pool size may remain idle before being terminated.
+| LargestPoolSize | The largest number of threads that have ever simultaneously been in the pool.
+| MaximumPoolSize | The maximum allowed number of threads.
+| PoolSize | The current number of threads in the pool.
+| TaskCount | The approximate total number of tasks that have been scheduled for execution.
+| QueueSize | The current size of the execution queue.
+|=======================================================================
+
+== topology.cluster
+
+Metrics for the cluster topology.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| ClusterId | The unique identifier of the cluster.
+| ClusterName | The unique name of the cluster.
+| TotalNodes | The total number of nodes in the logical topology.
+|=======================================================================
+
+== topology.local
+
+Metrics with node information.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| NodeName | The unique name of the node.
+| NodeId | The unique identifier of the node.
+| NodeVersion | The Ignite version on the node.
+|=======================================================================
+
+== transactions
+
+Transaction metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| RwCommits | The total number of read-write transaction commits.
+| RoCommits | The total number of read-only transaction commits.
+| RwRollbacks | The total number of read-write transaction rollbacks.
+| RoRollbacks | The total number of read-only transaction rollbacks.
+| RwDuration | The histogram representation of read-write transaction latency.
+| RoDuration | The histogram representation of read-only transaction latency.
+| TotalRollbacks | The total number of transaction rollbacks.
+| TotalCommits | The total number of transaction commits.
+|=======================================================================
+
+== zones
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| LocalUnrebalancedPartitionsCount | The number of partitions that should be moved to this node.
+| TotalUnrebalancedPartitionsCount | The total number of partitions that should be moved to a new owner.
+|=======================================================================
+
+== raft.snapshots
+
+Metrics related to Raft snapshots of partition replicas.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| IncomingSnapshots | The number of incoming Raft snapshots in progress.
+| IncomingSnapshotsLoadingMeta | The number of incoming Raft snapshots loading metadata.
+| IncomingSnapshotsWaitingCatalog | The number of incoming Raft snapshots waiting for catalog.
+| IncomingSnapshotsPreparingStorages | The number of incoming Raft snapshots preparing storages.
+| IncomingSnapshotsPreparingIndexForBuild | The number of incoming Raft snapshots preparing indexes for build.
+| IncomingSnapshotsLoadingMvData | The number of incoming Raft snapshots loading multi-versioned data.
+| IncomingSnapshotsLoadingTxMeta | The number of incoming Raft snapshots loading transaction metadata.
+| OutgoingSnapshots | The number of outgoing Raft snapshots in progress.
+|=======================================================================
