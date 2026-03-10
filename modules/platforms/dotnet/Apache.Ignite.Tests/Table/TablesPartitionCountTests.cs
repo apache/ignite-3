@@ -72,6 +72,4 @@ public class TablesPartitionCountTests : IgniteTestsBase
         var result2 = await view2.GetAsync(null, key1);
         Assert.IsFalse(result2.HasValue, "Old key should not exist after table recreation");
     }
-
-    private record Poco(int Id, string Val);
 }
