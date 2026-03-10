@@ -4,8 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  core:
+    name: Core
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -24,12 +24,449 @@ jobs:
           cache-read-only: true
 
       - name: Run unit tests
-        run: ./gradlew --continue test
+        run: >-
+          ./gradlew --continue
+          :ignite-api:test
+          :ignite-arch-test:test
+          :ignite-binary-tuple:test
+          :ignite-bytecode:test
+          :ignite-core:test
+          :ignite-di:test
+          :ignite-failure-handler:test
+          :ignite-file-io:test
+          :ignite-marshaller-common:test
+          :ignite-workers:test
+          :ignite-vault:test
+          :ignite-eventlog:test
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-reports
+          name: unit-test-reports-core
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  configuration:
+    name: Configuration
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-configuration:test
+          :ignite-configuration-annotation-processor:test
+          :ignite-configuration-presentation:test
+          :ignite-configuration-storage:test
+          :ignite-configuration-system:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-configuration
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  network:
+    name: Network
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-network:test
+          :ignite-network-annotation-processor:test
+          :ignite-network-api:test
+          :ignite-file-transfer:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-network
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  storage:
+    name: Storage
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-storage-api:test
+          :ignite-storage-page-memory:test
+          :ignite-storage-rocksdb:test
+          :ignite-page-memory:test
+          :ignite-rocksdb-common:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-storage
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  sql:
+    name: SQL
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-sql-engine:test
+          :ignite-catalog:test
+          :ignite-catalog-compaction:test
+          :ignite-catalog-dsl:test
+          :ignite-jdbc:test
+          :ignite-schema:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-sql
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  raft-replication:
+    name: Raft & Replication
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-raft:test
+          :ignite-raft-api:test
+          :ignite-replicator:test
+          :ignite-partition-replicator:test
+          :ignite-metastorage:test
+          :ignite-metastorage-api:test
+          :ignite-metastorage-cache:test
+          :ignite-low-watermark:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-raft-replication
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  table-index:
+    name: Table & Index
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-table:test
+          :ignite-index:test
+          :ignite-distribution-zones:test
+          :ignite-partition-distribution:test
+          :ignite-system-view:test
+          :ignite-system-view-api:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-table-index
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  compute-deployment:
+    name: Compute & Deployment
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-compute:test
+          :ignite-code-deployment:test
+          :ignite-code-deployment-classloader:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-compute-deployment
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  client:
+    name: Client
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-client:test
+          :ignite-client-common:test
+          :ignite-client-handler:test
+          :ignite-rest:test
+          :ignite-rest-api:test
+          :ignite-cli:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-client
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  runner:
+    name: Runner
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue
+          :ignite-runner:test
+          :ignite-cluster-management:test
+          :ignite-placement-driver:test
+          :ignite-placement-driver-api:test
+          :ignite-security:test
+          :ignite-transactions:test
+          :ignite-system-disaster-recovery:test
+          :ignite-system-disaster-recovery-api:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-runner
+          retention-days: 7
+          path: '**/build/reports/tests/test/'
+
+  misc:
+    name: Misc
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run unit tests
+        run: >-
+          ./gradlew --continue test
+          -x :ignite-api:test
+          -x :ignite-arch-test:test
+          -x :ignite-binary-tuple:test
+          -x :ignite-bytecode:test
+          -x :ignite-core:test
+          -x :ignite-di:test
+          -x :ignite-failure-handler:test
+          -x :ignite-file-io:test
+          -x :ignite-marshaller-common:test
+          -x :ignite-workers:test
+          -x :ignite-vault:test
+          -x :ignite-eventlog:test
+          -x :ignite-configuration:test
+          -x :ignite-configuration-annotation-processor:test
+          -x :ignite-configuration-presentation:test
+          -x :ignite-configuration-storage:test
+          -x :ignite-configuration-system:test
+          -x :ignite-network:test
+          -x :ignite-network-annotation-processor:test
+          -x :ignite-network-api:test
+          -x :ignite-file-transfer:test
+          -x :ignite-storage-api:test
+          -x :ignite-storage-page-memory:test
+          -x :ignite-storage-rocksdb:test
+          -x :ignite-page-memory:test
+          -x :ignite-rocksdb-common:test
+          -x :ignite-sql-engine:test
+          -x :ignite-catalog:test
+          -x :ignite-catalog-compaction:test
+          -x :ignite-catalog-dsl:test
+          -x :ignite-jdbc:test
+          -x :ignite-schema:test
+          -x :ignite-raft:test
+          -x :ignite-raft-api:test
+          -x :ignite-replicator:test
+          -x :ignite-partition-replicator:test
+          -x :ignite-metastorage:test
+          -x :ignite-metastorage-api:test
+          -x :ignite-metastorage-cache:test
+          -x :ignite-low-watermark:test
+          -x :ignite-table:test
+          -x :ignite-index:test
+          -x :ignite-distribution-zones:test
+          -x :ignite-partition-distribution:test
+          -x :ignite-system-view:test
+          -x :ignite-system-view-api:test
+          -x :ignite-compute:test
+          -x :ignite-code-deployment:test
+          -x :ignite-code-deployment-classloader:test
+          -x :ignite-client:test
+          -x :ignite-client-common:test
+          -x :ignite-client-handler:test
+          -x :ignite-rest:test
+          -x :ignite-rest-api:test
+          -x :ignite-cli:test
+          -x :ignite-runner:test
+          -x :ignite-cluster-management:test
+          -x :ignite-placement-driver:test
+          -x :ignite-placement-driver-api:test
+          -x :ignite-security:test
+          -x :ignite-transactions:test
+          -x :ignite-system-disaster-recovery:test
+          -x :ignite-system-disaster-recovery-api:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-misc
           retention-days: 7
           path: '**/build/reports/tests/test/'
