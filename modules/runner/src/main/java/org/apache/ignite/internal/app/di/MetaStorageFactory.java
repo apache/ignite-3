@@ -22,43 +22,23 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /**
  * Micronaut factory for MetaStorage, cluster configuration, and SQL configuration components.
  */
 @Factory
 public class MetaStorageFactory {
-    /** Creates the topology-aware Raft group service factory. */
-    @Singleton
-    public TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory(
-            ClusterService clusterService,
-            LogicalTopologyService logicalTopologyService,
-            RaftGroupEventsClientListener raftGroupEventsClientListener
-    ) {
-        return new TopologyAwareRaftGroupServiceFactory(
-                clusterService,
-                logicalTopologyService,
-                Loza.FACTORY,
-                raftGroupEventsClientListener
-        );
-    }
-
     /** Creates the cluster (distributed) configuration registry. */
     @Singleton
     @Named("clusterConfig")

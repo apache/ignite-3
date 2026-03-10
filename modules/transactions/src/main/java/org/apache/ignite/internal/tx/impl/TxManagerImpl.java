@@ -57,9 +57,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.EventListener;
@@ -83,6 +90,7 @@ import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
@@ -128,6 +136,9 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1700)
 public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemViewProvider {
     private static final String ABANDONED_CHECK_TS_PROP = "txnAbandonedCheckTs";
 
@@ -238,6 +249,56 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private volatile boolean isStopping;
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public TxManagerImpl(
+            NodeIdentity nodeIdentity,
+            TransactionConfiguration txConfig,
+            SystemDistributedConfiguration systemCfg,
+            @Named("storageOperations") MessagingService messagingService,
+            TopologyService topologyService,
+            ReplicaService replicaService,
+            LockManager lockManager,
+            VolatileTxStateMetaStorage txStateVolatileStorage,
+            ClockService clockService,
+            TransactionIdGenerator transactionIdGenerator,
+            PlacementDriver placementDriver,
+            ReplicationConfiguration replicationConfiguration,
+            LocalRwTxCounter localRwTxCounter,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
+            FailureProcessor failureProcessor,
+            MetricManager metricManager
+    ) {
+        this(
+                nodeIdentity.nodeName(),
+                txConfig,
+                systemCfg,
+                messagingService,
+                topologyService,
+                replicaService,
+                lockManager,
+                txStateVolatileStorage,
+                clockService,
+                transactionIdGenerator,
+                placementDriver,
+                () -> replicationConfiguration.idleSafeTimePropagationDurationMillis().value(),
+                localRwTxCounter,
+                partitionOperationsExecutor,
+                resourcesRegistry,
+                transactionInflights,
+                lowWatermark,
+                commonScheduler,
+                failureProcessor,
+                metricManager
+        );
+    }
 
     /**
      * Test-only constructor.

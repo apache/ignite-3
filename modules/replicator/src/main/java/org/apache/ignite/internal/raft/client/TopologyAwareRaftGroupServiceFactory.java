@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.ExceptionFactory;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftServiceFactory;
@@ -33,6 +36,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 /**
  * Factory for creation {@link TopologyAwareRaftGroupService}.
  */
+@Singleton
 public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<TopologyAwareRaftGroupService> {
     private final ClusterService clusterService;
 
@@ -41,6 +45,18 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
     private final RaftMessagesFactory raftMessagesFactory;
 
     private final RaftGroupEventsClientListener eventsClientListener;
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public TopologyAwareRaftGroupServiceFactory(
+            ClusterService clusterService,
+            LogicalTopologyService logicalTopologyService,
+            RaftGroupEventsClientListener eventsClientListener
+    ) {
+        this(clusterService, logicalTopologyService, Loza.FACTORY, eventsClientListener);
+    }
 
     /**
      * Constructor.

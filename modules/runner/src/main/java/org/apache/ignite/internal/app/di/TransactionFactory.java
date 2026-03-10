@@ -18,40 +18,20 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
-import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
-import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
-import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 
 /**
  * Micronaut factory for transaction-related components.
@@ -98,56 +78,6 @@ public class TransactionFactory {
                 clusterMessagingService,
                 nodeIdentity.nodeName(),
                 message -> partitionOperationsExecutor
-        );
-    }
-
-    /** Creates the transaction manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1700)
-    public TxManagerImpl txManager(
-            NodeIdentity nodeIdentity,
-            TransactionConfiguration txConfig,
-            SystemDistributedConfiguration systemDistributedConfiguration,
-            @Named("storageOperations") MessagingService messagingService,
-            TopologyService topologyService,
-            ReplicaService replicaService,
-            LockManager lockManager,
-            VolatileTxStateMetaStorage txStateVolatileStorage,
-            ClockService clockService,
-            TransactionIdGenerator transactionIdGenerator,
-            PlacementDriver placementDriver,
-            ReplicationConfiguration replicationConfiguration,
-            IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker,
-            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
-            RemotelyTriggeredResourceRegistry resourcesRegistry,
-            TransactionInflights transactionInflights,
-            LowWatermark lowWatermark,
-            FailureManager failureManager,
-            MetricManager metricManager,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler
-    ) {
-        return new TxManagerImpl(
-                nodeIdentity.nodeName(),
-                txConfig,
-                systemDistributedConfiguration,
-                messagingService,
-                topologyService,
-                replicaService,
-                lockManager,
-                txStateVolatileStorage,
-                clockService,
-                transactionIdGenerator,
-                placementDriver,
-                () -> replicationConfiguration.idleSafeTimePropagationDurationMillis().value(),
-                indexNodeFinishedRwTransactionsChecker,
-                partitionOperationsExecutor,
-                resourcesRegistry,
-                transactionInflights,
-                lowWatermark,
-                commonScheduler,
-                failureManager,
-                metricManager
         );
     }
 
