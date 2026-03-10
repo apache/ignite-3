@@ -34,7 +34,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
-import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
@@ -123,7 +122,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         // mock send empty entries
         mockSendEmptyEntries();
 
-        this.id = Replicator.start(this.opts, this.raftOptions, new TestMetricManager());
+        this.id = Replicator.start(this.opts, this.raftOptions);
     }
 
     private void mockSendEmptyEntries() {

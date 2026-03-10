@@ -81,12 +81,6 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
         // When list cluster metrics with valid url
         execute("cluster", "metric", "source", "list", "--plain", "--url", NODE_URL);
 
-        // Then
-        List<String> sourceNames = Arrays.stream(ALL_METRIC_SOURCES)
-                .map(org.apache.ignite.rest.client.model.MetricSource::getName)
-                .sorted()
-                .collect(toList());
-
         List<String> nodeNames = CLUSTER.nodes().stream()
                 .map(Ignite::name)
                 .sorted()
@@ -97,14 +91,17 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
         assertions.add(this::assertExitCodeIsZero);
         assertions.add(this::assertErrOutputIsEmpty);
         assertions.add(() -> assertOutputContains("Node\tSource name\tAvailability"));
-        for (String sourceName : sourceNames) {
-            assertions.add(() -> assertOutputContains(sourceName + "\tenabled" + NL));
-        }
-        // Header + number of nodes * (node name header + metric sources)
-        assertions.add(() -> assertOutputHasLineCount(1 + initialNodes() * (ALL_METRIC_SOURCES.length + 1)));
         // Let's check that the substrings are in the correct order.
         assertions.add(() -> assertOutputContainsSubsequence(nodeNames));
-        assertions.add(() -> assertOutputContainsSubsequence(sourceNames));
+
+        for (Ignite node : CLUSTER.nodes()) {
+            List<String> expectedMetrics = Arrays.stream(getExpectedNodeMetrics(node))
+                            .map(org.apache.ignite.rest.client.model.MetricSource::getName)
+                            .sorted()
+                            .collect(toList());
+
+            assertions.add(() -> assertOutputContainsSubsequence(expectedMetrics));
+        }
 
         assertAll(assertions);
     }
