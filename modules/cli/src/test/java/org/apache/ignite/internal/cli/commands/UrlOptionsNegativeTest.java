@@ -39,6 +39,7 @@ import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigUpdateCommand;
+import org.apache.ignite.internal.cli.commands.cluster.config.ClusterRenameCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;
@@ -141,6 +142,7 @@ public class UrlOptionsNegativeTest extends BaseIgniteAbstractTest {
                 arguments(NodeStatusCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterConfigShowCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
+                arguments(ClusterRenameCommand.class, NODE_URL_OPTION, List.of("--name=cluster2")),
                 arguments(ClusterStatusCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSourceEnableCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceDisableCommand.class, NODE_URL_OPTION, List.of("srcName")),
