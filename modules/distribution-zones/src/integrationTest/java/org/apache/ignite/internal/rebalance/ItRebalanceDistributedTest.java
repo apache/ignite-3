@@ -385,7 +385,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().size() == NODE_COUNT;
+                    return logicalTopologyFuture.join().nodes().size() == NODE_COUNT;
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
@@ -1505,7 +1505,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaManager = new SchemaManager(registry, catalogManager);
 
-            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime(), metaStorageManager.watchExecutor());
             metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
             schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
@@ -1549,6 +1549,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.partitionOperationsExecutor(),
+                    threadPoolsManager.commonScheduler(),
                     clockService,
                     placementDriver,
                     schemaSyncService,

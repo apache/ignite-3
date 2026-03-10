@@ -17,21 +17,30 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesWithFailure;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfigurationSchema;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.JunitExtensionTestUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,25 +65,23 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Test that contains injected parameter. */
     @Test
-    public void injectConfiguration(
-            @InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg
-    ) throws Exception {
+    void injectConfiguration(@InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg) {
         assertEquals(5000, fieldCfg.joinTimeout().value());
 
         assertEquals(100, paramCfg.joinTimeout().value());
 
-        paramCfg.change(d -> d.changeJoinTimeout(200)).get(1, SECONDS);
+        assertThat(paramCfg.change(d -> d.changeJoinTimeout(200)), willCompleteSuccessfully());
 
         assertEquals(200, paramCfg.joinTimeout().value());
 
-        paramCfg.joinTimeout().update(300).get(1, SECONDS);
+        assertThat(paramCfg.joinTimeout().update(300), willCompleteSuccessfully());
 
         assertEquals(300, paramCfg.joinTimeout().value());
     }
 
     /** Tests that notifications work on injected configuration instance. */
     @Test
-    public void notifications() throws Exception {
+    void notifications() {
         List<String> log = new ArrayList<>();
 
         fieldCfg.listen(ctx -> {
@@ -95,35 +102,33 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        fieldCfg.change(change -> change.changeJoinTimeout(1000_000)).get(1, SECONDS);
+        assertThat(fieldCfg.change(change -> change.changeJoinTimeout(1000_000)), willCompleteSuccessfully());
 
         assertEquals(List.of("update", "join"), log);
 
         log.clear();
 
-        fieldCfg.failureDetectionTimeout().update(2000_000).get(1, SECONDS);
+        assertThat(fieldCfg.failureDetectionTimeout().update(2000_000), willCompleteSuccessfully());
 
         assertEquals(List.of("update", "failure"), log);
     }
 
     /** Tests that internal configuration extensions work properly on injected configuration instance. */
     @Test
-    public void internalConfiguration(
-            @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
-    ) throws Exception {
+    void internalConfiguration(@InjectConfiguration(extensions = ExtendedConfigurationSchema.class) BasicConfiguration cfg) {
         assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
 
         assertEquals(1, cfg.visible().value());
 
         assertEquals(2, ((ExtendedConfiguration) cfg).invisible().value());
 
-        cfg.change(change -> {
+        assertThat(cfg.change(change -> {
             assertThat(change, is(instanceOf(ExtendedChange.class)));
 
             change.changeVisible(3);
 
             ((ExtendedChange) change).changeInvisible(4);
-        }).get(1, SECONDS);
+        }), willCompleteSuccessfully());
 
         assertEquals(3, cfg.visible().value());
 
@@ -132,12 +137,133 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Test UUID generation in mocks. */
     @Test
-    public void testInjectInternalId(
+    void testInjectInternalId(
             @InjectConfiguration(
                     extensions = ExtendedDiscoveryConfigurationSchema.class,
                     name = "test"
             ) DiscoveryConfiguration discoveryConfig
     ) {
         assertNotNull(((ExtendedDiscoveryConfiguration) discoveryConfig).id().value());
+    }
+
+    /** Tests that changing a value to one within the valid range succeeds. */
+    @Test
+    void rangeValidationAcceptsValidChange(@InjectConfiguration ValidatedConfiguration cfg) {
+        assertThat(cfg.change(c -> c.changeRangeValue(80)), willCompleteSuccessfully());
+
+        assertEquals(80, cfg.rangeValue().value());
+    }
+
+    /** Tests that changing a value to one outside the valid range throws {@link ConfigurationValidationException}. */
+    @Test
+    void rangeValidationRejectsInvalidChange(@InjectConfiguration ValidatedConfiguration cfg) {
+        assertThat(cfg.change(c -> c.changeRangeValue(0)), willThrowFast(ConfigurationValidationException.class));
+    }
+
+    /** Tests that changing an {@code @Immutable} field throws {@link ConfigurationValidationException}. */
+    @Test
+    void immutableValidationRejectsChange(@InjectConfiguration ValidatedConfiguration cfg) {
+        assertThat(cfg.change(c -> c.changeConstValue("changed")), willThrowFast(ConfigurationValidationException.class));
+    }
+
+    /** Tests that a failed validation does not mutate the configuration value. */
+    @Test
+    void failedValidationLeavesValueUnchanged(@InjectConfiguration ValidatedConfiguration cfg) {
+        assertThat(cfg.change(c -> c.changeRangeValue(0)), willThrowFast(ConfigurationValidationException.class));
+
+        assertEquals(50, cfg.rangeValue().value());
+    }
+
+    /** Tests that all violated constraints are collected and reported together. */
+    @Test
+    void multipleValidationIssuesAreReported(@InjectConfiguration ValidatedConfiguration cfg) {
+        CompletableFuture<Void> future = cfg.change(c -> c.changeRangeValue(0).changeConstValue("changed"));
+
+        assertThat(future, willThrowFast(ConfigurationValidationException.class));
+
+        ExecutionException ex = assertThrows(ExecutionException.class, future::get);
+
+        assertThat(((ConfigurationValidationException) ex.getCause()).getIssues(), hasSize(2));
+    }
+
+    /**
+     * Tests that {@code @Value(hasDefault = true)} schema defaults are applied when no explicit HOCON values
+     * are provided.
+     */
+    @Test
+    void defaultValuesAreApplied(@InjectConfiguration ValidatedConfiguration cfg) {
+        assertEquals(50, cfg.rangeValue().value());
+        assertEquals("constant", cfg.constValue().value());
+    }
+
+    /**
+     * Tests that initial configuration values are validated at injection time, and that a value
+     * violating a constraint causes {@link ConfigurationValidationException} to be thrown.
+     */
+    @Test
+    void initialValidationRejectsInvalidValue() {
+        assertInjectionFails(InvalidInitialValueTest.class);
+    }
+
+    @Test
+    void missingDefaultValueIsRejectedByValidation() {
+        assertInjectionFails(MissingDefaultValueTest.class);
+    }
+
+    @Test
+    void invalidDefaultValueIsRejectedByValidation() {
+        assertInjectionFails(InvalidDefaultValueTest.class);
+    }
+
+    private static void assertInjectionFails(Class<?> testClass) {
+        assertExecutesWithFailure(
+                testClass,
+                new Condition<>(
+                        t -> ExceptionUtils.hasCause(t, ConfigurationValidationException.class),
+                        "ConfigurationValidationException"
+                )
+        );
+    }
+
+    /**
+     * A test class whose {@code @Value(hasDefault = true)} is not initialized.
+     * It is not a normal test and is only executed programmatically via {@link JunitExtensionTestUtils}.
+     */
+    @ExtendWith(ConfigurationExtension.class)
+    static class MissingDefaultValueTest extends BaseIgniteAbstractTest {
+        @SuppressWarnings("unused")
+        @InjectConfiguration
+        InvalidDefaultConfiguration cfg;
+
+        @Test
+        void test() {}
+    }
+
+    /**
+     * A test class whose field injection intentionally violates {@code @Range(min=1)}.
+     * It is not a normal test and is only executed programmatically via {@link JunitExtensionTestUtils}.
+     */
+    @ExtendWith(ConfigurationExtension.class)
+    static class InvalidInitialValueTest extends BaseIgniteAbstractTest {
+        @SuppressWarnings("unused")
+        @InjectConfiguration("mock.rangeValue=0")
+        ValidatedConfiguration cfg;
+
+        @Test
+        void test() {}
+    }
+
+    /**
+     * A test class whose {@code @Value(hasDefault = true)} is inialized with an invalid value.
+     * It is not a normal test and is only executed programmatically via {@link JunitExtensionTestUtils}.
+     */
+    @ExtendWith(ConfigurationExtension.class)
+    static class InvalidDefaultValueTest extends BaseIgniteAbstractTest {
+        @SuppressWarnings("unused")
+        @InjectConfiguration
+        InvalidDefaultConfiguration cfg;
+
+        @Test
+        void test() {}
     }
 }

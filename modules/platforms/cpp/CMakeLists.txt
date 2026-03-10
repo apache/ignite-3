@@ -140,6 +140,7 @@ endif()
 
 if (WIN32)
     add_definitions(-DNOMINMAX)
+    set(IGNITE_INSTALL_INCLUDE_DIR include)
 else()
     include(GNUInstallDirs)
     # Replace with the variables from GNUInstallDirs

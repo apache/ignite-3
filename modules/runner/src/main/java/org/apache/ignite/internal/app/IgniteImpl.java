@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
@@ -209,6 +210,7 @@ import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -662,7 +664,8 @@ public class IgniteImpl implements Ignite {
                 "table data log",
                 clusterSvc.nodeName(),
                 partitionsWorkDir.raftLogPath(),
-                raftConfiguration.fsync().value()
+                raftConfiguration.fsync().value(),
+                RocksDbLogStorageOptions.forPartitions(systemConfiguration.value())
         );
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
@@ -932,7 +935,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageManagerCreator
         );
 
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime(), metaStorageMgr.watchExecutor());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
@@ -1114,6 +1117,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 placementDriverMgr.placementDriver(),
                 schemaSyncService,
@@ -1734,7 +1738,7 @@ public class IgniteImpl implements Ignite {
             CompletableFuture<Void> awaitSelfInLogicalTopologyFuture,
             LogicalTopologyEventListener awaitSelfListener
     ) {
-        if (logicalTopologySnapshot.hasNode(id())) {
+        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
             awaitSelfInLogicalTopologyFuture.complete(null);
             logicalTopologyService.removeEventListener(awaitSelfListener);
         }
