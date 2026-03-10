@@ -18,7 +18,6 @@
 package org.apache.ignite.tx.distributed;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS;
@@ -424,7 +423,6 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         List<KeyBasedRetryContext> retryContexts = new ArrayList<>();
 
-//        CountDownLatch latch = new CountDownLatch(2);
         CyclicBarrier barrier = new CyclicBarrier(2);
 
         for (IgniteImpl n : runningNodesIter()) {
