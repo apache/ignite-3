@@ -83,12 +83,14 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableSetPropertyCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -511,6 +513,79 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                         CatalogValidationException.class,
                         "Deleting column 'VAL' used by index(es) [myIndex], it is not allowed"
                 )
+        );
+    }
+
+    @Test
+    public void testDropMultipleColumns() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogTableDescriptor tableBefore = actualTable(TABLE_NAME);
+        int colCountBefore = tableBefore.columns().size();
+
+        tryApplyAndExpectApplied(dropColumnParams(TABLE_NAME, "VAL", "DEC", "STR"));
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+
+        assertNull(table.column("VAL"));
+        assertNull(table.column("DEC"));
+        assertNull(table.column("STR"));
+        assertEquals(colCountBefore - 3, table.columns().size());
+    }
+
+    @Test
+    public void testDropMultipleColumnsWithMissingColumn() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "fake")),
+                willThrowFast(CatalogValidationException.class, "Column with name 'fake' not found in table 'PUBLIC.test_table'.")
+        );
+
+        // Validate no column was dropped.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table.column("VAL"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsWithPrimaryKeyColumn() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "ID")),
+                willThrowFast(CatalogValidationException.class, "Deleting column `ID` belonging to primary key is not allowed")
+        );
+
+        // Validate no column was dropped.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table.column("VAL"));
+        assertNotNull(table.column("ID"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsWithIndexColumn() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+        tryApplyAndExpectApplied(simpleIndex());
+
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "DEC")),
+                willThrowFast(
+                        CatalogValidationException.class,
+                        "Deleting column 'VAL' used by index(es) [myIndex], it is not allowed"
+                )
+        );
+
+        // Validate no column was dropped.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table.column("VAL"));
+        assertNotNull(table.column("DEC"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsFromNonExistingTable() {
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "DEC")),
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found.")
         );
     }
 
@@ -1679,6 +1754,60 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testAddSingleColumnIfNotExistsColumnExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(columnParams("VAL", INT32, true)))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+    }
+
+    @Test
+    public void testAddSingleColumnIfNotExistsColumnDoesNotExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(columnParams(NEW_COLUMN_NAME, INT32, true)))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertNotNull(table.column(NEW_COLUMN_NAME));
+    }
+
+    @Test
+    public void testAddMultipleColumnsIfNotExistsAllNew() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        columnParams(NEW_COLUMN_NAME, INT32, true),
+                        columnParams(NEW_COLUMN_NAME_2, INT32, true)
+                ))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertNotNull(table.column(NEW_COLUMN_NAME));
+        assertNotNull(table.column(NEW_COLUMN_NAME_2));
+    }
+
+    @Test
     public void testAddMultipleColumnsIfNotExistsPartialOverlap() {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
@@ -1735,6 +1864,91 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
         assertNotNull(table);
         assertNull(table.column(NEW_COLUMN_NAME));
+    }
+
+    @Test
+    public void testDropMultipleColumnsIfExistsAllExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL", "DEC"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNull(table.column("VAL"));
+        assertNull(table.column("DEC"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsIfExistsPartialOverlap() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL", "fake"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNull(table.column("VAL"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsIfExistsNoneExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("fake1", "fake2"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+    }
+
+    @Test
+    public void testDropSingleColumnIfExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("fake"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+
+        // Verify table is unchanged.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertEquals(6, table.columns().size());
+    }
+
+    @Test
+    public void testDropSingleColumnIfExistsColumnExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNull(table.column("VAL"));
+        assertEquals(5, table.columns().size());
     }
 
     private @Nullable CatalogTableDescriptor actualTable(String tableName) {
