@@ -137,6 +137,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -2263,13 +2264,8 @@ public class InternalTableImpl implements InternalTable {
                                     e = e.getCause();
                                 }
 
-                                // We do a retry for the following conditions:
-                                // 1. Primary Replica has changed between the "awaitPrimaryReplica" and "invoke" calls;
-                                // 2. Primary Replica has died and is no longer available.
-                                // In both cases, we need to wait for the lease to expire and to get a new Primary Replica.
-                                if (e instanceof PrimaryReplicaMissException
-                                        || e instanceof UnresolvableConsistentIdException
-                                        || e instanceof ReplicationTimeoutException) {
+                                // We can do a retry for the any condition listed in javadoc for RetriableReplicaRequestException.
+                                if (e instanceof RetriableReplicaRequestException) {
                                     if (numRetries == 0) {
                                         throw new IgniteException(REPLICA_MISS_ERR, e);
                                     }

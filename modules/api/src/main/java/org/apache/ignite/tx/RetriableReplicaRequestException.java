@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
-
-import org.apache.ignite.lang.ErrorGroups.Network;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.tx.RetriableReplicaRequestException;
-import org.apache.ignite.tx.RetriableTransactionException;
+package org.apache.ignite.tx;
 
 /**
- * Thrown when consistent ID cannot be resolved to a {@link InternalClusterNode} instance (i.e. when
- * there is no node with such consistent ID in the physical topology).
+ * This is the marker interface for exceptions that may be thrown during replica requests and may be retried, such as
+ * <ul>
+ *     <li>primary replica miss and primary replica expired exception;</li>
+ *     <li>replication problems;</li>
+ *     <li>replica unavailability;</li>
+ *     <li>etc.</li>
+ * </ul>
  */
-public class UnresolvableConsistentIdException extends IgniteException implements RetriableTransactionException,
-        RetriableReplicaRequestException {
-    public UnresolvableConsistentIdException(String msg) {
-        super(Network.UNRESOLVABLE_CONSISTENT_ID_ERR, msg);
-    }
+public interface RetriableReplicaRequestException {
 }

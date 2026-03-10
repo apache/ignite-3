@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.util;
 
+import org.apache.ignite.tx.RetriableReplicaRequestException;
+
 /**
  * Exception that will be thrown when the {@link PendingComparableValuesTracker} is closed.
  */
-public class TrackerClosedException extends RuntimeException {
+public class TrackerClosedException extends RuntimeException implements RetriableReplicaRequestException {
     private static final long serialVersionUID = -3685913884384983930L;
 }
