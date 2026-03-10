@@ -41,6 +41,8 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCallInput;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCall;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCallInput;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCall;
@@ -267,6 +269,12 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         ClusterConfigUpdateCall.class,
                         ClusterConfigUpdateCallInput.class,
                         (Function<ClusterConfigUpdateCallInput, String>) ClusterConfigUpdateCallInput::getClusterUrl
+                ),
+                arguments(
+                        "cluster rename",
+                        ClusterRenameCall.class,
+                        ClusterRenameCallInput.class,
+                        (Function<ClusterRenameCallInput, String>) ClusterRenameCallInput::getClusterUrl
                 ),
                 arguments(
                         "cluster topology physical",

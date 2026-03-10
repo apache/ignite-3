@@ -39,7 +39,7 @@ import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigUpdateCommand;
-import org.apache.ignite.internal.cli.commands.cluster.config.ClusterRenameCommand;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterRenameCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;

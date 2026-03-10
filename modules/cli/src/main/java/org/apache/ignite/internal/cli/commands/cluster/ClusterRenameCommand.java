@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster.config;
+package org.apache.ignite.internal.cli.commands.cluster;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.configuration.ClusterRenameCall;
-import org.apache.ignite.internal.cli.call.configuration.ClusterRenameCallInput;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCall;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterNameMixin;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -36,7 +33,7 @@ import picocli.CommandLine.Mixin;
 public class ClusterRenameCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     /** Name that will be updated. */
     @Mixin
@@ -49,8 +46,8 @@ public class ClusterRenameCommand extends BaseCommand implements Callable<Intege
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot update cluster config"))
+                .input(buildCallInput())
+                .exceptionHandler(createHandler("Cannot update cluster config"))
         );
     }
 
