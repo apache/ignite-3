@@ -38,4 +38,5 @@ public class CommandConstants {
     public static final int HELP_OPTION_ORDER = 100;
     public static final int VERBOSE_OPTION_ORDER = 101;
     public static final int VERSION_OPTION_ORDER = 102;
+    public static final int NAME_OPTION_ORDER = 103;
 }
