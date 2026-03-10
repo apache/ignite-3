@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -236,7 +235,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMultipleEndpointsSameNodeLogsWarning() {
+    void testMultipleEndpointsSameNodeLogsWarning() throws InterruptedException {
         String[] addresses = {"my-cluster:" + server3.port()};
 
         // Two distinct IPs that both resolve to the same node (server3).
@@ -244,6 +243,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
         TestLoggerFactory loggerFactory = new TestLoggerFactory("test-client");
 
+        // TODO: ???
         IgniteClientConfigurationImpl cfg = new IgniteClientConfigurationImpl(
                 null,
                 addresses,
@@ -271,16 +271,24 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
                 }
         );
 
+        List<?> channelHolders;
+
         try (var client = TcpIgniteClient.startAsync(cfg).join()) {
             assertDoesNotThrow(() -> client.tables().tables());
             assertEquals("server3", client.connections().get(0).name());
 
             // Verify that a warning about multiple endpoints resolving to the same node was logged.
-            try {
-                loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 3000);
-            } catch (InterruptedException e) {
-                fail("Test was interrupted while waiting for log message");
-            }
+            loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 3000);
+
+            channelHolders = IgniteTestUtils.getFieldValue(((TcpIgniteClient) client).channel(), "channels");
+
+            // Verify that both channel holders exist (one for each endpoint).
+            assertEquals(2, channelHolders.size(), "Expected 2 channel holders for 2 distinct endpoints");
+        }
+
+        for (Object holder : channelHolders) {
+            boolean isClosed = IgniteTestUtils.getFieldValue(holder, "close");
+            assertTrue(isClosed, "Channel holder should be closed after client close");
         }
     }
 
