@@ -966,7 +966,7 @@ public final class ReliableChannel implements AutoCloseable {
                     if (existingHolder != null && existingHolder != this) {
                         log.warn("Multiple distinct endpoints resolve to the same server node [nodeName={}, nodeId={}, "
                                 + "existingEndpoint={}, newEndpoint={}]. This represents a misconfiguration. "
-                                + "The connection from the existing endpoint will be replaced.",
+                                + "Both connections will remain active to avoid disrupting ongoing operations.",
                                 newNode.name(),
                                 newNode.id(),
                                 existingHolder.chCfg.getAddress(),
