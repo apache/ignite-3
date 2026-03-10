@@ -40,7 +40,7 @@ public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
      */
     public MinusNode(ExecutionContext<RowT> ctx, int columnCnt, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory) {
-        super(ctx, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, columnCnt, type, all));
+        super(ctx, type, new MinusGrouping<>(ctx, rowFactory, columnCnt, type, all));
     }
 
     /**

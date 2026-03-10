@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
@@ -379,8 +380,8 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
     @Test
     void testExists() throws IOException {
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(false));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(false));
 
         var memtable = new StripedMemTable(STRIPES);
 
@@ -388,13 +389,13 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         indexFileManager.saveNewIndexMemtable(memtable);
 
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(true));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(false));
 
         indexFileManager.saveNewIndexMemtable(memtable);
 
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(true));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(true));
     }
 
     @Test
@@ -555,5 +556,92 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         assertThat(indexFileManager.firstLogIndexInclusive(0), is(2L));
         assertThat(indexFileManager.lastLogIndexExclusive(0), is(3L));
+    }
+
+    @Test
+    void testCompactionWithMissingGroups() throws IOException {
+        var memtable = new SingleThreadMemTable();
+
+        // First file contains entries from two groups.
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(1, 1, 1);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+
+        // Second file contains entries only from the first group.
+        memtable.appendSegmentFileOffset(0, 2, 2);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+
+        // Third file contains entries from two groups again.
+        memtable.appendSegmentFileOffset(0, 3, 3);
+        memtable.appendSegmentFileOffset(0, 4, 4);
+        memtable.appendSegmentFileOffset(1, 2, 2);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        // Truncate prefix of the group 0 so that one of the entries from the third file are removed.
+        memtable = new SingleThreadMemTable();
+
+        memtable.truncatePrefix(0, 4);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        var compactedMemtable = new SingleThreadMemTable();
+
+        // We are removing an entry for group 0 from the third file.
+        compactedMemtable.appendSegmentFileOffset(1, 2, 2);
+
+        indexFileManager.onIndexFileCompacted(compactedMemtable, new FileProperties(2, 0), new FileProperties(2, 1));
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 3), is(nullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(new SegmentFilePointer(new FileProperties(2, 1), 2)));
+    }
+
+    @Test
+    void testRecoveryWithMissingGroups() throws IOException {
+        var memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 1, 10);
+        memtable.appendSegmentFileOffset(1, 1, 20);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+        // Group 1 is absent from this file — it will receive an empty placeholder meta.
+        memtable.appendSegmentFileOffset(0, 2, 30);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 3, 40);
+        memtable.appendSegmentFileOffset(1, 2, 50);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        // Restart — recoverIndexFileMetas must rebuild the ordinal chain for both groups, including empty placeholders.
+        indexFileManager = new IndexFileManager(workDir);
+        indexFileManager.start();
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(new SegmentFilePointer(new FileProperties(0), 10)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(new FileProperties(1), 30)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 3), is(new SegmentFilePointer(new FileProperties(2), 40)));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 1), is(new SegmentFilePointer(new FileProperties(0), 20)));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(new SegmentFilePointer(new FileProperties(2), 50)));
+    }
+
+    @Test
+    void testGetSegmentFilePointerReturnsNullForEmptyMetaRange() throws IOException {
+        var memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 1, 10);
+        memtable.appendSegmentFileOffset(1, 1, 20);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+        // Group 1 absent — receives an empty placeholder meta covering [2, 2).
+        memtable.appendSegmentFileOffset(0, 2, 30);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(nullValue()));
     }
 }

@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -190,7 +190,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
 
         System.out.println("Test log storage path: " + testPath);
 
-        LogStorageFactory provider = new DefaultLogStorageFactory(benchmarkPath);
+        LogStorageManager provider = new DefaultLogStorageManager(benchmarkPath);
         assertThat(provider.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         List<LogStorage> sharedStorages = grps.stream()

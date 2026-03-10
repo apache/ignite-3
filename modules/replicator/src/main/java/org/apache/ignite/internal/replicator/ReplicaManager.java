@@ -106,8 +106,9 @@ import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageManagerCreator;
 import org.apache.ignite.internal.raft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
@@ -134,6 +135,7 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.option.SafeTimeValidator;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -191,13 +193,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft clients factory for raft server endpoints starting. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
-    /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
-    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
+    /** Creator for {@link LogStorageManager} for volatile tables. */
+    private final LogStorageManagerCreator volatileLogStorageManagerCreator;
 
     private final ScheduledExecutorService replicaLifecycleExecutor;
 
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
+
+    /** Raft safe time validator for partition groups. */
+    private final SafeTimeValidator partitionSafeTimeValidator;
 
     /** Message handler for placement driver messages. */
     private final NetworkMessageHandler placementDriverMessageHandler;
@@ -250,10 +255,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param failureProcessor Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
+     * @param partitionSafeTimeValidator Partition safe time validator.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
-     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
+     * @param volatileLogStorageManagerCreator Creator for {@link LogStorageManager} for
      *      volatile tables.
      * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
@@ -271,10 +277,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
             @Nullable Marshaller raftCommandsMarshaller,
+            SafeTimeValidator partitionSafeTimeValidator,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
-            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            LogStorageManagerCreator volatileLogStorageManagerCreator,
             ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             Executor throttledLogExecutor
@@ -284,7 +291,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.stableAssignmentsSupplier = stableAssignmentsSupplier;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
+        this.volatileLogStorageManagerCreator = volatileLogStorageManagerCreator;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
@@ -292,6 +299,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.failureProcessor = failureProcessor;
         this.raftCommandsMarshaller = raftCommandsMarshaller;
+        this.partitionSafeTimeValidator = partitionSafeTimeValidator;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
@@ -863,7 +871,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         if (isVolatileStorage) {
             LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorageBudget().value();
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
+                    .setLogStorageManager(volatileLogStorageManagerCreator.manager(view))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
@@ -872,6 +880,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
         raftGroupOptions.maxClockSkew((int) clockService.maxClockSkewMillis());
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+        raftGroupOptions.safeTimeValidator(partitionSafeTimeValidator);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
         partitionRaftConfigurer.configure(raftGroupOptions);

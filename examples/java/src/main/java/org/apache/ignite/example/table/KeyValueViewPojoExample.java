@@ -24,7 +24,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API with user-defined POJOs.
+ * This example demonstrates the usage of the { @link KeyValueView} API with user-defined POJOs.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */

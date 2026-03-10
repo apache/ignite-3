@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -395,5 +396,10 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             notifyWatchProcessorEventsBeforeStartingWatches = null;
         }
+    }
+
+    @Override
+    public Executor watchExecutor() {
+        return watchProcessor.watchExecutor();
     }
 }

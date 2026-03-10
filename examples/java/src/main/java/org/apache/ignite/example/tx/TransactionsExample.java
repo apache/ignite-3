@@ -25,9 +25,19 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 
-/* This example demonstrates the usage of the Ignite Transactions API */
+/**
+ * This example demonstrates the usage of the Ignite Transactions API.
+ *
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
+ */
 public class TransactionsExample {
 
+    /**
+     * Runs the TransactionsExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception if any error occurs.
+     */
     public static void main(String[] args) throws Exception {
 
         /* Create 'accounts' table via JDBC */

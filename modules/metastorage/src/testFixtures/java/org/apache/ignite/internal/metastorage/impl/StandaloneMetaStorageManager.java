@@ -160,7 +160,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             HybridClock clock,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
-        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
+        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class, LENIENT_SETTINGS);
 
         when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
 

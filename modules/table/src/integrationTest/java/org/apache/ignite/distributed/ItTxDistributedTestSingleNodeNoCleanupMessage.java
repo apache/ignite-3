@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -41,7 +42,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -156,15 +157,14 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         transactionInflights,
                         lowWatermark,
                         commonExecutor,
-                        new TestMetricManager()
+                        new NoOpMetricManager()
                 ) {
                     @Override
-                    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-                        CompletableFuture<Void> cleanupFuture = super.executeWriteIntentSwitchAsync(runnable);
-
-                        cleanupFutures.add(cleanupFuture);
-
-                        return cleanupFuture;
+                    public Executor writeIntentSwitchExecutor() {
+                        return r -> {
+                            CompletableFuture<Void> cleanupFuture = runAsync(r, super.writeIntentSwitchExecutor());
+                            cleanupFutures.add(cleanupFuture);
+                        };
                     }
                 };
             }
@@ -231,7 +231,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                                     txManager.lockManager()
                             );
 
-                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false, false, false);
+                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false);
                             return completedFuture(new ReplicaResult(cleanupResult, null));
                         }
 
