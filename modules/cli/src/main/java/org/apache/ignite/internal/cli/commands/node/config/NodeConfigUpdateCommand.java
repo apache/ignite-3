@@ -44,11 +44,10 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     @Inject
     private NodeConfigUpdateCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
+                .input(buildCallInput())
         );
     }
 

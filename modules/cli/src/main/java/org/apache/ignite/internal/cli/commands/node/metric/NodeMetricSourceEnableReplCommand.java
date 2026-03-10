@@ -43,7 +43,7 @@ public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Ca
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
+                .input(metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
                 .exceptionHandler(createHandler("Cannot enable metrics"))
         );
     }

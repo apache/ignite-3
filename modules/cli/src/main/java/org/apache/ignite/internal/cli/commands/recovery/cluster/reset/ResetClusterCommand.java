@@ -43,7 +43,7 @@ public class ResetClusterCommand extends BaseCommand implements Callable<Integer
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> ResetClusterCallInput.of(options, clusterUrl.getClusterUrl()))
+                .input(ResetClusterCallInput.of(options, clusterUrl.getClusterUrl()))
         );
     }
 }

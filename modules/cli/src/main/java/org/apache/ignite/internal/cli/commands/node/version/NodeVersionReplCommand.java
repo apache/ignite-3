@@ -39,7 +39,7 @@ public class NodeVersionReplCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(nodeVersionCall)
-                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .input(new UrlCallInput(nodeUrl.getNodeUrl()))
         );
     }
 }

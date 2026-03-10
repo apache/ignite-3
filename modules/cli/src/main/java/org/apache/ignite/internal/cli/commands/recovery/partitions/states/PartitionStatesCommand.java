@@ -44,7 +44,7 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> PartitionStatesCallInput.of(options, clusterUrl.getClusterUrl()))
+                .input(PartitionStatesCallInput.of(options, clusterUrl.getClusterUrl()))
                 .decorator(new TableDecorator(options.plain()))
                 .exceptionHandler(createHandler("Cannot list partition states"))
         );

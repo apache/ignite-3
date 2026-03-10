@@ -468,11 +468,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> builder(old, PENDING)
-                        .txCoordinatorId(req.coordinatorId())
-                        .commitPartitionId(req.commitPartitionId().asZonePartitionId())
-                        .txLabel(req.txLabel())
-                        .build());
+                replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
             }
         }
 
@@ -488,6 +484,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
         return completedFuture(mvDataStorage.estimatedSize());
+    }
+
+    private void replicaTouch(UUID txId, UUID coordinatorId, ZonePartitionId commitPartitionId, @Nullable String txLabel) {
+        txManager.updateTxMeta(txId, old -> builder(old, PENDING)
+                .txCoordinatorId(coordinatorId)
+                .commitPartitionId(commitPartitionId)
+                .txLabel(txLabel)
+                .build());
     }
 
     private static void setDelayedAckProcessor(@Nullable ReplicaResult result, @Nullable BiConsumer<Object, Throwable> proc) {
@@ -567,11 +571,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> builder(old, PENDING)
-                    .txCoordinatorId(req.coordinatorId())
-                    .commitPartitionId(req.commitPartitionId().asZonePartitionId())
-                    .txLabel(req.txLabel())
-                    .build());
+            replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
@@ -3529,7 +3529,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
-                    } else {
+                    } else if (timestamp == null) {
+                        // If it's resolution by RW txn.
                         LOG.info(
                                 "Received non-final transaction state after tx state resolution [txId={}, groupId={}, txMeta={}, "
                                     + "timestamp={}, commitPartId={}, currentConsistencyToken={}, writeIntentReadable={}].",

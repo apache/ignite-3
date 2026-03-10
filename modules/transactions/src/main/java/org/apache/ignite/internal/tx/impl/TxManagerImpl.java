@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -586,47 +585,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return txStateVolatileStorage.state(txId);
     }
 
-    @Override
-    public CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
-            TxStateMeta txMeta,
-            InternalTransaction tx,
-            long currentEnlistmentConsistencyToken,
-            ZonePartitionId senderGroupId
-    ) {
-        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
-
-        // Enlistment for thin client direct request may be absent on coordinator.
-        if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
-            long expectedEnlistmentConsistencyToken = enlistment == null
-                    ? currentEnlistmentConsistencyToken
-                    : enlistment.consistencyToken();
-
-            // Remote partition already has different consistency token, so we can't commit this transaction anyway.
-            // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
-            // is not under lock.
-            return tx.rollbackWithExceptionAsync(
-                            new PrimaryReplicaExpiredException(senderGroupId, expectedEnlistmentConsistencyToken, null, null))
-                    .thenApply(unused -> {
-                        TxStateMeta newMeta = stateMeta(tx.id());
-
-                        assert isFinalState(newMeta.txState());
-
-                        return newMeta;
-                    });
-        }
-
-        LOG.info("Skipped aborting on coordinator a transaction that lost its primary replica's volatile state "
-                        + "[txId={}, internalTx={}, enlistment={}, senderCurrentConsistencyToken={}, txMeta={}].",
-                tx.id(),
-                tx,
-                enlistment,
-                currentEnlistmentConsistencyToken,
-                txMeta
-        );
-
-        return completedFuture(txMeta);
-    }
-
     @TestOnly
     public Collection<TxStateMeta> states() {
         return txStateVolatileStorage.states();
@@ -1021,19 +979,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             }
 
             @Override
-            public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
-                if (isFinishedDueToTimeout(throwable)) {
-                    isTimeout = true;
+            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+                isTimeout = true;
 
-                    // Directly mapped entries become abandoned on local tx timeout.
-                    // Release locks to allow write intent resolution on abandoned path.
-                    // Can be safely retried multiple times, because releaseAll is idempotent.
-                    partitionOperationsExecutor.execute(() -> lockManager.releaseAll(txId));
+                // Directly mapped entries become abandoned on local tx timeout.
+                // Release locks to allow write intent resolution on abandoned path.
+                // Can be safely retried multiple times, because releaseAll is idempotent.
+                partitionOperationsExecutor.execute(() -> lockManager.releaseAll(txId));
 
-                    return nullCompletedFuture();
-                }
-
-                throw new AssertionError("Unexpected rollbackWithExceptionAsync call for remote transaction.");
+                return nullCompletedFuture();
             }
 
             @Override
