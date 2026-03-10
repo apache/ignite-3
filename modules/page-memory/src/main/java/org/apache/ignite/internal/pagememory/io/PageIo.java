@@ -396,6 +396,7 @@ public abstract class PageIo {
      * @param pageId Page ID.
      * @param pageSize Page size.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         setType(pageAddr, getType());
         setVersion(pageAddr, getVersion());

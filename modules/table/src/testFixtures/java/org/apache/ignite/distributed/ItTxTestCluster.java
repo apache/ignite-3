@@ -179,6 +179,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -733,13 +734,21 @@ public class ItTxTestCluster {
                                 clockServices.get(assignment)
                         );
 
+                TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
+                        txManagers.get(assignment),
+                        clusterServices.get(assignment).topologyService()
+                );
+
                 var transactionStateResolver = new TransactionStateResolver(
                         txManagers.get(assignment),
                         clockServices.get(assignment),
                         nodeResolver,
                         clusterServices.get(assignment).messagingService(),
                         placementDriver,
-                        txMessageSender
+                        txMessageSender,
+                        txRecoveryEngine,
+                        new Lazy<>(() -> mock(InternalClusterNode.class)),
+                        Runnable::run
                 );
                 transactionStateResolver.start();
 
@@ -919,7 +928,6 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                partitionOperationsExecutor,
                 placementDriver,
                 clockServices.get(assignment),
                 zonePartitionId
@@ -968,6 +976,11 @@ public class ItTxTestCluster {
                 clockService
         );
 
+        var txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                clusterServices.get(assignment).topologyService()
+        );
+
         ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
                 zonePartitionId,
                 partitionId -> new ZonePartitionReplicaListener(
@@ -984,7 +997,8 @@ public class ItTxTestCluster {
                         localNode,
                         partitionId,
                         transactionStateResolver,
-                        txMessageSender
+                        txMessageSender,
+                        txRecoveryEngine
                 )
         );
 
@@ -1159,6 +1173,8 @@ public class ItTxTestCluster {
      * Shutdowns all cluster nodes after each test.
      */
     public void shutdownCluster() {
+        LOG.info("Cluster shutdown begin");
+
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
         assertThat(stopAsync(new ComponentContext(), client), willCompleteSuccessfully());
 
@@ -1234,6 +1250,8 @@ public class ItTxTestCluster {
         if (partitionOperationsExecutor != null) {
             IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
+
+        LOG.info("Cluster shutdown end");
     }
 
     /**
@@ -1328,7 +1346,10 @@ public class ItTxTestCluster {
                         client.messagingService(),
                         clientReplicaSvc,
                         clientClockService
-                )
+                ),
+                new TxRecoveryEngine(clientTxManager, client.topologyService()),
+                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                Runnable::run
         );
 
         clientTxStateResolver.start();

@@ -421,28 +421,34 @@ public class ClientInboundMessageHandler
 
         // Each inbound handler in a pipeline has to release the received messages.
         var unpacker = new ClientMessageUnpacker(byteBuf);
-        metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-        switch (state) {
-            case STATE_BEFORE_HANDSHAKE:
-                state = STATE_HANDSHAKE_REQUESTED;
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-                handshake(ctx, unpacker);
+        try {
+            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-                break;
+            switch (state) {
+                case STATE_BEFORE_HANDSHAKE:
+                    state = STATE_HANDSHAKE_REQUESTED;
+                    metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                    handshake(ctx, unpacker);
 
-            case STATE_HANDSHAKE_REQUESTED:
-                // Handshake is in progress, any messages are not allowed.
-                throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
+                    break;
 
-            case STATE_HANDSHAKE_RESPONSE_SENT:
-                assert clientContext != null : "Client context != null";
-                processOperation(ctx, unpacker);
+                case STATE_HANDSHAKE_REQUESTED:
+                    // Handshake is in progress, any messages are not allowed.
+                    throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
 
-                break;
+                case STATE_HANDSHAKE_RESPONSE_SENT:
+                    assert clientContext != null : "Client context != null";
+                    processOperation(ctx, unpacker);
 
-            default:
-                throw new IllegalStateException("Unexpected state: " + state);
+                    break;
+
+                default:
+                    throw new IllegalStateException("Unexpected state: " + state);
+            }
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
         }
     }
 
@@ -579,6 +585,8 @@ public class ClientInboundMessageHandler
     }
 
     private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
@@ -588,8 +596,6 @@ public class ClientInboundMessageHandler
             packer.close();
             throw t;
         }
-
-        state = STATE_HANDSHAKE_RESPONSE_SENT;
 
         metrics.sessionsAcceptedIncrement();
         metrics.sessionsActiveIncrement();
@@ -1008,7 +1014,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1018,7 +1023,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1090,7 +1094,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
                         resolveCurrentUsername()
                 );
 

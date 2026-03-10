@@ -128,7 +128,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
+public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance, WatchProcessorAccess {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
@@ -1408,5 +1408,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     public void markAsStopping() {
         metaStorageSvcFut.thenAccept(MetaStorageServiceImpl::markAsStopping);
+    }
+
+    @Override
+    public Executor watchExecutor() {
+        return storage.watchExecutor();
     }
 }

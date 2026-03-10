@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_EXPORTER_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
@@ -45,7 +46,10 @@ public class MetricManagerTest extends BaseIgniteAbstractTest {
 
     private static final UUID NODE_ID = UUID.randomUUID();
 
-    @InjectConfiguration("mock.exporters = {" + JMX_EXPORTER_NAME + " = {exporterName = " + JMX_EXPORTER_NAME + "}}")
+    @InjectConfiguration(
+            value = "mock.exporters = {" + JMX_EXPORTER_NAME + " = {exporterName = " + JMX_EXPORTER_NAME + "}}",
+            type = DISTRIBUTED
+    )
     private MetricConfiguration jmxMetricConfiguration;
 
     @Test

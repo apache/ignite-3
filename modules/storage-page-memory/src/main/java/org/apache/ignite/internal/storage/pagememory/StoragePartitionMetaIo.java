@@ -380,6 +380,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
      * @param pageAddr The address of the page to read.
      * @return The head link of the write intent list.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // pageAddr is used by subclass overrides
     public long getWiHead(long pageAddr) {
         // Not supported in this version, just return the default value.
         return PageIdUtils.NULL_LINK;

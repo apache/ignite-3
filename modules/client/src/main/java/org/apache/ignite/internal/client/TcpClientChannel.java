@@ -613,7 +613,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     ClientTransaction tx = inflights.trackedTransaction(err0.txId());
                     if (tx != null) {
-                        tx.discardDirectMappings(true);
+                        tx.rollbackAndDiscardDirectMappings(true);
                     }
                 }
 

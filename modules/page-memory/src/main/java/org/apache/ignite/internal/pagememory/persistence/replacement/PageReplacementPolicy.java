@@ -43,6 +43,7 @@ public abstract class PageReplacementPolicy {
      *
      * @param relPtr Relative pointer to page.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // template method pattern
     public void onHit(long relPtr) {
         // No-op.
     }
@@ -54,6 +55,7 @@ public abstract class PageReplacementPolicy {
      *
      * @param relPtr Relative pointer to page.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // template method pattern
     public void onMiss(long relPtr) {
         // No-op.
     }
@@ -63,6 +65,7 @@ public abstract class PageReplacementPolicy {
      *
      * @param relPtr Relative pointer to page.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // template method pattern
     public void onRemove(long relPtr) {
         // No-op.
     }
