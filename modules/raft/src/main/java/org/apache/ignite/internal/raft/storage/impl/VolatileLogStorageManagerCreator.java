@@ -22,6 +22,9 @@ import static org.apache.ignite.internal.rocksdb.RocksUtils.closeAll;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +34,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -59,6 +65,9 @@ import org.rocksdb.util.SizeUnit;
 /**
  * {@link LogStorageManagerCreator} for volatile log storage.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1300)
 public class VolatileLogStorageManagerCreator implements LogStorageManagerCreator, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorageManagerCreator.class);
 
@@ -84,6 +93,14 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
     private final ExecutorService executorService;
 
     private RocksDbSizeCalculator sizeCalculator;
+
+    /**
+     * DI constructor.
+     */
+    @Inject
+    public VolatileLogStorageManagerCreator(NodeIdentity nodeIdentity) {
+        this(nodeIdentity.nodeName(), nodeIdentity.workDir().resolve("volatile-log-spillout"));
+    }
 
     /**
      * Create a new instance.

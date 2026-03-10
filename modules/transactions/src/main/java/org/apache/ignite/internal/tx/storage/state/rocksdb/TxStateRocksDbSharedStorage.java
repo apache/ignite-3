@@ -27,6 +27,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -42,7 +46,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -68,6 +76,9 @@ import org.rocksdb.WriteOptions;
  * as well as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed
  * on per-zone basis.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1800)
 public class TxStateRocksDbSharedStorage implements IgniteComponent {
     static {
         RocksDB.loadLibrary();
@@ -126,6 +137,22 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     private volatile ColumnFamily txStateColumnFamily;
 
     private volatile ColumnFamily txStateMetaColumnFamily;
+
+    /**
+     * DI constructor.
+     */
+    @Inject
+    public TxStateRocksDbSharedStorage(
+            NodeIdentity nodeIdentity,
+            @Named("partitions") ComponentWorkingDir partitionsWorkDir,
+            @Named("commonScheduler") ScheduledExecutorService scheduledExecutor,
+            @Named("tableIoExecutor") ScheduledExecutorService threadPool,
+            @Named("partitions") LogSyncer logSyncer,
+            FailureProcessor failureProcessor
+    ) {
+        this(nodeIdentity.nodeName(), partitionsWorkDir.dbPath().resolve("tx-state"),
+                scheduledExecutor, threadPool, logSyncer, failureProcessor);
+    }
 
     /**
      * Constructor.

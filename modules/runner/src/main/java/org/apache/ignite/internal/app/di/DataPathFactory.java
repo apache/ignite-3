@@ -87,17 +87,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
  */
 @Factory
 public class DataPathFactory {
-    /** Creates the volatile log storage manager creator. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1300)
-    public VolatileLogStorageManagerCreator volatileLogStorageManagerCreator(NodeIdentity nodeIdentity) {
-        return new VolatileLogStorageManagerCreator(
-                nodeIdentity.nodeName(),
-                nodeIdentity.workDir().resolve("volatile-log-spillout")
-        );
-    }
-
     /** Creates the schema safe time tracker. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)

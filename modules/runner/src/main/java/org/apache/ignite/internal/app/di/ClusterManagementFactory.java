@@ -24,11 +24,9 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
-import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
-import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -122,14 +120,6 @@ public class ClusterManagementFactory {
     @Singleton
     public StorageConfiguration storageConfiguration(@Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry) {
         return nodeConfigRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
-    }
-
-    /** Creates the cluster state storage backed by RocksDB. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(700)
-    public RocksDbClusterStateStorage clusterStateStorage(@Named("cmg") ComponentWorkingDir cmgWorkDir, NodeIdentity nodeIdentity) {
-        return new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), nodeIdentity.nodeName());
     }
 
     /** Creates the distributed configuration tree generator. */

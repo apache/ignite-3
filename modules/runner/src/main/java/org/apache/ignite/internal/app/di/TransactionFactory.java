@@ -26,7 +26,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
-import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
@@ -40,7 +39,6 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -54,7 +52,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 
 /**
  * Micronaut factory for transaction-related components.
@@ -160,25 +157,4 @@ public class TransactionFactory {
         );
     }
 
-    /** Creates the shared RocksDB transaction state storage. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1800)
-    public TxStateRocksDbSharedStorage txStateRocksDbSharedStorage(
-            NodeIdentity nodeIdentity,
-            @Named("partitions") ComponentWorkingDir partitionsWorkDir,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
-            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
-            @Named("partitions") LogStorageManager partitionsLogStorageManager,
-            FailureManager failureManager
-    ) {
-        return new TxStateRocksDbSharedStorage(
-                nodeIdentity.nodeName(),
-                partitionsWorkDir.dbPath().resolve("tx-state"),
-                commonScheduler,
-                tableIoExecutor,
-                partitionsLogStorageManager.logSyncer(),
-                failureManager
-        );
-    }
 }

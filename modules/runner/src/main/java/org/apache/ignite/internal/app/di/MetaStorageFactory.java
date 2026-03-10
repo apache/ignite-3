@@ -20,20 +20,14 @@ package org.apache.ignite.internal.app.di;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeIdentity;
-import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -62,24 +56,6 @@ public class MetaStorageFactory {
                 logicalTopologyService,
                 Loza.FACTORY,
                 raftGroupEventsClientListener
-        );
-    }
-
-    /** Creates the RocksDB key-value storage for metastorage. */
-    @Singleton
-    public RocksDbKeyValueStorage metastorageKeyValueStorage(
-            NodeIdentity nodeIdentity,
-            @Named("metastorage") ComponentWorkingDir metastorageWorkDir,
-            FailureManager failureManager,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler
-    ) {
-        return new RocksDbKeyValueStorage(
-                nodeIdentity.nodeName(),
-                metastorageWorkDir.dbPath(),
-                failureManager,
-                readOperationForCompactionTracker,
-                commonScheduler
         );
     }
 

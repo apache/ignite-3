@@ -56,6 +56,9 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_E
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
 import static org.rocksdb.util.SizeUnit.MB;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -77,6 +80,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -147,6 +152,7 @@ import org.rocksdb.WriteOptions;
  * The mapping from the key to the set of the storage's revisions is stored in the "index" column family. A key represents the key of an
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
+@Singleton
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
 
@@ -285,6 +291,20 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
+
+    /**
+     * DI constructor.
+     */
+    @Inject
+    public RocksDbKeyValueStorage(
+            NodeIdentity nodeIdentity,
+            @Named("metastorage") ComponentWorkingDir metastorageWorkDir,
+            FailureProcessor failureProcessor,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            @Named("commonScheduler") ScheduledExecutorService scheduledExecutor
+    ) {
+        this(nodeIdentity.nodeName(), metastorageWorkDir.dbPath(), failureProcessor, readOperationForCompactionTracker, scheduledExecutor);
+    }
 
     /**
      * Constructor.

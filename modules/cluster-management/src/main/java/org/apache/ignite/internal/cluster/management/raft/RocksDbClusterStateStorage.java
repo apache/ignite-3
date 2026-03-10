@@ -23,6 +23,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +40,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -58,6 +66,9 @@ import org.rocksdb.WriteOptions;
 /**
  * {@link ClusterStateStorage} implementation based on RocksDB.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(700)
 public class RocksDbClusterStateStorage implements ClusterStateStorage {
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbClusterStateStorage.class);
 
@@ -84,6 +95,14 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /**
+     * Creates a new instance using DI-provided dependencies.
+     */
+    @Inject
+    public RocksDbClusterStateStorage(@Named("cmg") ComponentWorkingDir cmgWorkDir, NodeIdentity nodeIdentity) {
+        this(cmgWorkDir.dbPath(), nodeIdentity.nodeName());
+    }
 
     /**
      * Creates a new instance.

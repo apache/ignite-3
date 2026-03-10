@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
@@ -103,6 +104,15 @@ public class RaftFactory {
                 cmgWorkDir.raftLogPath(),
                 true
         );
+    }
+
+    /** Exposes the partitions log syncer as a named bean. */
+    @Singleton
+    @Named("partitions")
+    public LogSyncer partitionsLogSyncer(
+            @Named("partitions") LogStorageManager partitionsLogStorageManager
+    ) {
+        return partitionsLogStorageManager.logSyncer();
     }
 
     /** Creates the partitions Raft group options configurer. */
