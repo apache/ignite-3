@@ -188,7 +188,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
-import org.apache.ignite.internal.util.retry.ExponentialBackoffTimeoutStrategy;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -638,7 +638,7 @@ public class ItTxTestCluster {
                 executor,
                 new NoOpFailureManager(),
                 new TestMetricManager(),
-                new ExponentialBackoffTimeoutStrategy()
+                new NoopTimeoutStrategy()
         );
     }
 
@@ -1305,7 +1305,7 @@ public class ItTxTestCluster {
                 executor,
                 new NoOpFailureManager(),
                 new TestMetricManager(),
-                new ExponentialBackoffTimeoutStrategy()
+                new NoopTimeoutStrategy()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(

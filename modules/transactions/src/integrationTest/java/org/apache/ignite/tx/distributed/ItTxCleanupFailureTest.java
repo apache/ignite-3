@@ -50,6 +50,7 @@ import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
@@ -100,6 +101,50 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         // Cleanup succeeded on first attempt — no retries should have happened
         assertEquals(1, cleanupAttempts.get());
+    }
+
+    @Test
+    public void testDurableFinishRetry() {
+        IgniteImpl node = anyNode();
+        Transaction tx = node.transactions().begin();
+        node.sql().execute(tx, "insert into " + TABLE_NAME + " (key, val) values (1, 'val-1')");
+
+        AtomicInteger failedFinishAttempts = new AtomicInteger();
+
+        List<KeyBasedRetryContext> retryContexts = new ArrayList<>();
+
+        for (IgniteImpl n : runningNodesIter()) {
+            retryContexts.add(((TxManagerImpl) n.txManager()).retryContext());
+            n.dropMessages((dest, msg) -> {
+                if (msg instanceof TxFinishReplicaRequest) {
+                    System.out.println("test: " + Thread.currentThread().getName());
+
+                    if (failedFinishAttempts.get() == 0) {
+                        // Makes cleanup fail on write intent switch attempt with replication timeout, on the first attempt.
+                        return failedFinishAttempts.incrementAndGet() == 1;
+                    }
+
+                    if (Thread.currentThread().getName().contains("common-scheduler")) {
+                        assertEquals(1, retryContexts.stream()
+                                .map(KeyBasedRetryContext::snapshot)
+                                .filter(retryContextSnapshot -> retryContextSnapshot.size() == 1)
+                                .count());
+                    }
+                }
+
+                return false;
+            });
+        }
+
+        tx.commitAsync();
+
+//        await().timeout(5, TimeUnit.SECONDS)
+//                .until(() -> pendingWriteIntents(node) == 0);
+
+        await().timeout(5, TimeUnit.SECONDS).until(() -> failedFinishAttempts.get() == 1);
+
+        await().timeout(5, TimeUnit.SECONDS).until(() -> retryContexts.stream()
+                .map(KeyBasedRetryContext::snapshot).allMatch(Map::isEmpty));
     }
 
 //    @Test

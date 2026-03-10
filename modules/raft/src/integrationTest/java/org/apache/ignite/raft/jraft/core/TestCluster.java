@@ -74,7 +74,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestPeer;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
+import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -243,7 +243,7 @@ public class TestCluster {
             nodeOptions.setTimerPoolSize(Utils.cpus() * 2);
             nodeOptions.setRpcProcessorThreadPoolSize(Utils.cpus() * 3);
 
-            nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
+            nodeOptions.setElectionTimeoutStrategy(new NoopTimeoutStrategy());
 
             MockStateMachine fsm = stateMachineFactory.apply(peer.getPeerId());
             nodeOptions.setFsm(fsm);

@@ -56,7 +56,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.retry.ExponentialBackoffTimeoutStrategy;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -169,7 +169,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         lowWatermark,
                         commonExecutor,
                         new NoOpMetricManager(),
-                        new ExponentialBackoffTimeoutStrategy()
+                        new NoopTimeoutStrategy()
                 );
             }
         };
