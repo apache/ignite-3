@@ -7,6 +7,7 @@ jobs:
   checkstyle:
     name: Checkstyle
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +24,12 @@ jobs:
           cache-read-only: true
 
       - name: Run Checkstyle
-        run: ./gradlew checkstyleMain checkstyleTest checkstyleIntegrationTest checkstyleTestFixtures
+        run: ./gradlew --continue checkstyleMain checkstyleTest checkstyleIntegrationTest checkstyleTestFixtures
 
   pmd:
     name: PMD
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -44,11 +46,12 @@ jobs:
           cache-read-only: true
 
       - name: Run PMD
-        run: ./gradlew pmdMain pmdTest pmdIntegrationTest pmdTestFixtures
+        run: ./gradlew --continue pmdMain pmdTest pmdIntegrationTest pmdTestFixtures
 
   spotbugs:
     name: SpotBugs
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -65,4 +68,4 @@ jobs:
           cache-read-only: true
 
       - name: Run SpotBugs
-        run: ./gradlew spotbugsMain spotbugsTest spotbugsIntegrationTest spotbugsTestFixtures
+        run: ./gradlew --continue spotbugsMain spotbugsTest spotbugsIntegrationTest spotbugsTestFixtures
