@@ -40,9 +40,12 @@ big_decimal::big_decimal(const std::byte *data, std::size_t size) {
     m_magnitude = big_integer(data + sizeof(m_scale), size - sizeof(m_scale));
 }
 
-void big_decimal::set_scale(std::int16_t new_scale, big_decimal &res) const {
-    if (m_scale == new_scale)
+void big_decimal::set_scale(std::int16_t new_scale, big_decimal &res, rounding_mode r_mode) const {
+    if (m_scale == new_scale) {
+        res = *this;
         return;
+    }
+
 
     auto diff = std::int16_t(m_scale - new_scale);
 
@@ -50,8 +53,21 @@ void big_decimal::set_scale(std::int16_t new_scale, big_decimal &res) const {
 
     if (diff > 0) {
         big_integer::get_power_of_ten(diff, adjustment);
+        big_integer rem;
 
-        m_magnitude.divide(adjustment, res.m_magnitude);
+        m_magnitude.divide(adjustment, res.m_magnitude, &rem);
+
+        if (r_mode == rounding_mode::HALF_UP) {
+            rem.add(rem, rem);
+            if (rem.compare(adjustment, true) >= 0) {
+                static const big_integer plus_one{1};
+                static const big_integer minus_one{-1};
+
+                auto& fix = rem.get_sign() == 1 ? plus_one : minus_one;
+
+                res.m_magnitude.add(fix, res.m_magnitude);
+            }
+        }
     } else {
         big_integer::get_power_of_ten(-diff, adjustment);
 
