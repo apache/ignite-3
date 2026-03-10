@@ -46,7 +46,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -65,7 +64,6 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -172,15 +170,6 @@ public class DataPathFactory {
         );
 
         return new DataStorageManager(storageEngines, storageConfiguration);
-    }
-
-    /** Creates the partition modification counter factory. */
-    @Singleton
-    public PartitionModificationCounterFactory partitionModificationCounterFactory(
-            ClockService clockService,
-            @Named("clusterMessaging") MessagingService clusterMessagingService
-    ) {
-        return new PartitionModificationCounterFactory(clockService::current, clusterMessagingService);
     }
 
 }

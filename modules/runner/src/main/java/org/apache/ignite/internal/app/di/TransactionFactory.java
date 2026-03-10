@@ -101,12 +101,6 @@ public class TransactionFactory {
         );
     }
 
-    /** Creates the transaction ID generator. */
-    @Singleton
-    public TransactionIdGenerator transactionIdGenerator(ClusterService clusterService) {
-        return new TransactionIdGenerator(() -> clusterService.nodeName().hashCode());
-    }
-
     /** Creates the transaction manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)

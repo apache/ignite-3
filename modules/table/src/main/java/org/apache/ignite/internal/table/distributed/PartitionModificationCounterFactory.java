@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -36,11 +40,23 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Factory for producing {@link PartitionModificationCounter}.
  */
+@Singleton
 public class PartitionModificationCounterFactory {
     private final Supplier<HybridTimestamp> currentTimestampSupplier;
     private final MessagingService messagingService;
     private final Map<TablePartitionId, PartitionModificationCounter> partitionsInfo = new HashMap<>();
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public PartitionModificationCounterFactory(
+            ClockService clockService,
+            @Named("clusterMessaging") MessagingService messagingService
+    ) {
+        this(clockService::current, messagingService);
+    }
 
     public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier, MessagingService messagingService) {
         this.currentTimestampSupplier = currentTimestampSupplier;

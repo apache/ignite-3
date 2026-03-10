@@ -17,17 +17,29 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxPriority;
 
 /**
  * Generates transaction IDs.
  */
+@Singleton
 public class TransactionIdGenerator {
     /** Supplies nodeId for transactionId generation. */
     private final NodeIdSupplier nodeIdSupplier;
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public TransactionIdGenerator(ClusterService clusterService) {
+        this(() -> clusterService.nodeName().hashCode());
+    }
 
     public TransactionIdGenerator(NodeIdSupplier nodeIdSupplier) {
         this.nodeIdSupplier = nodeIdSupplier;
