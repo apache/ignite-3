@@ -19,8 +19,10 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -69,7 +71,10 @@ public class ItThinClientTablesTest extends ItAbstractThinClientTest {
         sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS 1, PARTITIONS 10)  STORAGE PROFILES ['default']");
         sql.execute("CREATE TABLE " + TEST_TABLE + "(id INT PRIMARY KEY, val VARCHAR) ZONE " + TEST_ZONE);
 
-        // Get the table again - this should refresh cached metadata
+        // Old table handle does not work after drop.
+        assertThrows(TableNotFoundException.class, () -> view.get(null, key1));
+
+        // Get the table again.
         Table table2 = client.tables().table(TEST_TABLE);
         assertEquals(10, table2.partitionDistribution().partitions().size());
 
