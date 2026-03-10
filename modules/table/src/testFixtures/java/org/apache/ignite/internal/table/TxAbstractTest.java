@@ -19,10 +19,12 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -56,7 +58,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
@@ -554,13 +555,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 new TransactionOptions().timeoutMillis(1000)
         );
 
-        var err = assertThrows(CompletionException.class, fut0::join);
-
-        try {
-            assertInstanceOf(IllegalArgumentException.class, err.getCause());
-        } catch (AssertionError e) {
-            throw new AssertionError("Unexpected exception type", err);
-        }
+        assertThat(fut0, willThrow(IllegalArgumentException.class));
 
         assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
     }
@@ -582,13 +577,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         new TransactionOptions().timeoutMillis(1000)
                 );
 
-        var err = assertThrows(CompletionException.class, fut0::join);
-
-        try {
-            assertInstanceOf(NullPointerException.class, err.getCause());
-        } catch (AssertionError e) {
-            throw new AssertionError("Unexpected exception type", err);
-        }
+        assertThat(fut0, willThrow(NullPointerException.class));
     }
 
     @Test
@@ -1921,7 +1910,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         CompletableFuture<List<Tuple>> roBeforeCommitTxFut = scan(accounts.internalTable(), readOnlyTx);
 
-        var roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, TimeUnit.SECONDS);
+        var roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, SECONDS);
 
         assertEquals(2, roBeforeCommitTxRows.size());
 
@@ -1940,7 +1929,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         // Same read-only transaction.
         roBeforeCommitTxFut = scan(accounts.internalTable(), readOnlyTx);
 
-        roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, TimeUnit.SECONDS);
+        roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, SECONDS);
 
         assertEquals(2, roBeforeCommitTxRows.size());
 
@@ -1958,7 +1947,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         CompletableFuture<List<Tuple>> roAfterCommitTxFut = scan(accounts.internalTable(), readOnlyTx2);
 
-        var roAfterCommitTxRows = roAfterCommitTxFut.get(10, TimeUnit.SECONDS);
+        var roAfterCommitTxRows = roAfterCommitTxFut.get(10, SECONDS);
 
         assertEquals(1, roAfterCommitTxRows.size());
 

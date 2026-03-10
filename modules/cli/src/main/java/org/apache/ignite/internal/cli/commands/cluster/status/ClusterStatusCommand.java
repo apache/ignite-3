@@ -41,11 +41,10 @@ public class ClusterStatusCommand extends BaseCommand implements Callable<Intege
     @Inject
     private ClusterStatusCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
+                .input(new UrlCallInput(clusterUrl.getClusterUrl()))
         );
     }
 }

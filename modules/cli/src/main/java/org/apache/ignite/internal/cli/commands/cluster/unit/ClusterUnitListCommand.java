@@ -51,7 +51,7 @@ public class ClusterUnitListCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> listOptions.toListUnitCallInput(clusterUrl.getClusterUrl()))
+                .input(listOptions.toListUnitCallInput(clusterUrl.getClusterUrl()))
                 .decorator(new UnitListDecorator(plain))
                 .exceptionHandler(createHandler("Cannot list units"))
         );

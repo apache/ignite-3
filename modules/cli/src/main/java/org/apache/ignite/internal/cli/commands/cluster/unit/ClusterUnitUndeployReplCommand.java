@@ -53,7 +53,7 @@ public class ClusterUnitUndeployReplCommand extends BaseCommand implements Calla
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> UndeployUnitCallInput.builder()
+                .input(UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
                         .clusterUrl(clusterUrl.getClusterUrl())

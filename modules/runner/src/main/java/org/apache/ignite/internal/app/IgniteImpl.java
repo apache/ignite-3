@@ -65,7 +65,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
-import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
@@ -211,6 +210,7 @@ import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -585,13 +585,11 @@ public class IgniteImpl implements Ignite {
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
-        nodeConfigRegistry = new ConfigurationRegistry(
-                modules.local().rootKeys(),
+        nodeConfigRegistry = ConfigurationRegistry.create(
+                modules.local(),
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
-                localConfigurationValidator,
-                modules.local()::migrateDeprecatedConfigurations,
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                localConfigurationValidator
         );
 
         // Start local configuration to be able to read all local properties.
@@ -666,7 +664,8 @@ public class IgniteImpl implements Ignite {
                 "table data log",
                 clusterSvc.nodeName(),
                 partitionsWorkDir.raftLogPath(),
-                raftConfiguration.fsync().value()
+                raftConfiguration.fsync().value(),
+                RocksDbLogStorageOptions.forPartitions(systemConfiguration.value())
         );
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
@@ -810,13 +809,11 @@ public class IgniteImpl implements Ignite {
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
-        clusterConfigRegistry = new ConfigurationRegistry(
-                modules.distributed().rootKeys(),
+        clusterConfigRegistry = ConfigurationRegistry.create(
+                modules.distributed(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                distributedCfgValidator,
-                modules.distributed()::migrateDeprecatedConfigurations,
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                distributedCfgValidator
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
@@ -938,7 +935,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageManagerCreator
         );
 
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime(), metaStorageMgr.watchExecutor());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
@@ -1120,6 +1117,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 placementDriverMgr.placementDriver(),
                 schemaSyncService,

@@ -96,7 +96,7 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     private int runAsync(ClusterInitCallInput input) {
         return runPipeline(
                 asyncBuilder(this::createCall)
-                        .inputProvider(() -> input)
+                        .input(input)
                         .enableSpinner(SPINNER_PREFIX)
                         .updateIntervalMillis(SPINNER_UPDATE_INTERVAL_MILLIS)
         );

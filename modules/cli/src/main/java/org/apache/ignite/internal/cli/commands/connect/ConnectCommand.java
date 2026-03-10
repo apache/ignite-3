@@ -66,7 +66,6 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     @Inject
     private Provider<ReplManager> replManagerProvider;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         ReplManager replManager = replManagerProvider.get();
@@ -74,7 +73,7 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
         replManager.subscribe();
 
         int exitCode = runPipeline(CallExecutionPipeline.builder(connectCall)
-                .inputProvider(this::connectCallInput)
+                .input(connectCallInput())
         );
         if (exitCode == 0) {
             replManager.startReplMode();
