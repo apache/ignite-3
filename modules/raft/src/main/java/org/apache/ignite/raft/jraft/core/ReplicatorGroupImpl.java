@@ -157,7 +157,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 ////                RpcUtils.runInThread(() -> checkReplicator(peer, true));
 //        }
 
-        final ThreadId rid = Replicator.start(opts, this.raftOptions, metricManager);
+        final ThreadId rid = Replicator.start(opts, this.raftOptions);
         if (rid == null) {
             LOG.error("Fail to start replicator to peer [node={}, recipientPeer={}, replicatorType={}].",
                 this.commonOptions.getNode().getNodeId(), peer, replicatorType);

@@ -433,7 +433,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             metrics.add(new MetricSource().name("raft.fsmcaller." + node.groupId().toString()).enabled(true));
             metrics.add(new MetricSource().name("raft.logmanager." + node.groupId().toString()).enabled(true));
             metrics.add(new MetricSource().name("raft.node." + node.groupId().toString()).enabled(true));
-            metrics.add(new MetricSource().name("raft.replicator." + node.groupId().toString()).enabled(true));
             metrics.add(new MetricSource().name("raft.readonlyservice." + node.groupId().toString()).enabled(true));
 
             if (node.groupId() == MetastorageGroupId.INSTANCE || node.groupId() == CmgGroupId.INSTANCE) {

@@ -230,7 +230,12 @@ public class NodeImpl implements Node, RaftServerService {
     private final LongAdder applyQueueByteSize = new LongAdder();
 
     /**
-     * Metrics
+     * Jraft metric framework metrics
+     */
+    private NodeMetrics jraftMetrics;
+
+    /**
+     * Node metrics.
      */
     private final NodeMetricSource metrics;
 
@@ -931,6 +936,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.options = opts.getNodeOptions() == null ? new NodeOptions() : opts.getNodeOptions();
         this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = this.options.getRaftOptions();
+        this.jraftMetrics = new NodeMetrics(opts.isEnableMetrics());
         this.options.setFsm(opts.getFsm());
         this.options.setLogUri(opts.getLogUri());
         this.options.setRaftMetaUri(opts.getRaftMetaUri());
@@ -1027,6 +1033,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.options = opts;
         this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = opts.getRaftOptions();
+        this.jraftMetrics = new NodeMetrics(opts.isEnableMetrics());
         this.serverId.setPriority(opts.getElectionPriority());
         this.electionTimeoutCounter = 0;
         if (opts.getReplicationStateListeners() != null)
@@ -1840,6 +1847,16 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         return st;
+    }
+
+    /**
+     * Returns the node metrics.
+     *
+     * @return returns metrics of current node.
+     */
+    @Override
+    public NodeMetrics getJraftNodeMetrics() {
+        return this.jraftMetrics;
     }
 
     /**
