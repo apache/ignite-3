@@ -37,7 +37,9 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -236,40 +238,12 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMultipleEndpointsSameNodeLogsWarning() throws InterruptedException {
-        String[] addresses = {"my-cluster:" + server3.port()};
-
         // Two distinct IPs that both resolve to the same node (server3).
         AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress, hostAddress});
-
         TestLoggerFactory loggerFactory = new TestLoggerFactory("test-client");
+        String[] addresses = {"my-cluster:" + server3.port()};
 
-        // TODO: ???
-        IgniteClientConfigurationImpl cfg = new IgniteClientConfigurationImpl(
-                null,
-                addresses,
-                500,
-                0,
-                null,
-                50,
-                50,
-                new RetryLimitPolicy(),
-                loggerFactory,
-                null,
-                false,
-                null,
-                1000,
-                1000,
-                "my-client",
-                0L,
-                (host, port) -> {
-                    if ("my-cluster".equals(host)) {
-                        return Arrays.stream(resolvedAddressesRef.get())
-                                .map(s -> InetSocketAddress.createUnresolved(s, port))
-                                .collect(toList());
-                    }
-                    return singletonList(InetSocketAddress.createUnresolved(host, port));
-                }
-        );
+        var cfg = getClientConfiguration(addresses, 0L, resolvedAddressesRef, loggerFactory);
 
         List<?> channelHolders;
 
@@ -297,6 +271,14 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
             long backgroundReResolveAddressesInterval,
             AtomicReference<String[]> resolvedAddressesRef
     ) {
+        return getClientConfiguration(addresses, backgroundReResolveAddressesInterval, resolvedAddressesRef, null);
+    }
+    private static IgniteClientConfigurationImpl getClientConfiguration(
+            String[] addresses,
+            long backgroundReResolveAddressesInterval,
+            AtomicReference<String[]> resolvedAddressesRef,
+            @Nullable LoggerFactory loggerFactory
+    ) {
         InetAddressResolver addressResolver = (host, port) -> {
             if ("my-cluster".equals(host)) {
                 return Arrays.stream(resolvedAddressesRef.get())
@@ -316,7 +298,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
                 50,
                 50,
                 new RetryLimitPolicy(),
-                null,
+                loggerFactory,
                 null,
                 false,
                 null,
