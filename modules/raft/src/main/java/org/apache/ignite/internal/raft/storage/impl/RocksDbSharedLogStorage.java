@@ -70,10 +70,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbSharedLogStorage.class);
 
-    static {
-        RocksDB.loadLibrary();
-    }
-
     /**
      * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it was a {@code long[]}
      * array.
