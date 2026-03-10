@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include "linux_async_client.h"
+#include "ignite/network/detail/linux/linux_async_client.h"
 
-#include "../utils.h"
-#include "sockets.h"
+#include "ignite/network/detail/utils.h"
+#include "ignite/network/detail/sockets.h"
 
 #include <algorithm>
 #include <cstring>

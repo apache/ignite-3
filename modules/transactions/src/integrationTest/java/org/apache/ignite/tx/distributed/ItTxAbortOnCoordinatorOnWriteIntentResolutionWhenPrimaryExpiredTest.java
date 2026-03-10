@@ -46,6 +46,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -73,7 +74,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Test for transaction abort on coordinator when write-intent resolution happens after primary replica expiration.
@@ -119,8 +120,13 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testCoordinatorAbortsTransaction(boolean withThinClient) throws Exception {
+    @CsvSource({
+            "true, true",
+            "true, false",
+            "false, true",
+            "false, false"
+    })
+    public void testCoordinatorAbortsTransaction(boolean withThinClient, boolean limitedDataOnCoordinator) throws Exception {
         IgniteClient client = IgniteClient.builder()
                 .addresses(getClientAddresses(runningNodes().collect(toList())).toArray(new String[0]))
                 .operationTimeout(15_000)
@@ -187,6 +193,11 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
                 });
 
         waitAndGetPrimaryReplica(coordinatorNode, groupId);
+
+        if (limitedDataOnCoordinator) {
+            coordinatorNode.txManager()
+                    .updateTxMeta(clientTxId(tx0), old -> TxStateMeta.builder(PENDING).txCoordinatorId(coordinatorNode.id()).build());
+        }
 
         Transaction tx = coordinatorNode.transactions().begin();
         log.info("Test: new tx: " + txId(tx));
@@ -334,5 +345,14 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         return nodes.stream()
                 .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())
                 .collect(toList());
+    }
+
+    private static UUID clientTxId(Transaction tx) {
+        if (tx instanceof ClientLazyTransaction) {
+            ClientLazyTransaction clientTx = (ClientLazyTransaction) tx;
+            return clientTx.startedTx().txId();
+        } else {
+            return txId(tx);
+        }
     }
 }

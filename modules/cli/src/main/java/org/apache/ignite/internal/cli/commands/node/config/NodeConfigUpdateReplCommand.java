@@ -48,7 +48,7 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Callable
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::nodeConfigUpdateCallInput)
+                .input(nodeConfigUpdateCallInput())
         );
     }
 

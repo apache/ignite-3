@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.core.call;
 
 import java.io.PrintWriter;
 import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
 import me.tongfei.progressbar.DelegatingProgressBarConsumer;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -41,18 +40,16 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
             PrintWriter errOutput,
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
-            Supplier<I> inputProvider,
+            I input,
             boolean[] verbose
     ) {
-        super(output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
+        super(output, errOutput, exceptionHandlers, decorator, input, verbose);
         this.callFactory = callFactory;
         this.progressBarBuilder = progressBarBuilder;
     }
 
     @Override
     public int runPipelineInternal() {
-        I callInput = inputProvider.get();
-
         progressBarBuilder.setConsumer(new DelegatingProgressBarConsumer(this::print) {
             @Override
             public void close() {
@@ -65,7 +62,7 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
         try {
             ProgressBarTracker tracker = new ProgressBarTracker(progressBarBuilder);
             CallOutput<T> result = callFactory.create(tracker)
-                    .execute(callInput)
+                    .execute(input)
                     .whenComplete((el, err) -> tracker.close())
                     .join();
 

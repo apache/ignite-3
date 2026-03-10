@@ -47,7 +47,7 @@ public class InvalidateCacheCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> InvalidateCacheCallInput.of(clusterUrl.getClusterUrl(), tables, List.of()))
+                .input(InvalidateCacheCallInput.of(clusterUrl.getClusterUrl(), tables, List.of()))
                 .exceptionHandler(createHandler("Failed to invalidate SQL planner cache"))
         );
     }

@@ -421,28 +421,34 @@ public class ClientInboundMessageHandler
 
         // Each inbound handler in a pipeline has to release the received messages.
         var unpacker = new ClientMessageUnpacker(byteBuf);
-        metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-        switch (state) {
-            case STATE_BEFORE_HANDSHAKE:
-                state = STATE_HANDSHAKE_REQUESTED;
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-                handshake(ctx, unpacker);
+        try {
+            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-                break;
+            switch (state) {
+                case STATE_BEFORE_HANDSHAKE:
+                    state = STATE_HANDSHAKE_REQUESTED;
+                    metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                    handshake(ctx, unpacker);
 
-            case STATE_HANDSHAKE_REQUESTED:
-                // Handshake is in progress, any messages are not allowed.
-                throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
+                    break;
 
-            case STATE_HANDSHAKE_RESPONSE_SENT:
-                assert clientContext != null : "Client context != null";
-                processOperation(ctx, unpacker);
+                case STATE_HANDSHAKE_REQUESTED:
+                    // Handshake is in progress, any messages are not allowed.
+                    throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
 
-                break;
+                case STATE_HANDSHAKE_RESPONSE_SENT:
+                    assert clientContext != null : "Client context != null";
+                    processOperation(ctx, unpacker);
 
-            default:
-                throw new IllegalStateException("Unexpected state: " + state);
+                    break;
+
+                default:
+                    throw new IllegalStateException("Unexpected state: " + state);
+            }
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
         }
     }
 

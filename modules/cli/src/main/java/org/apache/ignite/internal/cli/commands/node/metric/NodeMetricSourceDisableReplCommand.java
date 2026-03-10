@@ -43,7 +43,7 @@ public class NodeMetricSourceDisableReplCommand extends BaseCommand implements C
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> metricSource.buildDisableCallInput(nodeUrl.getNodeUrl()))
+                .input(metricSource.buildDisableCallInput(nodeUrl.getNodeUrl()))
                 .exceptionHandler(createHandler("Cannot disable metrics"))
         );
     }

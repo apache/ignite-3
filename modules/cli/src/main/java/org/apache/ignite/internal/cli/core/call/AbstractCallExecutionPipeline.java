@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.core.call;
 
 import java.io.PrintWriter;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
@@ -47,8 +46,8 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
     /** Handlers for any exceptions. */
     protected final ExceptionHandlers exceptionHandlers;
 
-    /** Provider for call's input. */
-    protected final Supplier<I> inputProvider;
+    /** Call's input. */
+    protected final I input;
 
     /** If non-empty, debug output will be printed to console. */
     protected final boolean[] verbose;
@@ -58,14 +57,14 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
             PrintWriter errOutput,
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
-            Supplier<I> inputProvider,
+            I input,
             boolean[] verbose
     ) {
         this.output = output;
         this.exceptionHandlers = exceptionHandlers;
         this.errOutput = errOutput;
         this.decorator = decorator;
-        this.inputProvider = inputProvider;
+        this.input = input;
         this.verbose = verbose;
     }
 
