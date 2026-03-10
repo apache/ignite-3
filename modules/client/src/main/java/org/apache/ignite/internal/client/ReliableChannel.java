@@ -961,6 +961,18 @@ public final class ReliableChannel implements AutoCloseable {
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 
+                    // Check if another endpoint already connected to this node.
+                    ClientChannelHolder existingHolder = nodeChannelsByName.get(newNode.name());
+                    if (existingHolder != null && existingHolder != this) {
+                        log.warn("Multiple distinct endpoints resolve to the same server node [nodeName={}, nodeId={}, "
+                                + "existingEndpoint={}, newEndpoint={}]. This represents a misconfiguration. "
+                                + "The connection from the existing endpoint will be replaced.",
+                                newNode.name(),
+                                newNode.id(),
+                                existingHolder.chCfg.getAddress(),
+                                chCfg.getAddress());
+                    }
+
                     // There could be multiple holders map to the same serverNodeId if user provide the same
                     // address multiple times in configuration.
                     nodeChannelsByName.put(newNode.name(), this);

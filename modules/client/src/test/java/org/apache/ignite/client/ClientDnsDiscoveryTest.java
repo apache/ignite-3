@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -231,6 +232,55 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
             // Client should reconnect to the second ips.
             assertDoesNotThrow(() -> client.tables().tables());
+        }
+    }
+
+    @Test
+    void testMultipleEndpointsSameNodeLogsWarning() {
+        String[] addresses = {"my-cluster:" + server3.port()};
+
+        // Two distinct IPs that both resolve to the same node (server3).
+        AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress, hostAddress});
+
+        TestLoggerFactory loggerFactory = new TestLoggerFactory("test-client");
+
+        IgniteClientConfigurationImpl cfg = new IgniteClientConfigurationImpl(
+                null,
+                addresses,
+                500,
+                0,
+                null,
+                50,
+                50,
+                new RetryLimitPolicy(),
+                loggerFactory,
+                null,
+                false,
+                null,
+                1000,
+                1000,
+                "my-client",
+                0L,
+                (host, port) -> {
+                    if ("my-cluster".equals(host)) {
+                        return Arrays.stream(resolvedAddressesRef.get())
+                                .map(s -> InetSocketAddress.createUnresolved(s, port))
+                                .collect(toList());
+                    }
+                    return singletonList(InetSocketAddress.createUnresolved(host, port));
+                }
+        );
+
+        try (var client = TcpIgniteClient.startAsync(cfg).join()) {
+            assertDoesNotThrow(() -> client.tables().tables());
+            assertEquals("server3", client.connections().get(0).name());
+
+            // Verify that a warning about multiple endpoints resolving to the same node was logged.
+            try {
+                loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 3000);
+            } catch (InterruptedException e) {
+                fail("Test was interrupted while waiting for log message");
+            }
         }
     }
 
