@@ -41,5 +41,5 @@ jobs:
 
   integration-tests:
     name: Integration Tests
-    needs: checks
+    needs: unit-tests
     uses: ./.github/workflows/integration-tests.yml
