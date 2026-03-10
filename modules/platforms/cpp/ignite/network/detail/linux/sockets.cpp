@@ -16,9 +16,14 @@
  */
 
 #include "ignite/network/detail/linux/sockets.h"
+
+#include "ignite/common/detail/defer.h"
+#include "ignite/network/detail/utils.h"
 #include "ignite/network/socket_client.h"
+#include "ignite/common/ignite_error.h"
 
 #include <cerrno>
+#include <climits>
 #include <cstring>
 #include <sstream>
 
@@ -86,6 +91,13 @@ std::string get_last_socket_error_message() {
 void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out_of_band, bool keep_alive) {
     setsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
     setsockopt(socket_fd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
+
+    // Set an option to not raise SIGPIPE. This should be done before we may return from this function if we cannot
+    // configure keepalive options
+#ifdef __APPLE__
+    int no_sigpipe_opt = 1;
+    setsockopt(socket_fd, SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<char *>(&no_sigpipe_opt), sizeof(no_sigpipe_opt));
+#endif
 
     int iNoDelay = no_delay ? 1 : 0;
     setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&iNoDelay), sizeof(iNoDelay));
@@ -167,6 +179,25 @@ bool set_non_blocking_mode(int socket_fd, bool non_blocking) {
     int res = fcntl(socket_fd, F_SETFL, flags);
 
     return res != -1;
+}
+
+ssize_t send(int socket, const void* buf, size_t len) {
+    if (len > INT_MAX)
+        throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
+#ifdef __APPLE__
+    return ::send(socket, buf, static_cast<int>(len), 0); // SIGPIPE is already handled via setsockopt SO_NOSIGPIPE
+#else
+    return ::send(socket, buf, static_cast<int>(len), MSG_NOSIGNAL);
+#endif
+}
+
+ssize_t recv(int socket, void* buf, int len) {
+    return ::recv(socket, buf, len, 0);
+}
+
+void close(int socket) {
+    if (socket != SOCKET_ERROR)
+        ::close(socket);
 }
 
 } // namespace ignite::network::detail

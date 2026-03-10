@@ -18,6 +18,6 @@ object RunPlatformTests : BuildType({
 //        snapshot(PlatformCppTestsWindows) {}  // Always falling, under investigation
         snapshot(PlatformDotnetTestsWindows) {}
         snapshot(PlatformDotnetTestsLinux) {}
-        snapshot(PlatformPythonTestsLinux) {}
+        snapshot(RunPythonTests) {}
     }
 })

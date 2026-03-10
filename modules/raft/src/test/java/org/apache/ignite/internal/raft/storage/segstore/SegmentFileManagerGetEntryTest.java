@@ -79,7 +79,7 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             @InjectConfiguration RaftConfiguration raftConfiguration,
-            @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
+            @InjectConfiguration(value = "mock.segmentFileSizeBytes=" + FILE_SIZE, validate = false)
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
         fileManager = new SegmentFileManager(
@@ -87,6 +87,7 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
+                groupId -> null,
                 raftConfiguration,
                 storageConfiguration
         );

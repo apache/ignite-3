@@ -71,6 +71,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     static final String POJO_RECORD_TABLE_NAME = "pojo_record_test";
 
+    static final String POJO_RECORD_EXTENDED_TABLE_NAME = "pojo_record_extended_test";
+
     static final String EXPLICIT_QUOTES_TABLE_NAME = "explicit_quotes_test_table";
 
     static final String ZONE_NAME = "ZONE_TEST";
@@ -788,6 +790,23 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
             assertEquals("\"a tablE\"", tableDef.tableName());
             assertEquals("\"a Schema\"", tableDef.schemaName());
         }
+    }
+
+    @Test
+    void inheritance() throws Exception {
+        CompletableFuture<Table> tableFuture = catalog().createTableAsync(PojoExtended.class);
+        assertThat(tableFuture, will(not(nullValue())));
+
+        sql("insert into "
+                + POJO_RECORD_EXTENDED_TABLE_NAME
+                + " (id, id_str, f_name, l_name, str, f_name_extended) values (1, '1', 'f', 'l', 's', 'e')");
+        List<List<Object>> rows = sql("select id, id_str, f_name, l_name, str, f_name_extended from "
+                + POJO_RECORD_EXTENDED_TABLE_NAME);
+
+        assertThat(rows, contains(List.of(1, "1", "f", "l", "s", "e")));
+
+        PojoExtended pojo = new PojoExtended(1, "1", "f", "l", "s", "e");
+        assertThat(tableFuture.get().recordView(PojoExtended.class).get(null, pojo), is(pojo));
     }
 
     private static IgniteCatalog catalog() {

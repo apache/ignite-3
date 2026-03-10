@@ -185,7 +185,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
-        outboundExecutor.initMetricSource(metricManager, THREAD_POOLS_METRICS_SOURCE_NAME + ".messaging.outbound",
+        outboundExecutor.initMetricSource(metricManager, THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound",
                 "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
@@ -195,7 +195,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 channelTypeRegistry,
                 LOG,
                 metricManager,
-                THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound",
+                THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound",
                 "Inbound message executor metrics"
         );
 

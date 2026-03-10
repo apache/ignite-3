@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -133,12 +135,6 @@ public interface TxManager extends IgniteComponent {
      */
     @Nullable TxStateMeta stateMeta(UUID txId);
 
-    CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
-            TxStateMeta txMeta,
-            InternalTransaction tx,
-            long currentEnlistmentConsistencyToken,
-            ZonePartitionId senderGroupId);
-
     /**
      * Atomically changes the state meta of a transaction.
      *
@@ -153,18 +149,16 @@ public interface TxManager extends IgniteComponent {
      * Returns lock manager.
      *
      * @return Lock manager for the given transactions manager.
-     * @deprecated Use lockManager directly.
      */
-    @Deprecated
+    @TestOnly
     LockManager lockManager();
 
     /**
-     * Execute write intent switch asynchronously.
+     * Executor that writes intent switch asynchronously.
      *
-     * @param runnable Write intent switch action.
-     * @return Future that completes once the write intent switch action finishes.
+     * @return Executor.
      */
-    CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable);
+    Executor writeIntentSwitchExecutor();
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
@@ -218,7 +212,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             @Nullable ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -269,6 +263,14 @@ public interface TxManager extends IgniteComponent {
      * @return Future will be completed with value true if the transaction was started locally and completed by this call.
      */
     CompletableFuture<Boolean> kill(UUID txId);
+
+    /**
+     * Discards local write intents. Used together with kill command.
+     *
+     * @param groups Groups.
+     * @param txId Transaction id.
+     */
+    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId);
 
     /**
      * Returns lock retry count.

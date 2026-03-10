@@ -53,7 +53,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             @InjectConfiguration RaftConfiguration raftConfiguration,
-            @InjectConfiguration("mock.segmentFileSizeBytes=" + SEGMENT_SIZE)
+            @InjectConfiguration(value = "mock.segmentFileSizeBytes=" + SEGMENT_SIZE, validate = false)
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
         segmentFileManager = new SegmentFileManager(
@@ -61,6 +61,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
                 workDir,
                 1,
                 new NoOpFailureManager(),
+                GroupInfoProvider.NO_OP,
                 raftConfiguration,
                 storageConfiguration
         );

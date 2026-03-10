@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -63,7 +64,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(ConfigurationExtension.class)
 public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
-    private final MetricManager metricManager = new MetricManagerImpl();
+    private final MetricManager metricManager = new MetricManagerImpl("test", UUID::randomUUID);
 
     @Mock(strictness = Strictness.LENIENT)
     private ScheduledExecutorService commonExecutor;

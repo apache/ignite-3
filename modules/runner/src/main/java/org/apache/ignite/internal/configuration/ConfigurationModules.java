@@ -21,8 +21,11 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An ensemble of {@link ConfigurationModule}s used to easily pick node-local and cluster-wide configuration
@@ -65,5 +68,24 @@ public class ConfigurationModules {
                 .filter(module -> module.type() == type)
                 .collect(toUnmodifiableList());
         return new CompoundModule(type, modulesOfGivenType);
+    }
+
+    /**
+     * Creates instance of the {@link ConfigurationModules} using provided {@link ClassLoader}.
+     *
+     * @param classLoader the class loader to use.
+     * @return Configuration modules.
+     */
+    public static ConfigurationModules create(@Nullable ClassLoader classLoader) {
+        List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableList());
+
+        if (modules.isEmpty()) {
+            throw new IllegalStateException("No configuration modules were loaded. "
+                    + "Please make sure that the classloader for loading services is correct.");
+        }
+
+        return new ConfigurationModules(modules);
     }
 }

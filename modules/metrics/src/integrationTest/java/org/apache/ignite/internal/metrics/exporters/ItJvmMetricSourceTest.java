@@ -22,13 +22,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
@@ -53,19 +51,13 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testMemoryUsageMetric() {
-        MetricManager metricManager = new MetricManagerImpl();
-
-        metricManager.configure(simpleConfiguration, UUID::randomUUID, "test-node");
-
-        Map<String, MetricExporter> exporters = new HashMap<>();
+        var metricManager = new MetricManagerImpl("test-node", UUID::randomUUID, simpleConfiguration);
 
         TestSimpleExporter simpleExporter = new TestSimpleExporter();
 
-        exporters.put(simpleExporter.name(), simpleExporter);
-
         metricManager.registerSource(new JvmMetricSource());
 
-        metricManager.start(exporters);
+        metricManager.start(Map.of(simpleExporter.name(), simpleExporter));
 
         metricManager.enable("jvm");
 

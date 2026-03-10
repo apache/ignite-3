@@ -324,11 +324,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
-        updateLowWatermarkAsync(newLowWatermark);
-    }
-
-    CompletableFuture<Void> updateLowWatermarkAsync(HybridTimestamp newLowWatermark) {
+    public CompletableFuture<Void> updateLowWatermarkAsync(HybridTimestamp newLowWatermark) {
         return inBusyLockAsync(busyLock, () -> {
             LowWatermarkCandidate newLowWatermarkCandidate = new LowWatermarkCandidate(newLowWatermark, new CompletableFuture<>());
             LowWatermarkCandidate oldLowWatermarkCandidate;

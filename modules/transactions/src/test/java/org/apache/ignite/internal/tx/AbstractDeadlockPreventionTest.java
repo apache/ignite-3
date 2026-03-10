@@ -304,6 +304,24 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(xlock(tx2, k), willSucceedFast());
     }
 
+    @Test
+    public void testDeadlockRecovery() {
+        var tx1 = beginTx();
+        var tx2 = beginTx();
+
+        var k = key("test");
+
+        assertThat(slock(tx2, k), willSucceedFast());
+        assertThat(slock(tx1, k), willSucceedFast());
+
+        assertFutureFailsOrWaitsForTimeout(() ->  xlock(tx2, k));
+
+        // Failed lock will be rolled to S state. We need to release it manually.
+        release(tx2, k, LockMode.S);
+
+        assertThat(xlock(tx1, k), willSucceedFast());
+    }
+
     /**
      * This method checks lock future of conflicting transaction provided by supplier, in a way depending on deadlock prevention policy.
      * If the policy does not allow wait on conflict (wait timeout is equal to {@code 0}) then the future must be failed with

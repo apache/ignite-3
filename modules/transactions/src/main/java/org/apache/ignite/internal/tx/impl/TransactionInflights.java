@@ -47,7 +47,7 @@ import org.jetbrains.annotations.TestOnly;
 
 /**
  * Contains counters for in-flight requests of the transactions. Read-write transactions can't finish when some requests are in-flight.
- * Read-only transactions can't be included into {@link org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage} when
+ * Read-only transactions can't be included into {@link FinishedTransactionsBatchMessage} when
  * some requests are in-flight.
  */
 public class TransactionInflights {
@@ -137,29 +137,6 @@ public class TransactionInflights {
         txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
                 ctx = new ReadWriteTxContext(placementDriver, clockService);
-            }
-
-            res[0] = !ctx.isTxFinishing();
-
-            return ctx;
-        });
-
-        return res[0];
-    }
-
-    /**
-     * Track the given RO transaction until finish.
-     * Currently RO tracking is used to prevent unclosed cursors.
-     *
-     * @param txId The transaction id.
-     * @return {@code True} if the was registered and is in active state.
-     */
-    public boolean trackReadOnly(UUID txId) {
-        boolean[] res = {true};
-
-        txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) {
-                ctx = new ReadOnlyTxContext();
             }
 
             res[0] = !ctx.isTxFinishing();

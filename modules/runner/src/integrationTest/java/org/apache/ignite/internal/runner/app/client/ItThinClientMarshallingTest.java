@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.MarshallerException;
@@ -32,7 +33,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -352,7 +352,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22965")
     public void testDecimalColumnOverflow() {
         var tableName = "testDecimalColumnOverflow";
 
@@ -363,6 +362,23 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         assertThrowsMarshallerException(
                 () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", new BigDecimal("12345.1"))),
+                "Numeric field overflow in column 'VAL'");
+    }
+
+    @Test
+    void testDecimalColumnOverflow2() {
+        var tableName = "testDecimalColumnOverflow2";
+
+        ignite().sql().execute("CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, STR VARCHAR(10), VAL DECIMAL(6,2))");
+
+        Table table = ignite().tables().table(tableName);
+        var view = table.keyValueView();
+
+        Tuple key = Tuple.create(Map.of("key", 1));
+        Tuple value = Tuple.create(Map.of("val", new BigDecimal("89900.123456")));
+
+        assertThrowsMarshallerException(
+                () -> view.put(key, value),
                 "Numeric field overflow in column 'VAL'");
     }
 

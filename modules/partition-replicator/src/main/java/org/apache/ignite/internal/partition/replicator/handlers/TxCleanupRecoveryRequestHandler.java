@@ -71,10 +71,9 @@ public class TxCleanupRecoveryRequestHandler {
     /**
      * Handles a {@link TxCleanupRecoveryRequest}.
      *
-     * @param request Request to handle.
      * @return Future completed when the request has been handled.
      */
-    public CompletableFuture<Void> handle(TxCleanupRecoveryRequest request) {
+    public CompletableFuture<Void> handle() {
         runPersistentStorageScan();
 
         return nullCompletedFuture();

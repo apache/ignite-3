@@ -73,7 +73,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
-        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
@@ -173,7 +173,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
-        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(

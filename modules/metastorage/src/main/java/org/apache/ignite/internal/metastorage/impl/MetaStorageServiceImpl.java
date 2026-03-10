@@ -69,7 +69,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link MetaStorageService} implementation.
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
-    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageService.class);
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageServiceImpl.class);
 
     /** Default batch size that is requested from the remote server. */
     public static final int BATCH_SIZE = 1000;

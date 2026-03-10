@@ -45,18 +45,15 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -235,19 +232,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Configuration modules.
      */
     public static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
-
-        if (log.isInfoEnabled()) {
-            log.info("Configuration modules loaded: {}", modules);
-        }
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        var configModules = new ConfigurationModules(modules);
+        ConfigurationModules configModules = ConfigurationModules.create(classLoader);
 
         if (log.isInfoEnabled()) {
             log.info("Local root keys: {}", configModules.local().rootKeys());
@@ -326,8 +311,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * so returned partial node is started and ready to work.
      *
      * @param name Node name.
-     * @param nodeCfgMgr Node configuration manager.
-     * @param clusterCfgMgr Cluster configuration manager.
+     * @param nodeConfigRegistry Node configuration registry.
+     * @param clusterConfigRegistry Cluster configuration registry.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
@@ -338,15 +323,14 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      */
     public PartialNode partialNode(
             String name,
-            ConfigurationManager nodeCfgMgr,
-            ConfigurationManager clusterCfgMgr,
+            ConfigurationRegistry nodeConfigRegistry,
+            ConfigurationRegistry clusterConfigRegistry,
             MetaStorageManager metaStorageMgr,
             List<IgniteComponent> components,
             ConfigurationTreeGenerator localConfigurationGenerator,
             LogicalTopologyImpl logicalTopology,
             DistributedConfigurationStorage cfgStorage,
             ConfigurationTreeGenerator distributedConfigurationGenerator,
-            ConfigurationRegistry clusterConfigRegistry,
             HybridClock clock
     ) {
         CompletableFuture<?> startFuture = ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()

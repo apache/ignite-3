@@ -49,7 +49,7 @@ object PlatformCppOdbcTestsTgzLinux : BuildType({
         script {
             name = "Install ODBC and build C++ tests in Ubuntu 22.04 container"
             dockerImage = "docker.gridgain.com/ci/tc-ubuntu22_04-odbc:v1.0"
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% -e GRADLE_OPTS=\"-Dorg.gradle.caching=true\" --ulimit nofile=32768:32768"
             scriptContent = """
                 clang --version
                 clang++ --version
@@ -76,7 +76,7 @@ object PlatformCppOdbcTestsTgzLinux : BuildType({
     }
 
     failureConditions {
-        executionTimeoutMin = 15
+        executionTimeoutMin = 30
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "CMake configuration failed"

@@ -47,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -533,13 +533,12 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
         when(mock.markCheckpointBegin(
-                anyLong(),
                 any(CheckpointProgressImpl.class),
                 any(CheckpointMetricsTracker.class),
                 any(Runnable.class),
                 any(Runnable.class)
         )).then(answer -> {
-            CheckpointProgressImpl progress = answer.getArgument(1);
+            CheckpointProgressImpl progress = answer.getArgument(0);
 
             if (dirtyPages.dirtyPagesCount() > 0) {
                 progress.pagesToWrite(dirtyPages);
@@ -547,8 +546,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 progress.initCounters(dirtyPages.dirtyPagesCount());
             }
 
+            ((Runnable) answer.getArgument(2)).run();
             ((Runnable) answer.getArgument(3)).run();
-            ((Runnable) answer.getArgument(4)).run();
 
             return new Checkpoint(dirtyPages, progress);
         });
@@ -567,9 +566,12 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     private static CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
             PartitionMetaManager partitionMetaManager,
             PartitionDestructionLockManager partitionDestructionLockManager
-    ) {
+    ) throws Exception {
+        WriteDirtyPage writeDirtyPage = mock(WriteDirtyPage.class);
+        when(writeDirtyPage.write(any(), any(), any())).thenReturn(PageWriteTarget.MAIN_FILE);
+
         return new CheckpointPagesWriterFactory(
-                mock(WriteDirtyPage.class),
+                writeDirtyPage,
                 ioRegistry,
                 partitionMetaManager,
                 PAGE_SIZE,

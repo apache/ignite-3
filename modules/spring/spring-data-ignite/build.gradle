@@ -38,3 +38,87 @@ dependencies {
     testImplementation testFixtures(project(':ignite-runner'))
     testImplementation testFixtures(project(':ignite-core'))
 }
+
+// ========================================
+// Spring Data 4.0 Testing Support
+// ========================================
+
+// Create isolated configuration for Spring Data 4.0 testing
+configurations {
+    springData4Implementation {
+        canBeResolved = true
+        canBeConsumed = false
+    }
+    springData4RuntimeClasspath {
+        extendsFrom springData4Implementation
+        canBeResolved = true
+        canBeConsumed = false
+    }
+}
+
+configurations.springData4RuntimeClasspath {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.module.group == 'org.springframework.boot' ||
+            details.requested.module.group == 'org.springframework.data') {
+            if (details.requested.module.toString().contains('spring-boot')) {
+                details.useVersion '4.0.2'
+                details.because 'Testing against Spring Boot 4.0.2'
+            } else if (details.requested.module.toString().contains('spring-data')) {
+                details.useVersion '4.0.2'
+                details.because 'Testing against Spring Data 4.0.2'
+            }
+        }
+    }
+}
+
+// Spring Data 4.0 dependencies - completely separate from default
+dependencies {
+    springData4Implementation project(':ignite-client')
+    springData4Implementation project(":ignite-jdbc")
+
+    // Spring Boot 4.0.2 with Spring Data 4.0.2
+    springData4Implementation platform("org.springframework.boot:spring-boot-dependencies:4.0.2")
+    springData4Implementation 'org.springframework.boot:spring-boot'
+    springData4Implementation 'org.springframework.boot:spring-boot-autoconfigure'
+    springData4Implementation('org.springframework.boot:spring-boot-starter-data-jdbc') {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+        exclude group: 'ch.qos.logback', module: 'logback-classic'
+    }
+    springData4Implementation libs.bundles.junit6
+    springData4Implementation libs.assertj.core
+    springData4Implementation libs.bundles.log4j
+    springData4Implementation 'org.springframework.boot:spring-boot-test'
+    springData4Implementation testFixtures(project(':ignite-runner'))
+    springData4Implementation testFixtures(project(':ignite-core'))
+}
+
+// Test task for Spring Data 4.0
+tasks.register('testSpringData4', Test) {
+    description = 'Runs tests against Spring Data 4.0.2 (Spring Boot 4.0.2) with JUnit 6'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = configurations.springData4Implementation + sourceSets.main.output + sourceSets.test.output
+
+    systemProperty 'spring.data.version', '4.0.2'
+    useJUnitPlatform()
+
+    // Add version info to test output
+    testLogging {
+        events "passed", "skipped", "failed"
+        displayGranularity 2
+    }
+}
+
+// Default test task uses Spring Data 3.5
+tasks.named('test') {
+    systemProperty 'spring.data.version', '3.5.5'
+
+    // Add version info to test output
+    testLogging {
+        events "passed", "skipped", "failed"
+        displayGranularity 2
+    }
+
+    finalizedBy testSpringData4
+}

@@ -80,7 +80,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
     private StorageIndexDescriptorSupplier indexDescriptorSupplier;
 
-    @SuppressWarnings("JUnitMalformedDeclaration")
+    @SuppressWarnings({"JUnitMalformedDeclaration", "PMD.UnusedFormalParameter"})
     @BeforeEach
     void setUp(
             TestInfo testInfo,

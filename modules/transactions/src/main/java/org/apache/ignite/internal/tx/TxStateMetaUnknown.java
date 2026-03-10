@@ -44,6 +44,7 @@ public class TxStateMetaUnknown extends TxStateMeta {
     public TxStateMetaMessage toTransactionMetaMessage(ReplicaMessagesFactory replicaMessagesFactory, TxMessagesFactory txMessagesFactory) {
         return txMessagesFactory
                 .txStateMetaUnknownMessage()
+                .txState(TxState.UNKNOWN)
                 .build();
     }
 }

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.core.call;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
@@ -34,7 +33,7 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     private ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
-    private Supplier<I> inputProvider;
+    private I input;
 
     private PrintWriter output = wrapOutputStream(System.out);
 
@@ -57,8 +56,8 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
         return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
     }
 
-    public SingleCallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
-        this.inputProvider = inputProvider;
+    public SingleCallExecutionPipelineBuilder<I, T> input(I input) {
+        this.input = input;
         return this;
     }
 
@@ -118,6 +117,6 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     @Override
     public CallExecutionPipeline<I, T> build() {
-        return new SingleCallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
+        return new SingleCallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, input, verbose);
     }
 }

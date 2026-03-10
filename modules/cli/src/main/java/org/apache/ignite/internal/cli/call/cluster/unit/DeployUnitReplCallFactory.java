@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 
 /** Factory for {@link DeployUnitCall} in REPL mode. */
 @Singleton
-public class DeployUnitReplCallFactory {
+public class DeployUnitReplCallFactory implements AsyncCallFactory<DeployUnitCallInput, String> {
     private final DeployUnitCallFactory callFactory;
 
     private final UnitsRegistry registry;
@@ -33,6 +34,7 @@ public class DeployUnitReplCallFactory {
         this.registry = registry;
     }
 
+    @Override
     public DeployUnitReplCall create(ProgressTracker tracker) {
         return new DeployUnitReplCall(callFactory.create(tracker), registry);
     }

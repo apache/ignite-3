@@ -186,12 +186,6 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
         );
     }
 
-    private void sql(String sql) {
-        cluster.doInSession(0, session -> {
-            executeUpdate(sql, session);
-        });
-    }
-
     private static Set<String> dataNodes(IgniteImpl ignite, int zoneId, HybridTimestamp ts) {
         CompletableFuture<Set<String>> dataNodesBeforeStopFut = ignite
                 .distributionZoneManager()
