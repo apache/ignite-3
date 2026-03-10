@@ -81,7 +81,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
     private final MetricManager metricManager;
 
-    private ReadOnlyServiceMetricSource metrics;
+    private final ReadOnlyServiceMetricSource metrics;
 
     private volatile RaftException error;
 

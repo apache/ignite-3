@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
@@ -85,7 +84,7 @@ public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setup() {
         this.timerManager = new TimerManager(5);
-        this.replicatorGroup = new ReplicatorGroupImpl(new TestMetricManager());
+        this.replicatorGroup = new ReplicatorGroupImpl();
         final ReplicatorGroupOptions rgOpts = new ReplicatorGroupOptions();
         rgOpts.setHeartbeatTimeoutMs(heartbeatTimeout(this.options.getElectionTimeoutMs()));
         rgOpts.setElectionTimeoutMs(this.options.getElectionTimeoutMs());
@@ -103,6 +102,7 @@ public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
 
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
+        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         mockSendEmptyEntries();

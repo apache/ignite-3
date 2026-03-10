@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -59,12 +58,6 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
     private final Map<PeerId, ReplicatorType> failureReplicators = new ConcurrentHashMap<>();
     /** This set is used only for logging. */
     private final Set<PeerId> failureReplicatorsSetToPreventLogFlooding = ConcurrentHashMap.newKeySet();
-
-    private final MetricManager metricManager;
-
-    public ReplicatorGroupImpl(MetricManager metricManager) {
-        this.metricManager = metricManager;
-    }
 
     @Override
     public boolean init(final NodeId nodeId, final ReplicatorGroupOptions opts) {

@@ -1105,7 +1105,7 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.info("Init node with empty conf [node={}, lastCommittedIndex={}].", getNodeId(), getLastCommittedIndexOnInit());
         }
 
-        this.replicatorGroup = new ReplicatorGroupImpl(metricManager);
+        this.replicatorGroup = new ReplicatorGroupImpl();
         this.rpcClientService = new DefaultRaftClientService();
         final ReplicatorGroupOptions rgOpts = new ReplicatorGroupOptions();
         rgOpts.setHeartbeatTimeoutMs(heartbeatTimeout(this.options.getElectionTimeoutMs()));
