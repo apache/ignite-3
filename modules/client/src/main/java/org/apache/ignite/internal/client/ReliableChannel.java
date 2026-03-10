@@ -229,8 +229,14 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public List<ClusterNode> connections() {
         List<ClusterNode> res = new ArrayList<>(channels.size());
+        Set<ClientChannelHolder> set = new HashSet<>();
 
         for (var holder : channels) {
+            if (!set.add(holder)) {
+                // Duplicate address in config.
+                continue;
+            }
+
             var chFut = holder.chFut;
 
             if (chFut != null) {
