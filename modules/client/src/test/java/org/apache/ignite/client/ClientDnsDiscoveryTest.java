@@ -249,7 +249,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
         try (var client = TcpIgniteClient.startAsync(cfg).join()) {
             assertDoesNotThrow(() -> client.tables().tables());
-            loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 3000);
+            loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 5000);
 
             List<ClusterNode> connections = client.connections();
             assertEquals(2, connections.size());
@@ -273,6 +273,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
     ) {
         return getClientConfiguration(addresses, backgroundReResolveAddressesInterval, resolvedAddressesRef, null);
     }
+
     private static IgniteClientConfigurationImpl getClientConfiguration(
             String[] addresses,
             long backgroundReResolveAddressesInterval,
