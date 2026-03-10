@@ -4,8 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  integration-tests:
-    name: Integration Tests
+  core:
+    name: Core
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -24,12 +24,354 @@ jobs:
           cache-read-only: true
 
       - name: Run integration tests
-        run: ./gradlew --continue integrationTest
+        run: >-
+          ./gradlew --continue
+          :ignite-eventlog:integrationTest
+          :ignite-failure-handler:integrationTest
+          :ignite-workers:integrationTest
+          :ignite-configuration-annotation-processor:integrationTest
+          :ignite-file-transfer:integrationTest
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-reports
+          name: integration-test-reports-core
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  network:
+    name: Network
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-network:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-network
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  storage:
+    name: Storage
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-page-memory:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-storage
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  sql:
+    name: SQL
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-sql-engine:integrationTest
+          :ignite-catalog:integrationTest
+          :ignite-catalog-compaction:integrationTest
+          :ignite-catalog-dsl:integrationTest
+          :ignite-jdbc:integrationTest
+          :ignite-schema-sync:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-sql
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  raft-replication:
+    name: Raft & Replication
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-raft:integrationTest
+          :ignite-replicator:integrationTest
+          :ignite-partition-replicator:integrationTest
+          :ignite-metastorage:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-raft-replication
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  table-index:
+    name: Table & Index
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-table:integrationTest
+          :ignite-index:integrationTest
+          :ignite-distribution-zones:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-table-index
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  compute-deployment:
+    name: Compute & Deployment
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-compute:integrationTest
+          :ignite-code-deployment:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-compute-deployment
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  client:
+    name: Client
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-client-handler:integrationTest
+          :ignite-rest:integrationTest
+          :ignite-cli:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-client
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  runner:
+    name: Runner
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue
+          :ignite-runner:integrationTest
+          :ignite-cluster-management:integrationTest
+          :ignite-placement-driver:integrationTest
+          :ignite-security:integrationTest
+          :ignite-transactions:integrationTest
+          :ignite-system-disaster-recovery:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-runner
+          retention-days: 7
+          path: '**/build/reports/tests/integrationTest/'
+
+  misc:
+    name: Misc
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run integration tests
+        run: >-
+          ./gradlew --continue integrationTest
+          -x :ignite-eventlog:integrationTest
+          -x :ignite-failure-handler:integrationTest
+          -x :ignite-workers:integrationTest
+          -x :ignite-configuration-annotation-processor:integrationTest
+          -x :ignite-file-transfer:integrationTest
+          -x :ignite-network:integrationTest
+          -x :ignite-page-memory:integrationTest
+          -x :ignite-sql-engine:integrationTest
+          -x :ignite-catalog:integrationTest
+          -x :ignite-catalog-compaction:integrationTest
+          -x :ignite-catalog-dsl:integrationTest
+          -x :ignite-jdbc:integrationTest
+          -x :ignite-schema-sync:integrationTest
+          -x :ignite-raft:integrationTest
+          -x :ignite-replicator:integrationTest
+          -x :ignite-partition-replicator:integrationTest
+          -x :ignite-metastorage:integrationTest
+          -x :ignite-table:integrationTest
+          -x :ignite-index:integrationTest
+          -x :ignite-distribution-zones:integrationTest
+          -x :ignite-compute:integrationTest
+          -x :ignite-code-deployment:integrationTest
+          -x :ignite-client-handler:integrationTest
+          -x :ignite-rest:integrationTest
+          -x :ignite-cli:integrationTest
+          -x :ignite-runner:integrationTest
+          -x :ignite-cluster-management:integrationTest
+          -x :ignite-placement-driver:integrationTest
+          -x :ignite-security:integrationTest
+          -x :ignite-transactions:integrationTest
+          -x :ignite-system-disaster-recovery:integrationTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports-misc
           retention-days: 7
           path: '**/build/reports/tests/integrationTest/'
