@@ -60,11 +60,6 @@ tasks.register('deploymentUnitJar', Jar) {
 // Make build task depend on deploymentUnitJar
 build.dependsOn deploymentUnitJar
 
-// Ensure deploymentUnitJar is built before any example class is run directly
-tasks.withType(JavaExec).configureEach {
-    dependsOn deploymentUnitJar
-}
-
 dependencies {
     implementation project(':ignite-runner')
     implementation project(':ignite-client')
