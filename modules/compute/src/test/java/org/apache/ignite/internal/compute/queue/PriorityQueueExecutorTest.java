@@ -234,7 +234,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 try {
                     latch.await();
                 } catch (InterruptedException e) {
-                    return completedFuture(0);
+                    throw new CancellationException();
                 }
             }
         });
@@ -257,8 +257,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
             try {
                 new CountDownLatch(1).await();
-            } catch (InterruptedException ignored) {
-                // ignored
+            } catch (InterruptedException e) {
+                throw new CancellationException();
             }
             return null;
         });
