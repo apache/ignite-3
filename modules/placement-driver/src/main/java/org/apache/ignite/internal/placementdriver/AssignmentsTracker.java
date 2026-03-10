@@ -72,8 +72,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(AssignmentsTracker.class);
 
-    // TODO Not sure whether it should be instantiated here or propagated from PDM.
-    // TODO Use it on stop, etc.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28126 Not sure whether it should be instantiated here or propagated from PDM.
+    //  Use it on stop, etc.
     /** Busy lock to linearize service public API calls and service stop. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 

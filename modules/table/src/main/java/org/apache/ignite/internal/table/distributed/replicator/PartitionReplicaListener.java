@@ -738,9 +738,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 if (newestCommitTimestamp == null) {
                     candidate = null;
                 } else {
-                    // TODO: Calling "cursor.committed" here may lead to performance degradation in presence of many write intents.
-                    //  This part should probably moved inside the "() -> candidate" lambda.
-                    //  See https://issues.apache.org/jira/browse/IGNITE-26052.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-26052 Calling "cursor.committed" here may lead to performance
+                    //  degradation in presence of many write intents. This part should probably moved inside the "() -> candidate" lambda.
                     BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
 
                     candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);

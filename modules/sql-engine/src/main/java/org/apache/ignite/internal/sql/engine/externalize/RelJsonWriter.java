@@ -43,7 +43,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
  */
 public class RelJsonWriter implements RelWriter {
     private static final boolean PRETTY_PRINT = false;
-    // TODO: IgniteSystemProperties.getBoolean("IGNITE_CALCITE_REL_JSON_PRETTY_PRINT", false);
+    // IgniteSystemProperties.getBoolean("IGNITE_CALCITE_REL_JSON_PRETTY_PRINT", false);
 
     private final RelJson relJson;
 
