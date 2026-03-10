@@ -49,7 +49,7 @@ public class ItThinClientTablesTest extends ItAbstractThinClientTest {
         IgniteSql sql = client.sql();
 
         // Create zone and table with 5 partitions
-        sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS " + replicas() + ", PARTITIONS 5)");
+        sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS 1, PARTITIONS 5) STORAGE PROFILES ['default']");
         sql.execute("CREATE TABLE " + TEST_TABLE + "(id INT PRIMARY KEY, val VARCHAR) ZONE " + TEST_ZONE);
 
         // Perform operations to ensure client caches partition info
@@ -66,7 +66,7 @@ public class ItThinClientTablesTest extends ItAbstractThinClientTest {
         // Drop an recreate with different partition count
         sql.execute("DROP TABLE " + TEST_TABLE);
         sql.execute("DROP ZONE " + TEST_ZONE);
-        sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS " + replicas() + ", PARTITIONS 10)");
+        sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS 1, PARTITIONS 10)  STORAGE PROFILES ['default']");
         sql.execute("CREATE TABLE " + TEST_TABLE + "(id INT PRIMARY KEY, val VARCHAR) ZONE " + TEST_ZONE);
 
         // Get the table again - this should refresh cached metadata
