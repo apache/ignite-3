@@ -197,7 +197,9 @@ public class ClientPrimaryReplicaTracker {
                     throw new CompletionException(cause);
                 }
 
-                assert false : "Unexpected error: " + err;
+                throw err instanceof CompletionException
+                        ? (CompletionException) err
+                        : new CompletionException(err);
             }
 
             PrimaryReplicasResult res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
