@@ -36,7 +36,7 @@ public class ReadOnlyServiceMetricSourceTest {
     void testMetricSourceName() {
         var metricSource = new ReadOnlyServiceMetricSource(GROUP_ID);
 
-        assertThat(metricSource.name(), is("raft.readOnlyService." + GROUP_ID));
+        assertThat(metricSource.name(), is("raft.readonlyservice." + GROUP_ID));
     }
 
     @Test

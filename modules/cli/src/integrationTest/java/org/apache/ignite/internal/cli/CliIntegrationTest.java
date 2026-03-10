@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,10 +28,13 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
@@ -49,6 +53,8 @@ import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.cluster.management.CmgGroupId;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -371,6 +377,75 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 new Person(idx++, "Roma", 10.0d),
                 new Person(idx, "Roma", 10.0d)
         );
+    }
+
+    public static MetricSource[] getExpectedClusterMetrics() {
+        Set<MetricSource> result = new HashSet<>();
+
+        for (var node : CLUSTER.nodes()) {
+            result.addAll(List.of(getExpectedNodeMetrics(node)));
+        }
+
+        return result.toArray(MetricSource[]::new);
+    }
+
+    public static MetricSource[] getExpectedNodeMetrics(Ignite ignite) {
+        MetricSource[] commonMetrics = {new MetricSource().name("jvm").enabled(true),
+                new MetricSource().name("os").enabled(true),
+                new MetricSource().name("raft").enabled(true),
+                new MetricSource().name("metastorage").enabled(true),
+                new MetricSource().name("client.handler").enabled(true),
+                new MetricSource().name("sql.client").enabled(true),
+                new MetricSource().name("sql.plan.cache").enabled(true),
+                new MetricSource().name("sql.queries").enabled(true),
+                new MetricSource().name("storage.aipersist").enabled(true),
+                new MetricSource().name("storage.aipersist.default").enabled(true),
+                new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
+                new MetricSource().name("storage.aipersist.checkpoint").enabled(true),
+                new MetricSource().name("storage.aipersist.io").enabled(true),
+                new MetricSource().name("topology.cluster").enabled(true),
+                new MetricSource().name("topology.local").enabled(true),
+                new MetricSource().name("thread.pools.partitions-executor").enabled(true),
+                new MetricSource().name("thread.pools.sql-executor").enabled(true),
+                new MetricSource().name("thread.pools.sql-planning-executor").enabled(true),
+                new MetricSource().name("transactions").enabled(true),
+                new MetricSource().name("placement-driver").enabled(true),
+                new MetricSource().name("resource.vacuum").enabled(true),
+                new MetricSource().name("zones.Default").enabled(true),
+                new MetricSource().name("clock.service").enabled(true),
+                new MetricSource().name("index.builder").enabled(true),
+                new MetricSource().name("raft.snapshots").enabled(true),
+                new MetricSource().name("messaging").enabled(true),
+                new MetricSource().name("log.storage").enabled(true),
+                new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default").enabled(true),
+                new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits").enabled(true),
+                new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube").enabled(true),
+                new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound").enabled(true),
+                new MetricSource().name("raft.fsmcaller.disruptor").enabled(true),
+                new MetricSource().name("raft.logmanager.disruptor").enabled(true),
+                new MetricSource().name("raft.readonlyservice.disruptor").enabled(true),
+                new MetricSource().name("raft.node.disruptor").enabled(true),
+        };
+
+        List<MetricSource> metrics = new ArrayList<>(Arrays.asList(commonMetrics));
+
+        for (var node : unwrapIgniteImpl(ignite).raftManager().localNodes()) {
+            metrics.add(new MetricSource().name("raft.fsmcaller." + node.groupId().toString()).enabled(true));
+            metrics.add(new MetricSource().name("raft.logmanager." + node.groupId().toString()).enabled(true));
+            metrics.add(new MetricSource().name("raft.node." + node.groupId().toString()).enabled(true));
+            metrics.add(new MetricSource().name("raft.replicator." + node.groupId().toString()).enabled(true));
+            metrics.add(new MetricSource().name("raft.readonlyservice." + node.groupId().toString()).enabled(true));
+
+            if (node.groupId() == MetastorageGroupId.INSTANCE || node.groupId() == CmgGroupId.INSTANCE) {
+                metrics.add(new MetricSource().name("raft.readonlyservice." + node.groupId().toString() + ".disruptor").enabled(true));
+                metrics.add(new MetricSource().name("raft.logmanager." + node.groupId().toString() + ".disruptor").enabled(true));
+                metrics.add(new MetricSource().name("raft.node." + node.groupId().toString() + ".disruptor").enabled(true));
+                metrics.add(new MetricSource().name("raft.replicator." + node.groupId().toString() + ".disruptor").enabled(true));
+                metrics.add(new MetricSource().name("raft.fsmcaller." + node.groupId().toString() + ".disruptor").enabled(true));
+            }
+        }
+
+        return metrics.toArray(MetricSource[]::new);
     }
 
     protected static PrintWriter output(List<Character> buffer) {

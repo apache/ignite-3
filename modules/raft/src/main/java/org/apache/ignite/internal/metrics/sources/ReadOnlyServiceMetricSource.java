@@ -26,7 +26,7 @@ import org.apache.ignite.internal.metrics.Metric;
  * Metrics of read only service.
  */
 public class ReadOnlyServiceMetricSource extends AbstractMetricSource<ReadOnlyServiceMetricSource.Holder> {
-    public static final String SOURCE_NAME = "raft.readOnlyService";
+    public static final String SOURCE_NAME = "raft.readonlyservice";
 
     /**
      * Constructor.
