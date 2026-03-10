@@ -271,7 +271,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         (Function<ClusterConfigUpdateCallInput, String>) ClusterConfigUpdateCallInput::getClusterUrl
                 ),
                 arguments(
-                        "cluster rename",
+                        "cluster rename --name=cluster2",
                         ClusterRenameCall.class,
                         ClusterRenameCallInput.class,
                         (Function<ClusterRenameCallInput, String>) ClusterRenameCallInput::getClusterUrl
