@@ -19,15 +19,21 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.NotificationEnqueuedListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -36,6 +42,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Default implementation of {@link SchemaSafeTimeTracker}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1900)
 public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteComponent, NotificationEnqueuedListener {
     private final ClusterTime clusterTime;
 
@@ -45,6 +54,14 @@ public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteC
     private CompletableFuture<Void> schemaSafeTimeUpdateFuture = nullCompletedFuture();
 
     private final Object futureMutex = new Object();
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public SchemaSafeTimeTrackerImpl(MetaStorageManager metaStorageManager) {
+        this(metaStorageManager.clusterTime());
+    }
 
     public SchemaSafeTimeTrackerImpl(ClusterTime clusterTime) {
         this.clusterTime = clusterTime;

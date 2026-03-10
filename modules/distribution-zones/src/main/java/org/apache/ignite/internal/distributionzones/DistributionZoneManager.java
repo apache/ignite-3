@@ -58,6 +58,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -114,6 +117,10 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -121,6 +128,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Distribution zones manager.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1100)
 public class DistributionZoneManager extends
         AbstractEventProducer<HaZoneTopologyUpdateEvent, HaZoneTopologyUpdateEventParams> implements IgniteComponent {
     /** The logger. */
@@ -191,6 +201,36 @@ public class DistributionZoneManager extends
     @TestOnly
     @Nullable
     private Predicate<NodeWithAttributes> additionalNodeFilter = null;
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public DistributionZoneManager(
+            NodeIdentity nodeIdentity,
+            TopologyService topologyService,
+            MetaStorageManager metaStorageManager,
+            LogicalTopologyService logicalTopologyService,
+            FailureProcessor failureProcessor,
+            CatalogManager catalogManager,
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            ClockService clockService,
+            MetricManager metricManager,
+            LowWatermark lowWatermark
+    ) {
+        this(
+                nodeIdentity.nodeName(),
+                () -> topologyService.localMember().id(),
+                metaStorageManager,
+                logicalTopologyService,
+                failureProcessor,
+                catalogManager,
+                systemDistributedConfiguration,
+                clockService,
+                metricManager,
+                lowWatermark
+        );
+    }
 
     /**
      * Constructor.

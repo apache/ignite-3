@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.util.Cursor;
  * {@link RebalanceMinimumRequiredTimeProvider} implementation for the current implementation of assignments. Assumes that each table has
  * its own assignments, but assignments within a zone are still somehow coordinated.
  */
+@Singleton
 public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimumRequiredTimeProvider {
     private final MetaStorageManager metaStorageManager;
     private final CatalogService catalogService;
@@ -57,6 +60,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     /**
      * Constructor.
      */
+    @Inject
     public RebalanceMinimumRequiredTimeProviderImpl(MetaStorageManager metaStorageManager, CatalogService catalogService) {
         this.metaStorageManager = metaStorageManager;
         this.catalogService = catalogService;

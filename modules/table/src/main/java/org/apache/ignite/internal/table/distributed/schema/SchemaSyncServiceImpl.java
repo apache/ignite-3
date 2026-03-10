@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -26,10 +29,22 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 /**
  * A default implementation of {@link SchemaSyncService}.
  */
+@Singleton
 public class SchemaSyncServiceImpl implements SchemaSyncService {
     private final SchemaSafeTimeTracker schemaSafeTimeTracker;
 
     private final LongSupplier delayDurationMs;
+
+    /**
+     * Constructor for dependency injection.
+     */
+    @Inject
+    public SchemaSyncServiceImpl(
+            SchemaSafeTimeTracker schemaSafeTimeTracker,
+            SchemaSynchronizationConfiguration schemaSyncConfig
+    ) {
+        this(schemaSafeTimeTracker, () -> schemaSyncConfig.delayDurationMillis().value());
+    }
 
     /**
      * Constructor.
