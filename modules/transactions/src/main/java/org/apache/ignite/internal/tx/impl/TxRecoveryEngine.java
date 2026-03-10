@@ -92,7 +92,7 @@ public class TxRecoveryEngine {
                         // Tx recovery is executed on the commit partition.
                         commitPartitionId,
                         false,
-                        false,
+                        null,
                         true,
                         false,
                         enlistedGroupsMap,
