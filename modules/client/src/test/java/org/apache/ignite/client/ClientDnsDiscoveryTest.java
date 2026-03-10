@@ -249,15 +249,15 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
 
         try (var client = TcpIgniteClient.startAsync(cfg).join()) {
             assertDoesNotThrow(() -> client.tables().tables());
-            assertEquals("server3", client.connections().get(0).name());
-
-            // Verify that a warning about multiple endpoints resolving to the same node was logged.
             loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 3000);
 
-            channelHolders = IgniteTestUtils.getFieldValue(((TcpIgniteClient) client).channel(), "channels");
+            List<ClusterNode> connections = client.connections();
+            assertEquals(2, connections.size());
+            assertEquals("server3", connections.get(0).name());
+            assertEquals("server3", connections.get(1).name());
 
-            // Verify that both channel holders exist (one for each endpoint).
-            assertEquals(2, channelHolders.size(), "Expected 2 channel holders for 2 distinct endpoints");
+            channelHolders = IgniteTestUtils.getFieldValue(((TcpIgniteClient) client).channel(), "channels");
+            assertEquals(2, channelHolders.size());
         }
 
         for (Object holder : channelHolders) {
