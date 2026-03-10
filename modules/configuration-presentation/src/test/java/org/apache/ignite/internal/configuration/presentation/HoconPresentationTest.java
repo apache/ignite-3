@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.exception.ConfigurationApplyException;
 import org.apache.ignite.internal.configuration.exception.ConfigurationParseException;
@@ -86,7 +87,7 @@ public class HoconPresentationTest {
 
         generator = new ConfigurationTreeGenerator(TestRootConfiguration.KEY);
 
-        cfgRegistry = new ConfigurationRegistry(
+        cfgRegistry = new ConfigurationRegistryImpl(
                 List.of(TestRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,

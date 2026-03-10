@@ -74,6 +74,7 @@ import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -1232,6 +1233,7 @@ public class IgniteImpl implements Ignite {
      * "ignite{clientConnector{connectTimeoutMillis=5000,idleTimeoutMillis=0}}".
      */
     private static String convertToHoconString(ConfigurationRegistry configRegistry) {
-        return HoconConverter.represent(configRegistry.superRoot(), List.of()).render(ConfigRenderOptions.concise().setJson(false));
+        return HoconConverter.represent(((ConfigurationRegistryImpl) configRegistry).superRoot(), List.of())
+                .render(ConfigRenderOptions.concise().setJson(false));
     }
 }

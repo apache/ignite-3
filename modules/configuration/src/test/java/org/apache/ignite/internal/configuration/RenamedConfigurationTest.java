@@ -304,7 +304,7 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     private ConfigurationRegistry startRegistry(RootKey<?, ?, ?> rootKey, ConfigurationTreeGenerator generator) {
-        var registry = new ConfigurationRegistry(Set.of(rootKey), storage, generator, new TestConfigurationValidator());
+        var registry = new ConfigurationRegistryImpl(Set.of(rootKey), storage, generator, new TestConfigurationValidator());
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());

@@ -35,6 +35,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.direct.DirectPropertiesTest;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -90,7 +91,7 @@ public class InternalIdTest {
                 List.of(InternalIdFooConfigurationSchema.class)
         );
 
-        registry = new ConfigurationRegistry(
+        registry = new ConfigurationRegistryImpl(
                 List.of(InternalIdParentConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,

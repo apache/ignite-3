@@ -45,16 +45,15 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Configuration registry.
+ * Configuration registry implementation.
  */
-public class ConfigurationRegistry implements IgniteComponent {
+public class ConfigurationRegistryImpl implements ConfigurationRegistry {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationRegistry.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationRegistryImpl.class);
 
     /** Generated configuration implementations. Mapping: {@link RootKey#key} -> configuration implementation. */
     private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
@@ -67,7 +66,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** Constructor. */
     @TestOnly
-    public ConfigurationRegistry(
+    public ConfigurationRegistryImpl(
             Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
@@ -79,7 +78,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Constructor.
      */
-    public ConfigurationRegistry(
+    public ConfigurationRegistryImpl(
             Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
@@ -132,6 +131,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Returns a future that resolves after the defaults are persisted to the storage.
      */
+    @Override
     public CompletableFuture<Void> onDefaultsPersisted() {
         return changer.onDefaultsPersisted();
     }
@@ -143,6 +143,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      *
      * @param configurationSource the configuration source to initialize with.
      */
+    @Override
     public void initializeConfigurationWith(ConfigurationSource configurationSource) {
         changer.initializeConfigurationWith(configurationSource);
     }
@@ -156,6 +157,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
+    @Override
     public <V, C extends V, T extends ConfigurationTree<? super V, ? super C>> T getConfiguration(RootKey<T, V, C> rootKey) {
         return (T) configs.get(rootKey.key());
     }
@@ -175,6 +177,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param changesSrc Configuration source to create patch from it.
      * @return Future that is completed on change completion.
      */
+    @Override
     public CompletableFuture<Void> change(ConfigurationSource changesSrc) {
         return changer.change(changesSrc);
     }
@@ -185,6 +188,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param change Closure that would consume a mutable super root instance.
      * @return Future that is completed on change completion.
      */
+    @Override
     public CompletableFuture<Void> change(Consumer<SuperRootChange> change) {
         return change(new ConfigurationSource() {
             @Override
@@ -252,6 +256,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /** Determines if key should be ignored. */
+    @Override
     public KeyIgnorer keyIgnorer() {
         return keyIgnorer;
     }
@@ -262,6 +267,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * <p>Monotonically increasing value that should be incremented each time an attempt is made to notify all listeners of the
      * configuration. Allows to guarantee that new listeners will be called only on the next notification of all configuration listeners.
      */
+    @Override
     public long notificationCount() {
         return changer.notificationCount();
     }
@@ -275,13 +281,13 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param configurationValidator the validator ensuring the correctness of configuration updates.
      * @return a new {@code ConfigurationRegistry} instance initialized with the specified parameters.
      */
-    public static ConfigurationRegistry create(
+    public static ConfigurationRegistryImpl create(
             ConfigurationModule configurationModule,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
-        return new ConfigurationRegistry(
+        return new ConfigurationRegistryImpl(
                 configurationModule.rootKeys(),
                 storage,
                 generator,

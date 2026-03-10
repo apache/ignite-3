@@ -29,6 +29,7 @@ import org.apache.ignite3.configuration.annotation.ConfigurationType;
 import org.apache.ignite3.configuration.validation.Validator;
 import org.apache.ignite3.internal.configuration.ConfigurationModules;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite3.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite3.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidator;
@@ -114,7 +115,8 @@ public class Ignite3ConfigurationUtils {
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, myValidators);
 
-        var nodeConfigRegistry = new ConfigurationRegistry(module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
+        var nodeConfigRegistry = new ConfigurationRegistryImpl(
+                module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
                 localConfigurationValidator, c -> {}, s -> false);
 
         nodeConfigRegistry.startAsync(new ComponentContext()).join();

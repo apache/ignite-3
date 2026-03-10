@@ -24,6 +24,7 @@ import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationCon
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -48,7 +49,7 @@ public class MetaStorageFactory {
             @Named("distributed") ConfigurationTreeGenerator generator,
             @Named("distributed") ConfigurationValidator validator
     ) {
-        return ConfigurationRegistry.create(modules.distributed(), cfgStorage, generator, validator);
+        return ConfigurationRegistryImpl.create(modules.distributed(), cfgStorage, generator, validator);
     }
 
     /** Creates the schema synchronization configuration from the cluster config registry. */

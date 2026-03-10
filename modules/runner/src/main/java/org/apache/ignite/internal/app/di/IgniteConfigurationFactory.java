@@ -23,6 +23,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -88,6 +89,6 @@ public class IgniteConfigurationFactory {
             @Named("local") ConfigurationTreeGenerator generator,
             @Named("local") ConfigurationValidator validator
     ) {
-        return ConfigurationRegistry.create(modules.local(), storage, generator, validator);
+        return ConfigurationRegistryImpl.create(modules.local(), storage, generator, validator);
     }
 }

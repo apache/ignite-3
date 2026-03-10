@@ -110,7 +110,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
@@ -373,7 +373,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        var nodeConfigRegistry = new ConfigurationRegistry(
+        var nodeConfigRegistry = new ConfigurationRegistryImpl(
                 modules.local().rootKeys(),
                 new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
@@ -549,7 +549,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        var clusterConfigRegistry = new ConfigurationRegistry(
+        var clusterConfigRegistry = new ConfigurationRegistryImpl(
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,

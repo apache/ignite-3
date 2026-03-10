@@ -57,7 +57,7 @@ public class ConfigurationRegistryTest {
     void testValidationInternalConfigurationExtensions() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new ConfigurationRegistry(
+                () -> new ConfigurationRegistryImpl(
                         List.of(SecondRootConfiguration.KEY),
                         new TestConfigurationStorage(LOCAL),
                         new ConfigurationTreeGenerator(
@@ -70,7 +70,7 @@ public class ConfigurationRegistryTest {
         );
 
         // Check that everything is fine.
-        ConfigurationRegistry configRegistry = new ConfigurationRegistry(
+        ConfigurationRegistry configRegistry = new ConfigurationRegistryImpl(
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(
@@ -89,7 +89,7 @@ public class ConfigurationRegistryTest {
         // There is a polymorphic extension that is missing from the schema.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new ConfigurationRegistry(
+                () -> new ConfigurationRegistryImpl(
                         List.of(ThirdRootConfiguration.KEY),
                         new TestConfigurationStorage(LOCAL),
                         new ConfigurationTreeGenerator(
@@ -104,7 +104,7 @@ public class ConfigurationRegistryTest {
         // There are two polymorphic extensions with the same id.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new ConfigurationRegistry(
+                () -> new ConfigurationRegistryImpl(
                         List.of(ThirdRootConfiguration.KEY),
                         new TestConfigurationStorage(LOCAL),
                         new ConfigurationTreeGenerator(
@@ -117,7 +117,7 @@ public class ConfigurationRegistryTest {
         );
 
         // Check that everything is fine.
-        ConfigurationRegistry configRegistry = new ConfigurationRegistry(
+        ConfigurationRegistry configRegistry = new ConfigurationRegistryImpl(
                 List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(
@@ -141,7 +141,7 @@ public class ConfigurationRegistryTest {
     void missingPolymorphicExtension() {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> new ConfigurationRegistry(
+                () -> new ConfigurationRegistryImpl(
                         List.of(ThirdRootConfiguration.KEY),
                         new TestConfigurationStorage(LOCAL),
                         new ConfigurationTreeGenerator(ThirdRootConfiguration.KEY),
@@ -164,7 +164,7 @@ public class ConfigurationRegistryTest {
                 "sixth.poly.intVal", 1
         );
 
-        ConfigurationRegistry registry = new ConfigurationRegistry(
+        ConfigurationRegistry registry = new ConfigurationRegistryImpl(
                 List.of(SixthRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL, bootstrapConfig),
                 new ConfigurationTreeGenerator(
@@ -194,7 +194,7 @@ public class ConfigurationRegistryTest {
 
     @Test
     void testPolymorphicGet() {
-        ConfigurationRegistry registry = new ConfigurationRegistry(
+        ConfigurationRegistry registry = new ConfigurationRegistryImpl(
                 List.of(SixthRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(
@@ -228,7 +228,7 @@ public class ConfigurationRegistryTest {
     void testChangeSuperRoot() {
         TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
-        var registry = new ConfigurationRegistry(
+        var registry = new ConfigurationRegistryImpl(
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
                 storage,
                 new ConfigurationTreeGenerator(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),

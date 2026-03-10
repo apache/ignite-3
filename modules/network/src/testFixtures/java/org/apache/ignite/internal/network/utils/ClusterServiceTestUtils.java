@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -213,7 +214,7 @@ public class ClusterServiceTestUtils {
                 List.of(NetworkExtensionConfigurationSchema.class),
                 List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
-        ConfigurationRegistry nodeConfigurationRegistry = new ConfigurationRegistry(
+        ConfigurationRegistry nodeConfigurationRegistry = new ConfigurationRegistryImpl(
                 Collections.singleton(NodeConfiguration.KEY),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
                 generator,

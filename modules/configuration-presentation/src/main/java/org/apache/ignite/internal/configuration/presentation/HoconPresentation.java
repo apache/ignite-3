@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.exception.ConfigurationApplyException;
 import org.apache.ignite.internal.configuration.exception.ConfigurationParseException;
 import org.apache.ignite.internal.configuration.exception.ConfigurationValidationIgniteException;
@@ -59,8 +60,10 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
     /** {@inheritDoc} */
     @Override
     public String representByPath(@Nullable String path) {
-        return HoconConverter.represent(registry.superRoot(), path == null ? List.of() : ConfigurationUtil.split(path)).render(
-                ConfigRenderOptions.concise());
+        List<String> pathList = path == null ? List.of() : ConfigurationUtil.split(path);
+
+        return HoconConverter.represent(((ConfigurationRegistryImpl) registry).superRoot(), pathList)
+                .render(ConfigRenderOptions.concise());
     }
 
     /** {@inheritDoc} */

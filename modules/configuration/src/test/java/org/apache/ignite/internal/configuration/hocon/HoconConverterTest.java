@@ -50,6 +50,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -221,7 +222,7 @@ public class HoconConverterTest {
      */
     @BeforeAll
     public static void beforeAll() {
-        registry = new ConfigurationRegistry(
+        registry = new ConfigurationRegistryImpl(
                 List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(
@@ -283,12 +284,12 @@ public class HoconConverterTest {
         assertEquals("[]", asHoconStr(List.of("root", "arraysList")));
 
         assertThrowsIllegalArgException(
-                () -> HoconConverter.represent(registry.superRoot(), List.of("doot")),
+                () -> HoconConverter.represent(((ConfigurationRegistryImpl) registry).superRoot(), List.of("doot")),
                 "Configuration value 'doot' has not been found"
         );
 
         assertThrowsIllegalArgException(
-                () -> HoconConverter.represent(registry.superRoot(), List.of("root", "x")),
+                () -> HoconConverter.represent(((ConfigurationRegistryImpl) registry).superRoot(), List.of("root", "x")),
                 "Configuration value 'root.x' has not been found"
         );
 
@@ -369,7 +370,7 @@ public class HoconConverterTest {
     private static String asHoconStr(List<String> basePath, String... path) {
         List<String> fullPath = Stream.concat(basePath.stream(), Arrays.stream(path)).collect(Collectors.toList());
 
-        ConfigValue hoconCfg = HoconConverter.represent(registry.superRoot(), fullPath);
+        ConfigValue hoconCfg = HoconConverter.represent(((ConfigurationRegistryImpl) registry).superRoot(), fullPath);
 
         return hoconCfg.render(ConfigRenderOptions.concise().setJson(false));
     }

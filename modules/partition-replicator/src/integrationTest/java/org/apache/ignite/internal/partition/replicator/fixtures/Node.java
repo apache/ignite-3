@@ -72,6 +72,7 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
@@ -370,7 +371,7 @@ public class Node {
         Path configPath = dir.resolve("config");
         TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
-        nodeConfigRegistry = new ConfigurationRegistry(
+        nodeConfigRegistry = new ConfigurationRegistryImpl(
                 List.of(NodeConfiguration.KEY),
                 new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                 nodeCfgGenerator,
@@ -577,7 +578,7 @@ public class Node {
                 List.of()
         );
 
-        clusterConfigRegistry = new ConfigurationRegistry(
+        clusterConfigRegistry = new ConfigurationRegistryImpl(
                 List.of(ClusterConfiguration.KEY),
                 cfgStorage,
                 clusterCfgGenerator,

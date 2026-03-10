@@ -44,6 +44,7 @@ import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -106,7 +107,7 @@ public class DirectPropertiesTest {
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationRegistry(
+        registry = new ConfigurationRegistryImpl(
                 List.of(DirectConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(DirectConfiguration.KEY),

@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -93,7 +94,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
                 List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
-        var configurationRegistry = new ConfigurationRegistry(
+        var configurationRegistry = new ConfigurationRegistryImpl(
                 List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,

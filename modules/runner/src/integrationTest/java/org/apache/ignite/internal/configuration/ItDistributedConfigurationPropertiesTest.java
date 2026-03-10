@@ -275,7 +275,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             };
 
             generator = new ConfigurationTreeGenerator(DistributedConfiguration.KEY);
-            distributedConfigRegistry = new ConfigurationRegistry(
+            distributedConfigRegistry = new ConfigurationRegistryImpl(
                     List.of(DistributedConfiguration.KEY),
                     distributedCfgStorage,
                     generator,
