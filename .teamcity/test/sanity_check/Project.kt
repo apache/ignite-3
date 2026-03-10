@@ -24,11 +24,4 @@ object Project : Project({
                 .build().buildType
         )
     }
-
-    buildType(
-        ApacheIgnite3CustomBuildType.Builder(CodeStyleJava17)
-            .ignite3VCS().ignite3Java17().ignite3BuildDependency()
-            .defaultBuildTypeSettings().requireLinux()
-            .build().buildType
-    )
 })

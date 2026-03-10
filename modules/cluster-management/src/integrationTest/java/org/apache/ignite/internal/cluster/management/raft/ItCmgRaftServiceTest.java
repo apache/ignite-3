@@ -74,8 +74,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -108,7 +108,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         private final RaftManager raftManager;
 
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageManager partitionsLogStorageManager;
 
         private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
 
@@ -120,7 +120,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
             workingDir = new ComponentWorkingDir(workDir);
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
@@ -130,7 +130,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         void start() {
             assertThat(
-                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager),
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageManager, raftManager),
                     willCompleteSuccessfully()
             );
         }
@@ -168,7 +168,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             null,
-                            RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
+                            RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath())
                     );
                 }
 
@@ -187,7 +187,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         void stop() {
             assertThat(
-                    stopAsync(new ComponentContext(), raftManager, partitionsLogStorageFactory, clusterStateStorage, clusterService),
+                    stopAsync(new ComponentContext(), raftManager, partitionsLogStorageManager, clusterStateStorage, clusterService),
                     willCompleteSuccessfully()
             );
         }
@@ -359,6 +359,34 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(cluster.get(0).raftService.nodeNames(), containsInAnyOrder(topology));
         assertThat(cluster.get(1).raftService.nodeNames(), containsInAnyOrder(topology));
+    }
+
+    /**
+     * Tests saving and reading a cluster name.
+     */
+    @Test
+    void testClusterName() {
+        Node node1 = cluster.get(0);
+        Node node2 = cluster.get(1);
+
+        assertThat(node1.raftService.readClusterState(), willCompleteSuccessfully());
+        assertThat(node2.raftService.readClusterState(), willCompleteSuccessfully());
+
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
+        ClusterState state = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(List.of("foo")))
+                .metaStorageNodes(Set.copyOf(List.of("bar")))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag)
+                .build();
+
+        assertThat(node1.raftService.initClusterState(state), willCompleteSuccessfully());
+
+        assertThat(node1.raftService.changeClusterName("cluster2"), willCompleteSuccessfully());
+
+        ClusterTag clusterTag2 = ClusterTag.clusterTag(msgFactory, "cluster2", clusterTag.clusterId());
+        assertThat(node1.raftService.readClusterState().thenApply(ClusterState::clusterTag), willBe(clusterTag2));
+        assertThat(node2.raftService.readClusterState().thenApply(ClusterState::clusterTag), willBe(clusterTag2));
     }
 
     /**

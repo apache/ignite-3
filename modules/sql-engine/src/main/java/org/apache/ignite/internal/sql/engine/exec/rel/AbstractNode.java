@@ -62,6 +62,11 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     private List<Node<RowT>> sources;
 
+    // Metrics
+    protected int requestCount = 0;
+    protected int rewindCount = 0;
+    protected long receivedRowsCount = 0L;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -112,6 +117,8 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     /** {@inheritDoc} */
     @Override
     public void rewind() {
+        onRewind();
+
         rewindInternal();
 
         if (!nullOrEmpty(sources())) {
@@ -218,5 +225,44 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             writer.app(indent).app("Sources: ").nl();
             Debuggable.dumpState(writer, Debuggable.childIndentation(indent), sources);
         }
+    }
+
+    @Override
+    public void dumpNodeMetrics(IgniteStringBuilder writer, String indent) {
+        writer.app(indent);
+        dumpMetrics0(writer);
+        writer.nl();
+
+        MetricsAwareNode.dumpChildNodesMetrics(writer, indent, sources);
+    }
+
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        writer.app(this.getClass().getSimpleName()).app(": ");
+
+        writer.app("receivedRows=").app(receivedRowsCount);
+
+        if (requestCount > 0) {
+            writer.app(", requests=").app(requestCount);
+        }
+
+        if (rewindCount > 0) {
+            writer.app(", rewinds=").app(rewindCount);
+        }
+    }
+
+    protected final void onRequestReceived() {
+        requestCount++;
+    }
+
+    protected final void onRowReceived() {
+        receivedRowsCount++;
+    }
+
+    protected final void onRowsReceived(long rowsCount) {
+        receivedRowsCount += rowsCount;
+    }
+
+    protected final void onRewind() {
+        rewindCount++;
     }
 }

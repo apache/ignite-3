@@ -26,7 +26,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
@@ -66,9 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -90,7 +87,6 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
@@ -116,7 +112,6 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.LocalBeforeReplicaStartEventParameters;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.NaiveAsyncReadWriteLock;
@@ -126,13 +121,12 @@ import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.Zone
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -174,12 +168,10 @@ import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -202,9 +194,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
     private final TopologyService topologyService;
-
-    /** Replica manager. */
-    private final ReplicaManager replicaMgr;
 
     /** Lock manager. */
     private final LockManager lockMgr;
@@ -267,8 +256,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
-    private final TxStateRocksDbSharedStorage sharedTxStateStorage;
-
     /** Scan request executor. */
     private final ExecutorService scanRequestExecutor;
 
@@ -287,9 +274,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final FailureProcessor failureProcessor;
 
-    /** Incoming RAFT snapshots executor. */
-    private final ThreadPoolExecutor incomingSnapshotsExecutor;
-
     private final MvGc mvGc;
 
     private final LowWatermark lowWatermark;
@@ -303,6 +287,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final Supplier<IgniteSql> sql;
 
     private final SchemaVersions schemaVersions;
+
+    private final ValidationSchemasSource validationSchemasSource;
 
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
@@ -325,8 +311,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
     private final TransactionInflights transactionInflights;
-
-    private final TransactionConfiguration txCfg;
 
     private final String nodeName;
 
@@ -375,9 +359,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
-     * @param txCfg Transaction configuration.
      * @param replicationConfiguration Replication configuration.
-     * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
      * @param txManager Transaction manager.
@@ -387,8 +369,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *         persisting.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *         will be executed.
-     * @param commonScheduler Common Scheduled executor. Needed only for asynchronous start of scheduled operations without
-     *         performing blocking, long or IO operations.
      * @param clockService hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
@@ -404,22 +384,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             String nodeName,
             RevisionListenerRegistry registry,
             GcConfiguration gcConfig,
-            TransactionConfiguration txCfg,
             ReplicationConfiguration replicationConfiguration,
             MessagingService messagingService,
             TopologyService topologyService,
-            MessageSerializationRegistry messageSerializationRegistry,
-            ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
-            TxStateRocksDbSharedStorage txStateRocksDbSharedStorage,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
+            ValidationSchemasSource validationSchemasSource,
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
-            ScheduledExecutorService commonScheduler,
             ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             SchemaSyncService schemaSyncService,
@@ -432,7 +408,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             LowWatermark lowWatermark,
             TransactionInflights transactionInflights,
             IndexMetaStorage indexMetaStorage,
-            LogSyncer logSyncer,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
@@ -440,13 +415,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
         this.topologyService = topologyService;
-        this.replicaMgr = replicaMgr;
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
+        this.validationSchemasSource = validationSchemasSource;
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
@@ -459,7 +434,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
-        this.txCfg = txCfg;
         this.nodeName = nodeName;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
@@ -481,18 +455,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
 
-        int cpus = Runtime.getRuntime().availableProcessors();
-
-        incomingSnapshotsExecutor = new ThreadPoolExecutor(
-                cpus,
-                cpus,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
-        );
-        incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
-
         mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
@@ -500,8 +462,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionOperationsExecutor,
                 tableId -> tablesById().get(tableId)
         );
-
-        this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
 
@@ -938,7 +898,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 topologyService.localMember().id(),
                 minTimeCollectorService,
-                partitionOperationsExecutor,
                 executorInclinedPlacementDriver,
                 clockService,
                 zonePartitionId
@@ -1065,7 +1024,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 safeTimeTracker,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
-                new CatalogValidationSchemasSource(catalogService, schemaManager),
+                validationSchemasSource,
                 localNode(),
                 executorInclinedSchemaSyncService,
                 catalogService,
@@ -1131,7 +1090,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     mvGc,
                     fullStateTransferIndexChooser,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> {
                         ScheduledExecutorService streamerFlushExecutor;
 
@@ -1214,8 +1172,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights,
                 this::streamerFlushExecutor,
                 Objects.requireNonNull(streamerReceiverRunner),
-                () -> txCfg.value().readWriteTimeoutMillis(),
-                () -> txCfg.value().readOnlyTimeoutMillis(),
                 createAndRegisterMetricsSource(tableStorage, tableName)
         );
 
@@ -1701,8 +1657,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 new PartitionTableStatsMetricSource(table.tableId(), partitionId, counter);
 
         try {
+            // Only register this Metrics Source and do not enable it by default
+            // as it is intended for online troubleshooting purposes only.
             metricManager.registerSource(metricSource);
-            metricManager.enable(metricSource);
 
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
 
@@ -1876,57 +1833,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 LOG.info("Destroyed table MV storage for table {} in storage engine '{}'", tableId, storageEngine.name());
             }
         }
-    }
-
-    private void destroyTxStateStoragesForTablesNotIn(Set<Integer> aliveTableIds) {
-        Set<Integer> tableIdsOnDisk = sharedTxStateStorage.zoneIdsOnDisk();
-
-        for (int tableId : difference(tableIdsOnDisk, aliveTableIds)) {
-            sharedTxStateStorage.destroyStorage(tableId);
-            LOG.info("Destroyed table TX state storage for table {}", tableId);
-        }
-    }
-
-    private void destroyReplicationProtocolStoragesForTablesNotIn(Set<Integer> aliveTableIds) {
-        Set<TablePartitionId> partitionIdsOnDisk;
-        try {
-            partitionIdsOnDisk = replicaMgr.replicationProtocolTablePartitionIdsOnDisk();
-        } catch (NodeStoppingException e) {
-            // We'll proceed on next start.
-            return;
-        }
-
-        Map<Integer, List<TablePartitionId>> partitionIdsByTableId = partitionIdsOnDisk.stream()
-                .collect(groupingBy(TablePartitionId::tableId));
-
-        for (Map.Entry<Integer, List<TablePartitionId>> entry : partitionIdsByTableId.entrySet()) {
-            int tableId = entry.getKey();
-            List<TablePartitionId> partitionIds = entry.getValue();
-
-            if (!aliveTableIds.contains(tableId)) {
-                destroyReplicationProtocolStoragesOnRecovery(tableId, partitionIds);
-            }
-        }
-    }
-
-    private void destroyReplicationProtocolStoragesOnRecovery(int tableId, List<TablePartitionId> partitionIds) {
-        for (TablePartitionId partitionId : partitionIds) {
-            try {
-                replicaMgr.destroyReplicationProtocolStoragesOnStartup(partitionId);
-            } catch (NodeStoppingException e) {
-                // No problem, we'll proceed on next start.
-                break;
-            }
-        }
-
-        List<Integer> partitionIndexes = partitionIds.stream()
-                .map(TablePartitionId::partitionId)
-                .collect(toList());
-        LOG.info(
-                "Destroyed replication protocol storages for table {} and partitions {}",
-                tableId,
-                partitionIndexes
-        );
     }
 
     private synchronized ScheduledExecutorService streamerFlushExecutor() {

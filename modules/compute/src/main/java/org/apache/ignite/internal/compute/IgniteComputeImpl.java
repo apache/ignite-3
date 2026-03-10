@@ -705,7 +705,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ExceptionUtils.sneakyThrow(err);
                     }
 
-                    byte[] resBytes = SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+                    byte[] resBytes = SharedComputeUtils.unmarshalResult(res, null, null);
 
                     return new IgniteBiTuple<>(resBytes, res.observableTimestamp());
                 });

@@ -17,10 +17,13 @@
 
 #pragma once
 
+#include <ignite/network/network.h>
 #include <ignite/network/socket_client.h>
 #include <ignite/network/ssl/secure_configuration.h>
+#include <ignite/network/ssl/ssl_connection.h>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -38,7 +41,11 @@ public:
      *
      * @param cfg Secure configuration.
      */
-    explicit secure_socket_client(secure_configuration  cfg) : m_cfg(std::move(cfg)) {}
+    explicit secure_socket_client(secure_configuration  cfg)
+        : m_cfg(std::move(cfg))
+        , m_socket_client(make_tcp_socket_client())
+        , m_recv_packet(BUFFER_SIZE)
+    {}
 
     /**
      * Destructor.
@@ -86,70 +93,55 @@ public:
      * @return @c true if the socket is blocking and false otherwise.
      */
     [[nodiscard]] bool is_blocking() const override {
-        return m_blocking;
+        return m_socket_client->is_blocking();
     }
 
 private:
+    static constexpr size_t BUFFER_SIZE = 0x10000;
+
     /**
-     * Close the connection.
-     * Internal call.
+     * Close the connection. Internal call.
      */
     void close_internal();
 
     /**
-     * Wait on the socket for any event for specified time.
-     * This function uses poll to achive timeout functionality
-     * for every separate socket operation.
+     * Drive the TLS handshake to completion, exchanging data with the peer
+     * over the socket.
      *
-     * @param ssl SSL instance.
-     * @param timeout Timeout in seconds.
-     * @param rd Wait for read if @c true, or for write if @c false.
-     * @return -errno on error, WaitResult::TIMEOUT on timeout and
-     *     WaitResult::SUCCESS on success.
-     */
-    static int wait_on_socket(void* ssl, std::int32_t timeout, bool rd);
-
-    /**
-     * Wait on the socket if it's required by SSL.
-     *
-     * @param res Operation result.
-     * @param ssl SSl instance.
-     * @param timeout Timeout in seconds.
-     * @return
-     */
-    static int wait_on_socket_if_needed(int res, void* ssl, int timeout);
-
-    /**
-     * Make new SSL instance.
-     *
-     * @param context SSL context.
-     * @param hostname Host name or address.
-     * @param port TCP port.
-     * @param blocking Indicates if the resulted SSL is blocking or not.
-     * @return New SSL instance on success and null-pointer on fail.
-     */
-    static void* make_ssl(void* context, const char* hostname, std::uint16_t port, bool& blocking);
-
-    /**
-     * Complete async connect.
-     *
-     * @param ssl SSL instance.
      * @param timeout Timeout in seconds.
      * @return @c true on success and @c false on timeout.
      */
-    static bool complete_connect_internal(void* ssl, int timeout);
+    bool complete_connect_internal(std::int32_t timeout);
+
+    /**
+     * Drain all pending ciphertext from the SSL output BIO and send it to the peer.
+     *
+     * @param timeout Timeout in seconds.
+     * @return WaitResult::SUCCESS on success, WaitResult::TIMEOUT on timeout, negative on error.
+     */
+    int flush_bio_out(std::int32_t timeout);
+
+    /**
+     * Read data from the socket and feed it into the SSL input BIO.
+     *
+     * @param timeout Timeout in seconds.
+     * @return Bytes fed on success, WaitResult::TIMEOUT on timeout, negative on error.
+     */
+    int fill_bio_in(std::int32_t timeout);
 
     /** Secure configuration. */
     secure_configuration m_cfg;
 
-    /** SSL context. */
+    /** SSL context (SSL_CTX*). */
     void* m_context{nullptr};
 
-    /** OpenSSL BIO interface */
-    void* m_bio{nullptr};
+    /** TLS state machine (SSL instance + memory BIOs). */
+    std::unique_ptr<ssl_connection> m_ssl_conn;
 
-    /** Blocking flag. */
-    bool m_blocking{true};
+    std::unique_ptr<socket_client> m_socket_client;
+
+    /** Buffer for incoming data. */
+    std::vector<std::byte> m_recv_packet;
 };
 
 } // namespace ignite::network

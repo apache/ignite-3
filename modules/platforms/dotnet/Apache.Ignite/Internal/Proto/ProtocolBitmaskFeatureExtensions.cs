@@ -46,11 +46,6 @@ internal static class ProtocolBitmaskFeatureExtensions
     /// <returns>Flags.</returns>
     public static ProtocolBitmaskFeature FromBytes(ReadOnlySpan<byte> bytes)
     {
-        if (bytes.Length > 4)
-        {
-            throw new InvalidOperationException("Invalid bitmask feature length: " + bytes.Length);
-        }
-
         if (bytes.Length < 4)
         {
             // Pad with zeros if less than 4 bytes.

@@ -39,7 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -56,13 +56,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -121,7 +121,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         WriteDirtyPage pageWriter = createDirtyPageWriter(writtenFullPageIds);
 
-        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
+        ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions = new ConcurrentHashMap<>();
 
         CompletableFuture<?> doneFuture = new CompletableFuture<>();
 
@@ -167,8 +167,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         assertThat(updatedPartitions.keySet(), containsInAnyOrder(groupPartId0, groupPartId1));
 
-        assertThat(updatedPartitions.get(groupPartId0).sum(), equalTo(6L));
-        assertThat(updatedPartitions.get(groupPartId1).sum(), equalTo(2L));
+        assertThat(updatedPartitions.get(groupPartId0).getTotalWrites(), equalTo(6));
+        assertThat(updatedPartitions.get(groupPartId1).getTotalWrites(), equalTo(2));
 
         assertThat(tracker.dataPagesWritten(), equalTo(4));
         assertThat(progressImpl.writtenPagesCounter().get(), equalTo(8));
@@ -272,7 +272,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
-        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
+        ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
         checkpointProgress.pagesToWrite(checkpointDirtyPages);
@@ -365,9 +365,11 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
     ) throws Exception {
         WriteDirtyPage writer = mock(WriteDirtyPage.class);
 
-        if (fullPageIdArgumentCaptor != null) {
-            doNothing().when(writer).write(any(PersistentPageMemory.class), fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
-        }
+        doReturn(PageWriteTarget.MAIN_FILE).when(writer).write(
+                any(),
+                fullPageIdArgumentCaptor != null ? fullPageIdArgumentCaptor.capture() : any(),
+                any()
+        );
 
         return writer;
     }

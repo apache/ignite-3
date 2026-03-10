@@ -203,6 +203,9 @@ public class ClientOp {
     /** Get next result set. */
     public static final int SQL_CURSOR_NEXT_RESULT_SET = 74;
 
+    /** Discard request for directly mapped transactions. */
+    public static final int TX_DISCARD = 75;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;
@@ -257,6 +260,7 @@ public class ClientOp {
         OP_MASK.set(STREAMER_BATCH_SEND);
         OP_MASK.set(TX_COMMIT);
         OP_MASK.set(TX_ROLLBACK);
+        OP_MASK.set(TX_DISCARD);
         OP_MASK.set(TUPLE_GET_ALL);
         OP_MASK.set(TUPLE_CONTAINS_ALL_KEYS);
     }

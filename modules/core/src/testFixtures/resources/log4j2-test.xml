@@ -75,10 +75,7 @@
       fileName="build/logpush.log"
       filePattern="build/logpush.log.%i">
       <PatternLayout>
-        <MarkerPatternSelector defaultPattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n">
-          <!-- Logs from compatibility test runner are already properly formatted and could be with ANSI codes so strip them -->
-          <PatternMatch key="CompatRunner" pattern="%replace{%m}{\x1B\[[0-9;]*[a-zA-Z]}{}%n"/>
-        </MarkerPatternSelector>
+        <MarkerPatternSelector defaultPattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n"/>
       </PatternLayout>
       <Policies>
         <OnStartupTriggeringPolicy/>

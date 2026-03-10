@@ -74,8 +74,8 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -334,7 +334,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         private Loza raftManager;
 
-        private LogStorageFactory partitionsLogStorageFactory;
+        private LogStorageManager partitionsLogStorageManager;
 
         private RaftGroupService raftClient;
 
@@ -354,14 +354,14 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     "test",
                     clusterService.nodeName(),
                     workingDir.raftLogPath(),
                     raftConfiguration.fsync().value()
             );
 
-            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -420,7 +420,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             .maxClockSkew(schemaSynchronizationConfiguration.maxClockSkewMillis().value().intValue())
                             .commandsMarshaller(new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()))
                             .serverDataPath(workingDir.metaPath())
-                            .setLogStorageFactory(partitionsLogStorageFactory)
+                            .setLogStorageManager(partitionsLogStorageManager)
             );
         }
 
@@ -431,8 +431,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     raftManager == null ? null :
                             () -> assertThat(raftManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
-                    partitionsLogStorageFactory == null ? null :
-                            () -> assertThat(partitionsLogStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
+                    partitionsLogStorageManager == null ? null :
+                            () -> assertThat(partitionsLogStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                     clusterService == null ? null :
                             () -> assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );

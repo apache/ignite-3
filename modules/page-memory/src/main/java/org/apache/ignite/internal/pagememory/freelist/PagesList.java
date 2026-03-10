@@ -244,7 +244,7 @@ public abstract class PagesList extends DataStructure {
 
                             assert nextId != pageId : "Loop detected [next=" + hexLong(nextId) + ", cur=" + hexLong(pageId) + ']';
                         } finally {
-                            readUnlock(pageId, page, pageAddr);
+                            readUnlock(pageId, page);
                         }
                     } finally {
                         releasePage(pageId, page);
@@ -287,7 +287,7 @@ public abstract class PagesList extends DataStructure {
                                         cnt++;
                                     }
                                 } finally {
-                                    readUnlock(pageId, page, pageAddr);
+                                    readUnlock(pageId, page);
                                 }
                             } finally {
                                 releasePage(pageId, page);
@@ -440,7 +440,7 @@ public abstract class PagesList extends DataStructure {
                                 if (curPage != 0L) {
                                     curIo.setNextMetaPageId(curAddr, nextPageId);
 
-                                    releaseAndWriteUnlock(curId, curPage, curAddr);
+                                    releaseAndWriteUnlock(curId, curPage);
                                 }
 
                                 curId = nextPageId;
@@ -451,7 +451,7 @@ public abstract class PagesList extends DataStructure {
 
                                 curIo.initNewPage(curAddr, curId, pageSize());
                             } else {
-                                releaseAndWriteUnlock(curId, curPage, curAddr);
+                                releaseAndWriteUnlock(curId, curPage);
 
                                 curId = nextPageId;
                                 curPage = acquirePage(curId);
@@ -470,7 +470,7 @@ public abstract class PagesList extends DataStructure {
                 }
             }
         } finally {
-            releaseAndWriteUnlock(curId, curPage, curAddr);
+            releaseAndWriteUnlock(curId, curPage);
         }
 
         return nextPageId;
@@ -497,7 +497,7 @@ public abstract class PagesList extends DataStructure {
 
                     nextPageId = io.getNextMetaPageId(pageAddr);
                 } finally {
-                    writeUnlock(pageId, page, pageAddr, true);
+                    writeUnlock(pageId, page, true);
                 }
             } finally {
                 releasePage(pageId, page);
@@ -510,12 +510,11 @@ public abstract class PagesList extends DataStructure {
      *
      * @param pageId Page ID.
      * @param page Page absolute pointer.
-     * @param pageAddr Page address.
      */
-    private void releaseAndWriteUnlock(long pageId, long page, long pageAddr) {
+    private void releaseAndWriteUnlock(long pageId, long page) {
         if (page != 0L) {
             try {
-                writeUnlock(pageId, page, pageAddr, true);
+                writeUnlock(pageId, page, true);
             } finally {
                 releasePage(pageId, page);
             }
@@ -769,7 +768,7 @@ public abstract class PagesList extends DataStructure {
                                 res++;
                             }
                         } finally {
-                            readUnlock(pageId, page, pageAddr);
+                            readUnlock(pageId, page);
                         }
                     } finally {
                         releasePage(pageId, page);
@@ -845,7 +844,7 @@ public abstract class PagesList extends DataStructure {
 
                 if (stripe.tailId != tailId) {
                     // Another thread took the last page.
-                    writeUnlock(tailId, tailPage, tailAddr, false);
+                    writeUnlock(tailId, tailPage, false);
 
                     lockAttempt--; // Ignore current attempt.
 
@@ -883,7 +882,7 @@ public abstract class PagesList extends DataStructure {
                         return;
                     }
                 } finally {
-                    writeUnlock(tailId, tailPage, tailAddr, ok);
+                    writeUnlock(tailId, tailPage, ok);
                 }
             } finally {
                 releasePage(tailId, tailPage);
@@ -1020,7 +1019,7 @@ public abstract class PagesList extends DataStructure {
 
                     updateTail(bucket, pageId, nextId);
                 } finally {
-                    writeUnlock(nextId, nextPage, nextPageAddr, true);
+                    writeUnlock(nextId, nextPage, true);
                 }
             } finally {
                 releasePage(nextId, nextPage);
@@ -1109,7 +1108,7 @@ public abstract class PagesList extends DataStructure {
 
                 // Release write.
                 for (int i = 0; i < locked.size(); i += 3) {
-                    writeUnlock(locked.getLong(i), locked.getLong(i + 1), locked.getLong(i + 2), true);
+                    writeUnlock(locked.getLong(i), locked.getLong(i + 1), true);
                 }
             }
         }
@@ -1230,7 +1229,7 @@ public abstract class PagesList extends DataStructure {
 
                 if (stripe.empty || stripe.tailId != tailId) {
                     // Another thread took the last page.
-                    writeUnlock(tailId, tailPage, tailAddr, false);
+                    writeUnlock(tailId, tailPage, false);
 
                     if (bucketsSize.get(bucket) > 0) {
                         lockAttempt--; // Ignore current attempt.
@@ -1328,7 +1327,7 @@ public abstract class PagesList extends DataStructure {
                     // we will not do that, but just return 0L, because this may produce contention on
                     // meta page.
                 } finally {
-                    writeUnlock(tailId, tailPage, tailAddr, dirty);
+                    writeUnlock(tailId, tailPage, dirty);
                 }
 
                 // Put recycled page (if any) to the reuse bucket after tail is unlocked.
@@ -1527,7 +1526,7 @@ public abstract class PagesList extends DataStructure {
                     recycleId = mergeNoNext(pageId, pageAddr, prevId, bucket);
                 }
             } finally {
-                writeUnlock(pageId, page, pageAddr, rmvd);
+                writeUnlock(pageId, page, rmvd);
             }
 
             // Perform a fair merge after lock release (to have a correct locking order).
@@ -1594,7 +1593,7 @@ public abstract class PagesList extends DataStructure {
                 if (pageAddr == 0L) {
                     if (curAddr != 0L) {
                         // Unlock next page if needed.
-                        writeUnlock(curId, curPage, curAddr, false);
+                        writeUnlock(curId, curPage, false);
                     }
 
                     return 0L; // Someone has merged or taken our empty page concurrently. Nothing to do here.
@@ -1620,10 +1619,10 @@ public abstract class PagesList extends DataStructure {
                     nextId = io.getNextId(pageAddr);
                 } finally {
                     if (curAddr != 0L) {
-                        writeUnlock(curId, curPage, curAddr, write);
+                        writeUnlock(curId, curPage, write);
                     }
 
-                    writeUnlock(pageId, page, pageAddr, write);
+                    writeUnlock(pageId, page, write);
                 }
             } finally {
                 if (curPage != 0L) {
@@ -1696,7 +1695,7 @@ public abstract class PagesList extends DataStructure {
 
                 nextIo.setPreviousId(nextAddr, prevId);
             } finally {
-                writeUnlock(prevId, prevPage, prevAddr, true);
+                writeUnlock(prevId, prevPage, true);
             }
         } finally {
             releasePage(prevId, prevPage);

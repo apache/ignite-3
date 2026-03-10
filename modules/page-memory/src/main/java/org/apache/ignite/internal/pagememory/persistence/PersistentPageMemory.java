@@ -266,7 +266,7 @@ public class PersistentPageMemory implements PageMemory {
                 (pageMemory, fullPageId, buffer) -> {
                     metrics.incrementWriteToDiskMetric();
 
-                    flushDirtyPageForReplacement.write(pageMemory, fullPageId, buffer);
+                    return flushDirtyPageForReplacement.write(pageMemory, fullPageId, buffer);
                 },
                 LOG,
                 sizes.length - 1,

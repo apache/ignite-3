@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -39,6 +40,8 @@ import org.jetbrains.annotations.TestOnly;
 public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteComponent, NotificationEnqueuedListener {
     private final ClusterTime clusterTime;
 
+    private final Executor watchExecutor;
+
     private final PendingComparableValuesTracker<HybridTimestamp, Void> schemaSafeTime =
             new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
 
@@ -46,8 +49,9 @@ public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteC
 
     private final Object futureMutex = new Object();
 
-    public SchemaSafeTimeTrackerImpl(ClusterTime clusterTime) {
+    public SchemaSafeTimeTrackerImpl(ClusterTime clusterTime, Executor watchExecutor) {
         this.clusterTime = clusterTime;
+        this.watchExecutor = watchExecutor;
     }
 
     @Override
@@ -74,16 +78,16 @@ public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteC
                 // The update touches the Catalog (i.e. schemas), so we must chain with the core notification future
                 // as Catalog listeners will be included in it (because we need to wait for those listeners to finish execution
                 // before updating the schema safe time).
-                newSchemaSafeTimeUpdateFuture = schemaSafeTimeUpdateFuture.thenCompose(unused -> newNotificationFuture);
+                newSchemaSafeTimeUpdateFuture = schemaSafeTimeUpdateFuture.thenComposeAsync(unused -> newNotificationFuture, watchExecutor);
             } else {
                 // The update does not concern the Catalog (schemas), so we can update schema safe time as soon as previous updates to it
                 // get applied.
                 newSchemaSafeTimeUpdateFuture = schemaSafeTimeUpdateFuture;
             }
 
-            newSchemaSafeTimeUpdateFuture = newSchemaSafeTimeUpdateFuture.thenRun(() -> {
+            newSchemaSafeTimeUpdateFuture = newSchemaSafeTimeUpdateFuture.thenRunAsync(() -> {
                 schemaSafeTime.update(timestamp, null);
-            });
+            }, watchExecutor);
 
             schemaSafeTimeUpdateFuture = newSchemaSafeTimeUpdateFuture;
         }

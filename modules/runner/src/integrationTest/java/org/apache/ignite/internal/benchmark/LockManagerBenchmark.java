@@ -64,7 +64,6 @@ public class LockManagerBenchmark {
     @Setup
     public void setUp() {
         VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
-
         lockManager = new HeapLockManager(DEFAULT_SLOTS, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         generator = new TransactionIdGenerator(0);

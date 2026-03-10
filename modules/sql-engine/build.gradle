@@ -102,6 +102,7 @@ dependencies {
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
     testImplementation libs.awaitility
+    testImplementation testFixtures(project(':ignite-api'))
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-schema'))
@@ -145,6 +146,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
+
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
