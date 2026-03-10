@@ -18,13 +18,13 @@
 package org.apache.ignite.tx;
 
 /**
- * This is the marker interface for exceptions that may be thrown during replica requests and may be retried, such as
+ * This is the marker interface for exceptions that may be thrown during replica requests and may be retried, such as:
  * <ul>
  *     <li>primary replica miss and primary replica expired exception;</li>
  *     <li>replication problems;</li>
  *     <li>replica unavailability;</li>
- *     <li>etc.</li>
  * </ul>
+ * etc.
  */
 public interface RetriableReplicaRequestException {
 }
