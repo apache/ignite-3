@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
@@ -197,9 +198,7 @@ public class ClientPrimaryReplicaTracker {
                     throw new CompletionException(cause);
                 }
 
-                throw err instanceof CompletionException
-                        ? (CompletionException) err
-                        : new CompletionException(err);
+                throw sneakyThrow(err);
             }
 
             PrimaryReplicasResult res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
