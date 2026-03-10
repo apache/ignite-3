@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.testframework;
+package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Value;
+import java.util.concurrent.Executor;
 
 /**
- * Configuration schema for {@link ConfigurationExtensionTest#notifications()}.
+ * Provides access to watch processing required by internal components.
  */
-@ConfigurationRoot(rootName = "basic")
-public class BasicConfigurationSchema {
-    @Value(hasDefault = true)
-    public int visible = 1;
+public interface WatchProcessorAccess {
+    /**
+     * Returns executor for watch processing.
+     */
+    Executor watchExecutor();
 }
