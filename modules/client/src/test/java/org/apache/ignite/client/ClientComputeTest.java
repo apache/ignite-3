@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
@@ -94,13 +93,12 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() {
+    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() throws Exception {
         initServers(reqId -> false);
 
         // Provide same node multiple times to check this case as well.
         try (var client = getClient(server1, server2, server3, server1, server2)) {
-            // TODO: Why is there no warning for duplicated connections?
-            await().untilAsserted(() -> assertEquals(5, client.connections().size()));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
             JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
