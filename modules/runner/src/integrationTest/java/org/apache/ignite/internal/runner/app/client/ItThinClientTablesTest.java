@@ -68,7 +68,7 @@ public class ItThinClientTablesTest extends ItAbstractThinClientTest {
         // Drop and recreate with different partition count
         sql.execute("DROP TABLE " + TEST_TABLE);
         sql.execute("DROP ZONE " + TEST_ZONE);
-        sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS 1, PARTITIONS 10)  STORAGE PROFILES ['default']");
+        sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS 1, PARTITIONS 10) STORAGE PROFILES ['default']");
         sql.execute("CREATE TABLE " + TEST_TABLE + "(id INT PRIMARY KEY, val VARCHAR) ZONE " + TEST_ZONE);
 
         // Old table handle does not work after drop.
