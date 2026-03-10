@@ -153,7 +153,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration(validate = false)
     private ReplicationConfiguration replicationConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;

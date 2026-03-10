@@ -295,6 +295,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 executorService,
                 scheduledExecutorService,
                 executorService,
+                Runnable::run,
                 clockService,
                 placementDriver,
                 schemaSyncService,

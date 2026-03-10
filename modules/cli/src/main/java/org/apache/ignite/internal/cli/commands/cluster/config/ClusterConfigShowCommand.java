@@ -53,7 +53,7 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
+                .input(buildCallInput())
                 .decorator(format.decorator())
                 .exceptionHandler(createHandler("Cannot show cluster config"))
         );

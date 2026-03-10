@@ -36,11 +36,10 @@ public class NodeVersionCommand extends BaseCommand implements Callable<Integer>
     @Inject
     private NodeVersionCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .input(new UrlCallInput(nodeUrl.getNodeUrl()))
         );
     }
 }

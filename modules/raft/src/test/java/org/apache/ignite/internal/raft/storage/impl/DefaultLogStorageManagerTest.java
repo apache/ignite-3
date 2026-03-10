@@ -75,7 +75,7 @@ class DefaultLogStorageManagerTest {
         logStorageOptions.setLogEntryCodecFactory(DefaultLogEntryCodecFactory.getInstance());
 
         boolean disableFsync = testInfo.getTestMethod().orElseThrow().isAnnotationPresent(DisableFsync.class);
-        logStorageManager = new DefaultLogStorageManager("test", "test", workDir, !disableFsync);
+        logStorageManager = new DefaultLogStorageManager("test", "test", workDir, !disableFsync, RocksDbLogStorageOptions.defaults());
 
         startFactory();
     }
