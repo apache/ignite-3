@@ -143,6 +143,7 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
         assertThat(actualVal).usingRecursiveComparison().isEqualTo(expected);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void assertResultSet(ResultSet rs, V expectedObj) throws SQLException {
         // Intentionally left blank. Please override in the implementation.
     }

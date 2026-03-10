@@ -143,6 +143,9 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -247,6 +250,9 @@ public class ClientInboundMessageHandler
 
     private final ClockService clockService;
 
+    /** Event log. */
+    private final EventLog eventLog;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -303,6 +309,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param eventLog Event log.
      * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
@@ -325,6 +332,7 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            EventLog eventLog,
             Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
@@ -343,6 +351,7 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
+        assert eventLog != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -359,6 +368,7 @@ public class ClientInboundMessageHandler
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
+        this.eventLog = eventLog;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
@@ -411,28 +421,34 @@ public class ClientInboundMessageHandler
 
         // Each inbound handler in a pipeline has to release the received messages.
         var unpacker = new ClientMessageUnpacker(byteBuf);
-        metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-        switch (state) {
-            case STATE_BEFORE_HANDSHAKE:
-                state = STATE_HANDSHAKE_REQUESTED;
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-                handshake(ctx, unpacker);
+        try {
+            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-                break;
+            switch (state) {
+                case STATE_BEFORE_HANDSHAKE:
+                    state = STATE_HANDSHAKE_REQUESTED;
+                    metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                    handshake(ctx, unpacker);
 
-            case STATE_HANDSHAKE_REQUESTED:
-                // Handshake is in progress, any messages are not allowed.
-                throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
+                    break;
 
-            case STATE_HANDSHAKE_RESPONSE_SENT:
-                assert clientContext != null : "Client context != null";
-                processOperation(ctx, unpacker);
+                case STATE_HANDSHAKE_REQUESTED:
+                    // Handshake is in progress, any messages are not allowed.
+                    throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
 
-                break;
+                case STATE_HANDSHAKE_RESPONSE_SENT:
+                    assert clientContext != null : "Client context != null";
+                    processOperation(ctx, unpacker);
 
-            default:
-                throw new IllegalStateException("Unexpected state: " + state);
+                    break;
+
+                default:
+                    throw new IllegalStateException("Unexpected state: " + state);
+            }
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
         }
     }
 
@@ -451,6 +467,8 @@ public class ClientInboundMessageHandler
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
+
+        logConnectionClosed(ctx);
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker) {
@@ -538,6 +556,8 @@ public class ClientInboundMessageHandler
         BitSet supportedFeatures = HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures);
         clientContext = new ClientContext(clientVer, clientCode, supportedFeatures, user, ctx.channel().remoteAddress());
 
+        logConnectionEstablished(ctx);
+
         sendHandshakeResponse(ctx, actualFeatures);
     }
 
@@ -565,6 +585,8 @@ public class ClientInboundMessageHandler
     }
 
     private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
@@ -574,8 +596,6 @@ public class ClientInboundMessageHandler
             packer.close();
             throw t;
         }
-
-        state = STATE_HANDSHAKE_RESPONSE_SENT;
 
         metrics.sessionsAcceptedIncrement();
         metrics.sessionsActiveIncrement();
@@ -994,7 +1014,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1004,7 +1023,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1076,7 +1094,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
                         resolveCurrentUsername()
                 );
 
@@ -1449,6 +1467,38 @@ public class ClientInboundMessageHandler
                 throw sneakyThrow(e);
             }
         }
+    }
+
+    private void logConnectionEstablished(ChannelHandlerContext ctx) {
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_ESTABLISHED);
+    }
+
+    private void logConnectionClosed(ChannelHandlerContext ctx) {
+        if (clientContext == null) {
+            // Connection was closed before handshake completion, no event needed
+            return;
+        }
+
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_CLOSED);
+    }
+
+    private void logIgniteEvent(ChannelHandlerContext ctx, IgniteEventType igniteEventType) {
+        assert clientContext != null : "clientContext should not be null when logging connection events";
+
+        eventLog.log(
+                igniteEventType.name(),
+                () -> igniteEventType.builder()
+                        .user(EventUser.of(
+                                clientContext.userDetails().username(),
+                                clientContext.userDetails().providerName()
+                        ))
+                        .timestamp(System.currentTimeMillis())
+                        .fields(Map.of(
+                                "connectionId", connectionId,
+                                "remoteAddress", ctx.channel().remoteAddress().toString()
+                        ))
+                        .build()
+        );
     }
 
     private class ComputeConnection implements PlatformComputeConnection {

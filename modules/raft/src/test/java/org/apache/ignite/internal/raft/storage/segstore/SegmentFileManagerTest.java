@@ -101,7 +101,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.segmentFileSizeBytes=" + FILE_SIZE)
+    @InjectConfiguration(value = "mock.segmentFileSizeBytes=" + FILE_SIZE, validate = false)
     private LogStorageConfiguration storageConfiguration;
 
     private SegmentFileManager fileManager;

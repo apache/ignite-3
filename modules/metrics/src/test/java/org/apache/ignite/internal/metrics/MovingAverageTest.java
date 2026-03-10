@@ -61,7 +61,7 @@ public class MovingAverageTest extends AbstractDoubleMetricTest {
 
     @Override
     protected DoubleMetric createMetric(String name, String description) {
-        return new SimpleMovingAverage(name, description, Double::toString, items.length);
+        return new SimpleMovingAverage(name, description, items.length);
     }
 
     @Override

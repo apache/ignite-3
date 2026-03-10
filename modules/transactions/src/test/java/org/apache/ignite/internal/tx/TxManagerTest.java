@@ -444,7 +444,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
+        InternalTransaction tx = startReadOnlyTransaction ? txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults())
+                : txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 

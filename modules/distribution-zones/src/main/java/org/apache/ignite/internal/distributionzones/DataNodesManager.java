@@ -1010,7 +1010,7 @@ public class DataNodesManager {
                 .build();
     }
 
-    private Set<NodeWithAttributes> topologyNodes() {
+    Set<NodeWithAttributes> topologyNodes() {
         // It means that the zone was created but the data nodes value had not been updated yet.
         // So the data nodes value will be equals to the logical topology on the descLastUpdateRevision.
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey());

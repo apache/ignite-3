@@ -289,6 +289,7 @@ public class TestServer implements AutoCloseable {
                         catalogService,
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
+                        EventLog.NOOP,
                         new TestLowWatermark(),
                         Runnable::run,
                         () -> true

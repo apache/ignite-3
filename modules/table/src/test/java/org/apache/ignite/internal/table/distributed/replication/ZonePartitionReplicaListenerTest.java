@@ -206,6 +206,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
@@ -614,7 +615,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         messagingService,
                         mock(ReplicaService.class),
                         clockService
-                )
+                ),
+                new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
+                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                Runnable::run
         );
 
         transactionStateResolver.start();
@@ -633,6 +637,11 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService
         );
 
+        var txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                topologySrv
+        );
+
         zonePartitionReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage,
                 clockService,
@@ -647,7 +656,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 zonePartitionId,
                 transactionStateResolver,
-                txMessageSender
+                txMessageSender,
+                txRecoveryEngine
         );
 
         tableReplicaProcessor = new PartitionReplicaListener(

@@ -135,12 +135,6 @@ public interface TxManager extends IgniteComponent {
      */
     @Nullable TxStateMeta stateMeta(UUID txId);
 
-    CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
-            TxStateMeta txMeta,
-            InternalTransaction tx,
-            long currentEnlistmentConsistencyToken,
-            ZonePartitionId senderGroupId);
-
     /**
      * Atomically changes the state meta of a transaction.
      *
