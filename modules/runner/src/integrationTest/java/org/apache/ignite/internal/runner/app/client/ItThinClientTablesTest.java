@@ -65,7 +65,7 @@ public class ItThinClientTablesTest extends ItAbstractThinClientTest {
         Tuple result = view.get(null, key1);
         assertEquals("value1", result.stringValue("val"));
 
-        // Drop an recreate with different partition count
+        // Drop and recreate with different partition count
         sql.execute("DROP TABLE " + TEST_TABLE);
         sql.execute("DROP ZONE " + TEST_ZONE);
         sql.execute("CREATE ZONE " + TEST_ZONE + " (REPLICAS 1, PARTITIONS 10)  STORAGE PROFILES ['default']");
