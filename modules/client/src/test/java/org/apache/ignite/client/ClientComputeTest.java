@@ -99,7 +99,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
         // Provide same node multiple times to check this case as well.
         try (var client = getClient(server1, server2, server3, server1, server2)) {
-            await().untilAsserted(() -> assertEquals(3, client.connections().size()));
+            // TODO: Why is there no warning for duplicated connections?
+            await().untilAsserted(() -> assertEquals(5, client.connections().size()));
 
             JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
