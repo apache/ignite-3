@@ -73,9 +73,15 @@ runs:
         passed=$((total - failed - errored - skipped))
 
         if [ "$failed" -eq 0 ] && [ "$errored" -eq 0 ]; then
-          echo "### :white_check_mark: Tests passed: $passed, skipped: $skipped" >> "$GITHUB_STEP_SUMMARY"
+          summary="Tests passed: $passed, skipped: $skipped"
+          echo "$summary"
+          echo "### :white_check_mark: $summary" >> "$GITHUB_STEP_SUMMARY"
         else
-          echo "### :x: Tests: $passed passed, $((failed + errored)) failed, $skipped skipped (total: $total)" >> "$GITHUB_STEP_SUMMARY"
+          summary="Tests: $passed passed, $((failed + errored)) failed, $skipped skipped (total: $total)"
+          echo "::error::$summary"
+          echo ""
+          echo "$failure_details"
+          echo "### :x: $summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Class | Test | Message |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-------|------|---------|" >> "$GITHUB_STEP_SUMMARY"

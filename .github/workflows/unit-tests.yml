@@ -7,8 +7,6 @@ jobs:
   core:
     name: Core
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -56,8 +54,6 @@ jobs:
   configuration:
     name: Configuration
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -98,8 +94,6 @@ jobs:
   network:
     name: Network
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -139,8 +133,6 @@ jobs:
   storage:
     name: Storage
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -181,8 +173,6 @@ jobs:
   sql:
     name: SQL
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -224,8 +214,6 @@ jobs:
   raft-replication:
     name: Raft & Replication
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -269,8 +257,6 @@ jobs:
   table-index:
     name: Table & Index
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -312,8 +298,6 @@ jobs:
   compute-deployment:
     name: Compute & Deployment
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -352,8 +336,6 @@ jobs:
   client:
     name: Client
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -395,8 +377,6 @@ jobs:
   runner:
     name: Runner
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -440,8 +420,6 @@ jobs:
   misc:
     name: Misc
     runs-on: ubuntu-latest
-    continue-on-error: true
-
     steps:
       - uses: actions/checkout@v4
 

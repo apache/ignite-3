@@ -34,9 +34,11 @@ jobs:
           if [ ${#files[@]} -eq 0 ]; then exit 0; fi
           violations=$(grep -h '<error ' "${files[@]}" 2>/dev/null || true)
           if [ -z "$violations" ]; then
+            echo "Checkstyle: No violations"
             echo "### :white_check_mark: Checkstyle: No violations" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          echo "::error::Checkstyle violations found"
           echo "### :x: Checkstyle Violations" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| File | Line | Message |" >> "$GITHUB_STEP_SUMMARY"
@@ -45,6 +47,7 @@ jobs:
             grep '<error ' "$f" 2>/dev/null | sed -E 's/.*line="([0-9]+)".*message="([^"]+)".*/\1|\2/' | while IFS='|' read -r line msg; do
               src=$(grep -oP 'name="\K[^"]+' "$f" | head -1)
               short=$(echo "$src" | sed 's|.*/src/||')
+              echo "::error file=$short,line=$line::$msg"
               echo "| \`$short\` | $line | $msg |" >> "$GITHUB_STEP_SUMMARY"
             done
           done
@@ -79,9 +82,11 @@ jobs:
           if [ ${#files[@]} -eq 0 ]; then exit 0; fi
           violations=$(grep -h '<violation ' "${files[@]}" 2>/dev/null || true)
           if [ -z "$violations" ]; then
+            echo "PMD: No violations"
             echo "### :white_check_mark: PMD: No violations" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          echo "::error::PMD violations found"
           echo "### :x: PMD Violations" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| File | Line | Rule | Message |" >> "$GITHUB_STEP_SUMMARY"
@@ -96,6 +101,7 @@ jobs:
                 lineno=$(echo "$line" | grep -oP 'beginline="\K[0-9]+')
                 rule=$(echo "$line" | grep -oP 'rule="\K[^"]+')
                 msg=$(echo "$line" | sed -E 's/.*>([^<]+)<\/violation>.*/\1/' | xargs)
+                echo "::error file=$current_file,line=$lineno::[$rule] $msg"
                 echo "| \`$current_file\` | $lineno | $rule | $msg |" >> "$GITHUB_STEP_SUMMARY"
               fi
             done < "$f"
@@ -131,17 +137,20 @@ jobs:
           if [ ${#files[@]} -eq 0 ]; then exit 0; fi
           bugs=$(grep -h '<BugInstance ' "${files[@]}" 2>/dev/null || true)
           if [ -z "$bugs" ]; then
+            echo "SpotBugs: No bugs found"
             echo "### :white_check_mark: SpotBugs: No bugs found" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          echo "::error::SpotBugs issues found"
           echo "### :x: SpotBugs Issues" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Type | Category | Class | Line | Message |" >> "$GITHUB_STEP_SUMMARY"
           echo "|------|----------|-------|------|---------|" >> "$GITHUB_STEP_SUMMARY"
           for f in "${files[@]}"; do
             python3 -c "
-          import xml.etree.ElementTree as ET
+          import xml.etree.ElementTree as ET, os
           tree = ET.parse('$f')
+          summary = open(os.environ['GITHUB_STEP_SUMMARY'], 'a')
           for bug in tree.findall('.//BugInstance'):
               typ = bug.get('type', '')
               cat = bug.get('category', '')
@@ -151,6 +160,8 @@ jobs:
               cls = cls_el.get('classname', '') if cls_el is not None else ''
               src_el = bug.find('.//SourceLine[@start]')
               line = src_el.get('start', '') if src_el is not None else ''
-              print(f'| \`{typ}\` | {cat} | \`{cls}\` | {line} | {msg} |')
-          " >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+              print(f'::error::[{typ}] {cls}:{line} - {msg}')
+              summary.write(f'| \`{typ}\` | {cat} | \`{cls}\` | {line} | {msg} |\n')
+          summary.close()
+          " 2>/dev/null || true
           done
