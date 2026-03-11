@@ -375,7 +375,7 @@ public class ItDurableFinishFailureTest extends ClusterPerTestIntegrationTest {
 
         tx2.commitAsync();
 
-        await().timeout(15, SECONDS).until(() -> commitedTransactions(node) == 2);
+        await().timeout(5, SECONDS).until(() -> commitedTransactions(node) == 2);
 
         assertEquals(2, timeoutSamples.size(),
                 "Expected timeout state for both transactions, but got: " + timeoutSamples.keySet());
