@@ -90,7 +90,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -1401,34 +1400,53 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2)), willSucceedFast());
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27947")
-    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() throws InterruptedException {
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest(KillTestContext ctx) {
         // Note: reversed tx priority is required for this test.
         ClientTable table = (ClientTable) table();
+        ClientSql sql = (ClientSql) client().sql();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
-        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
+        Entry<Partition, ClusterNode> mapping = map.entrySet().iterator().next();
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, (int) mapping.getKey().id(), table);
+        Ignite server = server(mapping.getValue());
+        IgniteImpl ignite = unwrapIgniteImpl(server);
+
+        // Init SQL mappings.
+        Tuple key0 = tuples0.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
 
         // We need a waiter for this scenario.
-        Tuple key = tuples0.get(0);
-        Tuple val = val("1");
+        Tuple key = tuples0.get(1);
 
         ClientLazyTransaction tx1 = (ClientLazyTransaction) client().transactions().begin();
         ClientLazyTransaction tx2 = (ClientLazyTransaction) client().transactions().begin();
 
-        kvView.put(tx1, key, val);
+        // Starts the transaction.
+        assertThat(ctx.put.apply(client(), tx1, key), willSucceedFast());
+
+        await().atMost(3, TimeUnit.SECONDS).until(() -> {
+            Iterator<Lock> locks = ignite.txManager().lockManager().locks(tx1.startedTx().txId());
+
+            int count = CollectionUtils.count(locks);
+            return count == 2;
+        });
 
         // Will wait for lock.
-        CompletableFuture<Void> fut2 = kvView.putAsync(tx2, key, val);
-        assertFalse(fut2.isDone());
-
-        Thread.sleep(500);
+        CompletableFuture<?> fut2 = ctx.put.apply(client(), tx2, key);
+        // Wait for the future to finish, not really necessary. Could just wait a bit.
+        await().atMost(1, TimeUnit.SECONDS).until(fut2::isDone);
 
         // Rollback should not be blocked.
         assertThat(tx2.rollbackAsync(), willSucceedFast());
         assertThat(tx1.rollbackAsync(), willSucceedFast());
+
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key)), willSucceedFast());
     }
 
     @ParameterizedTest
