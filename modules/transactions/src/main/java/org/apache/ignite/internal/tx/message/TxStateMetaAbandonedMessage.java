@@ -38,7 +38,7 @@ public interface TxStateMetaAbandonedMessage extends TxStateMetaMessage {
                 null,
                 txLabel(),
                 null,
-                lastExceptionErrorCode()
+                exceptionErrorCode()
         );
     }
 

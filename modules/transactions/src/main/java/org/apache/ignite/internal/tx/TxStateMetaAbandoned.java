@@ -88,6 +88,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
                 .lastAbandonedMarkerTs(lastAbandonedMarkerTs)
+                .exceptionErrorCode(lastExceptionErrorCode())
                 .txLabel(txLabel())
                 .build();
     }

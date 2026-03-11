@@ -39,7 +39,7 @@ public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
                 isFinishedDueToTimeout(),
                 null,
                 null,
-                lastExceptionErrorCode());
+                exceptionErrorCode());
     }
 
     @Override

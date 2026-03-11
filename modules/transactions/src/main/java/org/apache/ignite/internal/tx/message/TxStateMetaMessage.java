@@ -41,7 +41,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
 
     @Nullable Boolean isFinishedDueToTimeout();
 
-    @Nullable Integer lastExceptionErrorCode();
+    @Nullable Integer exceptionErrorCode();
 
     @Nullable String txLabel();
 
@@ -60,7 +60,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
                 isFinishedDueToTimeout(),
                 txLabel(),
                 null,
-                lastExceptionErrorCode()
+                exceptionErrorCode()
         );
     }
 

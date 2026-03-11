@@ -231,7 +231,7 @@ public final class ExceptionUtils {
      * Introspects the {@code Throwable} to obtain the cause.
      *
      * @param throwable The throwable to introspect for a cause, may be null.
-     * @param mtdNames  The method names, null treated as default set.
+     * @param mtdNames The method names, null treated as default set.
      * @return The cause of the {@code Throwable}, {@code null} if none found or null throwable input.
      */
     @Nullable
@@ -269,8 +269,8 @@ public final class ExceptionUtils {
      * Returns the list of {@code Throwable} objects in the exception chain.
      *
      * <p>A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause
-     * will return a list containing two elements - the input throwable and the cause throwable.
-     * A {@code null} throwable will return a list of size zero.
+     * will return a list containing two elements - the input throwable and the cause throwable. A {@code null} throwable will return a list
+     * of size zero.
      *
      * <p>This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until
      * the end is reached, or until the next item in the chain is already in the result set.
@@ -340,13 +340,11 @@ public final class ExceptionUtils {
     /**
      * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
      * <b>including</b> that throwable itself.
-     * Note that this method follows includes {@link Throwable#getSuppressed()}
-     * into check.
+     * Note that this method follows includes {@link Throwable#getSuppressed()} into check.
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
@@ -358,14 +356,12 @@ public final class ExceptionUtils {
     /**
      * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
      * <b>including</b> that throwable itself.
-     * Note that this method follows includes {@link Throwable#getSuppressed()}
-     * into check.
+     * Note that this method follows includes {@link Throwable#getSuppressed()} into check.
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param message Error message fragment that should be in error message.
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
@@ -382,8 +378,7 @@ public final class ExceptionUtils {
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
             @Nullable Throwable throwable,
@@ -400,8 +395,7 @@ public final class ExceptionUtils {
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param message Error message fragment that should be in error message.
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
             @Nullable Throwable throwable,
@@ -409,6 +403,33 @@ public final class ExceptionUtils {
             Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), false);
+    }
+
+    /**
+     * Finds the first throwable in the {@code cause} hierarchy, including the passed throwable itself, that is assignable to the given
+     * class. Suppressed exceptions are ignored, matching {@link #hasCause(Throwable, Class[])} semantics.
+     *
+     * @param throwable Throwable to inspect.
+     * @param clazz Throwable class to find.
+     * @param <T> Throwable type.
+     * @return First matching throwable, or {@code null} if none was found.
+     */
+    public static <T extends Throwable> @Nullable T findCause(@Nullable Throwable throwable, Class<T> clazz) {
+        if (throwable == null) {
+            return null;
+        }
+
+        for (Throwable th = throwable; th != null; th = th.getCause()) {
+            if (clazz.isAssignableFrom(th.getClass())) {
+                return clazz.cast(th);
+            }
+
+            if (th.getCause() == th) {
+                break;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -541,13 +562,13 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier and full error code are preserved.
-     * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause. In the case
+     * when the provided cause {@code t} is an instance of {@link TraceableException}, the original trace identifier and full error code are
+     * preserved. Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
-     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite
+     *         exception.
      * @param t Cause to be used.
      * @param <T> Type of a new exception.
      * @return New exception with the given cause.
@@ -557,13 +578,13 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier and full error code are preserved.
-     * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause. In the case
+     * when the provided cause {@code t} is an instance of {@link TraceableException}, the original trace identifier and full error code are
+     * preserved. Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
-     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite
+     *         exception.
      * @param message Detailed error message.
      * @param t Cause to be used.
      * @param <T> Type of a new exception.
@@ -579,11 +600,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause
-     * and full error code {@code code}.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier preserved.
-     * Otherwise, a newly generated trace identifier is used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause and full
+     * error code {@code code}. In the case when the provided cause {@code t} is an instance of {@link TraceableException}, the original
+     * trace identifier preserved. Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
      * @param code New error code.
@@ -596,11 +615,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause,
-     * full error code {@code code} and error message {@code message}.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier preserved.
-     * Otherwise, a newly generated trace identifier is used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause, full error
+     * code {@code code} and error message {@code message}. In the case when the provided cause {@code t} is an instance of
+     * {@link TraceableException}, the original trace identifier preserved. Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
      * @param code New error code.
@@ -619,10 +636,12 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Extracts the trace identifier and full error code from ignite exception and creates a new one based on the provided {@code supplier}.
+     * Extracts the trace identifier and full error code from ignite exception and creates a new one based on the provided
+     * {@code supplier}.
      *
      * @param supplier Supplier to create a concrete exception instance.
-     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite
+     *         exception.
      * @param t Cause.
      * @param <T> Type of a new exception.
      * @return New
@@ -644,9 +663,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates and returns a copy of an exception that is a cause of the given {@code CompletionException}.
-     * If the original exception does not contain a cause, then the original exception will be returned.
-     * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
+     * Creates and returns a copy of an exception that is a cause of the given {@code CompletionException}. If the original exception does
+     * not contain a cause, then the original exception will be returned. In order to preserve a stack trace, the original completion
+     * exception will be set as the cause of the newly created exception.
      *
      * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
@@ -670,9 +689,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates and returns a copy of an exception that is a cause of the given {@code ExecutionException}.
-     * If the original exception does not contain a cause, then the original exception will be returned.
-     * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
+     * Creates and returns a copy of an exception that is a cause of the given {@code ExecutionException}. If the original exception does
+     * not contain a cause, then the original exception will be returned. In order to preserve a stack trace, the original completion
+     * exception will be set as the cause of the newly created exception.
      *
      * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
@@ -720,8 +739,8 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Throws the given exception {@code e}.
-     * This method allows to throw any checked exception without defining it explicitly in the method signature.
+     * Throws the given exception {@code e}. This method allows to throw any checked exception without defining it explicitly in the method
+     * signature.
      *
      * @param e Exception to be thrown.
      * @return Actually, this method does not return anything, it just throws the provided exception.
@@ -849,8 +868,8 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Returns {@code true} if the given throwable (or its cause) is a {@link TransactionException}
-     * with {@link ErrorGroups.Transactions#TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR}.
+     * Returns {@code true} if the given throwable (or its cause) is a {@link TransactionException} with
+     * {@link ErrorGroups.Transactions#TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR}.
      *
      * @param e Throwable to inspect.
      * @return {@code true} when the transaction was finished due to timeout, {@code false} otherwise.
@@ -867,9 +886,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates and return a copy of an exception that is a cause of the given {@code exception}.
-     * If the original exception does not contain a cause, then the original exception will be returned.
-     * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
+     * Creates and return a copy of an exception that is a cause of the given {@code exception}. If the original exception does not contain
+     * a cause, then the original exception will be returned. In order to preserve a stack trace, the original completion exception will be
+     * set as the cause of the newly created exception.
      *
      * @param exception Original exception.
      * @return Copy of an exception that is a cause of the given {@code exception}.
@@ -888,10 +907,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Returns base Ignite exception class for the given {@code exception}.
-     * The returned class can be one of the following: IgniteException, IgniteCheckedException, IgniteInternalException,
-     * IgniteInternalCheckedException.
-     * If the given {@code t} does not inherits any of these Ignite classes, then Throwable.class is returned.
+     * Returns base Ignite exception class for the given {@code exception}. The returned class can be one of the following: IgniteException,
+     * IgniteCheckedException, IgniteInternalException, IgniteInternalCheckedException. If the given {@code t} does not inherits any of
+     * these Ignite classes, then Throwable.class is returned.
      *
      * @param t Exception to be used in order to determine a base Ignite exception class.
      * @param <T> Exception type.
@@ -936,8 +954,8 @@ public final class ExceptionUtils {
          * @param message Detailed error message.
          * @param cause Cause.
          * @param <T> Type of returned exception.
-         * @return a new instance of exception.
-         *      Returned value can be {@code null} if the exception class cannot be constructed using a specific signature.
+         * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed using a
+         *         specific signature.
          */
         final <T extends Throwable> @Nullable T createCopy(
                 Class<? extends Throwable> clazz,
@@ -991,9 +1009,8 @@ public final class ExceptionUtils {
          * @param message Detailed error message.
          * @param cause Cause.
          * @param <T> Type of returned exception.
-         *
-         * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed
-         *          using a specific signature.
+         * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed using a
+         *         specific signature.
          */
         @Nullable
         abstract <T extends Throwable> T copy(
@@ -1170,10 +1187,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * This class is used as workaround to avoid error code and trace id duplication in the error message.
-     * The root cause of this issue is that the constructor Throwable(Throwable cause) uses cause.toString() method
-     * to create a detailedMessage instead of getMessage(), and so this message will be enriched by class name, error code and trace id.
-     * For example,
+     * This class is used as workaround to avoid error code and trace id duplication in the error message. The root cause of this issue is
+     * that the constructor Throwable(Throwable cause) uses cause.toString() method to create a detailedMessage instead of getMessage(), and
+     * so this message will be enriched by class name, error code and trace id. For example,
      * <pre><code>
      *     class CustomException extends IgniteException {
      *         public CustomException(Throwable cause) {

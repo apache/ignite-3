@@ -268,7 +268,7 @@ public class TxStateMeta implements TransactionMeta {
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
                 .isFinishedDueToTimeout(isFinishedDueToTimeout)
-                .lastExceptionErrorCode(lastExceptionErrorCode)
+                .exceptionErrorCode(lastExceptionErrorCode)
                 .txLabel(txLabel)
                 .build();
     }

@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.findCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -63,14 +64,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
@@ -3832,11 +3830,15 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             if (hasCause(ex, LockException.class)) {
                                 RequestType failedRequestType = getRequestOperationType(request);
 
-                                TransactionException alreadyFinished = transactionAlreadyFinishedException(request);
+                                // Lock acquisition failure is the only ambiguous case here: the immediate failure is a LockException,
+                                // but by the time we handle it the transaction may already be in FINISHING or a terminal state.
+                                // In that case we report the terminal transaction error instead of plain lock contention.
+                                // Other exception types already represent the final failure reason directly.
+                                TransactionException alreadyFinished = toFinishedTransactionExceptionIfAny(request);
                                 if (alreadyFinished != null) {
                                     sneakyThrow(alreadyFinished);
                                 }
-                                LockException lockException = findLockException(ex);
+                                LockException lockException = findCause(ex, LockException.class);
 
                                 sneakyThrow(new OperationLockException(failedRequestType, lockException));
                             }
@@ -3881,7 +3883,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         });
     }
 
-    private @Nullable TransactionException transactionAlreadyFinishedException(ReplicaRequest request) {
+    /**
+     * Returns a user-facing transaction-finished exception for a failed read-write request if the request's transaction has
+     * already moved to {@link TxState#FINISHING} or a final state.
+     *
+     * <p>This method is used on the lock-failure path to distinguish ordinary lock contention from the case where the
+     * operation failed because the transaction is no longer active. In that case, it translates the current transaction
+     * state metadata into a {@link TransactionException} with the proper timeout or error code and an optional public cause.
+     *
+     * @param request Replica request that may carry a transaction id.
+     * @return Transaction-finished exception, or {@code null} if the request is not transactional or the transaction is
+     *         still active.
+     */
+    private @Nullable TransactionException toFinishedTransactionExceptionIfAny(ReplicaRequest request) {
         if (!(request instanceof ReadWriteReplicaRequest)) {
             return null;
         }
@@ -4052,38 +4066,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
-    }
-
-    /**
-     * Trying to find LockException in exception chain.
-     */
-    @Nullable
-    private static LockException findLockException(Throwable throwable) {
-        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-        ArrayDeque<Throwable> stack = new ArrayDeque<>();
-        stack.push(throwable);
-
-        while (!stack.isEmpty()) {
-            Throwable current = stack.pop();
-            if (current == null || !seen.add(current)) {
-                continue;
-            }
-
-            if (current instanceof LockException) {
-                return (LockException) current;
-            }
-
-            Throwable cause = current.getCause();
-            if (cause != null) {
-                stack.push(cause);
-            }
-
-            for (Throwable suppressed : current.getSuppressed()) {
-                stack.push(suppressed);
-            }
-        }
-
-        return null;
     }
 
     private static class WriteIntentResolutionResult {

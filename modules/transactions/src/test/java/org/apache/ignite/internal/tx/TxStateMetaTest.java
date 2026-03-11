@@ -22,13 +22,18 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.test.TxStateMetaTestUtils.assertTxStateMetaIsSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateMetaAbandonedMessage;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments.ArgumentSet;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -38,6 +43,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class TxStateMetaTest {
     private static final UUID COORDINATOR_ID = UUID.randomUUID();
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private static final TxStateMeta PENDING_META = new TxStateMeta(
             PENDING,
@@ -121,6 +128,23 @@ public class TxStateMetaTest {
                     return finishing.mutate().build();
                 })
         );
+    }
+
+    @Test
+    public void testAbandonedMetaMessageKeepsLastExceptionErrorCode() {
+        TxStateMetaAbandoned meta = new TxStateMetaAbandoned(
+                COORDINATOR_ID,
+                new ZonePartitionId(0, 0),
+                null,
+                "my-tx-label",
+                null,
+                321
+        );
+
+        TxStateMetaAbandonedMessage message = meta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY);
+
+        assertEquals(321, message.exceptionErrorCode());
+        assertEquals(321, message.asTxStateMetaAbandoned().lastExceptionErrorCode());
     }
 
     private static ArgumentSet args(

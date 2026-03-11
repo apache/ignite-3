@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -50,6 +51,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class VolatileTxStateMetaStorage {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
+    private static final IgniteThrottledLogger THROTTLED_LOG = Loggers.toThrottledLogger(LOG);
+    private static final String ENRICH_REMOVE_THROTTLE_KEY = "volatile-tx-state-enrich-remove";
+    private static final String ENRICH_CREATE_THROTTLE_KEY = "volatile-tx-state-enrich-create";
+    private static final String ENRICH_STATE_CHANGE_THROTTLE_KEY = "volatile-tx-state-enrich-state-change";
 
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
@@ -148,21 +153,37 @@ public class VolatileTxStateMetaStorage {
     private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, @Nullable TxStateMeta newMeta) {
         if (newMeta == null) {
             if (oldMeta != null) {
-                LOG.info("Skipped removing transaction state in enrichMeta [{}].", formatTxInfo(txId, oldMeta, false));
+                THROTTLED_LOG.info(
+                        ENRICH_REMOVE_THROTTLE_KEY,
+                        "Skipped removing transaction state in enrichMeta [{}, oldMeta={}].",
+                        formatTxInfo(txId, oldMeta, false),
+                        oldMeta
+                );
             }
 
             return false;
         }
 
         if (oldMeta == null) {
-            LOG.info("Skipped creating transaction state in enrichMeta [{}].", formatTxInfo(txId, newMeta, false));
+            THROTTLED_LOG.info(
+                    ENRICH_CREATE_THROTTLE_KEY,
+                    "Skipped creating transaction state in enrichMeta [{}, newMeta={}].",
+                    formatTxInfo(txId, newMeta, false),
+                    newMeta
+            );
 
             return false;
         }
 
         if (oldMeta.txState() != newMeta.txState()) {
-            LOG.info("Skipped changing transaction state in enrichMeta [{}, oldState={}, newState={}, newMeta={}].",
-                    formatTxInfo(txId, oldMeta, false), oldMeta.txState(), newMeta.txState(), newMeta);
+            THROTTLED_LOG.info(
+                    ENRICH_STATE_CHANGE_THROTTLE_KEY,
+                    "Skipped changing transaction state in enrichMeta [{}, oldState={}, newState={}, newMeta={}].",
+                    formatTxInfo(txId, oldMeta, false),
+                    oldMeta.txState(),
+                    newMeta.txState(),
+                    newMeta
+            );
 
             return false;
         }
