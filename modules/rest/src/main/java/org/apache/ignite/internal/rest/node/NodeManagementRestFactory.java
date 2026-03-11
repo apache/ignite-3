@@ -31,15 +31,12 @@ public class NodeManagementRestFactory implements RestFactory {
 
     private NameProvider nameProvider;
 
-    private JdbcPortProvider jdbcPortProvider;
-
     /**
      * Constructs node management rest factory.
      */
-    public NodeManagementRestFactory(StateProvider stateProvider, NameProvider nameProvider, JdbcPortProvider jdbcPortProvider) {
+    public NodeManagementRestFactory(StateProvider stateProvider, NameProvider nameProvider) {
         this.stateProvider = stateProvider;
         this.nameProvider = nameProvider;
-        this.jdbcPortProvider = jdbcPortProvider;
     }
 
     @Singleton
@@ -54,16 +51,9 @@ public class NodeManagementRestFactory implements RestFactory {
         return nameProvider;
     }
 
-    @Singleton
-    @Bean
-    public JdbcPortProvider jdbcPortProvider() {
-        return jdbcPortProvider;
-    }
-
     @Override
     public void cleanResources() {
         stateProvider = null;
         nameProvider = null;
-        jdbcPortProvider = null;
     }
 }

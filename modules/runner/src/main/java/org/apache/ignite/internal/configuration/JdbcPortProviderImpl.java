@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.configuration;
 
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 
 /**
  * Provider of client port from node configuration.
  */
+@Singleton
 public class JdbcPortProviderImpl implements JdbcPortProvider {
 
     private final ConfigurationRegistry configurationRegistry;
 
-    public JdbcPortProviderImpl(ConfigurationRegistry configurationRegistry) {
+    public JdbcPortProviderImpl(@Named("nodeConfig") ConfigurationRegistry configurationRegistry) {
         this.configurationRegistry = configurationRegistry;
     }
 

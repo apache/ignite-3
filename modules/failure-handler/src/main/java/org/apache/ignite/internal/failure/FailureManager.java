@@ -22,6 +22,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -29,6 +32,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorView;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
@@ -53,6 +59,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * General failure processing implementation.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(600)
 public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(FailureManager.class);
@@ -118,10 +127,23 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * @param nodeStopper Node stopper.
      * @param configuration Failure processor configuration.
      */
+    @TestOnly
     public FailureManager(String nodeName, NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
         this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
+    }
+
+    /**
+     * Creates a new instance of a failure processor.
+     *
+     * @param nodeIdentity Node identity.
+     * @param nodeStopper Node stopper.
+     * @param configuration Failure processor configuration.
+     */
+    @Inject
+    public FailureManager(NodeIdentity nodeIdentity, NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
+        this(nodeIdentity.nodeName(), nodeStopper, configuration);
     }
 
     @Override

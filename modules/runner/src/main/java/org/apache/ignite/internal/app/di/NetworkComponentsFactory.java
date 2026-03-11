@@ -18,17 +18,13 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
-import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.IgniteServer;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.NodeIdentity;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NodeStopper;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -66,16 +62,10 @@ public class NetworkComponentsFactory {
         return systemConfiguration.criticalWorkers();
     }
 
-    /** Creates the failure manager. */
+    /** Creates the node stopper. */
     @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(600)
-    public FailureManager failureManager(
-            NodeIdentity nodeIdentity,
-            IgniteServer igniteServer,
-            FailureProcessorConfiguration failureProcessorConfiguration
-    ) {
-        return new FailureManager(nodeIdentity.nodeName(), igniteServer::shutdown, failureProcessorConfiguration);
+    public NodeStopper nodeStopper(IgniteServer igniteServer) {
+        return igniteServer::shutdown;
     }
 
 }
