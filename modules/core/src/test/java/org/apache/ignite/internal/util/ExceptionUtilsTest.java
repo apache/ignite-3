@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.findCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -62,18 +59,4 @@ class ExceptionUtilsTest {
         assertFalse(hasCause(e3, NullPointerException.class));
     }
 
-    @Test
-    void findCauseTest() {
-        var e0 = new IllegalStateException();
-        var e1 = new IllegalArgumentException(e0);
-        var e2 = new IOException(e1);
-        var e3 = new CompletionException(e2);
-
-        assertInstanceOf(IllegalStateException.class, findCause(e3, IllegalStateException.class));
-        assertInstanceOf(IllegalArgumentException.class, findCause(e3, IllegalArgumentException.class));
-        assertInstanceOf(IOException.class, findCause(e3, IOException.class));
-        assertInstanceOf(CompletionException.class, findCause(e3, CompletionException.class));
-
-        assertNull(findCause(e3, NullPointerException.class));
-    }
 }

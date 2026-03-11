@@ -146,12 +146,16 @@ public interface TxManager extends IgniteComponent {
     <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);
 
     /**
-     * Atomically updates transaction metadata while bypassing TxState transition validation.
-     * Use this only for metadata-only changes (for example, exception info or labels) and never to change TxState itself.
+     * Atomically replaces metadata of an already existing transaction state, but only if the resulting state keeps the same
+     * {@link TxStateMeta#txState()} value.
+     *
+     * <p>If the transaction is absent, the update is skipped. If the updater returns {@code null}, the existing metadata is preserved and
+     * the removal is skipped. If the updater changes {@code txState}, the update is skipped as well. Otherwise, the returned metadata is
+     * stored as-is, so this method may be used for any non-state changes.
      *
      * @param txId Transaction id.
      * @param updater Transaction meta updater.
-     * @return Updated transaction state.
+     * @return Stored transaction state after the operation.
      */
     @Nullable
     <T extends TxStateMeta> T enrichTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);

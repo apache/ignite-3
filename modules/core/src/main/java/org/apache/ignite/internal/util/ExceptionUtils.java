@@ -406,33 +406,6 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Finds the first throwable in the {@code cause} hierarchy, including the passed throwable itself, that is assignable to the given
-     * class. Suppressed exceptions are ignored, matching {@link #hasCause(Throwable, Class[])} semantics.
-     *
-     * @param throwable Throwable to inspect.
-     * @param clazz Throwable class to find.
-     * @param <T> Throwable type.
-     * @return First matching throwable, or {@code null} if none was found.
-     */
-    public static <T extends Throwable> @Nullable T findCause(@Nullable Throwable throwable, Class<T> clazz) {
-        if (throwable == null) {
-            return null;
-        }
-
-        for (Throwable th = throwable; th != null; th = th.getCause()) {
-            if (clazz.isAssignableFrom(th.getClass())) {
-                return clazz.cast(th);
-            }
-
-            if (th.getCause() == th) {
-                break;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Internal method that does what is described in {@link #hasCauseOrSuppressed(Throwable, String, Class[])}, but protects against an
      * infinite loop. It can also consider or ignore suppressed exceptions.
      */

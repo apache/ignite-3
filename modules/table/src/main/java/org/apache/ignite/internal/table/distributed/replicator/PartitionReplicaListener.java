@@ -52,7 +52,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.findCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -3838,7 +3837,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                 if (alreadyFinished != null) {
                                     sneakyThrow(alreadyFinished);
                                 }
-                                LockException lockException = findCause(ex, LockException.class);
+                                LockException lockException = unwrapCause(ex, LockException.class);
 
                                 sneakyThrow(new OperationLockException(failedRequestType, lockException));
                             }
