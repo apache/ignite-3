@@ -62,7 +62,10 @@ std::int32_t hash_calculator::calc_hash(const primitive& val, std::int32_t scale
         case ignite_type::DURATION:
         case ignite_type::UNDEFINED:
         default:
-            throw ignite_error(error::code::INTERNAL, "");
+            throw ignite_error(
+                error::code::INTERNAL,
+                "Can't calculate hash value for type = " + std::to_string(static_cast<int>(type))
+            );
     }
 }
 
