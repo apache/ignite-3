@@ -901,8 +901,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                 sb.append(stackTraceElement).append('\n');
                             }
 
-                            System.out.println("retry durableFinish! timeoutKey: " + timeoutKey + ", thread: " + Thread.currentThread().getName() + ", stackTrace: " + sb);
-
                             return supplyAsync(() -> scheduleRetry(
                                     () -> durableFinish(
                                             observableTimestampTracker,

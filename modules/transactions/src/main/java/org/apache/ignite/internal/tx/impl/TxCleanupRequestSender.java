@@ -65,8 +65,6 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
-    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
-
     private static final int ATTEMPTS_LOG_THRESHOLD = 100;
 
     private final IgniteThrottledLogger throttledLog;
@@ -98,7 +96,7 @@ public class TxCleanupRequestSender {
      * @param txStateVolatileStorage Volatile transaction state storage.
      * @param cleanupExecutor Cleanup executor.
      * @param commonScheduler Common scheduler.
-     * @param timeoutStrategy Timout strategy.
+     * @param retryContext retry context.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
@@ -114,7 +112,6 @@ public class TxCleanupRequestSender {
         this.cleanupExecutor = cleanupExecutor;
         this.retryExecutor = commonScheduler;
         this.throttledLog = toThrottledLogger(Loggers.forClass(TxCleanupRequestSender.class), commonScheduler);
-//        this.retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
         this.retryContext = retryContext;
     }
 
@@ -374,8 +371,6 @@ public class TxCleanupRequestSender {
                 .handleAsync((networkMessage, throwable) -> {
                     if (throwable != null) {
                         String timeoutKey = commitPartitionId == null ? txId.toString() : commitPartitionId.toString();
-
-                        LOG.info("timeoutKey: " + timeoutKey + ", txId: " + txId.toString());
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
                             retryContext.getState(timeoutKey).ifPresent(timeoutState -> {
