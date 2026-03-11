@@ -89,7 +89,8 @@ public class DiscoverySpiConverter implements ConfigurationConverter {
         }
 
         if (tcpDiscoverySpi.getLocalPortRange() > 0) {
-            // TODO: Check if we can implement an additional policy for migrating the port range.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28163 Check if we can implement an additional policy
+            //  for migrating the port range.
             LOGGER.error("Local Port Range in TcpDiscoverySpi will be ignored. There's no similar feature in Apache Ignite 3");
         }
 
