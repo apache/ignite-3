@@ -32,7 +32,7 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Partition raft log compatibility tests for one node. */
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("baseVersions")
 public class ItPartitionRaftLogOneNodeCompatibilityTest extends CompatibilityTestBase {
     private static final String TABLE_NAME = "TEST_TABLE";
