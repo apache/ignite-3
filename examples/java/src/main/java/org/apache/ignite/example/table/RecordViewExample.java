@@ -17,21 +17,18 @@
 
 package org.apache.ignite.example.table;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the { @link RecordView} API.
+ * This example demonstrates the usage of the {@link RecordView} API.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class RecordViewExample {
     /**
-     * Main method of the example.
+     * Runs the RecordViewExample.
      *
      * @param args The command line arguments.
      * @throws Exception If failed.
@@ -39,35 +36,30 @@ public class RecordViewExample {
     public static void main(String[] args) throws Exception {
         //--------------------------------------------------------------------------------------
         //
-        // Creating 'accounts' table.
+        // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
+        System.out.println("Connecting to server...");
+
+        try (IgniteClient client = IgniteClient.builder()
+                .addresses("127.0.0.1:10800")
+                .build()
         ) {
-            stmt.executeUpdate(
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating 'accounts' table.
+            //
+            //--------------------------------------------------------------------------------------
+
+            client.sql().execute(
                     "CREATE TABLE accounts ("
                             + "accountNumber INT PRIMARY KEY,"
                             + "firstName     VARCHAR,"
                             + "lastName      VARCHAR,"
                             + "balance       DOUBLE)"
             );
-        }
 
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
-        //
-        //--------------------------------------------------------------------------------------
-
-        System.out.println("\nConnecting to server...");
-
-        try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build()
-        ) {
             //--------------------------------------------------------------------------------------
             //
             // Creating a record view for the 'accounts' table.
@@ -82,7 +74,7 @@ public class RecordViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nInserting a record into the 'accounts' table...");
+            System.out.println("Inserting a record into the 'accounts' table...");
 
             Tuple newAccountTuple = Tuple.create()
                     .set("accountNumber", 123456)
@@ -98,7 +90,7 @@ public class RecordViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nRetrieving a record using RecordView API...");
+            System.out.println("Retrieving a record using RecordView API...");
 
             Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
 
@@ -109,15 +101,10 @@ public class RecordViewExample {
                             + "    Account Number: " + accountTuple.intValue("accountNumber") + '\n'
                             + "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n'
                             + "    Balance: $" + accountTuple.doubleValue("balance"));
-        } finally {
-            System.out.println("\nDropping the table...");
 
-            try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE accounts");
-            }
+            System.out.println("Dropping the table...");
+
+            client.sql().execute("DROP TABLE accounts");
         }
     }
 }

@@ -42,7 +42,7 @@ public class SqlJdbcExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/")) {
             //--------------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ public class SqlJdbcExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nPopulating 'CITIES' table...");
+            System.out.println("Populating 'CITIES' table...");
 
             try (PreparedStatement stmt = conn.prepareStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)")) {
                 stmt.setInt(1, 1);
@@ -96,7 +96,7 @@ public class SqlJdbcExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nPopulating 'ACCOUNTS' table...");
+            System.out.println("Populating 'ACCOUNTS' table...");
 
             try (PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)")) {
@@ -135,7 +135,7 @@ public class SqlJdbcExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nAll accounts:");
+            System.out.println("All accounts:");
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery(
@@ -156,7 +156,7 @@ public class SqlJdbcExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nAccounts with balance lower than 1,500:");
+            System.out.println("Accounts with balance lower than 1,500:");
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery(
@@ -177,7 +177,7 @@ public class SqlJdbcExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nDeleting one of the accounts...");
+            System.out.println("Deleting one of the accounts...");
 
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?")) {
                 stmt.setInt(1, 1);
@@ -191,7 +191,7 @@ public class SqlJdbcExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nAll accounts:");
+            System.out.println("All accounts:");
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery(
@@ -206,7 +206,7 @@ public class SqlJdbcExample {
                 }
             }
 
-            System.out.println("\nDropping the tables...");
+            System.out.println("Dropping the tables...");
 
             try (Statement stmt = conn.createStatement()) {
                 stmt.executeUpdate("DROP TABLE ACCOUNTS");

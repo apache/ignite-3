@@ -17,15 +17,16 @@
 
 package org.apache.ignite.example.table;
 
-import static java.sql.DriverManager.getConnection;
-
-import java.sql.Connection;
-import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
 
+/**
+ * This example demonstrates the usage of the {@link Mapper} API with a custom {@link TypeConverter}.
+ *
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
+ */
 public class MapperExample {
     static class CityIdConverter implements TypeConverter<String, Integer> {
 
@@ -40,50 +41,60 @@ public class MapperExample {
         }
     }
 
+    /**
+     * Runs the MapperExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception If failed.
+     */
     public static void main(String[] args) throws Exception {
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            try {
-                try (
-                        Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                        Statement stmt = conn.createStatement()
-                ) {
-                    stmt.executeUpdate(
-                            "CREATE TABLE Person ("
-                                    + "id int primary key, "
-                                    + "city varchar, "
-                                    + "name varchar, "
-                                    + "age int, "
-                                    + "company varchar, "
-                                    + "city_id int)"
-                    );
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating 'Person' table.
+            //
+            //--------------------------------------------------------------------------------------
 
-                    stmt.executeUpdate(
-                            "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
-                    stmt.executeUpdate(
-                            "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
-                }
+            client.sql().execute(
+                    "CREATE TABLE Person ("
+                            + "id int primary key, "
+                            + "city varchar, "
+                            + "name varchar, "
+                            + "age int, "
+                            + "company varchar, "
+                            + "city_id int)"
+            );
 
-                var mapper = Mapper.builder(Person.class)
-                        .automap()
-                        .map("cityId", "city_id", new CityIdConverter())
-                        .build();
+            client.sql().execute(
+                    "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
+            client.sql().execute(
+                    "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
 
-                RecordView<Person> view = client.tables()
-                        .table("person")
-                        .recordView(mapper);
+            //--------------------------------------------------------------------------------------
+            //
+            // Demonstrating Mapper API with custom TypeConverter.
+            //
+            //--------------------------------------------------------------------------------------
 
-                Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
+            var mapper = Mapper.builder(Person.class)
+                    .automap()
+                    .map("cityId", "city_id", new CityIdConverter())
+                    .build();
 
-                view.upsert(null, myPerson);
-            } finally {
-                System.out.println("\nDropping the table...");
+            RecordView<Person> view = client.tables()
+                    .table("person")
+                    .recordView(mapper);
 
-                client.sql().execute("DROP TABLE IF EXISTS Person");
-            }
+            Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
+
+            view.upsert(null, myPerson);
+
+            System.out.println("Dropping the table...");
+
+            client.sql().execute("DROP TABLE IF EXISTS Person");
         }
     }
 }

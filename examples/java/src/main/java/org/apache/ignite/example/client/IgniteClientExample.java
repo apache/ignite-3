@@ -50,7 +50,7 @@ public class IgniteClientExample {
             try {
                 client.sql().execute("CREATE TABLE Person (id int primary key, name varchar, age int);");
             } finally {
-                System.out.println("\nDropping the table...");
+                System.out.println("Dropping the table...");
 
                 client.sql().execute("DROP TABLE IF EXISTS Person");
             }

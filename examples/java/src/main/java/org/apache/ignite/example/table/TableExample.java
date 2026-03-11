@@ -91,7 +91,7 @@ public class TableExample {
 
                 System.out.println("Person name: " + insertedPerson.stringValue("name"));
             } finally {
-                System.out.println("\nDropping the table...");
+                System.out.println("Dropping the table...");
 
                 client.sql().execute("DROP TABLE IF EXISTS Person");
             }

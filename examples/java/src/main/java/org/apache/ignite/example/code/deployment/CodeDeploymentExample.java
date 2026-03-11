@@ -50,11 +50,11 @@ public class CodeDeploymentExample {
      */
     public static void main(String[] args) throws Exception {
         DeployComputeUnit.processDeploymentUnit(args);
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
             deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
@@ -63,11 +63,11 @@ public class CodeDeploymentExample {
 
             JobTarget target = JobTarget.anyNode(client.cluster().nodes());
 
-            System.out.println("\nExecuting compute job'" + "'...");
+            System.out.println("Executing compute job'" + "'...");
 
             String result = client.compute().execute(target, job, "Hello from job");
 
-            System.out.println("\n=== Result ===\n" + result);
+            System.out.println("=== Result ===\n" + result);
         } finally {
             System.out.println("Cleaning up resources...");
             undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
