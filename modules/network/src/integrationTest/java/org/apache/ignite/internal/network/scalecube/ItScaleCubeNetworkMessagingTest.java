@@ -27,15 +27,16 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -99,7 +100,6 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
@@ -649,11 +649,8 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> closeFuture = defaultChannelSender.closeAsync();
 
-        TestMessage firstMsg = testMessage("first");
-        TestMessage secondMsg = testMessage("second");
-
-        CompletableFuture<?> sendViaOldChannel = send(firstMsg, sender, receiver);
-        CompletableFuture<?> invokeViaOldChannel = invoke(secondMsg, sender, receiver);
+        CompletableFuture<?> sendViaOldChannel = send(testMessage("first"), sender, receiver);
+        CompletableFuture<?> invokeViaOldChannel = invoke(testMessage("second"), sender, receiver);
 
         try {
             assertFalse(closeFuture.isDone());
@@ -668,24 +665,11 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-            NettySender nettySender = waitForChannelHandshakeFinished(sender, receiver);
-
-            assertThatHasNoEventuallyUnacknowledgedMessages(nettySender);
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
+            assertThatHasNoUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
         }
-    }
-
-    private static NettySender waitForChannelHandshakeFinished(ClusterService sender, ClusterService receiver) throws InterruptedException {
-        NettySender[] nettySenderWarp = new NettySender[1];
-
-        assertTrue(waitForCondition(() -> {
-            nettySenderWarp[0] = nettySenderForDefaultChannel(sender, receiver);
-
-            return nettySenderWarp[0] != null;
-        }, 10_000));
-
-        return nettySenderWarp[0];
     }
 
     private static void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<String> receivedPayloads) {
@@ -726,11 +710,14 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static void assertThatHasNoEventuallyUnacknowledgedMessages(NettySender nettySender) {
-        CompletableFuture<Void> allMsgAckedFut = CompletableFutures.allOf(nettySender.recoveryDescriptor().unacknowledgedMessages().stream()
-                .map(OutNetworkObject::acknowledgedFuture).collect(toList()));
+    private static void assertThatHasNoUnacknowledgedMessages(NettySender nettySender) {
+        CompletableFuture<List<OutNetworkObject>> unackedMessagesFuture = new CompletableFuture<>();
 
-        assertThat(allMsgAckedFut, willCompleteSuccessfully());
+        nettySender.channel().eventLoop().execute(() -> {
+            unackedMessagesFuture.complete(nettySender.recoveryDescriptor().unacknowledgedMessages());
+        });
+
+        assertThat(unackedMessagesFuture, willBe(empty()));
     }
 
     private static NettySender nettySenderForDefaultChannel(ClusterService sender, ClusterService receiver) {
@@ -797,7 +784,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         assertThat(receivedPayloads, equalTo(expectedPayloads));
 
         NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
-        assertThatHasNoEventuallyUnacknowledgedMessages(nettySender);
+        assertThatHasNoUnacknowledgedMessages(nettySender);
     }
 
     private static void establishConnectionWithoutSendingMessages(ClusterService sender, ClusterService receiver) {
@@ -878,7 +865,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
             NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
-            assertThatHasNoEventuallyUnacknowledgedMessages(nettySender);
+            assertThatHasNoUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
             proceedToSendingViaOldChannel.countDown();
@@ -969,7 +956,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    public void messageSendFuturesGetCompleteEvenIfAcknowledgementNotHappens(SendOperation operation) throws Exception {
+    public void messageSendFuturesGetCompleteWhenAcknowledgementHappens(SendOperation operation) throws Exception {
         testCluster = new Cluster(2, testInfo);
 
         testCluster.startAwait();
@@ -983,25 +970,18 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         openDefaultChannelBetween(sender, receiver);
         OutgoingAcknowledgementSilencer ackSilencer = dropAcksWhenDefaultChannelOpens(receiver);
 
-        TestMessage msg = messageFactory.testMessage().build();
-
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
-                msg,
+                messageFactory.testMessage().build(),
                 receiver.topologyService().localMember()
         );
-
-        assertThat(sendFuture, willCompleteSuccessfully());
-
-        CompletableFuture<Void> ackSendFuture = ackFuture(sender, msg);
-
-        assertThat(ackSendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+        assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
 
         ackSilencer.stopSilencing();
 
         provokeAckFor(sender, receiver);
 
-        assertThat(ackSendFuture, willCompleteSuccessfully());
+        assertThat(sendFuture, willCompleteSuccessfully());
     }
 
     private static void echoMessagesBackAt(ClusterService clusterService) {
@@ -1025,7 +1005,13 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         return send(messageFactory.testMessage().build(), sender, receiver);
     }
 
-    private static CompletableFuture<Void> ackFuture(ClusterService clusterService, NetworkMessage msg) {
+    private static CompletableFuture<Void> waitForAckFuture(ClusterService clusterService, NetworkMessage msg) {
+        CompletableFuture<Void> future = await().until(() -> ackFuture(clusterService, msg), is(notNullValue()));
+        assertThat(future, is(notNullValue()));
+        return future;
+    }
+
+    private static @Nullable CompletableFuture<Void> ackFuture(ClusterService clusterService, NetworkMessage msg) {
         for (NettySender sender : connectionManager(clusterService).channels().values()) {
             for (OutNetworkObject outMsgWrapper : sender.recoveryDescriptor().unacknowledgedMessages()) {
                 if (outMsgWrapper.networkMessage() == msg) {
@@ -1040,7 +1026,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
             }
         }
 
-        return nullCompletedFuture();
+        return null;
     }
 
     private static OutgoingAcknowledgementSilencer dropAcksWhenDefaultChannelOpens(ClusterService clusterService)
@@ -1064,7 +1050,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    public void acknowledgeFutureFailsWhenReceiverLeavesPhysicalTopology(SendOperation operation) throws Exception {
+    public void sendFutureFailsWhenReceiverLeavesPhysicalTopology(SendOperation operation) throws Exception {
         testCluster = new Cluster(2, testInfo);
 
         testCluster.startAwait();
@@ -1085,18 +1071,18 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
                 outcast.topologyService().localMember()
         );
 
-        assertThat(sendFuture, willCompleteSuccessfully());
-
-        CompletableFuture<Void> ackSendFuture = ackFuture(notOutcast, msg);
+        CompletableFuture<Void> ackSendFuture = waitForAckFuture(notOutcast, msg);
+        assertFalse(ackSendFuture.isDone(), "Ack future should not be done yet");
 
         knockOutNode(outcast);
 
+        assertThat(sendFuture, willThrow(RecipientLeftException.class));
         assertThat(ackSendFuture, willThrow(RecipientLeftException.class));
     }
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    public void acknowledgeFutureFailsWhenSenderNodeStops(SendOperation operation) throws Exception {
+    public void sendFutureFailsWhenSenderNodeStops(SendOperation operation) throws Exception {
         testCluster = new Cluster(2, testInfo);
 
         testCluster.startAwait();
@@ -1109,7 +1095,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         openDefaultChannelBetween(sender, receiver);
         dropAcksWhenDefaultChannelOpens(receiver);
 
-        TestMessage msg = messageFactory.testMessage().build();
+        TestMessage msg = messageFactory.testMessage().msg("Hello").build();
 
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
@@ -1117,12 +1103,12 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
                 receiver.topologyService().localMember()
         );
 
-        assertThat(sendFuture, willCompleteSuccessfully());
-
-        CompletableFuture<Void> ackSendFuture = ackFuture(sender, msg);
+        CompletableFuture<Void> ackSendFuture = waitForAckFuture(sender, msg);
+        assertFalse(ackSendFuture.isDone(), "Ack future should not be done yet");
 
         stopClusterService(sender);
 
+        assertThat(sendFuture, willThrow(NodeStoppingException.class));
         assertThat(ackSendFuture, willThrow(NodeStoppingException.class));
     }
 
