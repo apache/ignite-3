@@ -502,6 +502,9 @@ public class ClientTableCommon {
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
 
+                // Track this transaction for cleanup on client disconnect.
+                resources.trackTransaction(tx.id());
+
                 return completedFuture(tx);
             } else if (id == TX_ID_DIRECT) {
                 assert txManager != null : "Transaction manager must be specified to process directly mapped requests.";
@@ -536,6 +539,9 @@ public class ClientTableCommon {
                                 throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
                                         "Transaction is already finished [tx=" + remote + "].");
                             }
+
+                            // Track this remote enlistment for cleanup if client disconnects.
+                            txManager.remoteEnlistmentTracker().trackEnlistment(txId, tableId, commitPart);
 
                             return remote;
                         });

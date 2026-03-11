@@ -154,6 +154,14 @@ public interface TxManager extends IgniteComponent {
     LockManager lockManager();
 
     /**
+     * Returns the remote enlistment tracker.
+     * Used for tracking and cleaning up direct enlistments when client connections are lost.
+     *
+     * @return Remote enlistment tracker.
+     */
+    org.apache.ignite.internal.tx.impl.RemoteEnlistmentTracker remoteEnlistmentTracker();
+
+    /**
      * Executor that writes intent switch asynchronously.
      *
      * @return Executor.
