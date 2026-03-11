@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.configuration;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
@@ -29,7 +31,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,10 @@ class CompoundModuleTest extends BaseIgniteAbstractTest {
     private RootKey<?, ?, ?> rootKeyA;
     @Mock
     private RootKey<?, ?, ?> rootKeyB;
+    @Mock
+    private RootKey<?, ?, ?> rootKeyC;
+    @Mock
+    private RootKey<?, ?, ?> rootKeyD;
 
     @Mock
     private Validator<AnnotationA, ?> validatorA;
@@ -54,19 +59,26 @@ class CompoundModuleTest extends BaseIgniteAbstractTest {
     private ConfigurationModule moduleA;
     @Mock
     private ConfigurationModule moduleB;
+    @Mock
+    private ConfigurationModule moduleC;
+    @Mock
+    private ConfigurationModule moduleD;
 
     private ConfigurationModule compound;
 
     @BeforeEach
     void createCompoundModule() {
-        compound = new CompoundModule(ConfigurationType.LOCAL, List.of(moduleA, moduleB));
+        when(moduleA.type()).thenReturn(LOCAL);
+        when(moduleB.type()).thenReturn(LOCAL);
+
+        compound = CompoundModule.ofType(LOCAL, List.of(moduleA, moduleB));
     }
 
     @Test
-    void returnsTypePassedViaConstructor() {
-        var compound = new CompoundModule(ConfigurationType.LOCAL, emptyList());
+    void returnsTypePassedViaFactory() {
+        ConfigurationModule compound = CompoundModule.ofType(LOCAL, emptyList());
 
-        assertThat(compound.type(), is(ConfigurationType.LOCAL));
+        assertThat(compound.type(), is(LOCAL));
     }
 
     @Test
@@ -112,6 +124,47 @@ class CompoundModuleTest extends BaseIgniteAbstractTest {
         when(moduleB.polymorphicSchemaExtensions()).thenReturn(Set.of(ExtensionB.class));
 
         assertThat(compound.polymorphicSchemaExtensions(), containsInAnyOrder(ExtensionA.class, ExtensionB.class));
+    }
+
+    @Test
+    void localFiltersOnlyLocalModules() {
+        when(moduleA.type()).thenReturn(LOCAL);
+        when(moduleB.type()).thenReturn(LOCAL);
+        when(moduleC.type()).thenReturn(DISTRIBUTED);
+        when(moduleD.type()).thenReturn(DISTRIBUTED);
+        when(moduleA.rootKeys()).thenReturn(Set.of(rootKeyA));
+        when(moduleB.rootKeys()).thenReturn(Set.of(rootKeyB));
+
+        ConfigurationModule local = CompoundModule.local(List.of(moduleA, moduleB, moduleC, moduleD));
+
+        assertThat(local.rootKeys(), containsInAnyOrder(rootKeyA, rootKeyB));
+    }
+
+    @Test
+    void distributedFiltersOnlyDistributedModules() {
+        when(moduleA.type()).thenReturn(LOCAL);
+        when(moduleB.type()).thenReturn(LOCAL);
+        when(moduleC.type()).thenReturn(DISTRIBUTED);
+        when(moduleD.type()).thenReturn(DISTRIBUTED);
+        when(moduleC.rootKeys()).thenReturn(Set.of(rootKeyC));
+        when(moduleD.rootKeys()).thenReturn(Set.of(rootKeyD));
+
+        ConfigurationModule distributed = CompoundModule.distributed(List.of(moduleA, moduleB, moduleC, moduleD));
+
+        assertThat(distributed.rootKeys(), containsInAnyOrder(rootKeyC, rootKeyD));
+    }
+
+    @Test
+    void localAndDistributedFilterByType() {
+        when(moduleA.type()).thenReturn(LOCAL);
+        when(moduleB.type()).thenReturn(DISTRIBUTED);
+        when(moduleA.schemaExtensions()).thenReturn(Set.of(ExtensionA.class));
+        when(moduleB.schemaExtensions()).thenReturn(Set.of(ExtensionB.class));
+
+        List<ConfigurationModule> allModules = List.of(moduleA, moduleB);
+
+        assertThat(CompoundModule.local(allModules).schemaExtensions(), containsInAnyOrder(ExtensionA.class));
+        assertThat(CompoundModule.distributed(allModules).schemaExtensions(), containsInAnyOrder(ExtensionB.class));
     }
 
     private @interface AnnotationA {

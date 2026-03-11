@@ -27,7 +27,8 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -75,29 +76,29 @@ public class DefaultsGenerator {
      * This uses fragments of cluster initialization from {@code IgniteImpl} class to set up local configuration framework.
      */
     private static ConfigurationChanger createConfigurationChanger(Path configPath) {
-        ConfigurationModules modules = ConfigurationModules.create(DefaultsGenerator.class.getClassLoader());
+        ConfigurationModule localModule = CompoundModule.local(ConfigurationModule.loadAll(DefaultsGenerator.class.getClassLoader()));
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                localModule.rootKeys(),
+                localModule.schemaExtensions(),
+                localModule.polymorphicSchemaExtensions()
         );
 
         ConfigurationStorage storage = new LocalFileConfigurationStorage(
-                "defaultGen", configPath, localConfigurationGenerator, modules.local());
+                "defaultGen", configPath, localConfigurationGenerator, localModule);
 
         ConfigurationValidator configurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, localModule.validators());
 
         ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) -> nullCompletedFuture();
 
         return new ConfigurationChanger(
                 empty,
-                modules.local().rootKeys(),
+                localModule.rootKeys(),
                 storage,
                 configurationValidator,
                 c -> {},
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                KeyIgnorer.fromDeletedPrefixes(localModule.deletedPrefixes())
         ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {

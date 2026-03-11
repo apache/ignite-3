@@ -51,7 +51,8 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -225,21 +226,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Load configuration modules.
+     * Load configuration modules from the classpath.
      *
      * @param log Log.
      * @param classLoader Class loader.
-     * @return Configuration modules.
+     * @return All configuration modules loaded from the classpath.
      */
-    public static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        ConfigurationModules configModules = ConfigurationModules.create(classLoader);
+    public static List<ConfigurationModule> loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
+        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(classLoader);
 
         if (log.isInfoEnabled()) {
-            log.info("Local root keys: {}", configModules.local().rootKeys());
-            log.info("Distributed root keys: {}", configModules.distributed().rootKeys());
+            log.info("Local root keys: {}", CompoundModule.local(allModules).rootKeys());
+            log.info("Distributed root keys: {}", CompoundModule.distributed(allModules).rootKeys());
         }
 
-        return configModules;
+        return allModules;
     }
 
     /**

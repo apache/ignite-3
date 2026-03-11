@@ -18,13 +18,18 @@
 package org.apache.ignite.configuration;
 
 import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.validation.Validator;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A module of configuration provided by a JAR file (or, in its source form, by a Maven/Gradle/... module).
@@ -52,6 +57,26 @@ import org.apache.ignite.configuration.validation.Validator;
  * @see PolymorphicConfig
  */
 public interface ConfigurationModule {
+    /**
+     * Loads all {@link ConfigurationModule}s from the classpath using the provided class loader.
+     *
+     * @param classLoader The class loader to use, or {@code null} to use the default class loader.
+     * @return All configuration modules found on the classpath.
+     * @throws IllegalStateException If no configuration modules are found.
+     */
+    static List<ConfigurationModule> loadAll(@Nullable ClassLoader classLoader) {
+        List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableList());
+
+        if (modules.isEmpty()) {
+            throw new IllegalStateException("No configuration modules were loaded. "
+                    + "Please make sure that the classloader for loading services is correct.");
+        }
+
+        return modules;
+    }
+
     /**
      * Type of the configuration provided by this module.
      *

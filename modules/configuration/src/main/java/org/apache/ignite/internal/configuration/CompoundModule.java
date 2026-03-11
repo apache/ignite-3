@@ -37,9 +37,43 @@ public class CompoundModule implements ConfigurationModule {
     private final ConfigurationType type;
     private final List<ConfigurationModule> modules;
 
-    public CompoundModule(ConfigurationType type, Collection<ConfigurationModule> modules) {
+    private CompoundModule(ConfigurationType type, Collection<ConfigurationModule> modules) {
         this.type = type;
         this.modules = List.copyOf(modules);
+    }
+
+    /**
+     * Creates a compound local {@link ConfigurationModule} from the given collection.
+     *
+     * @param modules All configuration modules to filter.
+     * @return A compound module containing only {@link ConfigurationType#LOCAL} modules.
+     */
+    public static ConfigurationModule local(Collection<ConfigurationModule> modules) {
+        return ofType(ConfigurationType.LOCAL, modules);
+    }
+
+    /**
+     * Creates a compound distributed {@link ConfigurationModule} from the given collection.
+     *
+     * @param modules All configuration modules to filter.
+     * @return A compound module containing only {@link ConfigurationType#DISTRIBUTED} modules.
+     */
+    public static ConfigurationModule distributed(Collection<ConfigurationModule> modules) {
+        return ofType(ConfigurationType.DISTRIBUTED, modules);
+    }
+
+    /**
+     * Creates a compound {@link ConfigurationModule} of the specified type from the given collection.
+     *
+     * @param type The configuration type to filter by.
+     * @param modules All configuration modules to filter.
+     * @return A compound module containing only modules of the given type.
+     */
+    public static ConfigurationModule ofType(ConfigurationType type, Collection<ConfigurationModule> modules) {
+        List<ConfigurationModule> filtered = modules.stream()
+                .filter(module -> module.type() == type)
+                .collect(toUnmodifiableList());
+        return new CompoundModule(type, filtered);
     }
 
     /** {@inheritDoc} */

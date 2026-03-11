@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNodeSerializer;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
@@ -122,10 +122,10 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     }
 
     static List<ConfigNode> loadCurrentConfiguration() {
-        ConfigurationModules modules = ConfigurationModules.create(ConfigurationCompatibilityTest.class.getClassLoader());
+        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(ConfigurationCompatibilityTest.class.getClassLoader());
 
-        ConfigurationModule local = modules.local();
-        ConfigurationModule distributed = modules.distributed();
+        ConfigurationModule local = CompoundModule.local(allModules);
+        ConfigurationModule distributed = CompoundModule.distributed(allModules);
 
         return Stream.concat(
                         local.rootKeys().stream().map(rootKey -> scanRootNode(local, rootKey)),
