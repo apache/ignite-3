@@ -58,7 +58,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
     private static final double INITIAL = 1000;
     private static final double TOTAL = ACCOUNTS_COUNT * INITIAL;
-    private static final int DURATION_MILLIS = 10000;
+    private static final int DURATION_MILLIS = 30000;
 
     private CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
     private LongAdder ops = new LongAdder();
@@ -96,6 +96,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testDataConsistency() throws InterruptedException {
+        stop.set(false);
         Thread[] threads = new Thread[WRITE_PARALLELISM];
 
         for (int i = 0; i < threads.length; i++) {
@@ -130,6 +131,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 throw new IgniteException(INTERNAL_ERR, firstErr.get());
             }
         }
+
+        log.info("Stop running");
 
         stop.set(true);
 
@@ -201,8 +204,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                     node.transactions().runInTransaction(tx -> {
                         InternalTransaction tx0 = (InternalTransaction) tx;
 
-                        LOG.info("DBG: " + tx0.id());
-
+                        //LOG.info("DBG: " + tx0.id());
 
                         long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 

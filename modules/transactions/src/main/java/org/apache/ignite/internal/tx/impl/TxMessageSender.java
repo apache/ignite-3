@@ -137,7 +137,7 @@ public class TxMessageSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        LOG.info("DBG: send cleanup " + txId);
+        //LOG.info("DBG: send cleanup " + txId);
 
         return messagingService.invoke(
                 primaryConsistentId,

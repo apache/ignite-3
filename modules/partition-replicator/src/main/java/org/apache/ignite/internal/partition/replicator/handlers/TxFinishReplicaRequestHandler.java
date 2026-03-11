@@ -130,7 +130,7 @@ public class TxFinishReplicaRequestHandler {
      * @return future result of the operation.
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
-        LOG.info("DBG: handle finish " + request.txId() + " commit=" + request.commit());
+        //LOG.info("DBG: handle finish " + request.txId() + " commit=" + request.commit());
 
         Map<ZonePartitionId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
 
@@ -225,10 +225,10 @@ public class TxFinishReplicaRequestHandler {
         List<EnlistedPartitionGroup> enlistedPartitionGroups = enlistedPartitions.entrySet().stream()
                 .map(entry -> new EnlistedPartitionGroup(entry.getKey(), entry.getValue().tableIds()))
                 .collect(toList());
-        LOG.info("DBG: finishTx " + txId);
+        // LOG.info("DBG: finishTx " + txId + " " + commit + " " + enlistedPartitionGroups.size());
         return finishTransaction(enlistedPartitionGroups, txId, commit, commitTimestamp)
                 .thenCompose(txResult -> {
-                            LOG.info("DBG: done finishTx " + txId);
+                            //LOG.info("DBG: done finishTx " + txId);
                             return txManager.cleanup(replicationGroupId, enlistedPartitions, commit, commitTimestamp, txId)
                                     .thenApply(v -> txResult);
                         }

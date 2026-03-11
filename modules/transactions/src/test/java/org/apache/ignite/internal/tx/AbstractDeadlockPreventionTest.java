@@ -17,52 +17,64 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.ensureFutureNotCompleted;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.apache.ignite.internal.tx.test.LockConflictMatcher.conflictsWith;
+import static org.apache.ignite.internal.tx.test.LockFutureMatcher.isGranted;
+import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 /**
  * Abstract class containing some tests for deadlock prevention that check common scenarios for different policies.
+ * TODO move all single keys tests to heap lm test as they cant produce deadlock.
  */
 public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest {
-    protected abstract DeadlockPreventionPolicy deadlockPreventionPolicy();
-
-    @Override
-    protected LockManager lockManager() {
-        return lockManager(deadlockPreventionPolicy());
-    }
+    protected abstract Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId);
 
     @Test
     public void testSimpleConflict0() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var key1 = key("test");
+        var key = lockKey("test");
 
-        assertThat(xlock(tx1, key1), willCompleteSuccessfully());
+        assertThat(xlock(tx1, key), isGranted(key, X, tx1));
+        assertThat(xlock(tx2, key), conflictMatcher(tx1));
+    }
 
-        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, key1));
+    @Test
+    public void testSimpleWait0() {
+        var tx1 = tx1();
+        var tx2 = tx2();
+
+        var key = lockKey("test");
+
+        assertThat(xlock(tx2, key), isGranted(key, X, tx2));
+        assertThat(xlock(tx1, key), waitsFor(tx2));
     }
 
     @Test
     public void testSimpleConflict1() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(xlock(tx2, key1), willSucceedFast());
 
-        CompletableFuture<?> xlockFutTx1 = xlock(tx1, key1);
-        assertFalse(xlockFutTx1.isDone());
+        var xlockFutTx1 = xlock(tx1, key1);
+        assertThat(xlockFutTx1, waitsFor(tx2));
 
         commitTx(tx2);
         assertThat(xlockFutTx1, willSucceedFast());
@@ -70,33 +82,32 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testSimpleConflictSlocks1() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var key1 = key("test");
+        var key = lockKey("test");
 
-        assertThat(slock(tx1, key1), willSucceedFast());
-        assertThat(slock(tx2, key1), willSucceedFast());
+        assertThat(slock(tx1, key), willSucceedFast());
+        assertThat(slock(tx2, key), willSucceedFast());
 
-        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, key1));
+        assertThat(xlock(tx2, key), conflictMatcher(tx1));
     }
 
     @Test
     public void testSimpleConflictSlocks2() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(slock(tx1, key1), willSucceedFast());
         assertThat(slock(tx2, key1), willSucceedFast());
 
-        CompletableFuture<?> xlockTx1 = xlock(tx1, key1);
-        assertFalse(xlockTx1.isDone());
+        var xlockTx1 = xlock(tx1, key1);
+        assertThat(xlockTx1, waitsFor(tx2));
 
-        CompletableFuture<?> xlockTx2 = xlock(tx2, key1);
-
-        assertFutureFailsOrWaitsForTimeout(() -> xlockTx2);
+        var xlockTx2 = xlock(tx2, key1);
+        assertThat(xlockTx2, conflictMatcher(tx1));
 
         if (xlockTx2.isDone()) {
             rollbackTx(tx2);
@@ -107,39 +118,45 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testNonFair() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
+        var tx3 = tx3();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx3, k), willSucceedFast());
 
-        CompletableFuture<?> futTx2 = xlock(tx2, k);
-        assertFalse(futTx2.isDone());
+        var futTx2 = xlock(tx2, k);
+        assertThat(futTx2, waitsFor(tx3));
 
-        CompletableFuture<?> futTx1 = xlock(tx1, k);
-        assertFalse(futTx1.isDone());
+        var futTx1 = xlock(tx1, k);
+        assertThat(futTx1, waitsFor(tx3));
 
         commitTx(tx3);
 
-        assertThat(futTx1, willSucceedFast());
+        // An oldest txn should be locked first.
+        if (tx2.compareTo(tx1) < 0) {
+            assertThat(futTx2, willSucceedFast());
+            assertThat(futTx1, conflictMatcher(tx2));
+        } else {
+            assertThat(futTx1, willSucceedFast());
+            assertThat(futTx2, conflictMatcher(tx1));
+        }
 
-        assertFutureFailsOrWaitsForTimeout(() -> futTx2);
     }
 
     @Test
     public void testReenterWithConflict() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx2, k), willSucceedFast());
         assertThat(slock(tx1, k), willSucceedFast());
 
-        CompletableFuture<?> futTx1 = xlock(tx1, k);
-        assertFalse(futTx1.isDone());
+        var futTx1 = xlock(tx1, k);
+        assertThat(futTx1, waitsFor(tx2));
 
         commitTx(tx2);
 
@@ -148,22 +165,22 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testReenterWithConflictAndAbort() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx2, k), willSucceedFast());
         assertThat(slock(tx1, k), willSucceedFast());
 
-        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, k));
+        assertThat(xlock(tx2, k), conflictMatcher(tx1));
     }
 
     @Test
     public void testReenterAllowed() {
-        var tx1 = beginTx();
+        var tx1 = tx1();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx1, k), willSucceedFast());
         assertThat(xlock(tx1, k), willSucceedFast());
@@ -171,16 +188,16 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testNonFairConflictWithAlreadyWaiting() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
+        var tx3 = tx3();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx2, k), willSucceedFast());
 
-        CompletableFuture<?> futTx1 = xlock(tx1, k);
-        assertFalse(futTx1.isDone());
+        var futTx1 = xlock(tx1, k);
+        assertThat(futTx1, waitsFor(tx2));
 
         assertThat(slock(tx3, k), willSucceedFast());
 
@@ -189,75 +206,75 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testNonFairConflictWithAlreadyWaitingWithAbort() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
+        var tx3 = tx3();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx3, k), willSucceedFast());
 
-        CompletableFuture<?> futTx2 = xlock(tx2, k);
-        assertFalse(futTx2.isDone());
+        var futTx2 = xlock(tx2, k);
+        assertThat(futTx2, waitsFor(tx3));
 
         assertThat(slock(tx1, k), willSucceedFast());
 
         commitTx(tx3);
 
-        assertFutureFailsOrWaitsForTimeout(() -> futTx2);
+        assertThat(futTx2, conflictMatcher(tx1));
     }
 
     @Test
     public void testNonFairTakeFirstCompatible() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
-        var tx4 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
+        var tx3 = tx3();
+        var tx4 = tx4();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx4, k), willSucceedFast());
 
-        CompletableFuture<?> futTx2 = xlock(tx2, k);
-        assertFalse(futTx2.isDone());
+        var futTx2 = xlock(tx2, k);
+        assertThat(futTx2, waitsFor(tx4));
 
         assertThat(slock(tx1, k), willSucceedFast());
         assertThat(slock(tx3, k), willSucceedFast());
 
-        assertFalse(futTx2.isDone());
+        assertThat(futTx2, waitsFor(tx4));
 
         commitTx(tx1);
         commitTx(tx3);
         commitTx(tx4);
 
-        futTx2.join();
+        assertThat(futTx2, willSucceedFast());
     }
 
     @Test
     public void testLockOrderAfterRelease() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
-        var tx4 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
+        var tx3 = tx3();
+        var tx4 = tx4();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(xlock(tx4, k), willSucceedFast());
 
-        CompletableFuture<?> futTx3 = slock(tx3, k);
-        assertFalse(futTx3.isDone());
+        var futTx3 = slock(tx3, k);
+        assertThat(futTx3, waitsFor(tx4));
 
-        CompletableFuture<?> futTx2 = xlock(tx2, k);
-        assertFalse(futTx2.isDone());
+        var futTx2 = xlock(tx2, k);
+        assertThat(futTx2, waitsFor(tx4));
 
-        CompletableFuture<?> futTx1 = slock(tx1, k);
-        assertFalse(futTx1.isDone());
+        var futTx1 = slock(tx1, k);
+        assertThat(futTx1, waitsFor(tx4));
 
         commitTx(tx4);
 
         assertThat(futTx3, willSucceedFast());
         assertThat(futTx1, willSucceedFast());
-        assertFalse(futTx2.isDone());
+        assertThat(futTx2, waitsFor(tx4));
 
         commitTx(tx1);
         commitTx(tx3);
@@ -267,19 +284,19 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testMultipleCompatibleLocksAcquiredAfterIncompatibleReleased() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
+        var tx3 = tx3();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(xlock(tx3, k), willSucceedFast());
 
-        CompletableFuture<?> futTx2 = slock(tx2, k);
-        assertFalse(futTx2.isDone());
+        var futTx2 = slock(tx2, k);
+        assertThat(futTx2, waitsFor(tx3));
 
-        CompletableFuture<?> futTx1 = slock(tx1, k);
-        assertFalse(futTx1.isDone());
+        var futTx1 = slock(tx1, k);
+        assertThat(futTx1, waitsFor(tx3));
 
         commitTx(tx3);
 
@@ -289,15 +306,14 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Test
     public void testIncompatibleLockRetry() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
+        var tx1 = tx1();
+        var tx2 = tx2();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx1, k), willSucceedFast());
         assertThat(slock(tx2, k), willSucceedFast());
-
-        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, k));
+        assertThat(xlock(tx2, k), conflictMatcher(tx1));
 
         commitTx(tx1);
 
@@ -309,7 +325,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        var k = key("test");
+        var k = lockKey("test");
 
         assertThat(slock(tx2, k), willSucceedFast());
         assertThat(slock(tx1, k), willSucceedFast());
@@ -340,7 +356,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
                 fail();
             } else {
-                assertFalse(f.isDone());
+                ensureFutureNotCompleted(f, 25);
             }
         } catch (Exception e) {
             if (!hasCause(e, LockException.class, null)) {

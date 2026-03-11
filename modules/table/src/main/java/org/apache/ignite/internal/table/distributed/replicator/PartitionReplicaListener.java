@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
@@ -521,8 +522,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     req.transactionId(),
                     req.requestType(),
                     req.full(),
-                    () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+                    () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime())
+                            //.whenComplete((r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
             );
         } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
             var req = (ReadWriteSingleRowPkReplicaRequest) request;
@@ -531,8 +532,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     req.transactionId(),
                     req.requestType(),
                     req.full(),
-                    () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+                    () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime())
+                            //.whenComplete((r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
             );
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
@@ -541,8 +542,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     req.transactionId(),
                     req.requestType(),
                     req.full(),
-                    () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+                    () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime())
+                            //.whenComplete((r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
             );
         } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
             var req = (ReadWriteMultiRowPkReplicaRequest) request;
@@ -551,8 +552,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     req.transactionId(),
                     req.requestType(),
                     req.full(),
-                    () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+                    () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime())
+                            //.whenComplete((r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
             );
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
@@ -561,8 +562,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     req.transactionId(),
                     req.requestType(),
                     req.full(),
-                    () -> processTwoEntriesAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+                    () -> processTwoEntriesAction(req, replicaPrimacy.leaseStartTime())
+                            //.whenComplete((r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
             );
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
@@ -1415,11 +1416,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
 
-        LOG.info("DBG: processTableWriteIntentSwitchAction " + request.txId() + " " + request.groupId().asReplicationGroupId().toString() + " " + txStateMeta);
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
+            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
+            // Safe to invalidate waiters, which otherwise will block the cleanup process.
+            // Using non-retriable exception intentionally to prevent unnecessary retries.
             Throwable cause = txStateMeta.lastException();
             boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
             boolean isFinishedDueToError = !isFinishedDueToTimeout
@@ -1444,11 +1446,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ));
         }
 
-        LOG.info("DBG: awaitCleanupReadyFutures " + request.txId());
+
+        // LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
 
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
-                    LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
+                    //LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
 
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
@@ -1463,6 +1466,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 //        AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
 
         CompletableFuture<Void> fut = txCleanupReadyFutures.finishFuture(txId);
+        // Perform fail after barrier.
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+        if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
+            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
+            // Safe to invalidate waiters, which otherwise will block the cleanup process.
+            // Using non-retriable exception intentionally to prevent unnecessary retries.
+            lockManager.failAllWaiters(txId, new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    format("Can't acquire a lock because the transaction is already finished [{}].",
+                            formatTxInfo(txId, txManager))
+            ));
+        }
+
 
 //        txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
 //            // Cleanup operations (both read and update) aren't registered in two cases:
@@ -1487,10 +1503,15 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 //        });
 
         return fut
+                .orTimeout(5000, TimeUnit.MILLISECONDS)
                 .thenApplyAsync(v -> new FuturesCleanupResult(true), txManager.writeIntentSwitchExecutor())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
-                .whenCompleteAsync((v, e) -> {
-                    // txCleanupReadyFutures.erase(txId);
+                .whenComplete((v, e) -> {
+                    if (ExceptionUtils.unwrapCause(e) instanceof TimeoutException) {
+                        System.out.println(txCleanupReadyFutures.hashCode() + txId.toString());
+                    }
+
+                    //txCleanupReadyFutures.erase(txId);
                 });
     }
 
@@ -1507,6 +1528,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         lockManager.releaseAll(txId);
     }
 
+    private <T> CompletableFuture<T> resolveRowByPk(
+            BinaryTuple pk,
+            UUID txId,
+            IgniteTriFunction<@Nullable RowId, @Nullable BinaryRow, @Nullable HybridTimestamp, CompletableFuture<T>> action
+    ) {
+        return resolveRowByPk(pk, txId, action, null);
+    }
+
     /**
      * Finds the row and its identifier by given pk search row.
      *
@@ -1519,15 +1548,23 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private <T> CompletableFuture<T> resolveRowByPk(
             BinaryTuple pk,
             UUID txId,
-            IgniteTriFunction<@Nullable RowId, @Nullable BinaryRow, @Nullable HybridTimestamp, CompletableFuture<T>> action
+            IgniteTriFunction<@Nullable RowId, @Nullable BinaryRow, @Nullable HybridTimestamp, CompletableFuture<T>> action,
+            TraceableFuture<T> resFut
     ) {
         IndexLocker pkLocker = indexesLockers.get().get(pkIndexStorage.get().id());
 
         assert pkLocker != null;
 
+        if (resFut != null) {
+            LockKey k = new LockKey(pkLocker.id(), pk.byteBuffer());
+            resFut.log("0_1:" + k);
+        }
+
         CompletableFuture<Void> lockFut = pkLocker.locksForLookupByKey(txId, pk);
 
         Supplier<CompletableFuture<T>> sup = () -> {
+            if (resFut != null)
+                resFut.log("0_2");
             boolean cursorClosureSetUp = false;
             Cursor<RowId> cursor = null;
 
@@ -1549,6 +1586,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         };
 
         if (isCompletedSuccessfully(lockFut)) {
+            if (resFut != null)
+                resFut.log("0_3");
             return sup.get();
         } else {
             return lockFut.thenCompose(ignored -> sup.get());
@@ -1596,8 +1635,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 releaseTxLocks(txId);
             });
         }
-
-
 
         //AtomicBoolean inflightStarted = new AtomicBoolean(false);
 
@@ -1657,38 +1694,34 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (locked) {
             return failedFuture(new TransactionException(
                     TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txStateMeta)
+                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txManager.stateMeta(txId))
             ));
         }
 
         CompletableFuture<T> fut = op.get();
-
-        txCleanupReadyFutures.register(txId, fut);
+        futRef.set(new IgniteBiTuple<>(requestType, fut));
 
         // If inflightStarted then txCleanupReadyState is not null.
         //requireNonNull(txCleanupReadyState, "txCleanupReadyState cannot be null here.");
 
         fut.whenComplete((v, th) -> {
-            //txCleanupReadyFutures.mark(txId);
-            txCleanupReadyFutures.removeInflight(txId);
+            if (th != null) {
+                txCleanupReadyFutures.removeInflight(txId);
+            } else {
+                if (v instanceof ReplicaResult) {
+                    ReplicaResult res = (ReplicaResult) v;
 
-//            if (th != null) {
-//                txCleanupReadyFutures.removeInflight(txId);
-//            } else {
-//                if (v instanceof ReplicaResult) {
-//                    ReplicaResult res = (ReplicaResult) v;
-//
-//                    if (res.applyResult().replicationFuture() != null) {
-//                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-//                            txCleanupReadyFutures.removeInflight(txId);
-//                        });
-//                    } else {
-//                        txCleanupReadyFutures.removeInflight(txId);
-//                    }
-//                } else {
-//                    txCleanupReadyFutures.removeInflight(txId);
-//                }
-//            }
+                    if (res.applyResult().replicationFuture() != null) {
+                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
+                            txCleanupReadyFutures.removeInflight(txId);
+                        });
+                    } else {
+                        txCleanupReadyFutures.removeInflight(txId);
+                    }
+                } else {
+                    txCleanupReadyFutures.removeInflight(txId);
+                }
+            }
         });
 
         return fut;
@@ -2878,7 +2911,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 });
             }
             case RW_UPSERT: {
-                return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
+                TraceableFuture<ReplicaResult> fut = new TraceableFuture<>();
+                fut.log("RW_UPSERT");
+                fut.log("0");
+
+                CompletableFuture<ReplicaResult> fut0 = resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
+                    fut.log("1");
+
                     boolean insert = rowId == null;
 
                     RowId rowId0 = insert ? new RowId(partId(), RowIdGenerator.next()) : rowId;
@@ -2888,28 +2927,59 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
-                                    .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
-                                    .thenCompose(
-                                            catalogVersion -> applyUpdateCommand(
-                                                    request,
-                                                    rowId0.uuid(),
-                                                    searchRow,
-                                                    lastCommitTime,
-                                                    catalogVersion,
-                                                    leaseStartTime
-                                            )
-                                    )
-                                    .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
+                            .thenCompose(rowIdLock -> {
+                                fut.log("2");
+
+                                return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
+                                        .thenCompose(catalogVersion -> {
+                                            fut.log("3");
+                                            return awaitCleanup(rowId, catalogVersion);
+                                        })
+                                        .thenCompose(
+                                                catalogVersion -> {
+                                                    fut.log("5");
+                                                    return applyUpdateCommand(
+                                                            request,
+                                                            rowId0.uuid(),
+                                                            searchRow,
+                                                            lastCommitTime,
+                                                            catalogVersion,
+                                                            leaseStartTime
+                                                    );
+                                                }
+                                        )
+                                        .thenApply(res -> {
+                                            fut.log("6");
+                                            return new IgniteBiTuple<>(res, rowIdLock);
+                                        });
+                            })
                             .thenApply(tuple -> {
+                                fut.log("7");
                                 metrics.onWrite();
 
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
+                                fut.log("8");
+
                                 return new ReplicaResult(null, tuple.get1());
                             });
+                }, fut);
+
+                fut0.orTimeout(5000, TimeUnit.MILLISECONDS).whenComplete((v, e) -> {
+                    Throwable cause = unwrapCause(e);
+                    if (cause instanceof TimeoutException) {
+                        System.out.println(txId + "" + this.txManager.hashCode());
+                    }
+
+                    if (e != null) {
+                        fut.completeExceptionally(e);
+                    } else {
+                        fut.complete(v);
+                    }
                 });
+
+                return fut;
             }
             case RW_GET_AND_UPSERT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
@@ -3037,21 +3107,50 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         switch (request.requestType()) {
             case RW_GET: {
-                return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
-                    if (rowId == null) {
-                        metrics.onRead(false, false);
+                TraceableFuture<ReplicaResult> fut = new TraceableFuture<>();
+                fut.log("RW_GET");
+                fut.log("0");
 
-                        return nullCompletedFuture();
+                CompletableFuture<ReplicaResult> fut0 = resolveRowByPk(primaryKey, txId,
+                        (rowId, row, lastCommitTime) -> {
+                            //fut.log("1");
+                            if (rowId == null) {
+                                metrics.onRead(false, false);
+
+                                return nullCompletedFuture();
+                            }
+
+                            LockKey lk = new LockKey(tableLockKey, rowId);
+                            fut.log("1:" + lk.toString());
+
+                            return takeLocksForGet(rowId, txId)
+                                    .thenCompose(ignored -> {
+                                        fut.log("2");
+                                        return validateRwReadAgainstSchemaAfterTakingLocks(txId);
+                                    })
+                                    .thenApply(ignored -> {
+                                        fut.log("3");
+                                        metrics.onRead(false, true);
+
+                                        return new ReplicaResult(row, null);
+                                    });
+
+                        }, fut);
+
+                fut0.orTimeout(5000, TimeUnit.MILLISECONDS).whenComplete((v, e) -> {
+                    Throwable cause = unwrapCause(e);
+                    if (cause instanceof TimeoutException) {
+                        System.out.println(txId + "" + this.txManager.hashCode());
                     }
 
-                    return takeLocksForGet(rowId, txId)
-                            .thenCompose(ignored -> validateRwReadAgainstSchemaAfterTakingLocks(txId))
-                            .thenApply(ignored -> {
-                                metrics.onRead(false, true);
-
-                                return new ReplicaResult(row, null);
-                            });
+                    if (e != null) {
+                        fut.completeExceptionally(e);
+                    } else {
+                        fut.complete(v);
+                    }
                 });
+
+                return fut;
             }
             case RW_DELETE: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
