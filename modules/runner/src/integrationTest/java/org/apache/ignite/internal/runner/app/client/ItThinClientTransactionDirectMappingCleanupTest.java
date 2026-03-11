@@ -33,7 +33,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Test that verifies cleanup of remote enlistments when a thin client disconnects.
- * See https://issues.apache.org/jira/browse/IGNITE-27651
  */
 public class ItThinClientTransactionDirectMappingCleanupTest extends ItAbstractThinClientTest {
     /**
@@ -46,7 +45,7 @@ public class ItThinClientTransactionDirectMappingCleanupTest extends ItAbstractT
 
         // Create a separate client to disconnect it later.
         IgniteClient separateClient = IgniteClient.builder()
-                .addresses("127.0.0.1:" + getClientPort())
+                .addresses("127.0.0.1:" + getClientPorts().get(0))
                 .build();
 
         try {
@@ -99,8 +98,10 @@ public class ItThinClientTransactionDirectMappingCleanupTest extends ItAbstractT
                     "Value should be updated, indicating locks were released");
         } finally {
             // Make sure the separate client is closed even if the test fails.
-            if (!separateClient.closeAsync().isDone()) {
+            try {
                 separateClient.close();
+            } catch (Exception e) {
+                // Ignore exceptions during cleanup
             }
         }
     }
@@ -115,7 +116,7 @@ public class ItThinClientTransactionDirectMappingCleanupTest extends ItAbstractT
 
         // Create a separate client to disconnect it later.
         IgniteClient separateClient = IgniteClient.builder()
-                .addresses("127.0.0.1:" + getClientPort())
+                .addresses("127.0.0.1:" + getClientPorts().get(0))
                 .build();
 
         try {
@@ -148,9 +149,16 @@ public class ItThinClientTransactionDirectMappingCleanupTest extends ItAbstractT
             assertTrue(result.stringValue("val").equals("test"),
                     "Transaction should succeed after cleanup");
         } finally {
-            if (!separateClient.closeAsync().isDone()) {
+            try {
                 separateClient.close();
+            } catch (Exception e) {
+                // Ignore exceptions during cleanup
             }
         }
+    }
+
+    private Table table() {
+        // TODO: Wrong
+        return client().tables().tables().get(0);
     }
 }
