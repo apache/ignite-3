@@ -20,6 +20,7 @@
 
 #pragma once
 #include <cstdint>
+#include <cstddef>
 
 void MurmurHash3_x64_128 ( const void * key, std::size_t len,
                            std::uint64_t seed, void * out );

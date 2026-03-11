@@ -17,7 +17,11 @@
 #include <ignite/common/detail/hash_utils.h>
 #include <ignite/common/detail/string_extensions.h>
 
+#include <algorithm>
+#define _USE_MATH_DEFINES
 #include <cmath>
+#include <iterator>
+#include <limits>
 
 #include <gtest/gtest.h>
 
