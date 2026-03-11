@@ -209,8 +209,8 @@ public class SqlJdbcExample {
             System.out.println("Dropping the tables...");
 
             try (Statement stmt = conn.createStatement()) {
-                stmt.executeUpdate("DROP TABLE ACCOUNTS");
-                stmt.executeUpdate("DROP TABLE CITIES");
+                stmt.executeUpdate("DROP TABLE IF EXISTS ACCOUNTS");
+                stmt.executeUpdate("DROP TABLE IF EXISTS CITIES");
             }
         }
     }

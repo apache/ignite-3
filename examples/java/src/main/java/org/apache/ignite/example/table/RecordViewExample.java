@@ -104,7 +104,7 @@ public class RecordViewExample {
 
             System.out.println("Dropping the table...");
 
-            client.sql().execute("DROP TABLE accounts");
+            client.sql().execute("DROP TABLE IF EXISTS accounts");
         }
     }
 }
