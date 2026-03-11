@@ -22,6 +22,8 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -29,6 +31,7 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ConfigurationModule} that merges a few {@code ConfigurationModule}s.
@@ -69,11 +72,31 @@ public class CompoundModule implements ConfigurationModule {
      * @param modules All configuration modules to filter.
      * @return A compound module containing only modules of the given type.
      */
-    public static ConfigurationModule ofType(ConfigurationType type, Collection<ConfigurationModule> modules) {
+    private static ConfigurationModule ofType(ConfigurationType type, Collection<ConfigurationModule> modules) {
         List<ConfigurationModule> filtered = modules.stream()
                 .filter(module -> module.type() == type)
                 .collect(toUnmodifiableList());
         return new CompoundModule(type, filtered);
+    }
+
+    /**
+     * Loads all {@link ConfigurationModule}s from the classpath using the provided class loader.
+     *
+     * @param classLoader The class loader to use, or {@code null} to use the default class loader.
+     * @return All configuration modules found on the classpath.
+     * @throws IllegalStateException If no configuration modules are found.
+     */
+    public static List<ConfigurationModule> loadAllConfigurationModules(@Nullable ClassLoader classLoader) {
+        List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableList());
+
+        if (modules.isEmpty()) {
+            throw new IllegalStateException("No configuration modules were loaded. "
+                    + "Please make sure that the classloader for loading services is correct.");
+        }
+
+        return modules;
     }
 
     /** {@inheritDoc} */

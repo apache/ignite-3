@@ -45,13 +45,13 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -233,7 +233,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return All configuration modules loaded from the classpath.
      */
     public static List<ConfigurationModule> loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(classLoader);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(classLoader);
 
         if (log.isInfoEnabled()) {
             log.info("Local root keys: {}", CompoundModule.local(allModules).rootKeys());

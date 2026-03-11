@@ -71,12 +71,12 @@ class CompoundModuleTest extends BaseIgniteAbstractTest {
         when(moduleA.type()).thenReturn(LOCAL);
         when(moduleB.type()).thenReturn(LOCAL);
 
-        compound = CompoundModule.ofType(LOCAL, List.of(moduleA, moduleB));
+        compound = CompoundModule.local(List.of(moduleA, moduleB));
     }
 
     @Test
     void returnsTypePassedViaFactory() {
-        ConfigurationModule compound = CompoundModule.ofType(LOCAL, emptyList());
+        ConfigurationModule compound = CompoundModule.local(emptyList());
 
         assertThat(compound.type(), is(LOCAL));
     }

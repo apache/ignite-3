@@ -568,7 +568,7 @@ public class IgniteImpl implements Ignite {
 
         CpuInformationProvider cpuInformationProvider = new JvmCpuInformationProvider();
 
-        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(serviceProviderClassLoader);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(serviceProviderClassLoader);
         ConfigurationModule localModule = CompoundModule.local(allModules);
         ConfigurationModule distributedModule = CompoundModule.distributed(allModules);
 

@@ -33,7 +33,7 @@ class ConfigurationModuleTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("classLoaderSource")
     void createdUsingClassLoader(ClassLoader classLoader) {
-        List<ConfigurationModule> modules = ConfigurationModule.loadAll(classLoader);
+        List<ConfigurationModule> modules = CompoundModule.loadAllConfigurationModules(classLoader);
 
         assertThat(CompoundModule.local(modules).schemaExtensions().size(), is(greaterThan(0)));
         assertThat(CompoundModule.distributed(modules).schemaExtensions().size(), is(greaterThan(0)));

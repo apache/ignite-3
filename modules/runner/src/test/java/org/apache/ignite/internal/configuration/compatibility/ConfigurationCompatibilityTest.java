@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.compatibility;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.configuration.CompoundModule.loadAllConfigurationModules;
 import static org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager.loadSnapshotFromResource;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -122,7 +123,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     }
 
     static List<ConfigNode> loadCurrentConfiguration() {
-        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(ConfigurationCompatibilityTest.class.getClassLoader());
+        List<ConfigurationModule> allModules = loadAllConfigurationModules(ConfigurationCompatibilityTest.class.getClassLoader());
 
         ConfigurationModule local = CompoundModule.local(allModules);
         ConfigurationModule distributed = CompoundModule.distributed(allModules);

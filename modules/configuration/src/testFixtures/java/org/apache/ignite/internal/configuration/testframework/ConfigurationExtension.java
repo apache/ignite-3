@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -105,10 +106,21 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     static {
         // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
         // to avoid configuring extensions manually in every test.
-        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(null);
+        ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
 
-        LOCAL_MODULE = CompoundModule.local(allModules);
-        DISTRIBUTED_MODULE = CompoundModule.distributed(allModules);
+        List<ConfigurationModule> localModules = new ArrayList<>();
+        List<ConfigurationModule> distributedModules = new ArrayList<>();
+
+        modules.forEach(configurationModule -> {
+            if (configurationModule.type() == LOCAL) {
+                localModules.add(configurationModule);
+            } else {
+                distributedModules.add(configurationModule);
+            }
+        });
+
+        LOCAL_MODULE = CompoundModule.local(localModules);
+        DISTRIBUTED_MODULE = CompoundModule.distributed(distributedModules);
     }
 
     @Override

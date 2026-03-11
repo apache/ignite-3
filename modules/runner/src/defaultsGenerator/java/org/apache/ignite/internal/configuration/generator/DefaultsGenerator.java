@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.generator;
 
+import static org.apache.ignite.internal.configuration.CompoundModule.loadAllConfigurationModules;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
@@ -76,7 +77,7 @@ public class DefaultsGenerator {
      * This uses fragments of cluster initialization from {@code IgniteImpl} class to set up local configuration framework.
      */
     private static ConfigurationChanger createConfigurationChanger(Path configPath) {
-        ConfigurationModule localModule = CompoundModule.local(ConfigurationModule.loadAll(DefaultsGenerator.class.getClassLoader()));
+        ConfigurationModule localModule = CompoundModule.local(loadAllConfigurationModules(DefaultsGenerator.class.getClassLoader()));
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 localModule.rootKeys(),

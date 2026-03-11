@@ -54,7 +54,7 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static CombinedConfigRegistry loadCombinedRegistry(Path nodeCfgPath, Path clusterCfgPath, boolean includeDefaults) {
-        List<ConfigurationModule> allModules = ConfigurationModule.loadAll(null);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(null);
 
         var locReg = loadConfigurations(nodeCfgPath, CompoundModule.local(allModules), includeDefaults);
         var distReg = loadClusterConfiguration(clusterCfgPath, allModules, includeDefaults);
@@ -68,7 +68,7 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static ConfigurationRegistry loadNodeConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadConfigurations(cfgPath, CompoundModule.local(ConfigurationModule.loadAll(null)), includeDefaults);
+        return loadConfigurations(cfgPath, CompoundModule.local(CompoundModule.loadAllConfigurationModules(null)), includeDefaults);
     }
 
     /**
@@ -78,7 +78,7 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadClusterConfiguration(cfgPath, ConfigurationModule.loadAll(null), includeDefaults);
+        return loadClusterConfiguration(cfgPath, CompoundModule.loadAllConfigurationModules(null), includeDefaults);
     }
 
     private static ConfigurationRegistry loadClusterConfiguration(

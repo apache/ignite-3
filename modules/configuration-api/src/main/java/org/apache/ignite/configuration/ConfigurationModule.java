@@ -58,26 +58,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ConfigurationModule {
     /**
-     * Loads all {@link ConfigurationModule}s from the classpath using the provided class loader.
-     *
-     * @param classLoader The class loader to use, or {@code null} to use the default class loader.
-     * @return All configuration modules found on the classpath.
-     * @throws IllegalStateException If no configuration modules are found.
-     */
-    static List<ConfigurationModule> loadAll(@Nullable ClassLoader classLoader) {
-        List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
-                .map(Provider::get)
-                .collect(toUnmodifiableList());
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        return modules;
-    }
-
-    /**
      * Type of the configuration provided by this module.
      *
      * @return configuration type
