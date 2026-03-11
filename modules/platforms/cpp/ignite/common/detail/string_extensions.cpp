@@ -17,17 +17,18 @@
 #include "string_extensions.h"
 
 #include <sstream>
+#include <iomanip>
 
 namespace ignite::detail {
 
-std::string to_string(const big_decimal &bd) noexcept {
+std::string to_string(const big_decimal &bd) {
     std::stringstream ss;
     ss << bd;
 
     return ss.str();
 }
 
-std::string to_string(const uuid& uuid) noexcept {
+std::string to_string(const uuid& uuid) {
     std::stringstream ss;
 
     ss << uuid;
@@ -35,7 +36,7 @@ std::string to_string(const uuid& uuid) noexcept {
     return ss.str();
 }
 
-std::string to_string(const ignite_date &date) noexcept {
+std::string to_string(const ignite_date &date) {
     std::stringstream ss;
 
     ss << date.get_year()
@@ -47,7 +48,7 @@ std::string to_string(const ignite_date &date) noexcept {
     return ss.str();
 }
 
-std::string to_string(const ignite_time &time) noexcept {
+std::string to_string(const ignite_time &time) {
     std::stringstream ss;
 
     ss << std::setfill('0') << std::setw(2) << std::to_string(time.get_hour())
@@ -61,7 +62,7 @@ std::string to_string(const ignite_time &time) noexcept {
     return ss.str();
 }
 
-std::string to_string(const ignite_date_time &dt) noexcept {
+std::string to_string(const ignite_date_time &dt) {
     std::stringstream ss;
 
     ss << to_string(dt.date()) << 'Z' << to_string(dt.time());
@@ -69,7 +70,7 @@ std::string to_string(const ignite_date_time &dt) noexcept {
     return ss.str();
 }
 
-std::string to_string(const ignite_timestamp &ts) noexcept {
+std::string to_string(const ignite_timestamp &ts) {
     std::stringstream ss;
 
     ss << std::to_string(ts.get_epoch_second())

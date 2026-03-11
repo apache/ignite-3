@@ -1301,7 +1301,7 @@ struct big_decimal_rounding_tc {
 class big_decimal_rounding_test : public ::testing::TestWithParam<big_decimal_rounding_tc> {};
 
 TEST_P(big_decimal_rounding_test, TestScaleWithRoundHalfUp) {
-    auto [initial, new_scale, expected] = GetParam();;
+    auto [initial, new_scale, expected] = GetParam();
 
     big_decimal actual;
     initial.set_scale(new_scale, actual, big_decimal::rounding_mode::HALF_UP);

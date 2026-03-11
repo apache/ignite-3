@@ -66,11 +66,3 @@ TEST(primitive, null_value_by_nullopt) {
     EXPECT_EQ(val.get_type(), ignite_type::NIL);
     EXPECT_TRUE(val.is_null());
 }
-
-TEST(primitive, foo) {
-    ignite_tuple tup;
-    primitive val(std::nullopt);
-    detail::hash_calculator calc;
-
-    std::cout << calc.hash(tup.get(0)) << "\n";
-}

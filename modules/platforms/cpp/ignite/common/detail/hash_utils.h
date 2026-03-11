@@ -26,8 +26,8 @@
 #include "Murmur3Hash.h"
 
 #include <cstdint>
+#include <cstring>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 namespace ignite::detail {

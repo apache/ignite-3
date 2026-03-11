@@ -16,27 +16,28 @@
 
 #pragma once
 
-#include "ignite_date_time.h"
-#include "ignite_time.h"
-#include "ignite_timestamp.h"
-
 #include <big_decimal.h>
 #include <ignite_date.h>
+#include <ignite_date_time.h>
+#include <ignite_time.h>
+#include <ignite_timestamp.h>
 #include <uuid.h>
+
+#include <string>
 
 // TODO IGNITE-28196 functions should be moved to header files for corresponding types.
 namespace ignite::detail {
 
-std::string to_string(const big_decimal &bd) noexcept;
+std::string to_string(const big_decimal &bd);
 
-std::string to_string(const uuid& uuid) noexcept;
+std::string to_string(const uuid &uuid);
 
-std::string to_string(const ignite_date& date) noexcept;
+std::string to_string(const ignite_date &date);
 
-std::string to_string(const ignite_time& time) noexcept;
+std::string to_string(const ignite_time &time);
 
-std::string to_string(const ignite_date_time& dt) noexcept;
+std::string to_string(const ignite_date_time &dt);
 
-std::string to_string(const ignite_timestamp& ts) noexcept;
+std::string to_string(const ignite_timestamp &ts);
 
-}
+} // namespace ignite::detail
