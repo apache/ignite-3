@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
@@ -120,26 +121,21 @@ public class VolatileTxStateMetaStorage {
     }
 
     /**
-     * Atomically updates transaction metadata (TxStateMeta) without validating TxState transitions.
-     * Use this only for metadata-only changes that do not affect state-derived fields
-     * (currently exception info or labels), and never to update TxState itself.
+     * Atomically replaces metadata of an already existing transaction state, but only if the resulting state keeps the same
+     * {@link TxStateMeta#txState()} value.
+     *
+     * <p>If the transaction is absent, the update is skipped. If the updater returns {@code null}, the existing metadata is preserved and
+     * the removal is skipped. If the updater changes {@code txState}, the update is skipped as well. Otherwise, the returned metadata is
+     * stored as-is, so this method may be used for any non-state changes.
      *
      * @param txId Transaction id.
      * @param updater Transaction meta updater.
-     * @return Updated transaction state.
+     * @return Stored transaction state after the operation.
      */
     public @Nullable <T extends TxStateMeta> T enrichMeta(UUID txId,
             Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
-
-            if (newMeta == null) {
-                if (oldMeta != null) {
-                    LOG.info("Skipped removing transaction state in enrichMeta [txId={}].", txId);
-                }
-
-                return oldMeta;
-            }
 
             if (!isEnrichAllowed(txId, oldMeta, newMeta)) {
                 return oldMeta;
@@ -149,16 +145,24 @@ public class VolatileTxStateMetaStorage {
         });
     }
 
-    private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, TxStateMeta newMeta) {
-        if (oldMeta == null) {
-            LOG.info("Skipped creating transaction state in enrichMeta [txId={}].", txId);
+    private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, @Nullable TxStateMeta newMeta) {
+        if (newMeta == null) {
+            if (oldMeta != null) {
+                LOG.info("Skipped removing transaction state in enrichMeta [{}].", formatTxInfo(txId, oldMeta, false));
+            }
 
             return false;
         }
 
-        if (!Objects.equals(oldMeta.txState(), newMeta.txState())) {
-            LOG.info("Skipped changing transaction state in enrichMeta [txId={}, oldState={}, newState={}].",
-                    txId, oldMeta.txState(), newMeta.txState());
+        if (oldMeta == null) {
+            LOG.info("Skipped creating transaction state in enrichMeta [{}].", formatTxInfo(txId, newMeta, false));
+
+            return false;
+        }
+
+        if (oldMeta.txState() != newMeta.txState()) {
+            LOG.info("Skipped changing transaction state in enrichMeta [{}, oldState={}, newState={}, newMeta={}].",
+                    formatTxInfo(txId, oldMeta, false), oldMeta.txState(), newMeta.txState(), newMeta);
 
             return false;
         }

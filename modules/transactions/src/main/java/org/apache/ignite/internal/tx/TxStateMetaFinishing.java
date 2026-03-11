@@ -24,7 +24,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,75 +41,9 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
-     * @param txLabel Transaction label.
-     * @param finishReason Exception which caused tx abortion.
-     */
-    public TxStateMetaFinishing(
-            @Nullable UUID txCoordinatorId,
-            @Nullable ZonePartitionId commitPartitionId,
-            @Nullable String txLabel,
-            @Nullable Throwable finishReason
-    ) {
-        this(
-                txCoordinatorId,
-                commitPartitionId,
-                ExceptionUtils.isFinishedDueToTimeout(finishReason),
-                txLabel,
-                finishReason
-        );
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition id.
      * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      * @param txLabel Transaction label.
-     */
-    public TxStateMetaFinishing(
-            @Nullable UUID txCoordinatorId,
-            @Nullable ZonePartitionId commitPartitionId,
-            @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable String txLabel
-    ) {
-        this(txCoordinatorId, commitPartitionId, isFinishingDueToTimeout, txLabel, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition id.
-     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
-     * @param txLabel Transaction label.
-     * @param finishReason Exception which caused tx abortion.
-     */
-    public TxStateMetaFinishing(
-            @Nullable UUID txCoordinatorId,
-            @Nullable ZonePartitionId commitPartitionId,
-            @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable String txLabel,
-            @Nullable Throwable finishReason
-    ) {
-        this(
-                txCoordinatorId,
-                commitPartitionId,
-                isFinishingDueToTimeout,
-                txLabel,
-                finishReason,
-                null
-        );
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition id.
-     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
-     * @param txLabel Transaction label.
-     * @param finishReason Exception which caused tx abortion.
+     * @param lastException The last exception occurred in tx.
      * @param lastExceptionErrorCode Error code of the last exception.
      */
     public TxStateMetaFinishing(
@@ -118,11 +51,11 @@ public class TxStateMetaFinishing extends TxStateMeta {
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
             @Nullable String txLabel,
-            @Nullable Throwable finishReason,
+            @Nullable Throwable lastException,
             @Nullable Integer lastExceptionErrorCode
     ) {
         super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
-                null, null, isFinishingDueToTimeout, txLabel, finishReason, lastExceptionErrorCode);
+                null, null, isFinishingDueToTimeout, txLabel, lastException, lastExceptionErrorCode);
     }
 
     /**
@@ -194,7 +127,8 @@ public class TxStateMetaFinishing extends TxStateMeta {
                         commitPartitionId,
                         isFinishedDueToTimeout,
                         txLabel,
-                        lastException
+                        lastException,
+                        lastExceptionErrorCode
                 );
             } else {
                 return super.build();

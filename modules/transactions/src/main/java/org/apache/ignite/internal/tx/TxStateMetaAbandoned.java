@@ -45,43 +45,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * @param commitPartitionId Commit partition replication group id.
      * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param txLabel Transaction label.
-     */
-    public TxStateMetaAbandoned(
-            @Nullable UUID txCoordinatorId,
-            @Nullable ZonePartitionId commitPartitionId,
-            @Nullable InternalTransaction tx,
-            @Nullable String txLabel
-    ) {
-        this(txCoordinatorId, commitPartitionId, tx, txLabel, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group id.
-     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
-     * @param txLabel Transaction label.
-     * @param exceptionInfo Exception info for exceptional abort.
-     */
-    public TxStateMetaAbandoned(
-            @Nullable UUID txCoordinatorId,
-            @Nullable ZonePartitionId commitPartitionId,
-            @Nullable InternalTransaction tx,
-            @Nullable String txLabel,
-            @Nullable Throwable exceptionInfo
-    ) {
-        this(txCoordinatorId, commitPartitionId, tx, txLabel, exceptionInfo, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group id.
-     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
-     * @param txLabel Transaction label.
-     * @param exceptionInfo Exception info for exceptional abort.
+     * @param lastException The last exception occurred in tx.
      * @param lastExceptionErrorCode Error code of the last exception.
      */
     public TxStateMetaAbandoned(
@@ -89,10 +53,10 @@ public class TxStateMetaAbandoned extends TxStateMeta {
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable InternalTransaction tx,
             @Nullable String txLabel,
-            @Nullable Throwable exceptionInfo,
+            @Nullable Throwable lastException,
             @Nullable Integer lastExceptionErrorCode
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel, exceptionInfo,
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel, lastException,
                 lastExceptionErrorCode);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
@@ -175,7 +139,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == ABANDONED) {
-                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, lastException);
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, lastException, lastExceptionErrorCode);
             } else {
                 return super.build();
             }
