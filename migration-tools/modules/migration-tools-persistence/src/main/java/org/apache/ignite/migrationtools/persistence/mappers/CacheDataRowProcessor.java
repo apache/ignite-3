@@ -40,7 +40,7 @@ public class CacheDataRowProcessor extends BasicProcessor<CacheDataRow, Map.Entr
         var val = row.value();
         Object valVal = (val instanceof BinaryObjectImpl) ? val : val.value(cacheObjectCtx, false);
 
-        // TODO: I prefer to have some typings.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28180 I prefer to have some typings.
         subscriber.onNext(Map.entry(keyVal, valVal));
     }
 }

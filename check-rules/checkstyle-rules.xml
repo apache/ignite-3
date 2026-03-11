@@ -387,6 +387,12 @@
       <property name="format" value="^(?!CHECKSTYLE:ON)(?!noinspection)(?!---)(?!===)([^\s\/*])"/>
       <message key="todo.match" value="Comment text should start with space."/>
     </module>
+    <!-- TODO comments must include a Jira ticket number: TODO: IGNITE-XXXXX ... -->
+    <module name="TodoComment">
+      <property name="id" value="TodoWithJiraTicket"/>
+      <property name="format" value="TODO(?!.*IGNITE-\d+)"/>
+      <message key="todo.match" value="TODO comment must include a Jira ticket number (IGNITE-XXXXX)"/>
+    </module>
     <!-- https://checkstyle.org/filters/suppressionxpathfilter.html -->
     <module name="SuppressionXpathFilter">
       <property name="file" value="${org.checkstyle.google.suppressionxpathfilter.config}"
