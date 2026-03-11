@@ -21,31 +21,31 @@
 namespace ignite::detail {
 
 std::int32_t hash(bool val) {
-    return hash32<std::int8_t>(val ? 1 : 0);
+    return hash32<std::uint8_t>(val ? 1 : 0);
 }
 
 std::int32_t hash(std::int8_t val) {
-    return hash32<std::int8_t>(val);
+    return hash32(val);
 }
 
 std::int32_t hash(std::uint8_t val) {
-    return hash32<std::uint8_t>(val);
+    return hash32(val);
 }
 
 std::int32_t hash(std::int16_t val) {
-    return hash32<std::int16_t>(val);
+    return hash32(val);
 }
 
 std::int32_t hash(std::uint16_t val) {
-    return hash32<std::uint16_t>(val);
+    return hash32(val);
 }
 
 std::int32_t hash(std::int32_t val) {
-    return hash32<std::int32_t>(val);
+    return hash32(val);
 }
 
 std::int32_t hash(std::uint32_t val) {
-    return hash32<std::int32_t>(val);
+    return hash32(val);
 }
 
 std::int32_t hash(std::int64_t val) {
@@ -57,17 +57,17 @@ std::int32_t hash(std::uint64_t val) {
 }
 
 std::int32_t hash(float val) {
-    int32_t v;
+    std::uint32_t v;
 
     static_assert(sizeof(v) == sizeof(val));
 
     std::memcpy(&v, &val, sizeof(val));
 
-    return hash32<std::int32_t>(v);
+    return hash32(v);
 }
 
 std::int32_t hash(double val) {
-    uint64_t v;
+    std::uint64_t v;
 
     static_assert(sizeof(v) == sizeof(val));
 
@@ -82,7 +82,7 @@ std::int32_t hash(const big_decimal &val, std::int16_t scale) {
 
     auto bytes = copy.get_unscaled_value().to_bytes();
 
-    return hash32(reinterpret_cast<uint8_t*>(bytes.data()), 0, bytes.size(), 0);
+    return hash32(reinterpret_cast<const uint8_t*>(bytes.data()), 0, bytes.size(), 0);
 }
 
 std::int32_t hash(const uuid &val) {
