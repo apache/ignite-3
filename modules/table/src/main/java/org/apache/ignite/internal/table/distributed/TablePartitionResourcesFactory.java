@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -25,7 +24,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -84,8 +82,6 @@ class TablePartitionResourcesFactory {
     private final SchemaSyncService schemaSyncService;
     private final LeasePlacementDriver placementDriver;
     private final TopologyService topologyService;
-    private final InternalClusterNode localMember;
-    private final UUID localNodeId;
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
     private final FailureProcessor failureProcessor;
     private final SchemaManager schemaManager;
@@ -131,8 +127,6 @@ class TablePartitionResourcesFactory {
         this.schemaSyncService = schemaSyncService;
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
-        this.localMember = topologyService.localMember();
-        this.localNodeId = localMember.id();
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.failureProcessor = failureProcessor;
         this.schemaManager = schemaManager;
@@ -225,7 +219,7 @@ class TablePartitionResourcesFactory {
                 catalogService,
                 table.schemaView(),
                 indexMetaStorage,
-                localNodeId,
+                topologyService.localMember().id(),
                 minTimeCollectorService,
                 placementDriver,
                 clockService,
@@ -297,7 +291,7 @@ class TablePartitionResourcesFactory {
                 transactionStateResolver,
                 partitionResources.storageUpdateHandler,
                 validationSchemasSource,
-                localMember,
+                topologyService.localMember(),
                 schemaSyncService,
                 catalogService,
                 placementDriver,
