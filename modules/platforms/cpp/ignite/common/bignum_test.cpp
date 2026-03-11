@@ -1291,7 +1291,6 @@ TEST(bignum, TestDoubleCast) {
     CheckDoubleCast(-0.000000000000001);
 }
 
-
 struct big_decimal_rounding_tc {
     big_decimal initial;
     int16_t new_scale;

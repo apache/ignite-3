@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include "detail/hash_calculator.h"
-#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/common/primitive.h"
 
 #include <gtest/gtest.h>

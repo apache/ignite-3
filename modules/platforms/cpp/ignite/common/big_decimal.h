@@ -36,7 +36,7 @@ class big_decimal {
 public:
 
     enum class rounding_mode {
-        // TODO support other rounding modes
+        // TODO IGNITE-28198 support other rounding modes
         DOWN,
         HALF_UP
     };
@@ -58,7 +58,7 @@ public:
      */
     big_decimal(const std::int8_t *mag, std::int32_t len, std::int16_t scale, std::int8_t sign, bool big_endian = true)
         : m_scale(std::int16_t(scale & 0x7FFF))
-        , m_magnitude(mag, len, sign, big_endian) { }
+        , m_magnitude(mag, len, sign, big_endian) {}
 
     /**
      * Constructs a big decimal from the byte array.
@@ -74,7 +74,7 @@ public:
      * @param val Integer value.
      */
     explicit big_decimal(int64_t val)
-        : m_magnitude(val) { }
+        : m_magnitude(val) {}
 
     /**
      * Integer constructor with scale.
@@ -84,7 +84,7 @@ public:
      */
     big_decimal(int64_t val, int16_t scale)
         : m_scale(scale)
-        , m_magnitude(val) { }
+        , m_magnitude(val) {}
 
     /**
      * big_integer constructor with scale.
@@ -94,7 +94,7 @@ public:
      */
     big_decimal(const big_integer &val, int16_t scale)
         : m_scale(scale)
-        , m_magnitude(val) { }
+        , m_magnitude(val) {}
 
     /**
      * big_integer constructor with scale.
@@ -104,7 +104,7 @@ public:
      */
     big_decimal(big_integer &&val, int16_t scale)
         : m_scale(scale)
-        , m_magnitude(std::forward<big_integer>(val)) { }
+        , m_magnitude(std::forward<big_integer>(val)) {}
 
     /**
      * String constructor.
@@ -219,7 +219,17 @@ public:
      * @param scale Scale to set.
      * @param res Result is placed here. Can be *this.
      */
-    void set_scale(std::int16_t new_scale, big_decimal &res, rounding_mode r_mode = rounding_mode::DOWN) const;
+    void set_scale(std::int16_t new_scale, big_decimal &res) const {
+        set_scale(new_scale, res, rounding_mode::DOWN);
+    }
+
+    /**
+     * Set scale.
+     *
+     * @param scale Scale to set.
+     * @param res Result is placed here. Can be *this.
+     */
+    void set_scale(std::int16_t new_scale, big_decimal &res, rounding_mode r_mode) const;
 
     /**
      * Get precision of the Decimal.

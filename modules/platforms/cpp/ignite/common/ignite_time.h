@@ -163,32 +163,4 @@ constexpr bool operator>=(const ignite_time &lhs, const ignite_time &rhs) noexce
     return lhs.compare(rhs) >= 0;
 }
 
-
-inline std::int_least32_t normalize_nanos(std::int32_t nanos, std::int32_t precision) {
-    switch (precision) {
-        case 0:
-            return 0;
-        case 1:
-            return nanos / 100'000'000 * 100'000'000; // 100ms precision
-        case 2:
-            return nanos / 10'000'000 * 10'000'000; // 10ms precision
-        case 3:
-            return nanos / 1'000'000 * 1'000'000; // 1ms precision
-        case 4:
-            return nanos / 100'000 * 100'000; // 100us precision
-        case 5:
-            return nanos / 10'000 * 10'000; // 10us precision
-        case 6:
-            return nanos / 1'000 * 1'000; // 1us precision
-        case 7:
-            return nanos / 100 * 100; // 100ns precision
-        case 8:
-            return nanos / 10 * 10; // 10ns precision
-        case 9:
-            return nanos; // 1ns precision
-        default:
-            throw std::runtime_error("Unsupported fractional seconds precision: " + std::to_string(precision));
-    }
-}
-
 } // namespace ignite

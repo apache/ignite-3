@@ -42,7 +42,9 @@ big_decimal::big_decimal(const std::byte *data, std::size_t size) {
 
 void big_decimal::set_scale(std::int16_t new_scale, big_decimal &res, rounding_mode r_mode) const {
     if (m_scale == new_scale) {
-        res = *this;
+        if (&res != this) {
+            res = *this;
+        }
         return;
     }
 

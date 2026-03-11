@@ -17,6 +17,7 @@
 //
 
 #include "hash_utils.h"
+#include "utils.h"
 
 namespace ignite::detail {
 
