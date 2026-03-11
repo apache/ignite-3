@@ -1509,6 +1509,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 new PartitionTableStatsMetricSource(table.tableId(), partitionId, partitionResources.modificationCounter);
 
         try {
+            // Only register this Metrics Source and do not enable it by default
+            // as it is intended for online troubleshooting purposes only (see IGNITE-27813).
             metricManager.registerSource(metricSource);
 
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
