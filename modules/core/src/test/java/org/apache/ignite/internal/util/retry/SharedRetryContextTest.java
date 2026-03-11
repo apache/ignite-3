@@ -16,23 +16,52 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+/**
+ * Unit tests for {@link SharedRetryContext}.
+ *
+ * <p>Verifies lazy initialization, sequential timeout progression, reset behavior,
+ * and thread safety of concurrent updates. A deterministic {@link TestProgressiveTimeoutStrategy}
+ * with a fixed multiplier is used to make expected timeout values easy to compute by hand.
+ */
 public class SharedRetryContextTest {
-    
+    /** Message included in exceptions thrown when an expected state is absent. */
     private static final String MISSING_STATE_MESSAGE = "TimeoutState is missing!";
 
+    /**
+     * Multiplier applied by {@link TestProgressiveTimeoutStrategy} on each step.
+     * Used to compute expected timeout values in assertions.
+     */
     private static final int MULTIPLYING_COEFFICIENT = 4;
 
+    /** Initial timeout passed to the {@link SharedRetryContext} under test. */
     private static final int INITIAL_TIMEOUT = 20;
 
+    /**
+     * Maximum timeout configured in {@link TestProgressiveTimeoutStrategy}.
+     * The progression is capped at this value.
+     */
     private static final int MAX_TIMEOUT = 1_000;
 
+    /** Retry context under test, recreated before each test. */
     private SharedRetryContext retryContext;
 
+    /**
+     * Creates a fresh {@link SharedRetryContext} with {@link #INITIAL_TIMEOUT} and
+     * a {@link TestProgressiveTimeoutStrategy} before each test.
+     */
     @BeforeEach
     void setUp() {
         retryContext = new SharedRetryContext(INITIAL_TIMEOUT, new TestProgressiveTimeoutStrategy());
     }
 
+    /**
+     * Verifies lazy initialization behavior of {@link SharedRetryContext}.
+     *
+     * <p>Before any call to {@link SharedRetryContext#updateAndGetState()}, {@link
+     * SharedRetryContext#getState()} must return an empty {@link java.util.Optional}.
+     * After the first update, the state must be present with {@link #INITIAL_TIMEOUT}
+     * and attempt count {@code 1}.
+     */
     @Test
     void testGettingState() {
         assertFalse(retryContext.getState().isPresent());
@@ -47,6 +76,16 @@ public class SharedRetryContextTest {
         assertEquals(1, state.getAttempt());
     }
 
+    /**
+     * Verifies that {@link SharedRetryContext#updateAndGetState()} returns the same
+     * object reference as {@link SharedRetryContext#getState()}, and that the timeout
+     * advances correctly after multiple calls.
+     *
+     * <p>After three updates, the expected timeout is
+     * {@code INITIAL_TIMEOUT * MULTIPLYING_COEFFICIENT^2} with attempt count {@code 3},
+     * reflecting that the first update returns the initial timeout and subsequent updates
+     * apply the coefficient.
+     */
     @Test
     void testUpdatingAndGettingState() {
         retryContext.updateAndGetState();
@@ -59,6 +98,11 @@ public class SharedRetryContextTest {
         checkRetryContextState(INITIAL_TIMEOUT * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
     }
 
+    /**
+     * Verifies that {@link SharedRetryContext#resetState()} clears the shared state,
+     * causing {@link SharedRetryContext#getState()} to return an empty
+     * {@link java.util.Optional} after the reset.
+     */
     @Test
     void testResettingState() {
         retryContext.updateAndGetState();
@@ -72,6 +116,17 @@ public class SharedRetryContextTest {
         assertFalse(retryContext.getState().isPresent());
     }
 
+    /**
+     * Verifies that concurrent calls to {@link SharedRetryContext#updateAndGetState()}
+     * from multiple threads all succeed, and that the final state reflects exactly
+     * {@code attemptsNumber} advancements.
+     *
+     * <p>Submits {@code attemptsNumber} tasks to a 5-thread pool, waits for all to
+     * complete, then asserts that the timeout has reached {@link #MAX_TIMEOUT} and
+     * the attempt count equals the number of submitted tasks.
+     *
+     * @throws Exception if the thread pool is interrupted during shutdown.
+     */
     @Test
     @Timeout(value = 5, unit = SECONDS)
     void testConcurrentStateUpdating() throws Exception {
@@ -99,6 +154,14 @@ public class SharedRetryContextTest {
         }
     }
 
+    /**
+     * Asserts that the shared retry context holds the expected timeout and attempt count.
+     *
+     * <p>Fails with {@link #MISSING_STATE_MESSAGE} if the state is absent.
+     *
+     * @param expectedTimeout  expected current timeout in milliseconds.
+     * @param expectedAttempts expected current attempt count.
+     */
     private void checkRetryContextState(int expectedTimeout, int expectedAttempts) {
         retryContext.getState().ifPresentOrElse(state -> {
             assertEquals(expectedTimeout, state.getTimeout());
@@ -108,13 +171,31 @@ public class SharedRetryContextTest {
         });
     }
 
+    /**
+     * A deterministic {@link TimeoutStrategy} that multiplies the current timeout by
+     * {@link #MULTIPLYING_COEFFICIENT} on each step, capped at {@link #MAX_TIMEOUT}.
+     *
+     * <p>Using integer multiplication rather than a floating-point coefficient avoids
+     * rounding ambiguity, making expected values in test assertions exact and easy to
+     * compute by hand.
+     */
     private static class TestProgressiveTimeoutStrategy implements TimeoutStrategy {
-
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Multiplies {@code currentTimeout} by {@link #MULTIPLYING_COEFFICIENT},
+         * capped at {@link #MAX_TIMEOUT}.
+         */
         @Override
         public int next(int currentTimeout) {
-            return Math.min((currentTimeout * MULTIPLYING_COEFFICIENT), MAX_TIMEOUT);
+            return Math.min(currentTimeout * MULTIPLYING_COEFFICIENT, MAX_TIMEOUT);
         }
 
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Returns {@link #MAX_TIMEOUT}.
+         */
         @Override
         public int maxTimeout() {
             return MAX_TIMEOUT;

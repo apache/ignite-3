@@ -7,24 +7,47 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link TimeoutState}.
+ *
+ * <p>Verifies the correctness of initial state construction, atomic CAS updates,
+ * stale-snapshot rejection, and the consistency between the raw packed {@code long}
+ * and the individual accessor methods.
+ */
 public class TimeoutStateTest {
-
+    /** Timeout value used to construct the shared {@link TimeoutState} instance. */
     private static final int TIMEOUT = 20;
+
+    /** Attempt count used to construct the shared {@link TimeoutState} instance. */
     private static final int ATTEMPT = 10;
 
+    /** Shared state instance recreated before each test. */
     private TimeoutState state;
 
+    /**
+     * Creates a fresh {@link TimeoutState} with {@link #TIMEOUT} and {@link #ATTEMPT}
+     * before each test to ensure full isolation.
+     */
     @BeforeEach
     void setUp() {
         state = new TimeoutState(TIMEOUT, ATTEMPT);
     }
 
+    /**
+     * Verifies that a newly constructed {@link TimeoutState} returns the timeout and
+     * attempt values it was initialized with.
+     */
     @Test
     void testInitialState() {
         assertEquals(TIMEOUT, state.getTimeout());
         assertEquals(ATTEMPT, state.getAttempt());
     }
 
+    /**
+     * Verifies that {@link TimeoutState#update(long, int, int)} succeeds when the
+     * provided snapshot matches the current internal state, and that both fields
+     * are updated atomically.
+     */
     @Test
     void testUpdate() {
         int newTimeout = 40;
@@ -38,6 +61,15 @@ public class TimeoutStateTest {
         assertEquals(newAttempt, state.getAttempt());
     }
 
+    /**
+     * Verifies that {@link TimeoutState#update(long, int, int)} rejects an update
+     * when the snapshot is stale — i.e., the internal state has been modified by
+     * another call since the snapshot was taken.
+     *
+     * <p>After a successful update advances the state, a second update using the
+     * original snapshot must return {@code false} and leave the state unchanged
+     * at the first update's values.
+     */
     @Test
     void testUpdateFailsOnStaleSnapshot() {
         long staleSnapshot = state.getRawState();
@@ -54,6 +86,14 @@ public class TimeoutStateTest {
         assertEquals(11, state.getAttempt());
     }
 
+    /**
+     * Verifies that {@link TimeoutState#getTimeout()} and {@link TimeoutState#getAttempt()}
+     * are consistent with the raw packed value returned by {@link TimeoutState#getRawState()}.
+     *
+     * <p>This confirms that the pack/unpack bit manipulation is symmetric and that
+     * callers who take a raw snapshot and decompose it manually get the same result
+     * as callers who use the individual accessors.
+     */
     @Test
     void testGetTimeoutAndGetAttemptAreConsistentWithRawState() {
         long raw = state.getRawState();
@@ -62,6 +102,14 @@ public class TimeoutStateTest {
         assertEquals(state.getAttempt(), TimeoutState.attempt(raw));
     }
 
+    /**
+     * Verifies that {@link TimeoutState#pack(int, int)} followed by
+     * {@link TimeoutState#timeout(long)} and {@link TimeoutState#attempt(long)}
+     * recovers the original values exactly.
+     *
+     * <p>Tests the bit-level correctness of the packing scheme independently of
+     * the {@link TimeoutState} object lifecycle.
+     */
     @Test
     void testPackUnpackRoundtrip() {
         long packed = TimeoutState.pack(TIMEOUT, ATTEMPT);

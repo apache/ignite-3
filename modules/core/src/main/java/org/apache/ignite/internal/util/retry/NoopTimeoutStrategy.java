@@ -18,15 +18,29 @@
 package org.apache.ignite.internal.util.retry;
 
 /**
- * a.
+ * A {@link TimeoutStrategy} that returns the current timeout unchanged on every call.
+ *
+ * <p>Useful when retry backoff is not desired — for example, in tests or when a flat
+ * retry interval is intentional. The timeout passed to {@link #next(int)} is returned
+ * as-is, so the retry interval remains constant across all attempts.
+ *
+ * <p>This class is stateless and thread-safe.
  */
 public class NoopTimeoutStrategy implements TimeoutStrategy {
-
+    /**
+     * Returns {@code currentTimeout} unchanged.
+     *
+     * @param currentTimeout current retry timeout in milliseconds.
+     * @return the same {@code currentTimeout} value, unmodified.
+     */
     @Override
     public int next(int currentTimeout) {
         return currentTimeout;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int maxTimeout() {
         return DEFAULT_TIMEOUT_MS_MAX;
