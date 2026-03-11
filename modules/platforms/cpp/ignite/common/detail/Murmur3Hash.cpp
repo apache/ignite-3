@@ -110,7 +110,7 @@ FORCE_INLINE uint64_t fmix64 ( uint64_t k )
   return k;
 }
 
-void MurmurHash3_x64_128 ( const void * key, const int len,
+void MurmurHash3_x64_128 ( const void * key, std::size_t len,
                            const uint64_t seed, void * out )
 {
   const uint8_t * data = (const uint8_t*)key;

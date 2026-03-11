@@ -49,7 +49,7 @@ std::int32_t hash_calculator::calc_hash(const primitive& val, std::int32_t scale
         case ignite_type::TIME:
             return hash(val.get<ignite_time>(), precision);
         case ignite_type::DATETIME:
-            return hash(val.get<ignite_date_time>());
+            return hash(val.get<ignite_date_time>(), precision);
         case ignite_type::TIMESTAMP:
             return hash(val.get<ignite_timestamp>(), precision);
         case ignite_type::UUID:

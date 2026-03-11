@@ -303,9 +303,9 @@ INSTANTIATE_TEST_SUITE_P(
     simple,
     hash_utils_date_test,
     ::testing::Values(
-        test_case<ignite_date>{ignite_date{1970, 1, 1}, -1730003579}//,
-        // test_case<ignite_date>{ignite_date{1905, 9, 26}, -1268080282},
-        // test_case<ignite_date>{ignite_date{2036, 3, 17}, 435798353}
+        test_case<ignite_date>{ignite_date{1970, 1, 1}, -1730003579},
+        test_case<ignite_date>{ignite_date{1905, 9, 26}, -1268080282},
+        test_case<ignite_date>{ignite_date{2036, 3, 17}, 435798353}
     )
 );
 
@@ -405,7 +405,7 @@ void PrintTo(const test_case<std::vector<std::byte>>& tc, std::ostream* os) {
     *os << "arg = " << "[";
     *os << std::hex;
     for (auto b : tc.arg) {
-         *os << "Ox" << static_cast<uint32_t>(b) << ",";
+         *os << "0x" << static_cast<uint32_t>(b) << ",";
     }
 
     *os << "]";

@@ -31,16 +31,8 @@
 #include <vector>
 
 namespace ignite::detail {
-constexpr std::uint64_t C1 = 0x87'C3'7B'91'11'42'53'D5L;
-constexpr std::uint64_t C2 = 0x4C'F5'AD'43'27'45'93'7FL;
-constexpr int R1 = 31;
-constexpr int R2 = 27;
-constexpr int R3 = 33;
-constexpr int M = 5;
-constexpr int N1 = 0x52dce729;
-constexpr int N2 = 0x38495ab5;
 
-inline std::uint64_t murmur_original( const void * key, const int len, std::uint64_t seed) {
+inline std::uint64_t murmur_original( const void * key, std::size_t len, std::uint64_t seed) {
     std::uint64_t res[2];
     MurmurHash3_x64_128(key, len, seed, res);
 

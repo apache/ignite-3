@@ -21,5 +21,5 @@
 #pragma once
 #include <cstdint>
 
-void MurmurHash3_x64_128 ( const void * key, const int len,
+void MurmurHash3_x64_128 ( const void * key, std::size_t len,
                            std::uint64_t seed, void * out );
