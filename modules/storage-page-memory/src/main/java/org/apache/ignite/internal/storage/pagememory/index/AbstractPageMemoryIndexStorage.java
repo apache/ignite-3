@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToC
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -84,6 +85,8 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    protected final AtomicLong modCount = new AtomicLong();
 
     /** Index ID. */
     private final int indexId;
@@ -337,6 +340,8 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         private @Nullable Boolean hasNext;
 
+        private long expectedModCount = 0;
+
         /**
          * Last row used in mapping in the {@link #next()} call. {@code null} upon cursor creation or after {@link #hasNext()} returned
          * {@code null}.
@@ -413,6 +418,12 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             if (hasNext != null) {
                 return treeRow;
             }
+
+            if (peekedRow != NO_INDEX_ROW && modCount.get() == expectedModCount) {
+                return peekedRow;
+            }
+
+            expectedModCount = modCount.get();
 
             if (treeRow == null) {
                 peekedRow = lower == null ? localTree.findFirst() : localTree.findNext(lower, true);
