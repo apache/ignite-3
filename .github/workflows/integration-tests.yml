@@ -32,6 +32,12 @@ jobs:
           :ignite-configuration-annotation-processor:integrationTest
           :ignite-file-transfer:integrationTest
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,6 +70,12 @@ jobs:
           ./gradlew --continue
           :ignite-network:integrationTest
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -95,6 +107,12 @@ jobs:
         run: >-
           ./gradlew --continue
           :ignite-page-memory:integrationTest
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
 
       - name: Upload test reports
         if: always()
@@ -133,6 +151,12 @@ jobs:
           :ignite-jdbc:integrationTest
           :ignite-schema-sync:integrationTest
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -168,6 +192,12 @@ jobs:
           :ignite-partition-replicator:integrationTest
           :ignite-metastorage:integrationTest
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -202,6 +232,12 @@ jobs:
           :ignite-index:integrationTest
           :ignite-distribution-zones:integrationTest
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -234,6 +270,12 @@ jobs:
           ./gradlew --continue
           :ignite-compute:integrationTest
           :ignite-code-deployment:integrationTest
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
 
       - name: Upload test reports
         if: always()
@@ -268,6 +310,12 @@ jobs:
           :ignite-client-handler:integrationTest
           :ignite-rest:integrationTest
           :ignite-cli:integrationTest
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
 
       - name: Upload test reports
         if: always()
@@ -305,6 +353,12 @@ jobs:
           :ignite-security:integrationTest
           :ignite-transactions:integrationTest
           :ignite-system-disaster-recovery:integrationTest
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
 
       - name: Upload test reports
         if: always()
@@ -367,6 +421,12 @@ jobs:
           -x :ignite-security:integrationTest
           -x :ignite-transactions:integrationTest
           -x :ignite-system-disaster-recovery:integrationTest
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: integrationTest
 
       - name: Upload test reports
         if: always()

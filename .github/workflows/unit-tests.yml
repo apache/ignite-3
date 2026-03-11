@@ -39,6 +39,12 @@ jobs:
           :ignite-vault:test
           :ignite-eventlog:test
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -75,6 +81,12 @@ jobs:
           :ignite-configuration-storage:test
           :ignite-configuration-system:test
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,6 +121,12 @@ jobs:
           :ignite-network-annotation-processor:test
           :ignite-network-api:test
           :ignite-file-transfer:test
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
 
       - name: Upload test reports
         if: always()
@@ -146,6 +164,12 @@ jobs:
           :ignite-page-memory:test
           :ignite-rocksdb-common:test
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -182,6 +206,12 @@ jobs:
           :ignite-catalog-dsl:test
           :ignite-jdbc:test
           :ignite-schema:test
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
 
       - name: Upload test reports
         if: always()
@@ -222,6 +252,12 @@ jobs:
           :ignite-metastorage-cache:test
           :ignite-low-watermark:test
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -259,6 +295,12 @@ jobs:
           :ignite-system-view:test
           :ignite-system-view-api:test
 
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -292,6 +334,12 @@ jobs:
           :ignite-compute:test
           :ignite-code-deployment:test
           :ignite-code-deployment-classloader:test
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
 
       - name: Upload test reports
         if: always()
@@ -329,6 +377,12 @@ jobs:
           :ignite-rest:test
           :ignite-rest-api:test
           :ignite-cli:test
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
 
       - name: Upload test reports
         if: always()
@@ -368,6 +422,12 @@ jobs:
           :ignite-transactions:test
           :ignite-system-disaster-recovery:test
           :ignite-system-disaster-recovery-api:test
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
 
       - name: Upload test reports
         if: always()
@@ -462,6 +522,12 @@ jobs:
           -x :ignite-transactions:test
           -x :ignite-system-disaster-recovery:test
           -x :ignite-system-disaster-recovery-api:test
+
+      - name: Summarize test failures
+        if: always()
+        uses: ./.github/actions/test-summary
+        with:
+          report-type: test
 
       - name: Upload test reports
         if: always()

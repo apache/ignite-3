@@ -25,6 +25,30 @@ jobs:
       - name: Run Checkstyle
         run: ./gradlew --continue checkstyleMain checkstyleTest checkstyleIntegrationTest checkstyleTestFixtures
 
+      - name: Summarize Checkstyle violations
+        if: always()
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(**/build/reports/checkstyle/*.xml)
+          if [ ${#files[@]} -eq 0 ]; then exit 0; fi
+          violations=$(grep -h '<error ' "${files[@]}" 2>/dev/null || true)
+          if [ -z "$violations" ]; then
+            echo "### :white_check_mark: Checkstyle: No violations" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### :x: Checkstyle Violations" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | Line | Message |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          for f in "${files[@]}"; do
+            grep '<error ' "$f" 2>/dev/null | sed -E 's/.*line="([0-9]+)".*message="([^"]+)".*/\1|\2/' | while IFS='|' read -r line msg; do
+              src=$(grep -oP 'name="\K[^"]+' "$f" | head -1)
+              short=$(echo "$src" | sed 's|.*/src/||')
+              echo "| \`$short\` | $line | $msg |" >> "$GITHUB_STEP_SUMMARY"
+            done
+          done
+
   pmd:
     name: PMD
     runs-on: ubuntu-latest
@@ -46,6 +70,37 @@ jobs:
       - name: Run PMD
         run: ./gradlew --continue pmdMain pmdTest pmdIntegrationTest pmdTestFixtures
 
+      - name: Summarize PMD violations
+        if: always()
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(**/build/reports/pmd/*.xml)
+          if [ ${#files[@]} -eq 0 ]; then exit 0; fi
+          violations=$(grep -h '<violation ' "${files[@]}" 2>/dev/null || true)
+          if [ -z "$violations" ]; then
+            echo "### :white_check_mark: PMD: No violations" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### :x: PMD Violations" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | Line | Rule | Message |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|------|------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          for f in "${files[@]}"; do
+            current_file=""
+            while IFS= read -r line; do
+              if echo "$line" | grep -qP '<file name="'; then
+                current_file=$(echo "$line" | grep -oP 'name="\K[^"]+' | sed 's|.*/src/||')
+              fi
+              if echo "$line" | grep -qP '<violation '; then
+                lineno=$(echo "$line" | grep -oP 'beginline="\K[0-9]+')
+                rule=$(echo "$line" | grep -oP 'rule="\K[^"]+')
+                msg=$(echo "$line" | sed -E 's/.*>([^<]+)<\/violation>.*/\1/' | xargs)
+                echo "| \`$current_file\` | $lineno | $rule | $msg |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done < "$f"
+          done
+
   spotbugs:
     name: SpotBugs
     runs-on: ubuntu-latest
@@ -66,3 +121,36 @@ jobs:
 
       - name: Run SpotBugs
         run: ./gradlew --continue spotbugsMain spotbugsTest spotbugsIntegrationTest spotbugsTestFixtures
+
+      - name: Summarize SpotBugs violations
+        if: always()
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(**/build/reports/spotbugs/*.xml)
+          if [ ${#files[@]} -eq 0 ]; then exit 0; fi
+          bugs=$(grep -h '<BugInstance ' "${files[@]}" 2>/dev/null || true)
+          if [ -z "$bugs" ]; then
+            echo "### :white_check_mark: SpotBugs: No bugs found" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### :x: SpotBugs Issues" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Type | Category | Class | Line | Message |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|----------|-------|------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          for f in "${files[@]}"; do
+            python3 -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('$f')
+          for bug in tree.findall('.//BugInstance'):
+              typ = bug.get('type', '')
+              cat = bug.get('category', '')
+              msg_el = bug.find('ShortMessage')
+              msg = msg_el.text if msg_el is not None else ''
+              cls_el = bug.find('Class')
+              cls = cls_el.get('classname', '') if cls_el is not None else ''
+              src_el = bug.find('.//SourceLine[@start]')
+              line = src_el.get('start', '') if src_el is not None else ''
+              print(f'| \`{typ}\` | {cat} | \`{cls}\` | {line} | {msg} |')
+          " >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          done

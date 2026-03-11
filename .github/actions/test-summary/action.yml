@@ -1,0 +1,83 @@
+name: 'Test Summary'
+description: 'Parse JUnit XML reports and write a failure summary to GITHUB_STEP_SUMMARY'
+
+inputs:
+  report-type:
+    description: 'Type of test report directory (test or integrationTest)'
+    required: true
+    default: 'test'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate test summary
+      if: always()
+      shell: bash
+      run: |
+        shopt -s globstar nullglob
+
+        report_type="${{ inputs.report-type }}"
+        files=(**/build/test-results/${report_type}/TEST-*.xml)
+
+        if [ ${#files[@]} -eq 0 ]; then
+          echo "No test result files found."
+          exit 0
+        fi
+
+        total=0
+        failed=0
+        errored=0
+        skipped=0
+        failure_details=""
+
+        for f in "${files[@]}"; do
+          # Extract testsuite attributes
+          suite_line=$(head -5 "$f" | grep '<testsuite ')
+          if [ -z "$suite_line" ]; then continue; fi
+
+          t=$(echo "$suite_line" | grep -oP 'tests="\K[0-9]+' || echo 0)
+          fl=$(echo "$suite_line" | grep -oP 'failures="\K[0-9]+' || echo 0)
+          e=$(echo "$suite_line" | grep -oP 'errors="\K[0-9]+' || echo 0)
+          s=$(echo "$suite_line" | grep -oP 'skipped="\K[0-9]+' || echo 0)
+
+          total=$((total + t))
+          failed=$((failed + fl))
+          errored=$((errored + e))
+          skipped=$((skipped + s))
+
+          # Collect failure details
+          if [ "$fl" -gt 0 ] || [ "$e" -gt 0 ]; then
+            # Use python for reliable XML parsing of failure messages
+            details=$(python3 -c "
+        import xml.etree.ElementTree as ET, sys
+        try:
+            tree = ET.parse('$f')
+            for tc in tree.findall('.//testcase'):
+                fail = tc.find('failure')
+                err = tc.find('error')
+                elem = fail if fail is not None else err
+                if elem is not None:
+                    cls = tc.get('classname', '')
+                    name = tc.get('name', '')
+                    msg = elem.get('message', '')[:200].replace('|', '/').replace('\n', ' ')
+                    print(f'| \`{cls}\` | \`{name}\` | {msg} |')
+        except Exception:
+            pass
+        " 2>/dev/null || true)
+            if [ -n "$details" ]; then
+              failure_details="${failure_details}${details}"$'\n'
+            fi
+          fi
+        done
+
+        passed=$((total - failed - errored - skipped))
+
+        if [ "$failed" -eq 0 ] && [ "$errored" -eq 0 ]; then
+          echo "### :white_check_mark: Tests passed: $passed, skipped: $skipped" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "### :x: Tests: $passed passed, $((failed + errored)) failed, $skipped skipped (total: $total)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Class | Test | Message |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "$failure_details" >> "$GITHUB_STEP_SUMMARY"
+        fi
