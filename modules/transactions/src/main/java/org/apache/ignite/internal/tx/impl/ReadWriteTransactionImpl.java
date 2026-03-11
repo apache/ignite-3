@@ -247,7 +247,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean isComplete,
             @Nullable Throwable finishReason
     ) {
-        LOG.info("DBG: finishInternal " + id() + ", commit=" + commit + ", killed=" + !isComplete);
+        // LOG.info("DBG: finishInternal " + id() + ", commit=" + commit + ", killed=" + !isComplete);
 
         enlistPartitionLock.writeLock().lock();
 

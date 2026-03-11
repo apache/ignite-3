@@ -130,7 +130,7 @@ public class TxFinishReplicaRequestHandler {
      * @return future result of the operation.
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
-        LOG.info("DBG: handle finish " + request.txId() + " commit=" + request.commit());
+        //LOG.info("DBG: handle finish " + request.txId() + " commit=" + request.commit());
 
         Map<ZonePartitionId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
 

@@ -45,6 +45,14 @@ public class TransactionKilledException extends TransactionInternalException imp
         this.txId = txId;
     }
 
+    public TransactionKilledException(UUID txId) {
+        super(
+                TX_KILLED_ERR,
+                "Transaction is killed " + txId
+        );
+        this.txId = txId;
+    }
+
     /**
      * Returns a transaction id.
      *

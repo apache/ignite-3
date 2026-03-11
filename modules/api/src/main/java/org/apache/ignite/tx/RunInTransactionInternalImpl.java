@@ -68,6 +68,8 @@ public class RunInTransactionInternalImpl {
             } catch (Exception ex) {
                 addSuppressedToList(suppressed, ex);
 
+                rollbackWithRetry(tx0, ex, startTimestamp, initialTimeout, suppressed);
+
                 long remaining = calcRemainingTime(initialTimeout);
 
                 if (remaining > 0 && isRetriable(ex)) {
@@ -87,6 +89,28 @@ public class RunInTransactionInternalImpl {
         }
 
         return ret;
+    }
+
+    private static void rollbackWithRetry(
+            Transaction tx,
+            Exception closureException,
+            long startTimestamp,
+            long initialTimeout,
+            List<Throwable> suppressed
+    ) {
+        while (true) {
+            try {
+                tx.rollback();
+
+                break;
+            } catch (Exception re) {
+                addSuppressedToList(suppressed, re);
+
+                if (calcRemainingTime(initialTimeout) <= 0) {
+                    throwExceptionWithSuppressed(closureException, suppressed);
+                }
+            }
+        }
     }
 
     static <T> CompletableFuture<T> runInTransactionAsyncInternal(

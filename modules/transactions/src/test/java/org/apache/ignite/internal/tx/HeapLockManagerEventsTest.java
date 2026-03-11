@@ -25,7 +25,7 @@ import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
  */
 public class HeapLockManagerEventsTest extends AbstractLockManagerEventsTest {
     @Override
-    protected LockManager lockManager() {
-        return lockManager(new WaitDieDeadlockPreventionPolicy());
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        return new WaitDieDeadlockPreventionPolicy();
     }
 }
