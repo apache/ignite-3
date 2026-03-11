@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
-import static org.apache.calcite.rel.core.TableModify.Operation.INSERT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
@@ -89,7 +88,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  */
 public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
-    private final Long2ObjectMap<PartitionPruningColumns> result = new Long2ObjectOpenHashMap<>();
+    final Long2ObjectMap<PartitionPruningColumns> result = new Long2ObjectOpenHashMap<>();
 
     /**
      * Extracts partition pruning metadata from the given physical plan.
@@ -144,17 +143,14 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableModify rel) {
-        if (rel.getOperation() != INSERT) {
-            return super.visit(rel);
-        }
-
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
         assert table != null;
 
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
-        List<List<RexNode>> results = ModifyNodeVisitor.go(rel);
+        ModifyNodeVisitor visitor = new ModifyNodeVisitor(this);
+        List<List<RexNode>> results = visitor.go(rel);
 
         if (results == null) {
             return rel;
@@ -186,7 +182,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             for (int key : keysList) {
                 RexLocalRef ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
                 RexNode expr = items.get(key);
-                if (expr == ModifyNodeVisitor.NO_VALUE || !isValueExpr(expr)) {
+                if (expr == ModifyNodeVisitor.VALUE_NOT_ASSIGNED || !isValueExpr(expr)) {
                     return;
                 }
                 RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, expr);
