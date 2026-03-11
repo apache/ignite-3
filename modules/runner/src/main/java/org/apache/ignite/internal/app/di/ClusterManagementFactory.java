@@ -36,7 +36,6 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.TopologyService;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
@@ -55,15 +53,6 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
  */
 @Factory
 public class ClusterManagementFactory {
-    /** Creates the message serialization registry, loading all serializers from the classpath. */
-    @Singleton
-    public MessageSerializationRegistry messageSerializationRegistry(NodeIdentity nodeIdentity) {
-        var serviceLoader = new SerializationRegistryServiceLoader(nodeIdentity.serviceProviderClassLoader());
-        var registry = new MessageSerializationRegistryImpl();
-        serviceLoader.registerSerializationFactories(registry);
-        return registry;
-    }
-
     /** Creates the cluster service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)

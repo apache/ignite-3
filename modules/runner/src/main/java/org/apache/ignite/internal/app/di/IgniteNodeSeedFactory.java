@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.components.NodeIdentity;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
-import org.apache.ignite.internal.configuration.ConfigurationModulesImpl;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 
@@ -36,11 +34,5 @@ public class IgniteNodeSeedFactory {
     @Singleton
     public VaultService vaultService(NodeIdentity nodeIdentity) {
         return new PersistentVaultService(vaultPath(nodeIdentity.workDir()));
-    }
-
-    /** Discovers configuration modules from the service provider class loader. */
-    @Singleton
-    public ConfigurationModules configurationModules(NodeIdentity nodeIdentity) {
-        return ConfigurationModulesImpl.create(nodeIdentity.serviceProviderClassLoader());
     }
 }

@@ -17,18 +17,34 @@
 
 package org.apache.ignite.internal.network;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 
 /**
  * Default implementation of a {@link MessageSerializationRegistry}.
  */
+@Singleton
 public class MessageSerializationRegistryImpl implements MessageSerializationRegistry {
     /** group type → message type → MessageSerializerProvider instance. */
     private final MessageSerializationFactory<?>[][] factories =
             new MessageSerializationFactory<?>[Short.MAX_VALUE + 1][];
+
+    /** Default constructor for direct use in tests. */
+    public MessageSerializationRegistryImpl() {
+    }
+
+    /** DI constructor that loads and registers all serialization factories from the classpath. */
+    @Inject
+    public MessageSerializationRegistryImpl(NodeIdentity nodeIdentity) {
+        var serviceLoader = new SerializationRegistryServiceLoader(nodeIdentity.serviceProviderClassLoader());
+        serviceLoader.registerSerializationFactories(this);
+    }
 
     @Override
     public MessageSerializationRegistry registerFactory(

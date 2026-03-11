@@ -19,17 +19,21 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link ConfigurationModules} that loads and merges {@link ConfigurationModule}s.
  */
+@Singleton
 public class ConfigurationModulesImpl implements ConfigurationModules {
     private final CompoundModule localCompound;
     private final CompoundModule distributedCompound;
@@ -42,6 +46,16 @@ public class ConfigurationModulesImpl implements ConfigurationModules {
     public ConfigurationModulesImpl(List<ConfigurationModule> modules) {
         localCompound = compoundOfType(ConfigurationType.LOCAL, modules);
         distributedCompound = compoundOfType(ConfigurationType.DISTRIBUTED, modules);
+    }
+
+    /**
+     * DI constructor that discovers configuration modules using the service provider class loader from {@link NodeIdentity}.
+     *
+     * @param nodeIdentity Node identity providing the service provider class loader.
+     */
+    @Inject
+    public ConfigurationModulesImpl(NodeIdentity nodeIdentity) {
+        this(loadModules(nodeIdentity.serviceProviderClassLoader()));
     }
 
     @Override
@@ -68,6 +82,10 @@ public class ConfigurationModulesImpl implements ConfigurationModules {
      * @return Configuration modules.
      */
     public static ConfigurationModulesImpl create(@Nullable ClassLoader classLoader) {
+        return new ConfigurationModulesImpl(loadModules(classLoader));
+    }
+
+    private static List<ConfigurationModule> loadModules(@Nullable ClassLoader classLoader) {
         List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
                 .map(Provider::get)
                 .collect(toUnmodifiableList());
@@ -77,6 +95,6 @@ public class ConfigurationModulesImpl implements ConfigurationModules {
                     + "Please make sure that the classloader for loading services is correct.");
         }
 
-        return new ConfigurationModulesImpl(modules);
+        return modules;
     }
 }
