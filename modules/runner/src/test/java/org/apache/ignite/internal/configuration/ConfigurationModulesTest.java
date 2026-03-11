@@ -68,7 +68,7 @@ class ConfigurationModulesTest extends BaseIgniteAbstractTest {
         when(moduleA.rootKeys()).thenReturn(Set.of(rootKeyA));
         when(moduleB.rootKeys()).thenReturn(Set.of(rootKeyB));
 
-        var modules = new ConfigurationModules(List.of(moduleA, moduleB, moduleC, moduleD));
+        var modules = new ConfigurationModulesImpl(List.of(moduleA, moduleB, moduleC, moduleD));
 
         assertThat(modules.local().rootKeys(), containsInAnyOrder(rootKeyA, rootKeyB));
     }
@@ -82,7 +82,7 @@ class ConfigurationModulesTest extends BaseIgniteAbstractTest {
         when(moduleC.rootKeys()).thenReturn(Set.of(rootKeyC));
         when(moduleD.rootKeys()).thenReturn(Set.of(rootKeyD));
 
-        var modules = new ConfigurationModules(List.of(moduleA, moduleB, moduleC, moduleD));
+        var modules = new ConfigurationModulesImpl(List.of(moduleA, moduleB, moduleC, moduleD));
 
         assertThat(modules.distributed().rootKeys(), containsInAnyOrder(rootKeyC, rootKeyD));
     }
@@ -90,7 +90,7 @@ class ConfigurationModulesTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("classLoaderSource")
     void createdUsingClassLoader(ClassLoader classLoader) {
-        ConfigurationModules modules = ConfigurationModules.create(classLoader);
+        ConfigurationModules modules = ConfigurationModulesImpl.create(classLoader);
 
         assertThat(modules.local().schemaExtensions().size(), is(greaterThan(0)));
         assertThat(modules.distributed().schemaExtensions().size(), is(greaterThan(0)));

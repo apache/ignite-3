@@ -28,6 +28,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.ConfigurationModulesImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -75,7 +76,7 @@ public class DefaultsGenerator {
      * This uses fragments of cluster initialization from {@code IgniteImpl} class to set up local configuration framework.
      */
     private static ConfigurationChanger createConfigurationChanger(Path configPath) {
-        ConfigurationModules modules = ConfigurationModules.create(DefaultsGenerator.class.getClassLoader());
+        ConfigurationModules modules = ConfigurationModulesImpl.create(DefaultsGenerator.class.getClassLoader());
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),

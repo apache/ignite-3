@@ -27,7 +27,7 @@ import org.apache.ignite3.configuration.ConfigurationModule;
 import org.apache.ignite3.configuration.RootKey;
 import org.apache.ignite3.configuration.annotation.ConfigurationType;
 import org.apache.ignite3.configuration.validation.Validator;
-import org.apache.ignite3.internal.configuration.ConfigurationModules;
+import org.apache.ignite3.internal.configuration.ConfigurationModulesImpl;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistryImpl;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
@@ -66,7 +66,7 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static ConfigurationRegistry loadNodeConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadConfigurations(cfgPath, ConfigurationModules.create(null).local(), includeDefaults);
+        return loadConfigurations(cfgPath, ConfigurationModulesImpl.create(null).local(), includeDefaults);
     }
 
     /**
@@ -78,7 +78,7 @@ public class Ignite3ConfigurationUtils {
     public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
         // Hack so that it passes the validation
         // TODO: This is another hack that needs to be cleaned. We don't really need the ConfigurationRegistry.
-        var distributedModule = ConfigurationModules.create(null).distributed();
+        var distributedModule = ConfigurationModulesImpl.create(null).distributed();
         for (RootKey<?, ?, ?> key : distributedModule.rootKeys()) {
             try {
                 FieldUtils.writeDeclaredField(key, "storageType", ConfigurationType.LOCAL, true);

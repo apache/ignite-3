@@ -26,8 +26,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
-import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
-import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -141,15 +139,6 @@ public class ClusterManagementFactory {
             ConfigurationModules modules
     ) {
         return ConfigurationValidatorImpl.withDefaultValidators(generator, modules.distributed().validators());
-    }
-
-    /** Creates the configuration dynamic defaults patcher. */
-    @Singleton
-    public ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher(
-            ConfigurationModules modules,
-            @Named("distributed") ConfigurationTreeGenerator generator
-    ) {
-        return new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), generator);
     }
 
 }

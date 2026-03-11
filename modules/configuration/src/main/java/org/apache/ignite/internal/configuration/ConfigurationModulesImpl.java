@@ -28,37 +28,28 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * An ensemble of {@link ConfigurationModule}s used to easily pick node-local and cluster-wide configuration
- * and merge modules for convenience.
+ * Implementation of {@link ConfigurationModules} that loads and merges {@link ConfigurationModule}s.
  */
-public class ConfigurationModules {
+public class ConfigurationModulesImpl implements ConfigurationModules {
     private final CompoundModule localCompound;
     private final CompoundModule distributedCompound;
 
     /**
-     * Creates a new instance of {@link ConfigurationModules} wrapping modules passed to it.
+     * Creates a new instance wrapping modules passed to it.
      *
      * @param modules modules to wrap; they may be of different types
      */
-    public ConfigurationModules(List<ConfigurationModule> modules) {
+    public ConfigurationModulesImpl(List<ConfigurationModule> modules) {
         localCompound = compoundOfType(ConfigurationType.LOCAL, modules);
         distributedCompound = compoundOfType(ConfigurationType.DISTRIBUTED, modules);
     }
 
-    /**
-     * Return a module representing the result of merge of modules of type {@link ConfigurationType#LOCAL}.
-     *
-     * @return node-local configuration merge result
-     */
+    @Override
     public ConfigurationModule local() {
         return localCompound;
     }
 
-    /**
-     * Return a module representing the result of merge of modules of type {@link ConfigurationType#DISTRIBUTED}.
-     *
-     * @return cluster-wide configuration merge result
-     */
+    @Override
     public ConfigurationModule distributed() {
         return distributedCompound;
     }
@@ -76,7 +67,7 @@ public class ConfigurationModules {
      * @param classLoader the class loader to use.
      * @return Configuration modules.
      */
-    public static ConfigurationModules create(@Nullable ClassLoader classLoader) {
+    public static ConfigurationModulesImpl create(@Nullable ClassLoader classLoader) {
         List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
                 .map(Provider::get)
                 .collect(toUnmodifiableList());
@@ -86,6 +77,6 @@ public class ConfigurationModules {
                     + "Please make sure that the classloader for loading services is correct.");
         }
 
-        return new ConfigurationModules(modules);
+        return new ConfigurationModulesImpl(modules);
     }
 }

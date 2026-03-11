@@ -52,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.ConfigurationModulesImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -232,7 +233,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Configuration modules.
      */
     public static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        ConfigurationModules configModules = ConfigurationModules.create(classLoader);
+        ConfigurationModules configModules = ConfigurationModulesImpl.create(classLoader);
 
         if (log.isInfoEnabled()) {
             log.info("Local root keys: {}", configModules.local().rootKeys());

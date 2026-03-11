@@ -29,7 +29,10 @@ dependencies {
     implementation project(':ignite-bytecode')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
+    implementation libs.micronaut.inject
     implementation libs.typesafe.config
+
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')

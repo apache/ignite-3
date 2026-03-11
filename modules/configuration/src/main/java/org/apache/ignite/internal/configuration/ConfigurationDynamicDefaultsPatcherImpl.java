@@ -20,6 +20,9 @@ package org.apache.ignite.internal.configuration;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -33,6 +36,7 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 /**
  * Implementation of {@link ConfigurationDynamicDefaultsPatcher}.
  */
+@Singleton
 public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDynamicDefaultsPatcher {
     /**
      * Configuration module.
@@ -50,6 +54,14 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
     ) {
         this.configurationModule = configurationModule;
         this.generator = generator;
+    }
+
+    @Inject
+    public ConfigurationDynamicDefaultsPatcherImpl(
+            ConfigurationModules modules,
+            @Named("distributed") ConfigurationTreeGenerator generator
+    ) {
+        this(modules.distributed(), generator);
     }
 
     @Override
