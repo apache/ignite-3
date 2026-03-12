@@ -87,9 +87,6 @@ public class TxCleanupRequestHandler {
     /** Volatile transaction state meta storage. */
     private final VolatileTxStateMetaStorage volatileTxStateMetaStorage;
 
-    /** Remote enlistment tracker for cleanup. See https://issues.apache.org/jira/browse/IGNITE-27651 */
-    private final RemoteEnlistmentTracker remoteEnlistmentTracker;
-
     /** The map of txId to a cleanup context, tracking replicated write intents. */
     private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
 
@@ -103,7 +100,6 @@ public class TxCleanupRequestHandler {
      * @param resourcesRegistry Resources registry.
      * @param cleanupExecutor Cleanup executor.
      * @param volatileTxStateMetaStorage Volatile transaction state meta storage.
-     * @param remoteEnlistmentTracker Remote enlistment tracker.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
@@ -112,8 +108,7 @@ public class TxCleanupRequestHandler {
             WriteIntentSwitchProcessor writeIntentSwitchProcessor,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             Executor cleanupExecutor,
-            VolatileTxStateMetaStorage volatileTxStateMetaStorage,
-            RemoteEnlistmentTracker remoteEnlistmentTracker
+            VolatileTxStateMetaStorage volatileTxStateMetaStorage
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
@@ -122,7 +117,6 @@ public class TxCleanupRequestHandler {
         this.remotelyTriggeredResourceRegistry = resourcesRegistry;
         this.cleanupExecutor = cleanupExecutor;
         this.volatileTxStateMetaStorage = volatileTxStateMetaStorage;
-        this.remoteEnlistmentTracker = remoteEnlistmentTracker;
     }
 
     /**
@@ -322,10 +316,8 @@ public class TxCleanupRequestHandler {
 
         releaseTxLocks(txId);
 
-        // TODO: What is this?
+        // TODO: Clean up client enlistments here?
         remotelyTriggeredResourceRegistry.close(txId);
-
-        remoteEnlistmentTracker.removeTracking(txId);
 
         // We don't care about replicating discarded write intents state, because it will be lazily resolved if needed.
         return allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]));
