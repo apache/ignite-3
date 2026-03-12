@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.awaitility.Awaitility.await;
@@ -27,8 +28,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.not;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -111,7 +111,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testRunCompactionWithAllEntriesTruncated() throws Exception {
+    void testRunCompactionWithFileFullyCompacted() throws Exception {
         // Fill some segment files with entries.
         List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
         for (int i = 0; i < batches.size(); i++) {
@@ -136,21 +136,21 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
             segmentFile.close();
         }
 
-        assertThat(Files.exists(segmentFilePath), is(false));
-        assertThat(Files.exists(indexFileManager.indexFilePath(fileProperties)), is(false));
+        assertThat(segmentFilePath, not(exists()));
+        assertThat(indexFileManager.indexFilePath(fileProperties), not(exists()));
 
         // Validate that no files with increased generation have been created.
         var newFileProperties = new FileProperties(fileProperties.ordinal(), fileProperties.generation() + 1);
 
         assertThat(segmentFiles(), hasSize(segmentFiles.size() - 1));
-        assertThat(Files.exists(fileManager.segmentFilesDir().resolve(SegmentFile.fileName(newFileProperties))), is(false));
-        assertThat(Files.exists(indexFileManager.indexFilePath(newFileProperties)), is(false));
+        assertThat(fileManager.segmentFilesDir().resolve(SegmentFile.fileName(newFileProperties)), not(exists()));
+        assertThat(indexFileManager.indexFilePath(newFileProperties), not(exists()));
     }
 
     @Test
-    void testRunCompactionWithSomeEntriesTruncated() throws Exception {
+    void testRunCompactionWithFilePartiallyCompacted() throws Exception {
         // Fill some segment files with entries from two groups.
-        List<byte[]> batches = createRandomData(FILE_SIZE / 8, 10);
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
 
         for (int i = 0; i < batches.size(); i++) {
             appendBytes(GROUP_ID_1, batches.get(i), i);
@@ -178,18 +178,18 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         }
 
         // Segment file should be replaced by a new one with increased generation.
-        assertThat(Files.exists(firstSegmentFile), is(false));
+        assertThat(firstSegmentFile, not(exists()));
 
         var newFileProperties = new FileProperties(originalFileProperties.ordinal(), originalFileProperties.generation() + 1);
 
         Path newSegmentFile = fileManager.segmentFilesDir().resolve(SegmentFile.fileName(newFileProperties));
 
-        assertThat(Files.exists(newSegmentFile), is(true));
+        assertThat(newSegmentFile, exists());
 
         assertThat(Files.size(newSegmentFile), lessThan(originalSize));
 
-        assertThat(Files.exists(indexFileManager.indexFilePath(newFileProperties)), is(true));
-        assertThat(Files.exists(indexFileManager.indexFilePath(originalFileProperties)), is(false));
+        assertThat(indexFileManager.indexFilePath(newFileProperties), exists());
+        assertThat(indexFileManager.indexFilePath(originalFileProperties), not(exists()));
     }
 
     @Test
@@ -216,7 +216,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 segmentFile.close();
             }
 
-            assertThat(Files.exists(segmentFilePath), is(false));
+            assertThat(segmentFilePath, not(exists()));
         }
     }
 
@@ -462,18 +462,18 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         fileManager.garbageCollector().cleanupLeftoverFiles();
 
-        // Verify temporary files are cleaned up
-        assertFalse(Files.exists(tmpFile1));
-        assertFalse(Files.exists(tmpFile2));
+        // Verify temporary files are cleaned up.
+        assertThat(tmpFile1, not(exists()));
+        assertThat(tmpFile2, not(exists()));
 
-        // Verify duplicate segment files are cleaned up (lower generation removed)
-        assertFalse(Files.exists(segmentFile1Gen0));
-        assertTrue(Files.exists(segmentFile1Gen1));
-        assertFalse(Files.exists(indexFile1Gen0));
-        assertTrue(Files.exists(indexFile1Gen1));
+        // Verify duplicate segment files are cleaned up (lower generation removed).
+        assertThat(segmentFile1Gen0, not(exists()));
+        assertThat(segmentFile1Gen1, exists());
+        assertThat(indexFile1Gen0, not(exists()));
+        assertThat(indexFile1Gen1, exists());
 
-        // Verify orphaned index files are cleaned up
-        assertFalse(Files.exists(orphanedIndexFile));
+        // Verify orphaned index files are cleaned up.
+        assertThat(orphanedIndexFile, not(exists()));
     }
 
     @Test
@@ -500,7 +500,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
             segmentFile.close();
         }
 
-        assertThat(Files.exists(segmentFiles.get(1)), is(false));
+        assertThat(segmentFiles.get(1), not(exists()));
     }
 
     private List<Path> segmentFiles() throws IOException {

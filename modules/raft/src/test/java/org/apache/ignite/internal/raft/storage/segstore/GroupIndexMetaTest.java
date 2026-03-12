@@ -352,23 +352,24 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
     @Test
     void testIndexMetaByFileOrdinalWithMultipleBlocks() {
         // meta1 is in block 0.
-        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0));
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(1));
         var groupMeta = new GroupIndexMeta(meta1);
 
         // meta2 overlaps meta1, creating a second deque block.
-        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(1));
+        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(2));
         groupMeta.addIndexMeta(meta2);
 
         // meta3 is appended to the second block (consecutive to meta2).
-        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(2));
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(3));
         groupMeta.addIndexMeta(meta3);
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(0), is(meta1));
-        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(meta2));
-        assertThat(groupMeta.indexMetaByFileOrdinal(2), is(meta3));
+        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(meta1));
+        assertThat(groupMeta.indexMetaByFileOrdinal(2), is(meta2));
+        assertThat(groupMeta.indexMetaByFileOrdinal(3), is(meta3));
 
-        // Ordinal after the last returns null.
-        assertThat(groupMeta.indexMetaByFileOrdinal(3), is(nullValue()));
+        // Ordinals before the first and after the last return null.
+        assertThat(groupMeta.indexMetaByFileOrdinal(0), is(nullValue()));
+        assertThat(groupMeta.indexMetaByFileOrdinal(4), is(nullValue()));
     }
 
     @Test
@@ -393,6 +394,34 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         assertThat(trimmedMeta2.indexFileProperties(), is(new FileProperties(1)));
 
         assertThat(groupMeta.indexMetaByFileOrdinal(2), is(meta3));
+    }
+
+    @Test
+    void testIndexMetaByFileOrdinalAfterTruncatePrefixWithMultipleBlocks() {
+        // meta1 is in block 0.
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(1));
+        var groupMeta = new GroupIndexMeta(meta1);
+
+        // meta2 overlaps meta1, creating a second deque block.
+        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(2));
+        groupMeta.addIndexMeta(meta2);
+
+        // meta3 is appended to the second block (consecutive to meta2).
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(3));
+        groupMeta.addIndexMeta(meta3);
+
+        // After prefix truncation, ordinal 0 is dropped; ordinals 1 and 2 must still be found correctly.
+        groupMeta.truncatePrefix(75);
+
+        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(nullValue()));
+
+        // meta2 was trimmed – the ordinal is the same but firstLogIndexInclusive changed.
+        IndexFileMeta trimmedMeta2 = groupMeta.indexMetaByFileOrdinal(2);
+        assertThat(trimmedMeta2, is(notNullValue()));
+        assertThat(trimmedMeta2.firstLogIndexInclusive(), is(75L));
+        assertThat(trimmedMeta2.indexFileProperties(), is(new FileProperties(2)));
+
+        assertThat(groupMeta.indexMetaByFileOrdinal(3), is(meta3));
     }
 
     @Test

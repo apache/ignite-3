@@ -72,7 +72,7 @@ class RaftLogGarbageCollector {
 
     private final IndexFileManager indexFileManager;
 
-    private final AtomicLong logSize = new AtomicLong();
+    private final AtomicLong logSizeBytes = new AtomicLong();
 
     RaftLogGarbageCollector(Path segmentFilesDir, IndexFileManager indexFileManager) {
         this.segmentFilesDir = segmentFilesDir;
@@ -161,17 +161,17 @@ class RaftLogGarbageCollector {
         Files.delete(segmentFile.path());
         Files.delete(indexFilePath);
 
-        long newLogSize = logSize.addAndGet(-logSizeDelta);
+        long newLogSize = logSizeBytes.addAndGet(-logSizeDelta);
 
         if (LOG.isInfoEnabled()) {
             if (canRemoveSegmentFile) {
                 LOG.info(
-                        "Segment file removed (all entries are truncated) [path = {}, log size freed = {}, new log size = {}].",
+                        "Segment file removed (all entries are truncated) [path = {}, log size freed = {} bytes, new log size = {} bytes].",
                         segmentFile.path(), logSizeDelta, newLogSize
                 );
             } else {
                 LOG.info(
-                        "Segment file compacted [path = {}, log size freed = {}, new log size = {}].",
+                        "Segment file compacted [path = {}, log size freed = {} bytes, new log size = {} bytes].",
                         segmentFile.path(), logSizeDelta, newLogSize
                 );
             }

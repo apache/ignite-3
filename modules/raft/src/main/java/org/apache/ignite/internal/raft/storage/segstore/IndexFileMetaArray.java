@@ -29,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Reads from multiple threads are thread-safe, but writes are expected to be done from a single thread only.
  */
 class IndexFileMetaArray {
+    private static final int MISSING_ARRAY_INDEX = -1;
+
     static final int INITIAL_CAPACITY = 10;
 
     private final IndexFileMeta[] array;
@@ -167,7 +169,7 @@ class IndexFileMetaArray {
     IndexFileMetaArray onIndexCompacted(FileProperties oldProperties, IndexFileMeta newMeta) {
         int updateIndex = arrayIndexByFileOrdinal(oldProperties.ordinal());
 
-        if (updateIndex == -1) {
+        if (updateIndex == MISSING_ARRAY_INDEX) {
             return this;
         }
 
@@ -207,19 +209,19 @@ class IndexFileMetaArray {
     IndexFileMeta findByFileOrdinal(int fileOrdinal) {
         int arrayIndex = arrayIndexByFileOrdinal(fileOrdinal);
 
-        return arrayIndex == -1 ? null : array[arrayIndex];
+        return arrayIndex == MISSING_ARRAY_INDEX ? null : array[arrayIndex];
     }
 
     private int arrayIndexByFileOrdinal(int fileOrdinal) {
         int smallestOrdinal = array[0].indexFileProperties().ordinal();
 
         if (fileOrdinal < smallestOrdinal) {
-            return -1;
+            return MISSING_ARRAY_INDEX;
         }
 
         int arrayIndex = fileOrdinal - smallestOrdinal;
 
-        return arrayIndex >= size ? -1 : arrayIndex;
+        return arrayIndex >= size ? MISSING_ARRAY_INDEX : arrayIndex;
     }
 
     @Override
