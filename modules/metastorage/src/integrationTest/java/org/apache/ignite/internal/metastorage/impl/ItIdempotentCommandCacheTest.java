@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -342,8 +342,9 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         this.testInfo = testInfo;
 
         if (testInfo.getTestMethod().orElseThrow().isAnnotationPresent(DisableIdleSafeTimePropagation.class)) {
+            // The test asked to disable idle safe time propagation, so set it to a super-long period.
             assertThat(
-                    systemDistributedConfiguration.idleSafeTimeSyncIntervalMillis().update(HOURS.toMillis(1)),
+                    systemDistributedConfiguration.idleSafeTimeSyncIntervalMillis().update(DAYS.toMillis(1)),
                     willCompleteSuccessfully()
             );
         }
@@ -426,8 +427,15 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         });
     }
 
+    /**
+     * This makes sure that a gap between KV storage last applied index and last applied index from the point of view of JRaft does
+     * not happen (due to idempotent command retries not advancing the last applied index in the KV storage).
+     * If it does, and a Raft snapshot is taken in exactly that moment, the JRaft node will fail on recovery.
+     */
     @ParameterizedTest
     @EnumSource(Invoker.class)
+    // Disable safe time propagation to prevent safe time commands in the log, so that they don't close the index
+    // gap we are trying to reproduce.
     @DisableIdleSafeTimePropagation
     void retriedInvokeDoesNotBreakIndexConsistency(Invoker invoker) throws Exception {
         Node leader = leader(raftClient());
