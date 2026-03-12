@@ -128,6 +128,8 @@ public class ClientResourceRegistry {
      * @param partitionId Partition ID.
      */
     public void addTxEnlistment(UUID txId, int tableId, int partitionId) {
+        System.out.println(">>> Adding client transaction enlistment [txId=" + txId + ", tableId=" + tableId + ", partitionId=" + partitionId + "]");
+
         txEnlistments
                 .computeIfAbsent(txId, k -> ConcurrentHashMap.newKeySet())
                 .add(new IgniteBiTuple<>(tableId, partitionId));
