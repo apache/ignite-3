@@ -238,6 +238,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
+    private final RemotelyTriggeredResourceRegistry resourcesRegistry;
+
     /**
      * Test-only constructor.
      *
@@ -363,6 +365,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
         this.metricsManager = metricManager;
+        this.resourcesRegistry = resourcesRegistry;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -1177,6 +1180,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public int lockRetryCount() {
         return lockRetryCount;
+    }
+
+    @Override
+    public RemotelyTriggeredResourceRegistry resourceRegistry() {
+        return resourcesRegistry;
     }
 
     @Override
