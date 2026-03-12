@@ -265,6 +265,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param metricManager Metric manager.
+     * @param timeoutStrategy Timeout strategy.
      */
     @TestOnly
     public TxManagerImpl(
