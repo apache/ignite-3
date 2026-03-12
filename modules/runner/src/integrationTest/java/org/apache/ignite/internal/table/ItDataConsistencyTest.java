@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -28,14 +30,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -53,7 +56,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     private static final String ZONE_NAME = "test_zone";
     private static final String TABLE_NAME = "accounts";
-    private static final int WRITE_PARALLELISM = 16; // Runtime.getRuntime().availableProcessors();
+    private static final int WRITE_PARALLELISM = Runtime.getRuntime().availableProcessors();
     private static final int READ_PARALLELISM = 0;
     private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
     private static final double INITIAL = 1000;
@@ -122,10 +125,17 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
         long cur = System.currentTimeMillis();
 
+        long curOps = ops.sum();
+
         while (cur + DURATION_MILLIS > System.currentTimeMillis()) {
             Thread.sleep(1000);
 
-            log.info("Running... ops={} fails={} readOps={} readFails={}", ops.sum(), fails.sum(), readOps.sum(), readFails.sum());
+            long tmp = ops.sum();
+            if (tmp == curOps) {
+                throw new AssertionError("Test doesn't make progress");
+            }
+            log.info("Running... ops={} fails={} readOps={} readFails={}", tmp, fails.sum(), readOps.sum(), readFails.sum());
+            curOps = tmp;
 
             if (firstErr.get() != null) {
                 throw new IgniteException(INTERNAL_ERR, firstErr.get());
@@ -184,6 +194,12 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(TOTAL, total0, "Total amount invariant is not preserved");
+
+        for (int i = 0; i < initialNodes(); i++) {
+            IgniteImpl ignite = unwrapIgniteImpl(node(i));
+            await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
+                    .until(() -> ignite.txManager().lockManager().isEmpty());
+        }
     }
 
     private Runnable createWriter(int workerId) {
@@ -202,10 +218,6 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 var view = node.tables().table("accounts").recordView();
                 try {
                     node.transactions().runInTransaction(tx -> {
-                        InternalTransaction tx0 = (InternalTransaction) tx;
-
-                        //LOG.info("DBG: " + tx0.id());
-
                         long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
                         double amount = 100 + rng.nextInt(500);

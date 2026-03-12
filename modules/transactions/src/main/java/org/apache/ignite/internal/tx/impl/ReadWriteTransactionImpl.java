@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -75,7 +77,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * {@code True} if a transaction is externally killed.
      */
-    private boolean killed;
+    private volatile boolean killed;
 
     /**
      * {@code True} if a remote(directly mapped) part of this transaction has no writes.
@@ -158,9 +160,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Fails the operation.
+     * Return the exception depending on a transaction state.
+     *
+     * @return The exception.
      */
-    private RuntimeException enlistFailedException() {
+    public RuntimeException enlistFailedException() {
         TxStateMeta meta = txManager.stateMeta(id());
         Throwable cause = meta == null ? null : meta.lastException();
         boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();

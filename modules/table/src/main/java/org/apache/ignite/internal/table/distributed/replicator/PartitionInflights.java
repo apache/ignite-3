@@ -20,17 +20,12 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -50,7 +45,7 @@ public class PartitionInflights {
      *
      * @param txId The transaction id.
      */
-    public boolean addInflight(UUID txId, Predicate<UUID> testPred, AtomicReference<IgniteBiTuple<RequestType, CompletableFuture<?>>> futRef) {
+    public boolean addInflight(UUID txId, Predicate<UUID> testPred) {
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, ctx) -> {
@@ -63,7 +58,6 @@ public class PartitionInflights {
             if (ctx.finishFut != null || testPred.test(txId)) {
                 res[0] = false;
             } else {
-                ctx.adds.add(new IgniteBiTuple<>(new Exception(), futRef));
                 ctx.addInflight();
             }
 
@@ -80,12 +74,11 @@ public class PartitionInflights {
      */
     public void removeInflight(UUID txId) {
         var ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
-//            if (ctx == null) {
-//                throw new AssertionError();
-//            }
+            if (ctx == null) {
+                throw new AssertionError("Illegal call for removeInflight: " + txId);
+            }
 
             ctx.removeInflight(txId);
-            ctx.removes.add(new Exception());
 
             return ctx;
         });
@@ -144,23 +137,12 @@ public class PartitionInflights {
         return txCtxMap.containsKey(txId);
     }
 
-    public <T> void register(UUID txId, CompletableFuture<T> fut) {
-        txCtxMap.compute(txId, (uuid, ctx) -> {
-            ctx.opFuts.add(new IgniteBiTuple<>(new Exception(), fut));
-
-            return ctx;
-        });
-    }
-
     /**
      * Transaction inflights context.
      */
     public static class TxContext {
         public CompletableFuture<Void> finishFut;
         public volatile long inflights = 0;
-        public List<IgniteBiTuple<Exception, CompletableFuture<?>>> opFuts = new ArrayList<>();
-        public List<IgniteBiTuple<Exception, AtomicReference<IgniteBiTuple<RequestType, CompletableFuture<?>>>>> adds = new ArrayList<>();
-        public List<Exception> removes = new ArrayList<>();
 
         void addInflight() {
             inflights++;
