@@ -374,7 +374,7 @@ public class TxCleanupRequestSender {
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
                             retryContext.getState(timeoutKey).ifPresent(timeoutState -> {
-                                if (timeoutState.getAttempt() > ATTEMPTS_LOG_THRESHOLD) {
+                                if (timeoutState.getAttempt() > ATTEMPTS_LOG_THRESHOLD || timeoutState.getAttempt() < 0) {
                                     throttledLog.warn(
                                             "Unsuccessful transaction cleanup after {} attempts for key {}, keep retrying [txId={}]",
                                             throwable,
