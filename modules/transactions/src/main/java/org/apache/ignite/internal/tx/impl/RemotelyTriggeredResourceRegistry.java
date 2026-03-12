@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 
+import java.io.Console;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -96,6 +97,8 @@ public class RemotelyTriggeredResourceRegistry {
      */
     public void close(UUID contextId) throws ResourceCloseException {
         Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resourcesWithContext = resources(contextId);
+
+        System.out.println(">>> Closing resources with context id: " + contextId + ", size=" + resourcesWithContext.size());
 
         ResourceCloseException ex = null;
 
