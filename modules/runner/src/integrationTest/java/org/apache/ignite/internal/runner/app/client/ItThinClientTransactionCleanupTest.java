@@ -48,6 +48,8 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
 public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest {
+    // TODO: Test to verify actual write intent cleanup on all nodes once the client disconnects.
+
     /**
      * Tests that locks are released when client disconnects with a transaction having direct enlistments.
      */
