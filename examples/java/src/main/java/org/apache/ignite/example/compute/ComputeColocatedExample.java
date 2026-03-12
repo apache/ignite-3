@@ -66,7 +66,7 @@ public class ComputeColocatedExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -100,7 +100,7 @@ public class ComputeColocatedExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nCreating account records...");
+                System.out.println("Creating account records...");
 
                 for (int i = 0; i < ACCOUNTS_COUNT; i++) {
                     view.insert(null, account(i));
@@ -112,7 +112,7 @@ public class ComputeColocatedExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nConfiguring compute job...");
+                System.out.println("Configuring compute job...");
 
                 deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
@@ -130,7 +130,7 @@ public class ComputeColocatedExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute job for the accountNumber '" + accountNumber + "'...");
+                System.out.println("Executing compute job for the accountNumber '" + accountNumber + "'...");
 
                 client.compute().execute(jobTarget, job, accountNumber);
             } finally {
@@ -139,7 +139,7 @@ public class ComputeColocatedExample {
                 undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
                 /* Drop table */
-                System.out.println("\nDropping the table...");
+                System.out.println("Dropping the table...");
 
                 client.sql().executeScript("DROP TABLE IF EXISTS accounts");
             }
