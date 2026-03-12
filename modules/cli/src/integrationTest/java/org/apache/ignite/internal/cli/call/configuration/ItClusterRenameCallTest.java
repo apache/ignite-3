@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link ClusterRenameCall}.
  */
-public class ItRenameCallTest extends CliIntegrationTest {
+public class ItClusterRenameCallTest extends CliIntegrationTest {
     private static final UrlCallInput URL_CALL_INPUT = new UrlCallInput(NODE_URL);
 
     @Inject

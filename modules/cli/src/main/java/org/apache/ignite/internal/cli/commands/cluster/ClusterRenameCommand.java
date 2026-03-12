@@ -32,12 +32,14 @@ import picocli.CommandLine.Mixin;
 @Command(name = "rename", description = "Renames the cluster")
 public class ClusterRenameCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
+    @SuppressWarnings("unused")
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
     /** Name that will be updated. */
+    @SuppressWarnings("unused")
     @Mixin
-    private ClusterNameMixin nameFromArgs;
+    private ClusterNameMixin name;
 
     @Inject
     ClusterRenameCall call;
@@ -54,7 +56,7 @@ public class ClusterRenameCommand extends BaseCommand implements Callable<Intege
     private ClusterRenameCallInput buildCallInput() {
         return ClusterRenameCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .name(nameFromArgs.getName())
+                .name(name.getName())
                 .build();
     }
 }

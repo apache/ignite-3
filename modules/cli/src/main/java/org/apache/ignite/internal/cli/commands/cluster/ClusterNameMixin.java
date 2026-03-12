@@ -20,34 +20,20 @@ package org.apache.ignite.internal.cli.commands.cluster;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION_DESC;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.cli.util.ConfigurationArgsParseException;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
 /**
- * Mixin class for cluster name option in REPL mode.
+ * Mixin class for cluster name.
  */
 public class ClusterNameMixin {
-    @Parameters(arity = "0..1")
-    private String[] args;
-
     /** Cluster name option. */
+    @SuppressWarnings("unused")
     @Option(
             names = CLUSTER_NAME_OPTION,
             description = CLUSTER_NAME_OPTION_DESC
     )
     private String name;
-
-    private String nameFromArgs() {
-        return Arrays.stream(args).map(ClusterNameMixin::unquote).collect(Collectors.joining(" "));
-    }
-
-    public boolean hasContent() {
-        return args != null && args.length > 0;
-    }
 
     /**
      * Gets cluster name from the command line.
@@ -56,28 +42,6 @@ public class ClusterNameMixin {
      */
     @Nullable
     public String getName() {
-        if (name == null) {
-            if (!hasContent()) {
-                throw new ConfigurationArgsParseException("Failed to parse name.");
-            }
-
-            return nameFromArgs();
-        }
-
         return name;
-    }
-
-    private static String unquote(String rawString) {
-        if (isQuoted(rawString, '"')
-                || isQuoted(rawString, '\'')
-                || isQuoted(rawString, '`')
-        ) {
-            return rawString.substring(1, rawString.length() - 1);
-        }
-        return rawString;
-    }
-
-    private static boolean isQuoted(String string, char quoteChar) {
-        return string.charAt(0) == quoteChar && string.charAt(string.length() - 1) == quoteChar;
     }
 }

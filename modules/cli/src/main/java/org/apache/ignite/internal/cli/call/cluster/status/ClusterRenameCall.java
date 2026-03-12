@@ -42,16 +42,12 @@ public class ClusterRenameCall implements Call<ClusterRenameCallInput, String> {
         ClusterManagementApi client = createApiClient(input);
 
         try {
-            return updateClusterConfig(client, input);
-        } catch (ApiException | IllegalArgumentException e) {
+            client.rename(input.getName());
+
+            return DefaultCallOutput.success("Cluster was renamed successfully");
+        } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }
-    }
-
-    private DefaultCallOutput<String> updateClusterConfig(ClusterManagementApi api, ClusterRenameCallInput input)
-            throws ApiException {
-        api.rename(input.getName());
-        return DefaultCallOutput.success("Cluster was renamed successfully");
     }
 
     private ClusterManagementApi createApiClient(ClusterRenameCallInput input) {
