@@ -87,8 +87,8 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
     /**
      * A placeholder used to designate that there is no value for a column. If PP metadata collection algorithm encounters this placeholder
-     * in a colocation column for a source, then there can be no PP metadata for this source. Because of that the type of this expression
-     * can be arbitrary.
+     * in a colocation column for a source, then there can be no PP metadata for this source. Since this is a marker to terminate 
+     * algorithm, the type chosen for this expression does not matter.
      */
     static final RexNode VALUE_NOT_ASSIGNED = new RexInputRef(0, Commons.typeFactory().createSqlType(SqlTypeName.NULL));
 
