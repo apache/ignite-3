@@ -69,7 +69,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private LongAdder readOps = new LongAdder();
     private LongAdder readFails = new LongAdder();
     private AtomicBoolean stop = new AtomicBoolean();
-    private Random rng = new Random();
+    private Random rng = new Random(0);
     private AtomicReference<Throwable> firstErr = new AtomicReference<>();
 
     @BeforeAll
