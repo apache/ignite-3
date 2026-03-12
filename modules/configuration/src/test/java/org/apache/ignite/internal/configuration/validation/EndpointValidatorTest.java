@@ -22,15 +22,12 @@ import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.validation.Endpoint;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Endpoint}. */
-@ExtendWith(ConfigurationExtension.class)
 class EndpointValidatorTest extends BaseIgniteAbstractTest {
     private static final EndpointValidator VALIDATOR = new EndpointValidator();
 

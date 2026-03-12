@@ -18,18 +18,13 @@
 package org.apache.ignite.configuration;
 
 import static java.util.Collections.emptySet;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.ServiceLoader;
-import java.util.ServiceLoader.Provider;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.validation.Validator;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A module of configuration provided by a JAR file (or, in its source form, by a Maven/Gradle/... module).

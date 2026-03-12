@@ -20,7 +20,6 @@ package org.apache.ignite.internal.configuration.testframework;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.testframework.InjectConfiguration.MOCK_ROOT_NAME;
@@ -39,7 +38,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -104,23 +102,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     private static final ConfigurationModule DISTRIBUTED_MODULE;
 
     static {
-        // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
-        // to avoid configuring extensions manually in every test.
-        ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
+        // Automatically loads all ConfigurationModules presented on the classpath,
+        // so there is no need in manually configuring @InternalConfiguration and @PolymorphicConfigInstance classes in every test.
+        List<ConfigurationModule> modules = CompoundModule.loadAllConfigurationModules(null);
 
-        List<ConfigurationModule> localModules = new ArrayList<>();
-        List<ConfigurationModule> distributedModules = new ArrayList<>();
-
-        modules.forEach(configurationModule -> {
-            if (configurationModule.type() == LOCAL) {
-                localModules.add(configurationModule);
-            } else {
-                distributedModules.add(configurationModule);
-            }
-        });
-
-        LOCAL_MODULE = CompoundModule.local(localModules);
-        DISTRIBUTED_MODULE = CompoundModule.distributed(distributedModules);
+        LOCAL_MODULE = CompoundModule.local(modules);
+        DISTRIBUTED_MODULE = CompoundModule.distributed(modules);
     }
 
     @Override
