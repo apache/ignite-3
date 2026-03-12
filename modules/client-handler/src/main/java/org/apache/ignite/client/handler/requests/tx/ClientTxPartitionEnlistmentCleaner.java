@@ -43,12 +43,25 @@ public class ClientTxPartitionEnlistmentCleaner {
 
     private final Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedPartitions = new HashMap<>();
 
+    /**
+     * Creates a new instance of the transaction partition enlistment cleaner.
+     *
+     * @param txId Transaction ID.
+     * @param txManager Transaction manager.
+     * @param igniteTables Ignite tables.
+     */
     public ClientTxPartitionEnlistmentCleaner(UUID txId, TxManager txManager, IgniteTablesInternal igniteTables) {
         this.txId = txId;
         this.txManager = txManager;
         this.igniteTables = igniteTables;
     }
 
+    /**
+     * Adds a partition enlistment for the given table and partition.
+     *
+     * @param tableId Table ID.
+     * @param partId Partition ID.
+     */
     public void addEnlistment(int tableId, int partId) {
         TableViewInternal table = igniteTables.cachedTable(tableId);
 
@@ -59,6 +72,11 @@ public class ClientTxPartitionEnlistmentCleaner {
         }
     }
 
+    /**
+     * Discards local write intents for all enlisted partitions.
+     *
+     * @return Future that completes when cleanup is done.
+     */
     public CompletableFuture<Void> clean() {
         List<EnlistedPartitionGroup> enlistedPartitionGroups = enlistedPartitions.entrySet().stream()
                 .map(entry -> new EnlistedPartitionGroup(entry.getKey(), entry.getValue().tableIds()))

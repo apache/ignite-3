@@ -170,7 +170,6 @@ public class TxCleanupRequestHandler {
                 .whenComplete((unused, ex) -> {
                     releaseTxLocks(txCleanupMessage.txId());
 
-                    // TODO: Clean up client enlistments here?
                     remotelyTriggeredResourceRegistry.close(txCleanupMessage.txId());
 
                     NetworkMessage msg;
@@ -316,7 +315,6 @@ public class TxCleanupRequestHandler {
 
         releaseTxLocks(txId);
 
-        // TODO: Clean up client enlistments here?
         remotelyTriggeredResourceRegistry.close(txId);
 
         // We don't care about replicating discarded write intents state, because it will be lazily resolved if needed.
