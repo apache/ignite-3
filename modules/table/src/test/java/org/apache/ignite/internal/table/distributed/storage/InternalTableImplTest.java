@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.VALID_INDEX_ID;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.VALID_PARTITION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -30,8 +32,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -42,6 +47,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -175,7 +181,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), any(), any()))
                 .thenReturn(nullCompletedFuture());
 
         // Mock for creating implicit transactions when null is passed
@@ -397,7 +403,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
         ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }
@@ -484,9 +490,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @Nested
     class ScanWithIndexAndRangeCriteriaTest {
-        private static final int VALID_INDEX_ID = 1;
-        private static final int VALID_PARTITION = 0;
-        private static final int PARTITION_COUNT = 3;
+        static final int VALID_INDEX_ID = 1;
+        static final int VALID_PARTITION = 0;
+        static final int PARTITION_COUNT = 3;
 
         private Supplier<CompletableFuture<Void>> buildAction(InternalTable table, int partition,
                 InternalTransaction tx, int index, Range range) {
@@ -839,6 +845,53 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         }
 
         @Test
+        void testScanAfterTimeoutDoesNotExposeCauseFromMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            InternalTransaction tx = new ReadWriteTransactionImpl(
+                    txManager,
+                    mock(HybridTimestampTracker.class),
+                    TestTransactionIds.newTransactionId(),
+                    randomUUID(),
+                    false,
+                    1,
+                    null
+            );
+
+            UUID txId = tx.id();
+            RuntimeException firstFailure = new RuntimeException("first");
+            IllegalStateException secondFailure = new IllegalStateException("second");
+
+            TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                    .finishedDueToTimeout(true)
+                    .lastException(firstFailure)
+                    .lastException(secondFailure)
+                    .build();
+
+            when(txManager.stateMeta(txId)).thenReturn(meta);
+            tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                    "Transaction is already finished")).join();
+
+            Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<Void> completed = new CompletableFuture<>();
+
+            publisher.subscribe(new BlackholeSubscriber(completed));
+
+            try {
+                completed.get(10, TimeUnit.SECONDS);
+                fail("Expected TransactionException but scan completed successfully");
+            } catch (Exception e) {
+                Throwable unwrapped = unwrapCause(e);
+                assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+                TransactionException txEx = (TransactionException) unwrapped;
+                assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR",
+                        txEx.code(), is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR));
+                assertThat("Timeout should not expose nested cause", txEx.getCause(), is(nullValue()));
+            }
+        }
+
+        @Test
         void testScanWithReadOnlyTransactionThrowsException() {
             InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
             InternalTransaction readOnlyTx = newReadOnlyTransaction();
@@ -850,6 +903,50 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Error code should be TX_FAILED_READ_WRITE_OPERATION_ERR",
                         e.code(), is(TX_FAILED_READ_WRITE_OPERATION_ERR));
             }
+        }
+    }
+
+    @Test
+    void testScanAfterExceptionalAbortThrowsFinishedWithErrCode() {
+        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+        InternalTransaction tx = new ReadWriteTransactionImpl(
+                txManager,
+                mock(HybridTimestampTracker.class),
+                TestTransactionIds.newTransactionId(),
+                randomUUID(),
+                false,
+                1,
+                null
+        );
+
+        UUID txId = tx.id();
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                .lastException(failure)
+                .lastExceptionErrorCode(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR)
+                .build();
+
+        when(txManager.stateMeta(txId)).thenReturn(meta);
+        tx.rollback();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+
+        publisher.subscribe(new BlackholeSubscriber(completed));
+
+        try {
+            completed.get(10, TimeUnit.SECONDS);
+            fail("Expected TransactionException but scan completed successfully");
+        } catch (Exception e) {
+            Throwable unwrapped = unwrapCause(e);
+            assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+            TransactionException txEx = (TransactionException) unwrapped;
+            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR",
+                    txEx.code(), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR));
+            assertThat("Cause should be the recorded exception", txEx.getCause(), is(failure));
         }
     }
 
