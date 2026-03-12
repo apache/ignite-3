@@ -1057,7 +1057,7 @@ public class LogManagerImpl implements LogManager {
     private boolean unsafeTruncateSuffix(final long lastIndexKept, final Lock lock) {
         if (lastIndexKept < this.appliedId.getIndex()) {
             LOG.error("Raft log suffix conflict: cannot truncate entries that have been applied to the state machine. "
-                    + "nodeId={}, appliedId={}, lastIndexKept={}. The partition will be moved to error state.",
+                    + "The partition will be moved to error state [nodeId={}, appliedId={}, lastIndexKept={}].",
                     this.nodeId, this.appliedId, lastIndexKept);
             lock.unlock();
             try {
