@@ -117,9 +117,13 @@ public class MetaStorageWriteHandler {
     void handleWriteCommand(CommandClosure<WriteCommand> clo) {
         handleWriteCommandInternal(clo);
 
-        assert lastAppliedIndex() == clo.index() : "Last applied index after command application is not equal to the command index "
-                + "[lastAppliedIndex=" + lastAppliedIndex() + ", commandIndex=" + clo.index()
-                + ", command=" + clo.command().toStringForLightLogging() + ']';
+        assert lastAppliedIndex() == clo.index() : String.format(
+                "Last applied index after command application is not equal to the command index "
+                        + "[lastAppliedIndex=%d, commandIndex=%d, command=%s]",
+                lastAppliedIndex(),
+                clo.index(),
+                clo.command().toStringForLightLogging()
+        );
     }
 
     private void handleWriteCommandInternal(CommandClosure<WriteCommand> clo) {
