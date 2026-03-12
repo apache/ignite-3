@@ -1,5 +1,21 @@
-package org.apache.ignite.internal.util.retry;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+package org.apache.ignite.internal.util.retry;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -10,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -286,13 +303,7 @@ public class KeyBasedRetryContextTest {
                 .collect(toList());
 
         try {
-            futures.forEach(fut -> {
-                try {
-                    fut.get();
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
-            });
+            futures.forEach(KeyBasedRetryContextTest::getQuietly);
 
             keys.forEach(key -> checkRetryContextState(key, INITIAL_TIMEOUT, 1));
         } finally {
@@ -348,6 +359,36 @@ public class KeyBasedRetryContextTest {
         @Override
         public int maxTimeout() {
             return MAX_TIMEOUT;
+        }
+    }
+
+    /**
+     * Waits for the given {@link Future} to complete and returns its result.
+     *
+     * <p>Wraps checked exceptions as {@link AssertionError} so they propagate cleanly
+     * through {@link java.util.function.Consumer} lambdas in test code without requiring
+     * explicit try-catch blocks.
+     *
+     * <ul>
+     *     <li>{@link ExecutionException} — wraps the cause as an {@link AssertionError},
+     *         preserving the original exception for diagnosis.</li>
+     *     <li>{@link InterruptedException} — restores the interrupt flag and wraps
+     *         as an {@link AssertionError}.</li>
+     * </ul>
+     *
+     * @param <T>    the future's result type.
+     * @param future the future to wait for.
+     * @return the future's result.
+     * @throws AssertionError if the future completed exceptionally or the thread was interrupted.
+     */
+    private static <T> T getQuietly(Future<T> future) {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw new AssertionError("Future completed exceptionally", e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for future", e);
         }
     }
 }
