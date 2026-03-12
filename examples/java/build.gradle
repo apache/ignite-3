@@ -60,7 +60,9 @@ tasks.register('deploymentUnitJar', Jar) {
 // Make build task depend on deploymentUnitJar
 build.dependsOn deploymentUnitJar
 
-// Ensure deploymentUnitJar is built before any example class is run directly
+// Ensure deploymentUnitJar is built before any example class is run directly.
+// This is primarily for the IDEA Gradle runner, which dynamically creates JavaExec tasks
+// (e.g., org.apache.ignite.example.compute.ComputeExample.main()) when running examples.
 tasks.withType(JavaExec).configureEach {
     dependsOn deploymentUnitJar
 }
