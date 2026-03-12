@@ -540,7 +540,18 @@ public class ClientTableCommon {
                             }
 
                             // Track this remote enlistment for cleanup if client disconnects.
-                            resources.addTxCleaner(txId, tableId, commitPart, txManager, (IgniteTablesInternal) tables);
+                            try {
+                                resources.addTxCleaner(txId, tableId, commitPart, txManager, (IgniteTablesInternal) tables);
+                            } catch (IgniteInternalCheckedException e) {
+                                // Client disconnected.
+                                try {
+                                    remote.rollback();
+                                } catch (Exception ex) {
+                                    e.addSuppressed(ex);
+                                }
+
+                                throw new IgniteException(e.traceId(), e.code(), "Client disconnected, tx rolled back: " + remote, e);
+                            }
 
                             // Stop tracking on tx finish.
                             txManager.resourceRegistry().register(
