@@ -42,6 +42,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.RunInTransactionInternalImpl;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -66,6 +68,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
     private LongAdder ops = new LongAdder();
     private LongAdder fails = new LongAdder();
+    private LongAdder restarts = new LongAdder();
     private LongAdder readOps = new LongAdder();
     private LongAdder readFails = new LongAdder();
     private AtomicBoolean stop = new AtomicBoolean();
@@ -134,7 +137,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             if (tmp == curOps) {
                 throw new AssertionError("Test doesn't make progress");
             }
-            log.info("Running... ops={} fails={} readOps={} readFails={}", tmp, fails.sum(), readOps.sum(), readFails.sum());
+            log.info("Running... ops={} restarts={} fails={} readOps={} readFails={}", tmp, restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
             curOps = tmp;
 
             if (firstErr.get() != null) {
@@ -153,6 +156,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThread.join(3_000);
         }
 
+        // TODO unregisted from timeout tracker killed transactions!!!!
         validate();
     }
 
@@ -183,7 +187,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         Ignite node = node(0);
         Table accounts = node.tables().table("accounts");
 
-        log.info("After test ops={} fails={} readOps={} readFails={}", ops.sum(), fails.sum(), readOps.sum(), readFails.sum());
+        log.info("After test ops={} restarts={} fails={} readOps={} readFails={}", ops.sum(), restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
 
         double total0 = 0;
 
@@ -214,32 +218,41 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
             while (!stop.get() && firstErr.get() == null) {
                 Ignite node = assignNodeForIteration(workerId);
+                Transaction tx = node.transactions().begin();
 
                 var view = node.tables().table("accounts").recordView();
                 try {
-                    node.transactions().runInTransaction(tx -> {
-                        long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
-                        double amount = 100 + rng.nextInt(500);
+                    long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
-                        double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
+                    double amount = 100 + rng.nextInt(500);
 
-                        long acc2 = acc1;
+                    double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
 
-                        while (acc1 == acc2) {
-                            acc2 = rng.nextInt(ACCOUNTS_COUNT);
-                        }
+                    long acc2 = acc1;
 
-                        double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
+                    while (acc1 == acc2) {
+                        acc2 = rng.nextInt(ACCOUNTS_COUNT);
+                    }
 
-                        view.upsert(tx, makeValue(acc1, val0 - amount));
+                    double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
 
-                        view.upsert(tx, makeValue(acc2, val1 + amount));
-                    });
+                    view.upsert(tx, makeValue(acc1, val0 - amount));
+
+                    view.upsert(tx, makeValue(acc2, val1 + amount));
+
+                    tx.commit();
 
                     ops.increment();
                 } catch (TransactionException e) {
-                    fails.increment();
+                    boolean retriable = RunInTransactionInternalImpl.isRetriable(e);
+                    if (retriable) {
+                        restarts.increment();
+                    } else {
+                        fails.increment();
+                    }
+
+                    // tx.rollback();
                 }
             }
         };

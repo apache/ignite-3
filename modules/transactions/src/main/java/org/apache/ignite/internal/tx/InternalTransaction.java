@@ -190,4 +190,8 @@ public interface InternalTransaction extends Transaction {
     default void processDelayedAck(Object val, @Nullable Throwable err) {
         // No-op.
     }
+
+    default RuntimeException enlistFailedException() {
+        return null;
+    }
 }
