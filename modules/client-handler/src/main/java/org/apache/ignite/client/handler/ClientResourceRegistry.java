@@ -18,14 +18,15 @@
 package org.apache.ignite.client.handler;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.client.handler.requests.tx.ClientTxPartitionEnlistmentCleaner;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
@@ -41,11 +42,6 @@ public class ClientResourceRegistry {
     private final Map<Long, ClientResource> res = new ConcurrentHashMap<>();
 
     /**
-     * Map: Transaction ID -> Set of enlisted (tableId, partitionId) pairs.
-     */
-    private final ConcurrentHashMap<UUID, Set<IgniteBiTuple<Integer, Integer>>> txEnlistments = new ConcurrentHashMap<>();
-
-    /**
      * ID generator.
      */
     private final AtomicLong idGen = new AtomicLong();
@@ -56,6 +52,8 @@ public class ClientResourceRegistry {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final ConcurrentHashMap<UUID, ClientTxPartitionEnlistmentCleaner> txCleaners = new ConcurrentHashMap<>();
 
     /**
      * Stores the resource and returns the generated id.
@@ -127,12 +125,10 @@ public class ClientResourceRegistry {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void addTxEnlistment(UUID txId, int tableId, int partitionId) {
-        System.out.println(">>> Adding client transaction enlistment [txId=" + txId + ", tableId=" + tableId + ", partitionId=" + partitionId + "]");
-
-        txEnlistments
-                .computeIfAbsent(txId, k -> ConcurrentHashMap.newKeySet())
-                .add(new IgniteBiTuple<>(tableId, partitionId));
+    public void addTxCleaner(UUID txId, int tableId, int partitionId, TxManager txManager, IgniteTablesInternal tables) {
+        txCleaners
+                .computeIfAbsent(txId, k -> new ClientTxPartitionEnlistmentCleaner(txId,  txManager, tables))
+                .addEnlistment(tableId, partitionId);
     }
 
     /**
