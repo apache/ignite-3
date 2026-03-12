@@ -462,12 +462,7 @@ public class ClientInboundMessageHandler
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        Set<UUID> txIds = resources.getTrackedTransactions();
-
         resources.close();
-
-        // TODO: Why after close?
-        cleanupRemoteEnlistments(txIds);
 
         // Cancel all pending requests. New requests will fail due to closed connection.
         for (var fut : serverToClientRequests.values()) {

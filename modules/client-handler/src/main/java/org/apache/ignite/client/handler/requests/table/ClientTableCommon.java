@@ -502,9 +502,6 @@ public class ClientTableCommon {
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
 
-                // Track this transaction for cleanup on client disconnect.
-                resources.trackTransaction(tx.id());
-
                 return completedFuture(tx);
             } else if (id == TX_ID_DIRECT) {
                 assert txManager != null : "Transaction manager must be specified to process directly mapped requests.";

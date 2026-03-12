@@ -17,10 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,11 +36,6 @@ public class ClientResourceRegistry {
      * Resources.
      */
     private final Map<Long, ClientResource> res = new ConcurrentHashMap<>();
-
-    /**
-     * Transaction IDs associated with this connection.
-     */
-    private final Set<UUID> connectionTransactions = ConcurrentHashMap.newKeySet();
 
     /**
      * ID generator.
@@ -118,26 +110,6 @@ public class ClientResourceRegistry {
         } finally {
             leave();
         }
-    }
-
-    /**
-     * Records that a transaction is associated with this connection.
-     *
-     * @param txId Transaction ID.
-     */
-    public void trackTransaction(UUID txId) {
-        // TODO: When do we remove it?
-        connectionTransactions.add(txId);
-    }
-
-    /**
-     * Gets all transaction IDs associated with this connection.
-     * Returns a copy to avoid concurrent modification issues.
-     *
-     * @return Set of transaction IDs.
-     */
-    public Set<UUID> getTrackedTransactions() {
-        return new HashSet<>(connectionTransactions);
     }
 
     /**
