@@ -98,43 +98,46 @@ class MetaStorageListenerTest {
     }
 
     private static List<MetaStorageWriteCommand> commandsVariationsForIndexAdvanceTesting() {
+        HybridTimestamp initiatorTime = clock.now();
+        HybridTimestamp safeTime = clock.now();
+
         return List.of(
                 somePutCommand(),
                 commandsFactory.putAllCommand()
                         .keys(List.of(ByteBuffer.allocate(3)))
                         .values(List.of(ByteBuffer.allocate(3)))
-                        .initiatorTime(clock.now())
-                        .safeTime(clock.now())
+                        .initiatorTime(initiatorTime)
+                        .safeTime(safeTime)
                         .build(),
                 commandsFactory.removeCommand()
                         .key(ByteBuffer.allocate(3))
-                        .initiatorTime(clock.now())
-                        .safeTime(clock.now())
+                        .initiatorTime(initiatorTime)
+                        .safeTime(safeTime)
                         .build(),
                 commandsFactory.removeAllCommand()
                         .keys(List.of(ByteBuffer.allocate(3)))
-                        .initiatorTime(clock.now())
-                        .safeTime(clock.now())
+                        .initiatorTime(initiatorTime)
+                        .safeTime(safeTime)
                         .build(),
                 commandsFactory.removeByPrefixCommand()
                         .prefix(ByteBuffer.allocate(3))
-                        .initiatorTime(clock.now())
-                        .safeTime(clock.now())
+                        .initiatorTime(initiatorTime)
+                        .safeTime(safeTime)
                         .build(),
                 someInvokeCommand(),
                 someMultiInvokeCommand(),
 
                 // Normal command that gets applied.
                 commandsFactory.syncTimeCommand()
-                        .initiatorTime(clock.now())
-                        .safeTime(clock.now())
+                        .initiatorTime(initiatorTime)
+                        .safeTime(safeTime)
                         .initiatorTerm(COMMAND_TERM)
                         .build(),
 
                 // Command that gets discarded.
                 commandsFactory.syncTimeCommand()
-                        .initiatorTime(clock.now())
-                        .safeTime(clock.now())
+                        .initiatorTime(initiatorTime)
+                        .safeTime(safeTime)
                         .initiatorTerm(COMMAND_TERM - 1)
                         .build()
         );
