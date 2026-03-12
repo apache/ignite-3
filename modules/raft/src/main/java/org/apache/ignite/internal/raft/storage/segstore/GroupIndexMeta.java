@@ -123,7 +123,14 @@ class GroupIndexMeta {
     }
 
     void addIndexMeta(IndexFileMeta indexFileMeta) {
-        IndexMetaArrayHolder curFileMetas = fileMetaDeque.getLast();
+        IndexMetaArrayHolder curFileMetas = fileMetaDeque.peekLast();
+
+        // Deque may be empty due to prefix truncation.
+        if (curFileMetas == null) {
+            fileMetaDeque.add(new IndexMetaArrayHolder(indexFileMeta));
+
+            return;
+        }
 
         long curLastLogIndex = curFileMetas.lastLogIndexExclusive();
 
@@ -159,7 +166,7 @@ class GroupIndexMeta {
      * is not found in any of the index files in this group.
      */
     @Nullable
-    IndexFileMeta indexMeta(long logIndex) {
+    IndexFileMeta indexMetaByLogIndex(long logIndex) {
         Iterator<IndexMetaArrayHolder> it = fileMetaDeque.descendingIterator();
 
         while (it.hasNext()) {
@@ -175,6 +182,19 @@ class GroupIndexMeta {
             }
 
             IndexFileMeta indexMeta = fileMetas.find(logIndex);
+
+            if (indexMeta != null) {
+                return indexMeta;
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    IndexFileMeta indexMetaByFileOrdinal(int fileOrdinal) {
+        for (IndexMetaArrayHolder indexMetaArrayHolder : fileMetaDeque) {
+            IndexFileMeta indexMeta = indexMetaArrayHolder.fileMetas.findByFileOrdinal(fileOrdinal);
 
             if (indexMeta != null) {
                 return indexMeta;
