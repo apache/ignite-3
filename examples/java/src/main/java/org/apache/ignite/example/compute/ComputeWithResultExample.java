@@ -60,7 +60,7 @@ public class ComputeWithResultExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -72,7 +72,7 @@ public class ComputeWithResultExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
 
 
@@ -93,7 +93,7 @@ public class ComputeWithResultExample {
 
             String phrase = "Count characters using callable";
 
-            System.out.println("\nExecuting compute job for the phrase '" + phrase + "'...");
+            System.out.println("Executing compute job for the phrase '" + phrase + "'...");
 
             Integer wordCnt = client.compute().execute(jobTarget, job, phrase);
 
@@ -103,7 +103,7 @@ public class ComputeWithResultExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nTotal number of words in the phrase is '" + wordCnt + "'.");
+            System.out.println("Total number of words in the phrase is '" + wordCnt + "'.");
         } finally {
 
             System.out.println("Cleaning up resources");

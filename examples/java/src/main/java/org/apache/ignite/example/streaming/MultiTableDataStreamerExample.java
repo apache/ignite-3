@@ -134,7 +134,7 @@ public class MultiTableDataStreamerExample {
             streamerFut.join();
 
             // Drop tables
-            System.out.println("\nDropping the tables...");
+            System.out.println("Dropping the tables...");
             client.sql().executeScript("DROP TABLE IF EXISTS Customers");
             client.sql().executeScript("DROP TABLE IF EXISTS Addresses");
         } finally {
