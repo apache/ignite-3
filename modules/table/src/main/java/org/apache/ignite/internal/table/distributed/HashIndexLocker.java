@@ -60,7 +60,7 @@ public class HashIndexLocker implements IndexLocker {
 
     @Override
     public CompletableFuture<Void> locksForLookupByKey(UUID txId, BinaryTuple key) {
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
