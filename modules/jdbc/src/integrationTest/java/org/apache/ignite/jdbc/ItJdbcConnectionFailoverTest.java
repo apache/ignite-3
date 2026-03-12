@@ -197,7 +197,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
      * Ensures that the client receives a meaningful exception when the node holding the client transaction goes down.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27091")
     void testTransactionCannotBeUsedAfterNodeRestart() throws SQLException {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});
