@@ -30,7 +30,6 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -49,8 +48,6 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.AcquireLockTimeoutException;
@@ -83,8 +80,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
-    private static final IgniteLogger LOG = Loggers.forClass(HeapLockManager.class);
-
     /** Table size. */
     public static final int DEFAULT_SLOTS = 1_048_576;
 
@@ -119,7 +114,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Tx state required to present tx labels in logs and exceptions. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
 
-    private class SealableQueue extends ConcurrentLinkedQueue<Releasable> {
+    private static class SealableQueue extends ConcurrentLinkedQueue<Releasable> {
         boolean sealed;
     }
 
@@ -177,9 +172,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         assert lockMode != null : "Lock mode is null";
 
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy(coarse) lock.
-            CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
+            //CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
 
-            return state.acquire(txId, lockMode);
+            return nullCompletedFuture(); // state.acquire(txId, lockMode);
         }
 
         while (true) {
@@ -214,11 +209,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         LockState state = lockState(lock.lockKey());
 
-        state.tryRelease(lock.txId());
-
-//        if (state.tryRelease(lock.txId())) {
-//            locks.compute(lock.lockKey(), (k, v) -> adjustLockState(state, v));
-//        }
+        if (state.tryRelease(lock.txId())) {
+            locks.compute(lock.lockKey(), (k, v) -> adjustLockState(state, v));
+        }
     }
 
     @Override
@@ -231,18 +224,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         LockState state = lockState(lockKey);
 
-        state.tryRelease(txId, lockMode);
-
-//        if (state.tryRelease(txId, lockMode)) {
-//            locks.compute(lockKey, (k, v) -> adjustLockState(state, v));
-//        }
+        if (state.tryRelease(txId, lockMode)) {
+            locks.compute(lockKey, (k, v) -> adjustLockState(state, v));
+        }
     }
 
     @Override
     public void releaseAll(UUID txId) {
-        //LOG.info("DBG: releaseAll {}", txId);
-
-        ConcurrentLinkedQueue<Releasable> states = this.txMap.get(txId);
+        ConcurrentLinkedQueue<Releasable> states = this.txMap.remove(txId);
 
         if (states != null) {
             // Default size corresponds to average number of entities used by transaction. Estimate it to 5.
@@ -253,14 +242,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     continue;
                 }
 
-//                if (state.tryRelease(txId)) {
-//                    LockKey key = state.key(); // State may be already invalidated.
-//                    if (key != null) {
-//                        locks.compute(key, (k, v) -> adjustLockState((LockState) state, v));
-//                    }
-//                }
-
-                state.tryRelease(txId);
+                if (state.tryRelease(txId)) {
+                    LockKey key = state.key(); // State may be already invalidated.
+                    if (key != null) {
+                        locks.compute(key, (k, v) -> adjustLockState((LockState) state, v));
+                    }
+                }
             }
 
             // Unlock coarse locks after all.
@@ -273,8 +260,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     @Override
     public void failAllWaiters(UUID txId, Exception cause) {
         seal(txId);
-
-        // LOG.info("DBG: failAllWaiters " + txId);
 
         // After sealing txMap is protected from concurrent updates.
         ConcurrentLinkedQueue<Releasable> states = this.txMap.get(txId);
@@ -318,23 +303,18 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private @Nullable LockState acquireLockState(LockKey key) {
         return locks.computeIfAbsent(key, (k) -> {
-//            int acquiredLocks = lockTableSize.intValue();
-//
-//            if (acquiredLocks < lockMapSize) {
-//                lockTableSize.increment();
-//
-//                LockState v = new LockState();
-//                v.key = k;
-//
-//                return v;
-//            } else {
-//                return null;
-//            }
+            int acquiredLocks = lockTableSize.intValue();
 
-            LockState v = new LockState();
-            v.key = k;
+            if (acquiredLocks < lockMapSize) {
+                lockTableSize.increment();
 
-            return v;
+                LockState v = new LockState();
+                v.key = k;
+
+                return v;
+            } else {
+                return null;
+            }
 
         });
     }
@@ -371,25 +351,25 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         return true;
     }
 
-//    @Nullable
-    //private LockState adjustLockState(LockState state, LockState v) {
+    @Nullable
+    private LockState adjustLockState(LockState state, LockState v) {
         // Mapping may already change.
-//        if (v != state) {
-//            return v;
-//        }
-//
-//        synchronized (v.waiters) {
-//            if (v.waiters.isEmpty()) {
-//                v.key = null;
-//
-//                lockTableSize.decrement();
-//
-//                return null;
-//            } else {
-//                return v;
-//            }
-//        }
-    //}
+        if (v != state) {
+            return v;
+        }
+
+        synchronized (v.waiters) {
+            if (v.waiters.isEmpty()) {
+                v.key = null;
+
+                lockTableSize.decrement();
+
+                return null;
+            } else {
+                return v;
+            }
+        }
+    }
 
     private void seal(UUID txId) {
         txMap.compute(txId, (k, v) -> {
@@ -835,8 +815,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         /** Lock key. */
         private volatile LockKey key;
 
-        private LinkedList<String> events = new LinkedList<>();
-
         LockState() {
             Comparator<UUID> txComparator =
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
@@ -881,9 +859,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             WaiterImpl waiter0 = null;
 
             synchronized (waiters) {
-                String zzz = "F:" + txId;
-                events.add(zzz);
-
                 WaiterImpl waiter = waiters.get(txId);
 
                 // Waiter can be null if it was invalidated by order conflict resolution logic.
@@ -927,14 +902,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 // Reenter
                 if (prev != null) {
                     if (prev.locked() && prev.lockMode().allowReenter(lockMode)) {
-                        events.add("RE");
                         waiter.lock();
 
                         waiter.upgrade(prev);
 
                         return new IgniteBiTuple<>(nullCompletedFuture(), prev.lockMode());
                     } else {
-                        events.add("U");
                         waiter.upgrade(prev);
 
                         assert prev.lockMode() == waiter.lockMode() :
@@ -967,11 +940,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 return notifications;
             }
 
-            events.add("A: " + waiter.txId + " " + track + " " + unlock + " " + waiters);
-
             boolean[] needWait = {false};
-
-            //LOG.info("DBG: tryAcquireInternal before key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
 
             findConflicts(waiter, owner -> {
                 assert !waiter.txId.equals(owner.txId);
@@ -1022,6 +991,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 if (!waiter.locked()) {
                                     waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
                                 } else if (waiter.hasLockIntent()) {
+                                    // TODO should have lockIntent replace with assert.
                                     waiter.refuseIntent(); // Upgrade attempt has failed, restore old lock.
                                 }
                                 waiter.fail(new TransactionKilledException(waiter.txId));
@@ -1041,7 +1011,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             if (!notifications.isEmpty() || needWait[0]) {
                 // Grant not allowed.
-                //LOG.info("DBG: tryAcquireInternal wait key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
                 return notifications;
             }
 
@@ -1064,8 +1033,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             notifications.add(waiter::notifyLocked);
 
-            //LOG.info("DBG: tryAcquireInternal grant key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
-
             return notifications;
         }
 
@@ -1079,27 +1046,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 return waiters.size();
             }
         }
-
-//        private @Nullable WaiterImpl findConflict(WaiterImpl waiter) {
-//            LockMode intendedLockMode = waiter.intendedLockMode();
-//            assert intendedLockMode != null : "Intended lock mode is null";
-//
-//            for (Entry<UUID, WaiterImpl> entry : conflictsView.entrySet()) {
-//                WaiterImpl tmp = entry.getValue();
-//
-//                if (tmp.equals(waiter)) {
-//                    continue;
-//                }
-//
-//                LockMode currentlyAcquiredLockMode = tmp.lockMode;
-//
-//                if (currentlyAcquiredLockMode != null && !currentlyAcquiredLockMode.isCompatible(intendedLockMode)) {
-//                    return tmp;
-//                }
-//            }
-//
-//            return null;
-//        }
 
         private void findConflicts(WaiterImpl waiter, Predicate<WaiterImpl> callback) {
             LockMode intendedLockMode = waiter.intendedLockMode();
@@ -1145,7 +1091,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             Collection<Runnable> toNotify;
 
             synchronized (waiters) {
-                events.add("R:" + txId);
                 toNotify = release(txId);
             }
 
@@ -1169,7 +1114,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             List<Runnable> toNotify = emptyList();
             synchronized (waiters) {
-                events.add("TR:" + txId + " " + lockMode);
                 WaiterImpl waiter = waiters.get(txId);
 
                 if (waiter != null) {
@@ -1208,8 +1152,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             WaiterImpl removed = waiters.remove(txId);
 
             // Removing incomplete waiter doesn't affect lock state.
-            //if (removed == null || waiters.isEmpty() || !removed.locked()) {
-            if (waiters.isEmpty()) {
+            if (removed == null || waiters.isEmpty() || !removed.locked()) {
                 return emptyList();
             }
 
@@ -1557,7 +1500,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         /** {@inheritDoc} */
         @Override
         public String toString() {
-            return S.toString(WaiterImpl.class, this, "notified", fut.isDone());
+            return S.toString(WaiterImpl.class, this, "notified", fut.isDone(), "failed", fut.isDone() && fut.isCompletedExceptionally());
         }
     }
 
