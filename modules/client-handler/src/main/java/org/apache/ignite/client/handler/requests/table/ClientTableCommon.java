@@ -538,7 +538,7 @@ public class ClientTableCommon {
                             }
 
                             // Track this remote enlistment for cleanup if client disconnects.
-                            txManager.remoteEnlistmentTracker().trackEnlistment(txId, tableId, commitPart);
+                            resources.addTxEnlistment(txId, tableId, commitPart);
 
                             return remote;
                         });

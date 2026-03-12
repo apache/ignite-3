@@ -159,9 +159,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /** Tracks remote transaction enlistments for cleanup on client disconnect. */
-    private final RemoteEnlistmentTracker remoteEnlistmentTracker = new RemoteEnlistmentTracker();
-
     /** Executor that runs async write intent switch actions. */
     private final ExecutorService writeIntentSwitchPool;
 
@@ -396,8 +393,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 writeIntentSwitchProcessor,
                 resourcesRegistry,
                 writeIntentSwitchPool,
-                txStateVolatileStorage,
-                remoteEnlistmentTracker
+                txStateVolatileStorage
         );
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
@@ -1108,16 +1104,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public LockManager lockManager() {
         return lockManager;
-    }
-
-    /**
-     * Returns the remote enlistment tracker.
-     *
-     * @return Remote enlistment tracker.
-     */
-    @Override
-    public RemoteEnlistmentTracker remoteEnlistmentTracker() {
-        return remoteEnlistmentTracker;
     }
 
     @Override

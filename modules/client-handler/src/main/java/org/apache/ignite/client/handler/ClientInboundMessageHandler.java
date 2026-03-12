@@ -49,8 +49,6 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,7 +60,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.ClientOperationCancelRequest;
@@ -153,7 +150,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -163,7 +159,6 @@ import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
@@ -178,13 +173,11 @@ import org.apache.ignite.internal.security.authentication.event.UserEventParamet
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -476,63 +469,6 @@ public class ClientInboundMessageHandler
         }
 
         logConnectionClosed(ctx);
-    }
-
-    private void cleanupRemoteEnlistments(Set<UUID> txIds) {
-        for (UUID txId : txIds) {
-            try {
-                // Clean up local remote enlistments on THIS node.
-                Set<IgniteBiTuple<Integer, Integer>> enlistments =
-                        txManager.remoteEnlistmentTracker().getEnlistments(txId);
-
-                if (enlistments != null && !enlistments.isEmpty()) {
-                    List<EnlistedPartitionGroup> groups = convertToPartitionGroups(enlistments);
-
-                    if (!groups.isEmpty()) {
-                        txManager.discardLocalWriteIntents(groups, txId).whenComplete((res, err) -> {
-                            if (err != null) {
-                                LOG.warn("Failed to discard local write intents for transaction on disconnect "
-                                        + "[txId=" + txId + ", connectionId=" + connectionId + "]: " + err.getMessage(), err);
-                            } else {
-                                if (LOG.isDebugEnabled()) {
-                                    LOG.debug("Discarded local write intents for transaction on disconnect "
-                                            + "[txId=" + txId + ", connectionId=" + connectionId + ", partitions=" + groups.size() + "]");
-                                }
-                            }
-
-                            // Remove tracking regardless of success/failure.
-                            // TODO: Is this call excessive? We have that inside the tx manager?
-                            txManager.remoteEnlistmentTracker().removeTracking(txId);
-                        });
-                    }
-                }
-            } catch (Exception e) {
-                LOG.warn("Failed to clean up remote enlistments for transaction on disconnect "
-                        + "[txId=" + txId + ", connectionId=" + connectionId + "]: " + e.getMessage(), e);
-                // Don't fail the disconnect - transaction timeout will eventually clean up.
-            }
-        }
-    }
-
-    private List<EnlistedPartitionGroup> convertToPartitionGroups(
-            Set<IgniteBiTuple<Integer, Integer>> enlistments) {
-        Map<ZonePartitionId, Set<Integer>> grouped = new HashMap<>();
-
-        for (IgniteBiTuple<Integer, Integer> enlistment : enlistments) {
-            int tableId = enlistment.get1();
-            int partitionId = enlistment.get2();
-
-            TableViewInternal table = igniteTables.cachedTable(tableId);
-            if (table != null) {
-                ZonePartitionId zpId = table.internalTable().targetReplicationGroupId(partitionId);
-                grouped.computeIfAbsent(zpId, k -> new HashSet<>()).add(tableId);
-            }
-        }
-
-        // TODO: ???
-        return grouped.entrySet().stream()
-                .map(e -> new EnlistedPartitionGroup(e.getKey(), e.getValue()))
-                .collect(Collectors.toList());
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker) {

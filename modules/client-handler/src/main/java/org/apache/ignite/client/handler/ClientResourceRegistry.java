@@ -18,9 +18,12 @@
 package org.apache.ignite.client.handler;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -36,6 +39,11 @@ public class ClientResourceRegistry {
      * Resources.
      */
     private final Map<Long, ClientResource> res = new ConcurrentHashMap<>();
+
+    /**
+     * Map: Transaction ID -> Set of enlisted (tableId, partitionId) pairs.
+     */
+    private final ConcurrentHashMap<UUID, Set<IgniteBiTuple<Integer, Integer>>> txEnlistments = new ConcurrentHashMap<>();
 
     /**
      * ID generator.
@@ -113,6 +121,19 @@ public class ClientResourceRegistry {
     }
 
     /**
+     * Records that a remote transaction enlisted a partition on this node.
+     *
+     * @param txId Transaction ID.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     */
+    public void addTxEnlistment(UUID txId, int tableId, int partitionId) {
+        txEnlistments
+                .computeIfAbsent(txId, k -> ConcurrentHashMap.newKeySet())
+                .add(new IgniteBiTuple<>(tableId, partitionId));
+    }
+
+    /**
      * Closes the registry and releases all resources.
      */
     public void close() {
@@ -138,6 +159,8 @@ public class ClientResourceRegistry {
 
         res.clear();
 
+        // TODO: Discard enlistments.
+        // Reuse logic from ClientTransactionDiscardRequest
         if (ex != null) {
             throw ex;
         }

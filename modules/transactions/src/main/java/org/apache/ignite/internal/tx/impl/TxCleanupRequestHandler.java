@@ -176,10 +176,8 @@ public class TxCleanupRequestHandler {
                 .whenComplete((unused, ex) -> {
                     releaseTxLocks(txCleanupMessage.txId());
 
-                    // TODO: What is this?
+                    // TODO: Clean up client enlistments here?
                     remotelyTriggeredResourceRegistry.close(txCleanupMessage.txId());
-
-                    remoteEnlistmentTracker.removeTracking(txCleanupMessage.txId());
 
                     NetworkMessage msg;
                     if (ex == null) {
