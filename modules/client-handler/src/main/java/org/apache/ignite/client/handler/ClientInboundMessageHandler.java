@@ -506,6 +506,7 @@ public class ClientInboundMessageHandler
                             }
 
                             // Remove tracking regardless of success/failure.
+                            // TODO: Is this call excessive? We have that inside the tx manager?
                             txManager.remoteEnlistmentTracker().removeTracking(txId);
                         });
                     }

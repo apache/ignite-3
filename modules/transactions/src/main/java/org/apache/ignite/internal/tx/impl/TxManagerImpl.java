@@ -396,7 +396,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 writeIntentSwitchProcessor,
                 resourcesRegistry,
                 writeIntentSwitchPool,
-                txStateVolatileStorage
+                txStateVolatileStorage,
+                remoteEnlistmentTracker
         );
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
@@ -1114,6 +1115,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      *
      * @return Remote enlistment tracker.
      */
+    @Override
     public RemoteEnlistmentTracker remoteEnlistmentTracker() {
         return remoteEnlistmentTracker;
     }
