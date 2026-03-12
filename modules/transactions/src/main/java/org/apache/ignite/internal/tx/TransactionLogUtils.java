@@ -118,7 +118,7 @@ public class TransactionLogUtils {
      * @param txMeta TxStateMeta to retrieve label.
      * @return Formatted string like "txId=..., txLabel=..." or "txId=..." if label is null.
      */
-    private static String formatTxInfo(UUID txId, @Nullable TxStateMeta txMeta, boolean wrapped) {
+    public static String formatTxInfo(UUID txId, @Nullable TxStateMeta txMeta, boolean wrapped) {
         String label = txMeta != null ? txMeta.txLabel() : null;
         return formatTxInfo(txId, label, wrapped);
     }
