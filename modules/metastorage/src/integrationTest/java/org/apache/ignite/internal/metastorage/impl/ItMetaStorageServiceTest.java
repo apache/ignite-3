@@ -754,13 +754,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         byte[] expVal = {2};
 
-        doAnswer(invocation -> {
-            // To update last applied index in the storage.
-            invocation.callRealMethod();
-
-            return true;
-        }).when(node.mockStorage).invoke(any(), any(), any(), any(), any());
-
         startNodes();
 
         Condition condition = Conditions.notExists(expKey);
