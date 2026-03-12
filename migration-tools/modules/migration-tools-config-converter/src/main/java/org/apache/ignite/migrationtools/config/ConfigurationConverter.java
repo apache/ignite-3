@@ -48,7 +48,7 @@ import org.springframework.core.io.FileSystemResource;
 public class ConfigurationConverter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationConverter.class);
 
-    // TODO: Make this injected.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28171 Make this injected.
     private static List<org.apache.ignite.migrationtools.config.converters.ConfigurationConverter> converters = List.of(
             // new CommunicationSpiConverter(), Disabled the TcpCommSpi. Will use the port from the Discovery Module
             new DiscoverySpiConverter(),

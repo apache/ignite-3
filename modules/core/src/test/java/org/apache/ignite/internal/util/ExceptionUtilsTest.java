@@ -58,4 +58,5 @@ class ExceptionUtilsTest {
 
         assertFalse(hasCause(e3, NullPointerException.class));
     }
+
 }

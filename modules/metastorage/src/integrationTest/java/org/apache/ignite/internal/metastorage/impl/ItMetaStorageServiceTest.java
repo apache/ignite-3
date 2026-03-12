@@ -764,8 +764,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         assertEquals(OperationType.NO_OP, failureCaptor.getValue().get(0).type());
     }
 
-    // TODO: IGNITE-14693 Add tests for exception handling logic: onError,
-    // TODO: (CompactedException | OperationTimeoutException)
+    // TODO: IGNITE-14693 Add tests for exception handling logic: onError, (CompactedException | OperationTimeoutException).
 
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
