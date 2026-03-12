@@ -125,15 +125,32 @@ public class ClientResourceRegistry {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void addTxCleaner(UUID txId, int tableId, int partitionId, TxManager txManager, IgniteTablesInternal tables) {
-        txCleaners
-                .computeIfAbsent(txId, k -> new ClientTxPartitionEnlistmentCleaner(txId,  txManager, tables))
-                .addEnlistment(tableId, partitionId);
+    public void addTxCleaner(UUID txId, int tableId, int partitionId, TxManager txManager, IgniteTablesInternal tables)
+            throws IgniteInternalCheckedException {
+        enter();
+
+        try {
+            txCleaners
+                    .computeIfAbsent(txId, k -> new ClientTxPartitionEnlistmentCleaner(txId, txManager, tables))
+                    .addEnlistment(tableId, partitionId);
+        } finally {
+            leave();
+        }
     }
 
+    /**
+     * Removes the transaction cleaner associated with the given transaction ID.
+     *
+     * @param txId Transaction ID whose cleaner should be removed.
+     */
+    public void removeTxCleaner(UUID txId) throws IgniteInternalCheckedException {
+        enter();
 
-    public void removeTxCleaner(UUID txId) {
-        txCleaners.remove(txId);
+        try {
+            txCleaners.remove(txId);
+        } finally {
+            leave();
+        }
     }
 
     /**
@@ -151,7 +168,7 @@ public class ClientResourceRegistry {
         for (ClientResource r : res.values()) {
             try {
                 r.release();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (ex == null) {
                     ex = new IgniteInternalException(e);
                 } else {
@@ -162,8 +179,18 @@ public class ClientResourceRegistry {
 
         res.clear();
 
-        // TODO: Discard enlistments.
-        // Reuse logic from ClientTransactionDiscardRequest
+        for (var cleaner : txCleaners.values()) {
+            try {
+                cleaner.clean().join();
+            } catch (Throwable e) {
+                if (ex == null) {
+                    ex = new IgniteInternalException(e);
+                } else {
+                    ex.addSuppressed(e);
+                }
+            }
+        }
+
         if (ex != null) {
             throw ex;
         }
