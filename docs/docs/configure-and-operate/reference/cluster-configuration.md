@@ -6,6 +6,10 @@ sidebar_label: Cluster Configuration
 
 Ignite 3 cluster configuration is shared across the whole cluster. Regardless of which node you apply the configuration on, it will be propagated to all nodes in the cluster.
 
+:::note
+The cluster name is not part of the standard cluster configuration and cannot be changed with `cluster config update`. To rename a cluster after initialization, use the [REST API](/3.1.0/tools/rest-api#renaming-a-cluster).
+:::
+
 In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node.
 
 ## Checking Cluster Configuration
