@@ -543,7 +543,7 @@ public class ClientTableCommon {
                             try {
                                 resources.addTxCleaner(txId, tableId, commitPart, txManager, (IgniteTablesInternal) tables);
                             } catch (IgniteInternalCheckedException e) {
-                                // Client disconnected.
+                                // Client disconnected (resource registry closed).
                                 try {
                                     remote.rollback();
                                 } catch (Exception ex) {
