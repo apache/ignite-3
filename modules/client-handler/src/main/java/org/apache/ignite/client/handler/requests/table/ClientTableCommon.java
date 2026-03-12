@@ -538,7 +538,7 @@ public class ClientTableCommon {
                             }
 
                             // Track this remote enlistment for cleanup if client disconnects.
-                            // TODO: Use RemotelyTriggeredResourceRegistry instead? Or use both?
+                            // TODO: Use RemotelyTriggeredResourceRegistry to remove enlistments from client resource registry.
                             resources.addTxEnlistment(txId, tableId, commitPart);
                             // txManager.resourceRegistry()
 
