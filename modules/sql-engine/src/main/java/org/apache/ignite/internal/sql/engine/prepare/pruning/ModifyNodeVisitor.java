@@ -388,21 +388,20 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     ) {
 
         PartitionPruningColumns metadata = extractor.result.get(sourceId);
-        // Do not propagate information that can be used for pruning partitions from the ModifyNode
-        // If tables are different.
+        // Do not propagate metadata if tables are different for now.
         IgniteTable tableUnderModification = modifiedTable.getFirst();
         if (metadata == null || tableUnderModification.id() != table.id()) {
             return null;
         }
 
-        // Only handle column order preserving projections for now.
+        // Only handle column order-preserving projections for now.
         boolean preserveOrder = requiredColumns != null && projectionPreservesColumnOrder(requiredColumns);
         if (!preserveOrder) {
             return null;
         }
 
         if (!nullOrEmpty(projects)) {
-            assert requiredColumns != null : "No required column: " + rel;
+            assert requiredColumns != null : "No required columns: " + rel;
 
             List<RexNode> expectedProjection = createProjectionFromScan(modifiedTable.getSecond(), projects, requiredColumns);
             RelDataType rowType = table.getRowType(rel.getCluster().getTypeFactory(), requiredColumns);
@@ -431,16 +430,14 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
             ImmutableIntList requiredColumns
     ) {
         if (operation == INSERT || operation == DELETE) {
-            // Projections for INSERTs and DELETEs do not include any extract columns.
+            // Projections for INSERTs and DELETEs do not include any extra columns.
             return projects;
         } else if (operation == UPDATE) {
             // UPDATEs have the following projection: [<columns in definition order>, <expressions as specified in UPDATE clause].
             // Example:
             // UPDATE t SET c3 = 100, c4='a' WHERE c1=42 AND c2=99
             // => 
-            // [c1, c2, c3, c4, 100, 'a'] 
-            //
-            // Because of that we take only the first columns.
+            // [c1, c2, c3, c4, 100, 'a']
             return projects.subList(0, requiredColumns.size());
         } else {
             throw new IllegalStateException("Unexpected modification operation: " + operation);
@@ -452,7 +449,7 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
             PartitionPruningColumns metadata
     ) {
         // Creates a row for each PP metadata entry. Consider the following example
-        // of a scan predicate that include  colocation columns C1, C2, C3:
+        // of a scan predicate that includes colocation columns C1, C2, C3:
         // 
         // c1 IN (10, ?0, 42) AND c2 = ?1 AND c3 = 99
         //
@@ -461,7 +458,7 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         //  [c1=?0, c2=?1, c3=99]
         //  [c1=42, c2=?1, c3=99]
         //
-        // This metadata is equivalent to 3 rows:
+        // That metadata is equivalent to 3 rows:
         //  [10, ?1, 99]
         //  [?0, ?1, 99]
         //  [42, ?1, 99]
@@ -473,13 +470,13 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
             int numColumns = table.descriptor().columnsCount();
             List<RexNode> row = new ArrayList<>(numColumns);
 
-            // There are more non-columns then primary key columns.
+            // There are more non-colocation key columns than colocation key ones.
             // So init all columns with unknown-value placeholders first. 
             for (int i = 0; i < numColumns; i++) {
                 row.add(VALUE_NOT_ASSIGNED);
             }
 
-            // Then set primary key columns. 
+            // Then set colocation key columns. 
             for (Int2ObjectMap.Entry<RexNode> entry : columns.int2ObjectEntrySet()) {
                 int col = entry.getIntKey();
                 row.set(col, entry.getValue());

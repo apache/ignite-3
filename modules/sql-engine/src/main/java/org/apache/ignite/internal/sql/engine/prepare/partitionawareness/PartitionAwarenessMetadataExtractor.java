@@ -347,9 +347,9 @@ public class PartitionAwarenessMetadataExtractor {
 
         private @Nullable PartitionPruningMetadata tryCollect(IgniteRel rel) {
             // Partition pruning metadata is partition-awareness compatible iff 
-            // all source refer the same table and all sources for that table have equal PP metadata.
+            // all sources refer the same table and all of them have equal PP columns.
 
-            // If there is only one source, this metadata can be compatible.
+            // If there is only one source, metadata can be check for compatibility.
             if (metadata.data().size() == 1) {
                 return metadata;
             }
@@ -370,19 +370,19 @@ public class PartitionAwarenessMetadataExtractor {
                 }
             }
 
-            // if metadata is not equal, this metadata is not compatible with partition-awareness.
+            // if metadata is not equal, metadata is not compatible with partition-awareness.
             if (!allEqual) {
                 return null;
             }
 
             rel.accept(this);
 
-            // If there are multiple tables, this metadata is not compatible with partition-awareness.
+            // If there are multiple tables, metadata is not compatible with partition-awareness.
             if (!sameTable) {
                 return null;
             }
 
-            // Return the first object, as all are metadata objects have the same structure.
+            // Return the first object, since all metadata objects have the same structure.
             assert firstSourceId != null;
             return metadata.subset(LongSet.of(firstSourceId));
         }
