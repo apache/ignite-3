@@ -63,7 +63,7 @@ public class ComputeJobStateExample {
         //
         //--------------------- -----------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -75,7 +75,7 @@ public class ComputeJobStateExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
             deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
@@ -87,7 +87,7 @@ public class ComputeJobStateExample {
 
             execution.get().stateAsync().thenApply(state -> {
                 if (state.status() == FAILED) {
-                    System.out.println("\nJob failed...");
+                    System.out.println("Job failed...");
                 }
                 return null;
             });
@@ -106,7 +106,7 @@ public class ComputeJobStateExample {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(null);
         }

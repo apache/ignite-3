@@ -173,7 +173,10 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> finish(
-                    boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+                    boolean commit,
+                    HybridTimestamp executionTimestamp,
+                    boolean full,
+                    @Nullable Throwable finishReason
             ) {
                 return nullCompletedFuture();
             }
@@ -194,7 +197,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+            public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
                 return nullCompletedFuture();
             }
 
@@ -216,6 +219,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public @Nullable <T extends TxStateMeta> T enrichTxMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return null;
+    }
+
+    @Override
     public LockManager lockManager() {
         return null;
     }
@@ -230,7 +239,7 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             ZonePartitionId commitPartition,
             boolean commitIntent,
-            boolean timeoutExceeded,
+            @Nullable Throwable finishReason,
             boolean recovery,
             boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
@@ -297,10 +306,14 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    public CompletableFuture<Void> finishFull(
+            HybridTimestampTracker timestampTracker,
+            UUID txId,
+            HybridTimestamp ts,
+            boolean commit,
+            Throwable finishReason
     ) {
-        // No-op.
+        return nullCompletedFuture();
     }
 
     @Override

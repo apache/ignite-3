@@ -64,7 +64,7 @@ public class ComputeWithCustomResultMarshallerExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -76,7 +76,7 @@ public class ComputeWithCustomResultMarshallerExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
 
             deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
@@ -99,7 +99,7 @@ public class ComputeWithCustomResultMarshallerExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute job for the word '" + word + "'...");
+                System.out.println("Executing compute job for the word '" + word + "'...");
 
                 WordInfoResult result = client.compute().execute(jobTarget, job, word);
 
@@ -201,7 +201,7 @@ public class ComputeWithCustomResultMarshallerExample {
         public CompletableFuture<WordInfoResult> executeAsync(JobExecutionContext context, String arg) {
             assert arg != null;
 
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             WordInfoResult result = new WordInfoResult(arg, arg.length());
 
