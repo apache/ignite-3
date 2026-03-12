@@ -89,6 +89,11 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        throw new AssertionError(EXCEPTION_MSG);
+    }
+
+    @Override
     public boolean isReadOnly() {
         return false;
     }
@@ -151,8 +156,12 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full,
-            boolean timeoutExceeded) {
+    public CompletableFuture<Void> finish(
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    ) {
         return null;
     }
 

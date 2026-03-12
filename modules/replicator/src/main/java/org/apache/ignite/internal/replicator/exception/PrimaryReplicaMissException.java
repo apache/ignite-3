@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
 public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException,
-        RetriableTransactionException {
+        RetriableTransactionException, RetriableReplicaRequestException {
     private static final long serialVersionUID = 8755220779942651494L;
 
     /**

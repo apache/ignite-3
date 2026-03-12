@@ -149,13 +149,13 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
     }
 
     protected Mapper<K> keyMapper() {
-        // TODO: Define a complementary test for Binary Caches
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28177 Define a complementary test for Binary Caches
         assumeThat(keyClass).as(MAPPER_ERROR_MSG).isNotNull();
         return Mapper.of(keyClass);
     }
 
     protected Mapper<V> valMapper() {
-        // TODO: Define a complementary test for Binary Caches
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28177 Define a complementary test for Binary Caches
         assumeThat(valueClass).as(MAPPER_ERROR_MSG).isNotNull();
         return Mapper.of(valueClass);
     }

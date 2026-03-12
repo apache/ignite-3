@@ -118,7 +118,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
                 hasColumns("EMPID", "DEPTID", "NAME"));
 
         // System columns with "star".
-        // TODO https://issues.apache.org/jira/browse/CALCITE-4923
+        // TODO https://issues.apache.org/jira/browse/IGNITE-28184
         // For now we can't select system columns with "star", since when "star" is used, tables of join are rewrite to
         // subqueries without system columns.
         // assertPlan("SELECT *, T2._KEY FROM T1 JOIN T2 USING (DEPTID)", schemas,
@@ -140,7 +140,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
                 hasColumns("EMPID", "DEPTID", "NAME", "D"));
 
         // Double join.
-        // TODO https://issues.apache.org/jira/browse/CALCITE-4921
+        // TODO https://issues.apache.org/jira/browse/IGNITE-28185
         // assertPlan("SELECT * FROM T1 NATURAL JOIN T2 NATURAL JOIN OTHER.T3", schemas,
         //    hasColumns("DEPTID", "EMPTID", "NAME", "PARENTID", "D"));
 
@@ -153,7 +153,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
                 hasColumns("DEPTID", "NAME", "EMPID", "PARENTID"));
 
         // Select explicit columns, system columns. Columns not ambiguous.
-        // TODO https://issues.apache.org/jira/browse/CALCITE-4915
+        // TODO https://issues.apache.org/jira/browse/IGNITE-28129
         // assertPlan("SELECT DEPTID, T1._KEY, T2.NAME FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "_KEY", "NAME"));
 
@@ -162,12 +162,12 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
                 hasColumns("EMPID", "DEPTID", "NAME", "DEPTID$0", "NAME$0", "PARENTID"));
 
         // Select system columns and all table columns.
-        // TODO https://issues.apache.org/jira/browse/CALCITE-4923
+        // TODO https://issues.apache.org/jira/browse/IGNITE-28184
         // assertPlan("SELECT T1.*, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("EMPID", "DEPTID", "NAME", "_KEY"));
 
         // System columns with "star".
-        // TODO https://issues.apache.org/jira/browse/CALCITE-4923
+        // TODO https://issues.apache.org/jira/browse/IGNITE-28184
         // assertPlan("SELECT *, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "NAME", "EMPID", "PARENTID", "_KEY"));
     }

@@ -30,7 +30,7 @@ class NativeTypeSerializationExample {
     /** Using native types: primitives or wrappers, so no marshallers needed, as Ignite autoserializes native types. */
     static void runNativeSerialization(IgniteClient client) {
 
-            System.out.println("\n[Native] Running Integer decrement job...");
+            System.out.println("[Native] Running Integer decrement job...");
 
             JobDescriptor<Integer, Integer> job = JobDescriptor.builder(IntegerDecrementJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))

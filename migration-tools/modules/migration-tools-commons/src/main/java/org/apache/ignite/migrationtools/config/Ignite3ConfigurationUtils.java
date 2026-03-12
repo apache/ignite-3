@@ -40,8 +40,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for loading Ignite 3 Configuration Modules.
- * TODO: This class was heavily adapted from the Ignite Runner.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-28136 This class was heavily adapted from the Ignite Runner.
 public class Ignite3ConfigurationUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(Ignite3ConfigurationUtils.class);
 
@@ -76,7 +76,8 @@ public class Ignite3ConfigurationUtils {
      */
     public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
         // Hack so that it passes the validation
-        // TODO: This is another hack that needs to be cleaned. We don't really need the ConfigurationRegistry.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28137 This is another hack that needs to be cleaned.
+        //  We don't really need the ConfigurationRegistry.
         var distributedModule = ConfigurationModules.create(null).distributed();
         for (RootKey<?, ?, ?> key : distributedModule.rootKeys()) {
             try {
@@ -105,7 +106,7 @@ public class Ignite3ConfigurationUtils {
                 : new NoDefaultsStorageConfiguration(cfgPath, localConfigurationGenerator, module);
 
         // Remove the authentication validator because I cannot get the module.patchConfigurationWithDynamicDefaults(change); to work.
-        // TODO: Check if this will create an error on the service.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28138 Check if this will create an error on the service.
         Set<? extends Validator<?, ?>> myValidators = module.validators()
                 .stream()
                 .filter(v -> !(v instanceof AuthenticationProvidersValidatorImpl))

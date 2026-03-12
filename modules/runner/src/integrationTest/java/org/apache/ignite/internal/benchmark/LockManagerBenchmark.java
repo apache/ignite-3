@@ -112,7 +112,7 @@ public class LockManagerBenchmark {
      * Benchmark's entry point.
      */
     public static void main(String[] args) throws RunnerException {
-        // TODO JVM args
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28128 JVM args.
         Options opt = new OptionsBuilder()
                 .include(".*" + LockManagerBenchmark.class.getSimpleName() + ".*")
                 .forks(1)

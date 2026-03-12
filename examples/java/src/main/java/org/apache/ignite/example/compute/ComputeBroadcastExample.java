@@ -61,7 +61,7 @@ public class ComputeBroadcastExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -87,7 +87,7 @@ public class ComputeBroadcastExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nConfiguring compute job...");
+                System.out.println("Configuring compute job...");
 
                 JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
                         .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -101,11 +101,11 @@ public class ComputeBroadcastExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute job...");
+                System.out.println("Executing compute job...");
 
                 client.compute().execute(target, job, "John");
 
-                System.out.println("\nCompute job executed...");
+                System.out.println("Compute job executed...");
 
                 //--------------------------------------------------------------------------------------
                 //
@@ -132,7 +132,7 @@ public class ComputeBroadcastExample {
                 undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
                 // Drop tables
-                System.out.println("\nDropping the tables...");
+                System.out.println("Dropping the tables...");
 
                 client.sql().executeScript("DROP TABLE IF EXISTS Person");
                 client.sql().executeScript("DROP TABLE IF EXISTS PUBLIC.MY_TABLE");
