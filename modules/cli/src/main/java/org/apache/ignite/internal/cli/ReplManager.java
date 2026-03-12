@@ -67,7 +67,7 @@ public class ReplManager {
                 .withDefaultValueProvider(defaultValueProvider)
                 .withCallExecutionPipelineProvider((executor, exceptionHandlers, line) ->
                         CallExecutionPipeline.builder(executor)
-                                .inputProvider(() -> new StringCallInput(line))
+                                .input(new StringCallInput(line))
                                 .output(System.out)
                                 .errOutput(System.err)
                                 .exceptionHandlers(new DefaultExceptionHandlers())

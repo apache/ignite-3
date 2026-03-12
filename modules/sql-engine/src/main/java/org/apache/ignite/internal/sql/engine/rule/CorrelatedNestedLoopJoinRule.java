@@ -156,6 +156,7 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
     }
 
     private static boolean preMatch(Join join) {
-        return join.getJoinType() == JoinRelType.INNER || join.getJoinType() == JoinRelType.LEFT; // TODO SEMI, ANTI
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28153 SEMI, ANTI
+        return join.getJoinType() == JoinRelType.INNER || join.getJoinType() == JoinRelType.LEFT;
     }
 }

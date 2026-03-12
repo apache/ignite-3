@@ -50,8 +50,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     private boolean inLoop;
 
-    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, AggregateType type, boolean all,
-            RowFactory<RowT> rowFactory, Grouping<RowT> grouping) {
+    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, AggregateType type, Grouping<RowT> grouping) {
         super(ctx);
 
         this.type = type;

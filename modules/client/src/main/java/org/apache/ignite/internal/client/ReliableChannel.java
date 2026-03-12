@@ -229,8 +229,14 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public List<ClusterNode> connections() {
         List<ClusterNode> res = new ArrayList<>(channels.size());
+        Set<ClientChannelHolder> set = new HashSet<>();
 
-        for (var holder : nodeChannelsByName.values()) {
+        for (var holder : channels) {
+            if (!set.add(holder)) {
+                // Duplicate address in config.
+                continue;
+            }
+
             var chFut = holder.chFut;
 
             if (chFut != null) {
@@ -393,7 +399,7 @@ public final class ReliableChannel implements AutoCloseable {
             ClientChannel ch) {
         return ch.serviceAsync(opCode, payloadWriter, payloadReader, expectNotifications).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
-                onChannelFailure(ch);
+                onChannelFailure();
             }
         });
     }
@@ -514,17 +520,17 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * On current channel failure.
      */
-    private void onChannelFailure(ClientChannel ch) {
+    private void onChannelFailure() {
         // There is nothing wrong if defaultChIdx was concurrently changed, since channel was closed by another thread
         // when current index was changed and no other wrong channel will be closed by current thread because
         // onChannelFailure checks channel binded to the holder before closing it.
-        onChannelFailure(channels.get(defaultChIdx), ch);
+        onChannelFailure(channels.get(defaultChIdx));
     }
 
     /**
      * On channel of the specified holder failure.
      */
-    private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
+    private void onChannelFailure(ClientChannelHolder hld) {
         chFailLsnrs.forEach(Runnable::run);
 
         // Roll current channel even if a topology changes. To help find working channel faster.
@@ -961,6 +967,18 @@ public final class ReliableChannel implements AutoCloseable {
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 
+                    // Check if another endpoint already connected to this node.
+                    ClientChannelHolder existingHolder = nodeChannelsByName.get(newNode.name());
+                    if (existingHolder != null && existingHolder != this) {
+                        log.warn("Multiple distinct endpoints resolve to the same server node [nodeName={}, nodeId={}, "
+                                + "existingEndpoint={}, newEndpoint={}]. This represents a misconfiguration. "
+                                + "Both connections will remain active to avoid disrupting ongoing operations.",
+                                newNode.name(),
+                                newNode.id(),
+                                existingHolder.chCfg.getAddress(),
+                                chCfg.getAddress());
+                    }
+
                     // There could be multiple holders map to the same serverNodeId if user provide the same
                     // address multiple times in configuration.
                     nodeChannelsByName.put(newNode.name(), this);
@@ -978,7 +996,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 chFut0.exceptionally(err -> {
                     closeChannel();
-                    onChannelFailure(this, null);
+                    onChannelFailure(this);
 
                     logFailedEstablishConnection(this, err);
 

@@ -131,6 +131,7 @@ dependencies {
     testImplementation libs.awaitility
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    integrationTestAnnotationProcessor libs.auto.service
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-jdbc')
@@ -198,6 +199,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation testFixtures(project(':ignite-replicator'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
+    integrationTestImplementation libs.auto.service.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
@@ -236,6 +238,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
+    testFixturesImplementation testFixtures(project(':ignite-distribution-zones'))
     testFixturesImplementation libs.typesafe.config
     testFixturesImplementation libs.awaitility
 }

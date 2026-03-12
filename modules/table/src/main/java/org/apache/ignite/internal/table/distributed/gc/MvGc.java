@@ -166,6 +166,7 @@ public class MvGc implements ManuallyCloseable {
         });
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter") // Called as event listener; parameter required by listener interface
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         inBusyLockSafe(busyLock, () -> executor.submit(() -> inBusyLock(this::initNewGcBusy)));
     }

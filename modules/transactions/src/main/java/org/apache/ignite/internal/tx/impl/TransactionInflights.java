@@ -47,7 +47,7 @@ import org.jetbrains.annotations.TestOnly;
 
 /**
  * Contains counters for in-flight requests of the transactions. Read-write transactions can't finish when some requests are in-flight.
- * Read-only transactions can't be included into {@link org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage} when
+ * Read-only transactions can't be included into {@link FinishedTransactionsBatchMessage} when
  * some requests are in-flight.
  */
 public class TransactionInflights {

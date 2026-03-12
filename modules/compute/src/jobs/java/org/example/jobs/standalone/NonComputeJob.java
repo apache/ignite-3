@@ -21,6 +21,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 
 /** A class which doesn't implement {@link org.apache.ignite.compute.ComputeJob}. */
 public class NonComputeJob {
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public String execute(JobExecutionContext context, Object... args) {
         return "";
     }

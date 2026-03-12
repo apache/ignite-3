@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.http.HttpStatus.CONFLICT;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.HttpStatus.OK;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZATION;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZED;
@@ -82,7 +83,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
     private HttpClient client;
 
-    @InjectConfiguration
+    @InjectConfiguration(type = DISTRIBUTED, validate = false)
     private SecurityConfiguration securityConfiguration;
 
     @BeforeEach
