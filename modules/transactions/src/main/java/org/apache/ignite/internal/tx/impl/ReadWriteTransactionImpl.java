@@ -164,6 +164,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      *
      * @return The exception.
      */
+    @Override
     public RuntimeException enlistFailedException() {
         TxStateMeta meta = txManager.stateMeta(id());
         Throwable cause = meta == null ? null : meta.lastException();

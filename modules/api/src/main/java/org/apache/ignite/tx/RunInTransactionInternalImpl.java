@@ -287,7 +287,7 @@ public class RunInTransactionInternalImpl {
         return failedFuture(e);
     }
 
-    private static boolean isRetriable(Throwable e) {
+    public static boolean isRetriable(Throwable e) {
         return hasCause(e,
                 TimeoutException.class,
                 RetriableTransactionException.class

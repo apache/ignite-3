@@ -173,4 +173,9 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     public boolean isRolledBackWithTimeoutExceeded() {
         return transaction.isRolledBackWithTimeoutExceeded();
     }
+
+    @Override
+    public RuntimeException enlistFailedException() {
+        return transaction.enlistFailedException();
+    }
 }
