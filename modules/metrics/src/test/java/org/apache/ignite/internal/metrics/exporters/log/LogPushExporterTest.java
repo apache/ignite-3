@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters.log;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -72,7 +73,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith({ConfigurationExtension.class})
 public class LogPushExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters {log {"
+    @InjectConfiguration(value = "mock.exporters {log {"
             + "exporterName = logPush, "
             + "periodMillis = 300, "
             + "oneLinePerMetricSource = false,"
@@ -85,7 +86,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
             + "  \"similar.name.*\", "
             + "  \"ignored\""
             + "]"
-            + "}}")
+            + "}}", type = DISTRIBUTED)
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();

@@ -91,7 +91,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
@@ -106,9 +105,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
@@ -137,6 +134,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -2263,13 +2261,8 @@ public class InternalTableImpl implements InternalTable {
                                     e = e.getCause();
                                 }
 
-                                // We do a retry for the following conditions:
-                                // 1. Primary Replica has changed between the "awaitPrimaryReplica" and "invoke" calls;
-                                // 2. Primary Replica has died and is no longer available.
-                                // In both cases, we need to wait for the lease to expire and to get a new Primary Replica.
-                                if (e instanceof PrimaryReplicaMissException
-                                        || e instanceof UnresolvableConsistentIdException
-                                        || e instanceof ReplicationTimeoutException) {
+                                // We can do a retry for the any condition listed in javadoc for RetriableReplicaRequestException.
+                                if (e instanceof RetriableReplicaRequestException) {
                                     if (numRetries == 0) {
                                         throw new IgniteException(REPLICA_MISS_ERR, e);
                                     }

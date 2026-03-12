@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.otlp;
 
 import static io.opentelemetry.api.common.AttributeType.STRING;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -79,7 +80,10 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, periodMillis = 300, endpoint = \"http://localhost:4317\"}}")
+    @InjectConfiguration(
+            value = "mock.exporters = {otlp = {exporterName = otlp, periodMillis = 300, endpoint = \"http://localhost:4317\"}}",
+            type = DISTRIBUTED
+    )
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();

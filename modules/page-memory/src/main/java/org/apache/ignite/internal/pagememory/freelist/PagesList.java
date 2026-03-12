@@ -1057,8 +1057,7 @@ public abstract class PagesList extends DataStructure {
         long prevId = pageId;
         long prevAddr = pageAddr;
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
-        // TODO: may be unlock right away and do not keep all these pages locked?
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16350 may be unlock right away and do not keep all these pages locked?
         LongArrayList locked = null;
 
         try {

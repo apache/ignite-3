@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -594,43 +593,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public @Nullable TxStateMeta stateMeta(UUID txId) {
         return txStateVolatileStorage.state(txId);
-    }
-
-    @Override
-    public CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
-            TxStateMeta txMeta,
-            InternalTransaction tx,
-            long currentEnlistmentConsistencyToken,
-            ZonePartitionId senderGroupId
-    ) {
-        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
-
-        // Enlistment for thin client direct request may be absent on coordinator.
-        if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
-            // Remote partition already has different consistency token, so we can't commit this transaction anyway.
-            // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
-            // is not under lock.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
-            return tx.rollbackAsync()
-                    .thenApply(unused -> {
-                        TxStateMeta newMeta = stateMeta(tx.id());
-
-                        assert isFinalState(newMeta.txState());
-
-                        return newMeta;
-                    });
-        }
-
-        LOG.info("Skipped aborting on coordinator a transaction that lost its primary replica's volatile state "
-                        + "[txId={}, internalTx={}, enlistment={}, senderCurrentConsistencyToken={}, txMeta={}].",
-                tx.id(),
-                tx,
-                enlistment,
-                currentEnlistmentConsistencyToken,
-                txMeta
-        );
-
-        return completedFuture(txMeta);
     }
 
     @TestOnly

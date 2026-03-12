@@ -225,6 +225,7 @@ public class TxMessageSender {
      */
     public CompletableFuture<TxStateResponse> resolveTxStateFromCoordinator(
             InternalClusterNode coordinatorClusterNode,
+            ZonePartitionId commitGrpId,
             UUID txId,
             HybridTimestamp timestamp,
             @Nullable Long senderCurrentConsistencyToken,
@@ -237,6 +238,7 @@ public class TxMessageSender {
                                 .txId(txId)
                                 .senderCurrentConsistencyToken(senderCurrentConsistencyToken)
                                 .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, senderGroupId))
+                                .commitPartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                                 .build(),
                         RPC_TIMEOUT_MILLIS)
                 .thenApply(resp -> {
