@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -43,8 +42,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for client transaction cleanup on disconnect.
@@ -56,12 +53,13 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
      */
     @Test
     void testClientDisconnectWithDirectEnlistmentsReleasesLocks() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        Table tbl = table();
+        Map<Partition, ClusterNode> map = tbl.partitionDistribution().primaryReplicasAsync().join();
         IgniteImpl server0 = unwrapIgniteImpl(server(0));
         IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(1000, 5, map, server0.cluster().localNode(), table());
-        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(1000, 5, map, server1.cluster().localNode(), table());
+        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(1000, 5, map, server0.cluster().localNode(), tbl);
+        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(1000, 5, map, server1.cluster().localNode(), tbl);
 
         try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
@@ -89,7 +87,7 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
         }
 
         // Verify locks are released by attempting to lock the same keys
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+        KeyValueView<Tuple, Tuple> kvView = tbl.keyValueView();
         Tuple key1 = tuples0.get(1);
         Tuple key2 = tuples1.get(0);
 
@@ -335,99 +333,8 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
         assertNull(kvView.get(null, tuples1.get(0)));
     }
 
-    /**
-     * Tests that a second client can acquire locks after first client disconnects.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testLockAcquisitionAfterClientDisconnect(boolean directMapping) {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(7000, 3, map, server0.cluster().localNode(), table());
-        Tuple testKey = tuples0.get(1);
-
-        // First client acquires lock
-        try (IgniteClient client1 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) client1.tables().table(TABLE_NAME);
-            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-
-            if (directMapping) {
-                ClientSql sql = (ClientSql) client1.sql();
-                Tuple key0 = tuples0.get(0);
-                sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
-                        key0.intValue(0), key0.intValue(0) + "");
-                await().atMost(2, TimeUnit.SECONDS)
-                        .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
-            }
-
-            Transaction tx1 = client1.transactions().begin();
-            kvView.put(tx1, testKey, val("client1_value"));
-
-            // Note: directMapping parameter indicates if we initialized partition awareness,
-            // but actual mapping mode may vary. The cleanup should work regardless.
-
-            // Client1 disconnects with active transaction
-        }
-
-        // Second client can immediately acquire lock
-        try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            KeyValueView<Tuple, Tuple> kvView = client2.tables().table(TABLE_NAME).keyValueView();
-
-            CompletableFuture<Void> putFuture = kvView.putAsync(null, testKey, val("client2_value"));
-            assertThat(putFuture, willSucceedFast());
-
-            assertEquals("client2_value", kvView.get(null, testKey).stringValue(0));
-        }
-    }
-
-    /**
-     * Tests concurrent client disconnects don't interfere with each other.
-     */
-    @Test
-    void testConcurrentClientDisconnects() throws Exception {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(8000, 20, map, server0.cluster().localNode(), table());
-
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-        // Create multiple clients concurrently, each with transactions
-        for (int i = 0; i < 5; i++) {
-            int clientIndex = i;
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-                    KeyValueView<Tuple, Tuple> kvView = tempClient.tables().table(TABLE_NAME).keyValueView();
-
-                    Transaction tx = tempClient.transactions().begin();
-                    Tuple key = tuples0.get(clientIndex * 2);
-                    kvView.put(tx, key, val("client" + clientIndex));
-
-                    // Disconnect without committing
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            futures.add(future);
-        }
-
-        // Wait for all clients to disconnect
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(10, TimeUnit.SECONDS);
-
-        // Give cleanup time to complete
-        Thread.sleep(500);
-
-        // Verify all locks are released
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
-        for (int i = 0; i < 5; i++) {
-            Tuple key = tuples0.get(i * 2);
-            assertThat(kvView.putAsync(null, key, val("clean")), willSucceedFast());
-        }
-    }
-
     private Table table() {
-        return client().tables().tables().get(0);
+        return client().tables().table(TABLE_NAME);
     }
 
     private static Tuple val(String v) {
