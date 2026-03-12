@@ -62,6 +62,7 @@ import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
@@ -541,8 +542,9 @@ public class ClientTableCommon {
                             // Track this remote enlistment for cleanup if client disconnects.
                             resources.addTxCleaner(txId, tableId, commitPart, txManager, (IgniteTablesInternal) tables);
 
-                            // TODO: Use RemotelyTriggeredResourceRegistry to remove enlistments from client resource registry.
-                            // txManager.resourceRegistry()
+                            // Stop tracking on tx finish.
+                            txManager.resourceRegistry().register(
+                                    new FullyQualifiedResourceId(txId, txId), txId, () -> () -> resources.removeTxCleaner(txId));
 
                             return remote;
                         });

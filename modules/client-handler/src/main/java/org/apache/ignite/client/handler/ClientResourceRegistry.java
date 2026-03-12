@@ -131,6 +131,11 @@ public class ClientResourceRegistry {
                 .addEnlistment(tableId, partitionId);
     }
 
+
+    public void removeTxCleaner(UUID txId) {
+        txCleaners.remove(txId);
+    }
+
     /**
      * Closes the registry and releases all resources.
      */
