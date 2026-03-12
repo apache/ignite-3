@@ -27,6 +27,7 @@ import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,9 +40,16 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
 
     private final RaftTxFinishMarker txFinishMarker;
 
+    private final TxStatePartitionStorage txStatePartitionStorage;
+
     /** Constructor. */
-    public WriteIntentSwitchCommandHandler(IntFunction<RaftTableProcessor> tableProcessorByTableId, TxManager txManager) {
+    public WriteIntentSwitchCommandHandler(
+            IntFunction<RaftTableProcessor> tableProcessorByTableId,
+            TxManager txManager,
+            TxStatePartitionStorage txStatePartitionStorage
+    ) {
         this.tableProcessorByTableId = tableProcessorByTableId;
+        this.txStatePartitionStorage = txStatePartitionStorage;
 
         txFinishMarker = new RaftTxFinishMarker(txManager);
     }
@@ -76,6 +84,12 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
                     .processCommand(switchCommand, commandIndex, commandTerm, safeTimestamp);
 
             applied = applied || singleResult.wasApplied();
+        }
+
+        // We MUST bump information about last updated index+term at least in one storage.
+        // See a comment in ZonePartitionRaftListener#onWrite() for explanation.
+        if (!applied && commandIndex > txStatePartitionStorage.lastAppliedIndex()) {
+            txStatePartitionStorage.lastApplied(commandIndex, commandTerm);
         }
 
         return new CommandResult(null, applied);
