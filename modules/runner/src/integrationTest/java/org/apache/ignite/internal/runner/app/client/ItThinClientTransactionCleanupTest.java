@@ -38,6 +38,7 @@ import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.tx.Transaction;
@@ -48,6 +49,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests for client transaction cleanup on disconnect.
  */
+@SuppressWarnings({"resource", "DataFlowIssue"})
 public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest {
     /**
      * Tests that locks are released when client disconnects with a transaction having direct enlistments.
@@ -424,11 +426,11 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
         }
     }
 
-    private org.apache.ignite.table.Table table() {
+    private Table table() {
         return client().tables().tables().get(0);
     }
 
     private static Tuple val(String v) {
-        return Tuple.create().set(ItAbstractThinClientTest.COLUMN_VAL, v);
+        return Tuple.create().set(COLUMN_VAL, v);
     }
 }
