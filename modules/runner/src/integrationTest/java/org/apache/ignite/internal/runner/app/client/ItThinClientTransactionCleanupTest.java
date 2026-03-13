@@ -65,7 +65,7 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
             data.put(tuples0.get(0), val(tuples0.get(0).intValue(0) + ""));
             data.put(tuples1.get(0), val(tuples1.get(0).intValue(0) + ""));
 
-            ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
+            ClientLazyTransaction tx0 = (ClientLazyTransaction) client.transactions().begin();
 
             table.keyValueView().putAll(tx0, data);
 
