@@ -45,14 +45,19 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param commitPartitionId Commit partition id.
      * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      * @param txLabel Transaction label.
+     * @param lastException The last exception occurred in tx.
+     * @param lastExceptionErrorCode Error code of the last exception.
      */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable String txLabel
+            @Nullable String txLabel,
+            @Nullable Throwable lastException,
+            @Nullable Integer lastExceptionErrorCode
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, null, null, isFinishingDueToTimeout, txLabel);
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
+                null, null, isFinishingDueToTimeout, txLabel, lastException, lastExceptionErrorCode);
     }
 
     /**
@@ -135,7 +140,14 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+                return new TxStateMetaFinishing(
+                        txCoordinatorId,
+                        commitPartitionId,
+                        isFinishedDueToTimeout,
+                        txLabel,
+                        lastException,
+                        lastExceptionErrorCode
+                );
             } else {
                 return super.build();
             }

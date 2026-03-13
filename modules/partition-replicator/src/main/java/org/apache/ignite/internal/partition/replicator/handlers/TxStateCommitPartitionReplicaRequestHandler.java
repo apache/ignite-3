@@ -204,8 +204,6 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                         .handle((response, e) -> {
                             if (e == null) {
                                 if (response.txStateMeta() == null) {
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-27494 should be fixed correctly by
-                                    // TODO WI resolution primary replica path.
                                     // This may be possible if tx cleanup command was already committed in partition's replication group,
                                     // and tx state was vacuumized on coordinator. This transaction already had a final state,
                                     // but tx cleanup was not applied on replica yet due to replication lag. To prevent switching of

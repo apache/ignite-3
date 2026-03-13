@@ -470,7 +470,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     private List<RelOptLattice> latices() {
-        return List.of(); // TODO
+        return List.of(); // TODO: https://issues.apache.org/jira/browse/IGNITE-28152
     }
 
     /**
@@ -479,7 +479,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * @return Materializations.
      */
     private List<RelOptMaterialization> materializations() {
-        return List.of(); // TODO
+        return List.of(); // TODO: https://issues.apache.org/jira/browse/IGNITE-28152
     }
 
     /**

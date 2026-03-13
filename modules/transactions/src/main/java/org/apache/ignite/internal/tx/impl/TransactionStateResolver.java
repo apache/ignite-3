@@ -75,7 +75,7 @@ public class TransactionStateResolver {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
-    // TODO we will store coordinator as ClusterNode in local tx state map.
+    //  we will store coordinator as ClusterNode in local tx state map.
     /** Function that resolves a node consistent ID to a cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
 

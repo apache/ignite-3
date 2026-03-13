@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -92,7 +93,8 @@ public class TxRecoveryEngine {
                         // Tx recovery is executed on the commit partition.
                         commitPartitionId,
                         false,
-                        false,
+                        new TransactionInternalException(TX_ROLLBACK_ERR, format("Transaction has been aborted"
+                                + " due to transaction recovery {}.", formatTxInfo(txId, txManager))),
                         true,
                         false,
                         enlistedGroupsMap,
@@ -109,7 +111,7 @@ public class TxRecoveryEngine {
                             res = castToFinishing(txId, txStateMeta).txFinishFuture();
                         } else {
                             res = failedFuture(new TransactionInternalException(TX_ROLLBACK_ERR, format("Unexpected transaction "
-                                    + "state after recovery [txId={}, txMeta={}].", txId, txStateMeta)));
+                                    + "state after recovery [{}, txMeta={}].", formatTxInfo(txId, txManager, false), txStateMeta)));
                         }
                     } else {
                         if (ex == null) {

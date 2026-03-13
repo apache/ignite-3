@@ -173,6 +173,7 @@ public class ItDisasterRecoveryZonePartitionsStatesSystemViewTest extends BaseSq
      * @param zoneName A zone whose partitions will do a leader refresh.
      * @param partitionsCount Expected the table partitions count for iterating over them.
      */
+    @SuppressWarnings("removal")
     static void waitLeaderOnAllPartitions(String zoneName, int partitionsCount) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.node(0));
 

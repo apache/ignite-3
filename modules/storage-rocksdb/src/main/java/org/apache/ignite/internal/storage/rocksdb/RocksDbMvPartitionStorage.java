@@ -392,7 +392,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-        // TODO Complicated code.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28135 Complicated code.
         if (state != null) {
             state.pendingAppliedIndex = lastAppliedIndex;
             state.pendingAppliedTerm = lastAppliedTerm;
@@ -439,7 +439,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-        // TODO Complicated code.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28135 Complicated code.
         if (state != null) {
             state.pendingGroupConfig = config.clone();
         }

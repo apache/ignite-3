@@ -77,6 +77,10 @@ import org.rocksdb.WriteOptions;
 public class DefaultLogStorageManager implements LogStorageManager {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageManager.class);
 
+    static {
+        RocksDB.loadLibrary();
+    }
+
     static final byte[] FINISHED_META_MIGRATION_META_KEY = {0};
 
     static final byte[] STORAGE_CREATED_META_PREFIX = {1};

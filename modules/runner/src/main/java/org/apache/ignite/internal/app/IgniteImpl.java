@@ -935,7 +935,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageManagerCreator
         );
 
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime(), metaStorageMgr.watchExecutor());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
