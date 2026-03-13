@@ -19,7 +19,10 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest.generateKeysForNode;
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +31,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -68,9 +72,29 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
             }
 
             // Disconnect without commit
+            assertEquals(4, txLockCount());
         }
 
-        // TODO: Check cleanup
+        await().atMost(Duration.ofSeconds(3))
+                .untilAsserted(() -> assertEquals(0, txLockCount()));
+    }
+
+    private int txLockCount() {
+        int count = 0;
+
+        for (int i = 0; i < nodes(); i++) {
+            IgniteImpl ignite = unwrapIgniteImpl(server(i));
+            LockManager lockManager = ignite.txManager().lockManager();
+
+            var iter = lockManager.locks();
+
+            while (iter.hasNext()) {
+                iter.next();
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static Tuple val(String v) {
