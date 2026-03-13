@@ -29,9 +29,13 @@
 
 #include "message_listener.h"
 
+#include <list>
+
 namespace ignite::proxy {
 
 using asio::ip::tcp;
+
+static constexpr size_t BUFF_SIZE = 4096;
 
 struct configuration {
     asio::ip::port_type m_in_port;
@@ -47,41 +51,21 @@ struct configuration {
         , m_listener(std::move(m_listener)) { }
 };
 
-class session : public std::enable_shared_from_this<session> {
+enum class direction { forward, reverse };
+
+template<direction DIRECTION>
+class session_part: public std::enable_shared_from_this<session_part<DIRECTION>> {
 public:
-    session(
-        tcp::socket in_sock,
-        tcp::socket out_sock,
-        std::shared_ptr<message_listener> listener)
-        : m_in_sock(std::move(in_sock))
-        , m_out_sock(std::move(out_sock))
-        , m_listener(std::move(listener)) { }
+    session_part(std::shared_ptr<tcp::socket> m_src, std::shared_ptr<tcp::socket> m_dst, std::shared_ptr<message_listener> listener)
+        : m_src(std::move(m_src))
+        , m_dst(std::move(m_dst))
+        , m_listener(std::move(listener)) {}
 
-    void start() { do_serve(); }
+    void do_read() {
+        std::cout << "Reading from socket\n";
 
-    tcp::socket &get_out_sock() { return m_out_sock; }
-
-    void set_writable(bool writable) {
-        m_in_to_out_writable = writable;
-        m_out_to_in_writable = writable;
-    }
-
-    enum class direction { forward, reverse };
-
-private:
-    void do_serve() {
-        do_read(direction::forward);
-        do_read(direction::reverse);
-    }
-
-    void do_read(direction dir) {
-        tcp::socket &src = dir == direction::forward ? m_in_sock : m_out_sock;
-        auto& buf = dir == direction::forward ? m_in_buf : m_out_buf;
-
-        auto self(shared_from_this());
-
-        src.async_read_some(asio::buffer(buf, BUFF_SIZE),
-        [dir, self](const asio::error_code& ec, size_t len) {
+        m_src->async_read_some(asio::buffer(m_buf, BUFF_SIZE),
+        [self = std::move(this->shared_from_this())](const asio::error_code& ec, size_t len) {
             if (ec) {
                 if (ec == asio::error::eof) {
                     return;
@@ -89,82 +73,71 @@ private:
                 throw std::runtime_error("Error while reading from socket " + ec.message());
             }
 
-            std::queue<message> &queue = dir == direction::forward ? self->m_in_to_out : self->m_out_to_in;
-            bool &writable = dir == direction::forward ? self->m_in_to_out_writable : self->m_out_to_in_writable;
-            auto& buffer = dir == direction::forward ? self->m_in_buf : self->m_out_buf;
-
-            // we have one-threaded executor no synchronization is needed
-            auto& msg = queue.emplace();
-            msg.reserve(len);
-            std::copy_n(buffer.begin(), len, std::back_insert_iterator(msg));
+            message m{self->m_buf.begin(), self->m_buf.begin() + len};
 
             if (self->m_listener) {
-                if (dir == direction::forward) {
-                    self->m_listener->register_out_message(msg);
+                if constexpr (DIRECTION == direction::forward) {
+                    self->m_listener->register_out_message(m);
                 } else {
-                    self->m_listener->register_in_message(msg);
+                    self->m_listener->register_in_message(m);
                 }
             }
 
-            if (writable) { // there are pending write operation on this socket
-                self->do_write(dir);
-            }
-
-            self->do_read(dir);
+            self->do_write(std::move(m));
         });
     }
 
-    void do_write(direction direction) {
-        tcp::socket &dst = direction == direction::forward ? m_out_sock : m_in_sock;
-        std::queue<message> &queue = direction == direction::forward ? m_in_to_out : m_out_to_in;
-        bool &writable = direction == direction::forward ? m_in_to_out_writable : m_out_to_in_writable;
-
-        writable = false; // protects from writing same buffer twice (from head of queue).
-
-        auto self(shared_from_this());
-        if (!queue.empty()) {
-            message &msg = queue.front();
-
-            asio::async_write(
-                dst, asio::buffer(msg.data(), msg.size()),
-                [direction, self](asio::error_code ec, size_t) {
-                    if (ec) {
-                        if (ec == asio::error::eof) {
-                            return;
-                        }
-                        throw std::runtime_error("Error while writing to socket " + ec.message());
+    void do_write(message&& msg) {
+        asio::async_write(
+            *m_dst, asio::buffer(msg.data(), msg.size()),
+            [self = std::move(this->shared_from_this())](asio::error_code ec, size_t) {
+                if (ec) {
+                    if (ec == asio::error::eof) {
+                        return;
                     }
+                    throw std::runtime_error("Error while writing to socket " + ec.message());
+                }
 
-                    std::queue<message> &queue = direction == direction::forward ? self->m_in_to_out : self->m_out_to_in;
-                    bool &writable = direction == direction::forward ? self->m_in_to_out_writable : self->m_out_to_in_writable;
-
-                    queue.pop();
-
-                    if (!queue.empty()) {
-                        // makes writes on the same socket strictly ordered
-                        self->do_write(direction);
-                    } else {
-                        writable = true; // now read operation can initiate writes
-                    }
-                });
-        }
+                self->do_read();
+            });
     }
 
-    tcp::socket m_in_sock;
-    tcp::socket m_out_sock;
-
-    bool m_in_to_out_writable{false};
-    bool m_out_to_in_writable{false};
-
-    std::queue<message> m_in_to_out;
-    std::queue<message> m_out_to_in;
-
-    static constexpr size_t BUFF_SIZE = 4096;
-
-    std::array<char, BUFF_SIZE> m_in_buf{};
-    std::array<char, BUFF_SIZE> m_out_buf{};
-
+private:
+    std::shared_ptr<tcp::socket> m_src;
+    std::shared_ptr<tcp::socket> m_dst;
+    std::array<char, BUFF_SIZE> m_buf{};
     std::shared_ptr<message_listener> m_listener{nullptr};
+
+};
+
+class session : public std::enable_shared_from_this<session> {
+public:
+    session(
+        std::shared_ptr<tcp::socket> in_sock,
+        std::shared_ptr<tcp::socket> out_sock,
+        std::shared_ptr<message_listener> listener)
+        : m_in_sock(std::move(in_sock))
+        , m_out_sock(std::move(out_sock))
+    {
+        m_forward_part = std::make_shared<session_part<direction::forward>>(m_in_sock, m_out_sock, listener);
+        m_reverse_part = std::make_shared<session_part<direction::reverse>>(m_out_sock, m_in_sock, listener);
+    }
+
+    void start() { do_serve(); }
+
+    tcp::socket &get_out_sock() { return *m_out_sock; }
+
+private:
+    void do_serve() {
+        m_forward_part->do_read();
+        m_reverse_part->do_read();
+    }
+
+    std::shared_ptr<tcp::socket> m_in_sock;
+    std::shared_ptr<tcp::socket> m_out_sock;
+
+    std::shared_ptr<session_part<direction::forward>> m_forward_part;
+    std::shared_ptr<session_part<direction::reverse>> m_reverse_part;
 };
 
 class asio_proxy {
@@ -236,7 +209,9 @@ private:
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
 
-            auto ses = std::make_shared<session>(std::move(in_sock), tcp::socket{m_io_context}, entry.m_listener);
+            auto p_in_sock = std::make_shared<tcp::socket>(std::move(in_sock));
+            auto p_out_sock = std::make_shared<tcp::socket>(m_io_context);
+            auto ses = std::make_shared<session>(p_in_sock, p_out_sock, entry.m_listener);
 
             m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
                 [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
@@ -253,7 +228,6 @@ private:
                                 );
                             }
 
-                            ses->set_writable(true);
                             ses->start();
                         });
                 });
