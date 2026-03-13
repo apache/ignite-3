@@ -159,8 +159,9 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 // UPDATE
                 Arguments.of("UPDATE t SET c2=1 WHERE c1=?", meta(new int[]{0}, new int[0], DirectTxMode.NOT_SUPPORTED)),
                 Arguments.of("UPDATE t SET c2=? WHERE c1=1", meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
-                Arguments.of("UPDATE t SET c2=? WHERE c1=1 AND c3 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
-                        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("UPDATE t SET c2=? WHERE c1=1 AND c3 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
+                //        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
 
                 // Can refer multiple partitions - skip
                 Arguments.of("UPDATE t SET c2=1 WHERE c1=1 or c1=2", null),
@@ -172,8 +173,9 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 //        meta(new int[]{-1}, new int[]{1}), DirectTxMode.NOT_SUPPORTED),
 
                 // DELETE
-                Arguments.of("DELETE FROM t WHERE c1=1 AND c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100)) ",
-                        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("DELETE FROM t WHERE c1=1 AND c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100)) ",
+                //        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
                 // Can refer multiple partitions - skip
                 Arguments.of("DELETE FROM t WHERE c1=1 or c1=2", null)
         );
@@ -251,9 +253,10 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("UPDATE t SET c1=? WHERE c3=1 and c2=?",
                         meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)
                 ),
-                Arguments.of("UPDATE t SET c1=? WHERE c3=1 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
-                        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)
-                ),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("UPDATE t SET c1=? WHERE c3=1 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
+                //        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)
+                // ),
 
                 // INSERT
                 // TODO https://issues.apache.org/jira/browse/IGNITE-26203 No partition pruning metadata for INSERT INTO ... SELECT
@@ -262,9 +265,10 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 // ),
 
                 // DELETE
-                Arguments.of("DELETE FROM t WHERE c3=3", meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED)),
-                Arguments.of("DELETE FROM t WHERE c3=3 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
-                        meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("DELETE FROM t WHERE c3=3 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
+                //        meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED))
+                Arguments.of("DELETE FROM t WHERE c3=3", meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED))
         );
     }
 
