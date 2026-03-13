@@ -144,8 +144,16 @@ public class ClientResourceRegistry {
      * @param txId Transaction ID whose cleaner should be removed.
      */
     public void removeTxCleaner(UUID txId) throws IgniteInternalCheckedException {
-        // No busyLock - this can be called on disconnect. Removing from a closed registry is not a problem.
-        txCleaners.remove(txId);
+        if (!busyLock.enterBusy()) {
+            // Can be called on disconnect. Removing from a closed registry is not a problem.
+            return;
+        }
+
+        try {
+            txCleaners.remove(txId);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
