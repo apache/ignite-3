@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
@@ -43,38 +44,33 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
      */
     @Test
     void testClientDisconnectCleansUpWriteIntents() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        try (IgniteClient client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build()) {
+            var table = (ClientTable) client.tables().table(TABLE_NAME);
+            Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicas();
 
-        ClientTable table = (ClientTable) table();
+            IgniteImpl server0 = unwrapIgniteImpl(server(0));
+            IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = unwrapIgniteImpl(server(1));
+            List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.cluster().localNode(), table);
+            List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.cluster().localNode(), table);
 
-        List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.cluster().localNode(), table);
-        List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.cluster().localNode(), table);
+            Map<Tuple, Tuple> data = new HashMap<>();
 
-        Map<Tuple, Tuple> data = new HashMap<>();
+            data.put(tuples0.get(0), val(tuples0.get(0).intValue(0) + ""));
+            data.put(tuples1.get(0), val(tuples1.get(0).intValue(0) + ""));
 
-        data.put(tuples0.get(0), val(tuples0.get(0).intValue(0) + ""));
-        data.put(tuples1.get(0), val(tuples1.get(0).intValue(0) + ""));
+            ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
 
-        ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
+            table.keyValueView().putAll(tx0, data);
 
-        table.keyValueView().putAll(tx0, data);
+            for (Entry<Tuple, Tuple> entry : data.entrySet()) {
+                table.keyValueView().put(tx0, entry.getKey(), entry.getValue());
+            }
 
-        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
-            table.keyValueView().put(tx0, entry.getKey(), entry.getValue());
+            // Disconnect without commit
         }
 
-        tx0.commit();
-
-        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
-            table.keyValueView().put(null, entry.getKey(), entry.getValue());
-        }
-    }
-
-    private Table table() {
-        return client().tables().table(TABLE_NAME);
+        // TODO: Check cleanup
     }
 
     private static Tuple val(String v) {
