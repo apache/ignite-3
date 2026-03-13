@@ -121,39 +121,54 @@ with a result return.
 
 ## Running Compute and Streaming Examples
 
-Compute and streaming examples require deployment units to be deployed to the cluster. There are two ways to run these examples:
+Compute and streaming examples require deployment units to be deployed to the cluster. There are several ways to run these examples:
 
 ### Automated Mode (Recommended)
 
-**From IDE:**
+**From IDE (IDEA Gradle runner):**
 
-Simply run the example from your IDE. The deployment unit JAR is automatically built and deployed if not already present.
+Simply run the example from your IDE. The deployment unit JAR (`deploymentunit-example-1.0.0.jar`) is automatically built
+before execution via the `deploymentUnitJar` Gradle task and deployed to the cluster if not already present.
 
-**From Command Line:**
+> **Note:** The automatic pre-build of the deployment unit JAR relies on the IDEA Gradle runner, which dynamically creates
+> `JavaExec` tasks. If your IDE uses a different run configuration (e.g., Micronaut plugin, or runs `java` directly),
+> the deployment unit JAR may not be built automatically. In that case, build it manually first:
+> ```shell
+> ./gradlew :ignite-examples:deploymentUnitJar
+> ```
 
-Run the example with the following arguments:
+**From Command Line (Gradle):**
+
 ```shell
-java -cp "<classpath>" <ExampleMainClass> runFromIDE=false jarPath="/path/to/examples.jar"
+./gradlew :ignite-examples:run -PmainClass=<ExampleMainClass>
+```
+
+**From Command Line (java):**
+
+Build the deployment unit JAR first, then run:
+```shell
+./gradlew :ignite-examples:deploymentUnitJar
+java -cp "<classpath>" <ExampleMainClass> runFromIDE=false jarPath="/path/to/deploymentunit-example-1.0.0.jar"
 ```
 
 Where:
 - `runFromIDE=false` - indicates command-line execution
-- `jarPath` - path to the examples JAR used as the deployment unit
+- `jarPath` - path to the deployment unit JAR (default: `examples/java/build/libs/deploymentunit-example-1.0.0.jar`)
 
 ### Manual Mode
 
 If you prefer to deploy the unit manually:
 
-1. Build the examples JAR:
+1. Build the deployment unit JAR:
     ```shell
-    ./gradlew :ignite-examples:jar
+    ./gradlew :ignite-examples:deploymentUnitJar
     ```
 
 2. Deploy the JAR as a deployment unit using the CLI:
     ```shell
     cluster unit deploy <unitName> \
         --version 1.0.0 \
-        --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar
+        --path=examples/java/build/libs/deploymentunit-example-1.0.0.jar
     ```
 
    Common unit names used by examples:
@@ -161,4 +176,3 @@ If you prefer to deploy the unit manually:
    - `streamerReceiverExampleUnit` - used by streaming examples
 
 3. Run the example from the IDE.
-
