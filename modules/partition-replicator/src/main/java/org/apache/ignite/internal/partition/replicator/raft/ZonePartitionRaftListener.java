@@ -249,6 +249,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     if (commandHandler == null) {
                         LOG.info("Message type {} is not supported by the zone partition RAFT listener yet", command.getClass());
 
+                        updateTxStateStorageLastAppliedIfNotStale(commandIndex, commandTerm);
+
                         result = EMPTY_APPLIED_RESULT;
                     } else {
                         result = commandHandler.handle(command, commandIndex, commandTerm, safeTimestamp);
