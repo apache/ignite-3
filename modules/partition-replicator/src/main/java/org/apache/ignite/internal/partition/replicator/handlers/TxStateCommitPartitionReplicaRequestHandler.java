@@ -38,6 +38,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.tx.PrimaryReplicaChangeDuringWriteIntentResolutionException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -229,7 +230,6 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             }
         } else {
             // Recovery is not needed. Persistent meta always contains final state.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-27494 Add UNKNOWN state handling.
             assert isFinalState(txMetaPersistent.txState()) : "Unexpected transaction state: " + txMetaPersistent;
 
             return completedFuture(txMetaPersistent);
@@ -259,7 +259,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                             if (consistencyToken == senderCurrentConsistencyToken) {
                                 // This is request from actual primary
                                 // (probably the primary was moved to the sender node after it did the request or whatever).
-                                if (readTimestamp == null || readTimestamp == HybridTimestamp.MIN_VALUE) {
+                                if (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE)) {
                                     // The request doesn't have read timestamp - this means it's from RW txn.
                                     // Sender node is current primary, it has the most recent state of the row, and there is WI
                                     // so it was not cleaned up on group majority - this means the txn was never finished
@@ -274,19 +274,15 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                                                     localNode.name(),
                                                     senderGroupId,
                                                     senderId
-                                            )
-                                            .handle((v, ex) ->
-                                                    CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
-                                            .thenCompose(Function.identity());
+                                            );
                                 }
                             } else {
                                 // The primary replica that sent the request has already expired.
-                                if (readTimestamp == null || readTimestamp == HybridTimestamp.MIN_VALUE) {
+                                if (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE)) {
                                     // The request doesn't have read timestamp - this means it's from RW txn.
                                     // Respond with error, sender must abort its operation and respond with error to client
                                     // (primary changed, the current transaction will not be able to be committed).
-                                    // TODO
-                                    throw new RuntimeException();
+                                    throw new PrimaryReplicaChangeDuringWriteIntentResolutionException();
                                 }
                             }
                         }

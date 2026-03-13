@@ -191,6 +191,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
+import org.apache.ignite.internal.tx.PrimaryReplicaChangeDuringWriteIntentResolutionException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -2288,7 +2289,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         requireNonNull(readResult, "Read result must not be null.");
 
-        if (isWriteIntentBelongingToThisTx(readResult, txId)) {
+        if (isWriteIntentBelongingToThisTx(readResult, txId, readTimestamp)) {
             return builder(PENDING).build();
         } else if (isNewCommittedVersionBeforeReadTimestamp(readResult, newestCommitTimestamp, readTimestamp)) {
             return builder(COMMITTED).commitTimestamp(readResult.commitTimestamp()).build();
@@ -2306,8 +2307,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
     }
 
-    private static boolean isWriteIntentBelongingToThisTx(ReadResult rr, UUID txId) {
-        return rr.isWriteIntent() && rr.transactionId() != null && rr.transactionId().equals(txId);
+    private static boolean isWriteIntentBelongingToThisTx(ReadResult rr, UUID txId, @Nullable HybridTimestamp readTimestamp) {
+        return (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE))
+                && rr.isWriteIntent() && rr.transactionId() != null && rr.transactionId().equals(txId);
     }
 
     private static boolean isCommittedVersion(ReadResult rr) {
@@ -2371,7 +2373,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 }
             }
 
-            if (wi != null && isWriteIntentBelongingToThisTx(wi, txId)) {
+            if (wi != null && isWriteIntentBelongingToThisTx(wi, txId, readTimestamp)) {
                 return builder(PENDING).build();
             } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
                 // In this case we can't be sure about anything that happened before read timestamp.
@@ -3535,6 +3537,28 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     }
 
                     return new WriteIntentResolutionResult(writeIntentReadable, transactionMeta);
+                })
+                .handle((v, e) -> {
+                    if (e != null) {
+                        Throwable cause = unwrapCause(e);
+
+                        if (cause instanceof PrimaryReplicaChangeDuringWriteIntentResolutionException) {
+                            throw new PrimaryReplicaMissException(
+                                    localNode.name(),
+                                    null,
+                                    localNode.id(),
+                                    null,
+                                    currentConsistencyToken,
+                                    null,
+                                    replicationGroupId,
+                                    cause
+                            );
+                        } else {
+                            sneakyThrow(cause);
+                        }
+                    }
+
+                    return v;
                 });
     }
 
@@ -3982,6 +4006,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
+    }
+
+    @TestOnly
+    public PendingComparableValuesTracker<HybridTimestamp, Void> safeTime() {
+        return safeTime;
+    }
+
+    @TestOnly
+    public StorageUpdateHandler storageUpdateHandler() {
+        return storageUpdateHandler;
     }
 
     private static class WriteIntentResolutionResult {

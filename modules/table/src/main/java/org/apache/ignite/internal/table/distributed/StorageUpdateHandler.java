@@ -83,6 +83,9 @@ public class StorageUpdateHandler {
     /** Transaction manager to retrieve labels for logging. */
     private final TxManager txManager;
 
+    @TestOnly
+    private boolean writeIntentSwitchBlocked;
+
     /**
      * The constructor.
      *
@@ -427,6 +430,10 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable List<Integer> indexIds
     ) {
+        if (writeIntentSwitchBlocked) {
+            return;
+        }
+
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
         assert !(commit && commitTimestamp == null) : "Commit timestamp cant be null when tx is set to commit: " + txId;
 
@@ -673,5 +680,12 @@ public class StorageUpdateHandler {
     @TestOnly
     public void eraseVolatileState(UUID txId) {
         this.pendingRows.removePendingRowIds(txId);
+    }
+
+    @TestOnly
+    public void writeIntentSwitchBlocked(boolean blocked) {
+        LOG.info("Test: write intent switch is {}", blocked ? "blocked" : "unblocked");
+
+        this.writeIntentSwitchBlocked = blocked;
     }
 }

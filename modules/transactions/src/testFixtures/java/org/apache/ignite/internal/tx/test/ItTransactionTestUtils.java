@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,14 +38,18 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.tx.impl.IgniteAbstractTransactionImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
@@ -109,6 +114,7 @@ public class ItTransactionTestUtils {
      * @param tableName Table name.
      * @param tuple Data tuple.
      * @param tx Transaction, if present.
+     * @param keyOnly If should serialize only key columns of the tuple.
      * @return Binary row.
      */
     public static BinaryRowEx tupleToBinaryRow(IgniteImpl node, String tableName, Tuple tuple, @Nullable Transaction tx, boolean keyOnly) {
@@ -119,6 +125,25 @@ public class ItTransactionTestUtils {
         assertThat(rowFut, willCompleteSuccessfully());
 
         return rowFut.join();
+    }
+
+    /**
+     * Calculate the partition id on which the given tuple would be placed.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @param row Data row.
+     * @param tx Transaction, if present.
+     * @return Tuple.
+     */
+    public static Tuple binaryRowToTuple(IgniteImpl node, String tableName, BinaryRow row, @Nullable Transaction tx) {
+        TableImpl table = table(node, tableName);
+        RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
+
+        CompletableFuture<Tuple> tupleFut = view.binaryRowToTuple(tx, row);
+        assertThat(tupleFut, willCompleteSuccessfully());
+
+        return tupleFut.join();
     }
 
     /**
@@ -242,6 +267,23 @@ public class ItTransactionTestUtils {
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
         return primaryReplicaFut.join();
+    }
+
+    /**
+     * Returns partition replica listener instance from the given node for the given partition and table.
+     *
+     * @param node Ignite node.
+     * @param groupId Group id.
+     * @param tableId Table id.
+     * @return Partition replica listener.
+     */
+    public static PartitionReplicaListener partitionReplicaListener(IgniteImpl node, ZonePartitionId groupId, int tableId) {
+        CompletableFuture<Replica> replicaFut = node.replicaManager().replica(groupId);
+        assertThat(replicaFut, willSucceedFast());
+        Replica replica = replicaFut.join();
+
+        ZonePartitionReplicaListener listener = (ZonePartitionReplicaListener) replica.listener();
+        return (PartitionReplicaListener) listener.tableReplicaProcessors().get(tableId);
     }
 
     /**
