@@ -133,4 +133,14 @@ public interface StateMachine {
      * @param ctx context of leader change
      */
     void onStartFollowing(final LeaderChangeContext ctx);
+
+    /**
+     * Returns the last applied index persisted by the state machine.
+     * Called during {@code NodeImpl.init()} to prevent truncation of already-applied log entries.
+     *
+     * @return persisted applied index, or 0 if unknown.
+     */
+    default long getPersistedAppliedIndex() {
+        return 0;
+    }
 }

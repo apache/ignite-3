@@ -1066,6 +1066,19 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
+        // Restore appliedId so that unsafeTruncateSuffix() can reject truncation of applied entries.
+        long persistedApplied = this.options.getFsm().getPersistedAppliedIndex();
+        if (persistedApplied > 0) {
+            long term = this.logManager.getTerm(persistedApplied);
+            if (term > 0) {
+                // Term is 0 when the index is outside the log (covered by a snapshot) — skip in that case.
+                this.logManager.setAppliedId(new LogId(persistedApplied, term));
+            } else {
+                LOG.warn("Node {} persisted applied index {} is not in the raft log, expecting snapshot to cover it.",
+                        getNodeId(), persistedApplied);
+            }
+        }
+
         final Status st = this.logManager.checkConsistency();
         if (!st.isOk()) {
             LOG.error("Node {} is initialized with inconsistent log, status={}.", getNodeId(), st);
