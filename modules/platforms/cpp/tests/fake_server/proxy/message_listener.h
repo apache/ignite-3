@@ -24,15 +24,15 @@ using message = std::vector<char>;
 
 class message_listener {
 public:
-    void register_out_message(message msg) {
-        m_out_queue.push(std::move(msg));
+    void register_message(message msg) {
+        m_queue.push(std::move(msg));
     }
 
-    void register_in_message(message msg) {
-        m_in_queue.push(std::move(msg));
+    const std::queue<message>& get_msg_queue() const {
+        return m_queue;
     }
+
 private:
-    std::queue<message> m_out_queue{};
-    std::queue<message> m_in_queue{};
+    std::queue<message> m_queue{};
 };
 } // namespace ignite::proxy

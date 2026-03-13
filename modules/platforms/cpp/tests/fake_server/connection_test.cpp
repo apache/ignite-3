@@ -83,10 +83,13 @@ TEST_F(connection_test, using_asio) {
     fake_server fs{50900, get_logger()};
     fs.start();
 
-    auto listener = std::make_shared<proxy::message_listener>();
+    auto in_listener = std::make_shared<proxy::message_listener>();
+    auto out_listener = std::make_shared<proxy::message_listener>();
 
     proxy::asio_proxy proxy{
-        {proxy::configuration(50800, "127.0.0.1:50900", listener)}
+        {
+            proxy::configuration(50800, "127.0.0.1:50900", in_listener, out_listener)
+        }
     };
 
 
@@ -99,4 +102,7 @@ TEST_F(connection_test, using_asio) {
     auto cluster_nodes = cl.get_cluster_nodes();
 
     ASSERT_EQ(1, cluster_nodes.size());
+
+    ASSERT_GT(in_listener->get_msg_queue().size(), 1);
+    ASSERT_GT(out_listener->get_msg_queue().size(), 1);
 }
