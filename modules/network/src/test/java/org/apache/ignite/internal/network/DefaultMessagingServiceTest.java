@@ -571,6 +571,27 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentIdToMissingNode(SendByConsistentCoordinateOperation operation) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        String missingNodeName = "missing-node";
+
+        var missingNode = new ClusterNodeImpl(randomUUID(), missingNodeName, new NetworkAddress("127.1.1.1", 2026), null);
+
+        when(topologyService.getByConsistentId(missingNodeName)).thenReturn(null);
+
+        try (Services senderServices = createMessagingService(senderNode, senderNetworkConfig)) {
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
+                    willThrow(UnresolvableConsistentIdException.class)
+            );
+
+            verify(topologyService, atLeastOnce()).getByConsistentId(missingNodeName);
+        }
+    }
+
     private ClusterNodeImpl copyWithDifferentId() {
         return new ClusterNodeImpl(
                 randomUUID(),
