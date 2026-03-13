@@ -191,6 +191,7 @@ public class ClientResourceRegistry {
                 if (ex == null) {
                     ex = new IgniteInternalException(e);
                 } else {
+                    // TODO: There is a problem here which causes broken logging and a failure in ItSqlKillCommandTest
                     ex.addSuppressed(e);
                 }
             }
