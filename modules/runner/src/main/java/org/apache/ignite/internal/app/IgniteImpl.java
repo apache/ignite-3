@@ -330,6 +330,8 @@ public class IgniteImpl implements Ignite {
 
     private final Path workDir;
 
+    private Executor asyncContinuationExecutor;
+
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
 
@@ -552,6 +554,7 @@ public class IgniteImpl implements Ignite {
     ) {
         this.name = node.name();
         this.workDir = workDir;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -1258,6 +1261,7 @@ public class IgniteImpl implements Ignite {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
                 this,
+                this::createJobScopedIgnite,
                 stateMachine,
                 computeCfg,
                 clusterSvc.topologyService(),
@@ -1289,8 +1293,7 @@ public class IgniteImpl implements Ignite {
                 ),
                 computeExecutor,
                 computeCfg,
-                eventLog,
-                observableTimestampTracker
+                eventLog
         );
 
         systemViewManager.register(computeComponent);
@@ -1356,6 +1359,10 @@ public class IgniteImpl implements Ignite {
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
         publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService(), clusterIdService));
+    }
+
+    private JobScopedIgnite createJobScopedIgnite(HybridTimestampTracker tracker) {
+        return new JobScopedIgnite(this, tracker, txManager, sql, asyncContinuationExecutor);
     }
 
     private GroupStoragesContextResolver createGroupStoragesContextResolver() {
