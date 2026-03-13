@@ -18,6 +18,7 @@
 package org.apache.ignite.migrationtools.config;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -27,7 +28,7 @@ import org.apache.ignite3.configuration.ConfigurationModule;
 import org.apache.ignite3.configuration.RootKey;
 import org.apache.ignite3.configuration.annotation.ConfigurationType;
 import org.apache.ignite3.configuration.validation.Validator;
-import org.apache.ignite3.internal.configuration.ConfigurationModules;
+import org.apache.ignite3.internal.configuration.CompoundModule;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite3.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -53,8 +54,10 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static CombinedConfigRegistry loadCombinedRegistry(Path nodeCfgPath, Path clusterCfgPath, boolean includeDefaults) {
-        var locReg = loadNodeConfiguration(nodeCfgPath, includeDefaults);
-        var distReg = loadClusterConfiguration(clusterCfgPath, includeDefaults);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(null);
+
+        var locReg = loadConfigurations(nodeCfgPath, CompoundModule.local(allModules), includeDefaults);
+        var distReg = loadClusterConfiguration(clusterCfgPath, allModules, includeDefaults);
         return new CombinedConfigRegistry(locReg, distReg);
     }
 
@@ -65,7 +68,7 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static ConfigurationRegistry loadNodeConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadConfigurations(cfgPath, ConfigurationModules.create(null).local(), includeDefaults);
+        return loadConfigurations(cfgPath, CompoundModule.local(CompoundModule.loadAllConfigurationModules(null)), includeDefaults);
     }
 
     /**
@@ -75,10 +78,18 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
+        return loadClusterConfiguration(cfgPath, CompoundModule.loadAllConfigurationModules(null), includeDefaults);
+    }
+
+    private static ConfigurationRegistry loadClusterConfiguration(
+            Path cfgPath,
+            List<ConfigurationModule> allModules,
+            boolean includeDefaults
+    ) {
         // Hack so that it passes the validation
         // TODO: https://issues.apache.org/jira/browse/IGNITE-28137 This is another hack that needs to be cleaned.
         //  We don't really need the ConfigurationRegistry.
-        var distributedModule = ConfigurationModules.create(null).distributed();
+        var distributedModule = CompoundModule.distributed(allModules);
         for (RootKey<?, ?, ?> key : distributedModule.rootKeys()) {
             try {
                 FieldUtils.writeDeclaredField(key, "storageType", ConfigurationType.LOCAL, true);
