@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -41,7 +42,7 @@ public class ClientTxPartitionEnlistmentCleaner {
 
     private final IgniteTablesInternal igniteTables;
 
-    private final Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedPartitions = new HashMap<>();
+    private final Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedPartitions = new ConcurrentHashMap<>();
 
     /**
      * Creates a new instance of the transaction partition enlistment cleaner.
