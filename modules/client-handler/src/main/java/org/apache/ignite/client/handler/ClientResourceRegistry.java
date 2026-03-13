@@ -30,6 +30,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -142,12 +143,13 @@ public class ClientResourceRegistry {
      * Removes the transaction cleaner associated with the given transaction ID.
      *
      * @param txId Transaction ID whose cleaner should be removed.
+     * @return Removed cleaner or null if not present.
      */
-    public void removeTxCleaner(UUID txId) throws IgniteInternalCheckedException {
+    public @Nullable ClientTxPartitionEnlistmentCleaner removeTxCleaner(UUID txId) throws IgniteInternalCheckedException {
         enter();
 
         try {
-            txCleaners.remove(txId);
+            return txCleaners.remove(txId);
         } finally {
             leave();
         }
