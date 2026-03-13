@@ -219,8 +219,7 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                 cluster.startNode(1);
 
                 //noinspection ThrowableNotThrown
-                assertThrowsSqlException("Transaction context has been lost due to connection errors",
-                        () -> stmt.execute(dummyQuery));
+                assertThrowsSqlException("Transaction is already finished", () -> stmt.execute(dummyQuery));
             }
         }
     }
