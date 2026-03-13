@@ -37,6 +37,9 @@ class SqlCompleterTest {
                         List.of(""),
                         0,
                         0,
+                        0,
+                        "",
+                        0,
                         0
                 ),
                 candidates
@@ -54,7 +57,10 @@ class SqlCompleterTest {
                         List.of("select", ""),
                         1,
                         0,
-                        6
+                        6,
+                        "",
+                        0,
+                        0
                 ),
                 candidates
         );
