@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -184,7 +185,8 @@ public class ClientResourceRegistry {
 
         for (var cleaner : txCleaners.values()) {
             try {
-                cleaner.clean().join();
+                // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
+                CompletableFuture<Void> ignored = cleaner.clean();
             } catch (Throwable e) {
                 if (ex == null) {
                     ex = new IgniteInternalException(e);
