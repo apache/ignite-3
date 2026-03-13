@@ -115,6 +115,14 @@ The metrics for Ignite Java Virtual Machine resource use.
 | VacuumizedPersistentTransactionMetaCount | The count of persistent transaction metas that have been vacuumized. |
 | VacuumizedVolatileTxnMetaCount | The count of volatile transaction metas that have been vacuumized. |
 
+## storage.aipersist.consistency
+
+| Metric name             | Description                                            |
+|-------------------------|--------------------------------------------------------|
+| RunConsistentlyDuration | Time spent in runConsistently closures in nanoseconds. |
+| RunConsistentlyStarted  | Total number of runConsistently invocations started.   |
+| RunConsistentlyActiveCount | Current number of active runConsistently calls. |
+
 ## storage.aipersist.`{profile}`
 
 :::note
