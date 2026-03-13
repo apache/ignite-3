@@ -21,22 +21,26 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 
 /**
- * Partition update handler container.
+ * Partition resource container: handlers and modification counter created during partition setup.
  */
-class PartitionUpdateHandlers {
+class PartitionResources {
     final StorageUpdateHandler storageUpdateHandler;
 
     final IndexUpdateHandler indexUpdateHandler;
 
     final GcUpdateHandler gcUpdateHandler;
 
-    PartitionUpdateHandlers(
+    final PartitionModificationCounter modificationCounter;
+
+    PartitionResources(
             StorageUpdateHandler storageUpdateHandler,
             IndexUpdateHandler indexUpdateHandler,
-            GcUpdateHandler gcUpdateHandler
+            GcUpdateHandler gcUpdateHandler,
+            PartitionModificationCounter modificationCounter
     ) {
         this.storageUpdateHandler = storageUpdateHandler;
         this.indexUpdateHandler = indexUpdateHandler;
         this.gcUpdateHandler = gcUpdateHandler;
+        this.modificationCounter = modificationCounter;
     }
 }
