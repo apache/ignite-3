@@ -32,13 +32,17 @@ import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.Assume.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -75,6 +79,7 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -174,15 +179,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             assertTrue(messagesDeliveredLatch.await(1, SECONDS));
 
             assertThat(payloads, contains("one", "two"));
-        }
-    }
-
-    @Test
-    void respondingWhenSenderIsNotInTopologyResultsInFailingFuture() throws Exception {
-        try (Services services = createMessagingService(senderNode, senderNetworkConfig)) {
-            CompletableFuture<Void> resultFuture = services.messagingService.respond("no-such-node", mock(NetworkMessage.class), 123);
-
-            assertThat(resultFuture, willThrow(UnresolvableConsistentIdException.class));
         }
     }
 
@@ -520,6 +516,65 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendByClusterNodeToStaleNode(SendByClusterNodeOperation operation) throws Exception {
+        UUID missingNodeId = randomUUID();
+
+        var missingNode = new ClusterNodeImpl(missingNodeId, "missing-node", new NetworkAddress("127.1.1.1", 2026), null);
+
+        var staleIdDetector = new InMemoryStaleIds();
+        staleIdDetector.markAsStale(missingNodeId);
+
+        try (
+                Services senderServices = createMessagingService(
+                        senderNode,
+                        senderNetworkConfig,
+                        () -> {},
+                        messageSerializationRegistry,
+                        staleIdDetector
+                )
+        ) {
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
+                    willThrow(RecipientLeftException.class)
+            );
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentIdToStaleNode(SendByConsistentCoordinateOperation operation) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        UUID missingNodeId = randomUUID();
+        String missingNodeName = "missing-node";
+
+        var missingNode = new ClusterNodeImpl(missingNodeId, missingNodeName, new NetworkAddress("127.1.1.1", 2026), null);
+
+        var staleIdDetector = new InMemoryStaleIds();
+        staleIdDetector.markAsStale(missingNodeId);
+
+        when(topologyService.getByConsistentId(missingNodeName)).thenReturn(null);
+
+        try (
+                Services senderServices = createMessagingService(
+                        senderNode,
+                        senderNetworkConfig,
+                        () -> {},
+                        messageSerializationRegistry,
+                        staleIdDetector
+                )
+        ) {
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
+                    willThrow(UnresolvableConsistentIdException.class)
+            );
+
+            verify(topologyService, atLeastOnce()).getByConsistentId(missingNodeName);
+        }
+    }
+
     private ClusterNodeImpl copyWithDifferentId() {
         return new ClusterNodeImpl(
                 randomUUID(),
@@ -587,16 +642,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     }
 
     private Services createMessagingService(InternalClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
-        return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry);
+        return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry, new AllIdsAreFresh());
     }
 
     private Services createMessagingService(
             InternalClusterNode node,
             NetworkConfiguration networkConfig,
             Runnable beforeHandshake,
-            MessageSerializationRegistry registry
+            MessageSerializationRegistry registry,
+            StaleIdDetector staleIdDetector
     ) {
-        StaleIdDetector staleIdDetector = new AllIdsAreFresh();
         ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(clusterId);
 
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
