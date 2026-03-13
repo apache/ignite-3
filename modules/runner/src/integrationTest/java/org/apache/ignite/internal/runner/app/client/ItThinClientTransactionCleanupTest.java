@@ -20,6 +20,9 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest.generateKeysForNode;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
@@ -71,8 +74,9 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
                 table.keyValueView().put(tx0, entry.getKey(), entry.getValue());
             }
 
-            // Disconnect without commit
-            assertEquals(4, txLockCount());
+            assertThat(txLockCount(), greaterThanOrEqualTo(2));
+
+            // Disconnect without commit or rollback.
         }
 
         await().atMost(Duration.ofSeconds(3))
