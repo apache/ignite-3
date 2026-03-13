@@ -36,7 +36,6 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
-import org.apache.ignite.client.handler.requests.tx.ClientTxPartitionEnlistmentCleaner;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -556,14 +555,7 @@ public class ClientTableCommon {
 
                             // Stop tracking on tx finish.
                             txManager.resourceRegistry().register(
-                                    new FullyQualifiedResourceId(txId, txId), txId, () -> () -> {
-                                        ClientTxPartitionEnlistmentCleaner cleaner = resources.removeTxCleaner(txId);
-
-                                        if (cleaner != null) {
-                                            // Ignore future result.
-                                            CompletableFuture<Void> ignored = cleaner.clean();
-                                        }
-                                    });
+                                    new FullyQualifiedResourceId(txId, txId), txId, () -> () -> resources.removeTxCleaner(txId));
 
                             return remote;
                         });
