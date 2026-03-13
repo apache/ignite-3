@@ -18,11 +18,16 @@
 package org.apache.ignite.client.handler;
 
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.client.handler.requests.tx.ClientTxPartitionEnlistmentCleaner;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
@@ -48,6 +53,8 @@ public class ClientResourceRegistry {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final ConcurrentHashMap<UUID, ClientTxPartitionEnlistmentCleaner> txCleaners = new ConcurrentHashMap<>();
 
     /**
      * Stores the resource and returns the generated id.
@@ -113,6 +120,44 @@ public class ClientResourceRegistry {
     }
 
     /**
+     * Records that a remote transaction enlisted a partition on this node.
+     *
+     * @param txId Transaction ID.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     */
+    public void addTxCleaner(UUID txId, int tableId, int partitionId, TxManager txManager, IgniteTablesInternal tables)
+            throws IgniteInternalCheckedException {
+        enter();
+
+        try {
+            txCleaners
+                    .computeIfAbsent(txId, k -> new ClientTxPartitionEnlistmentCleaner(txId, txManager, tables))
+                    .addEnlistment(tableId, partitionId);
+        } finally {
+            leave();
+        }
+    }
+
+    /**
+     * Removes the transaction cleaner associated with the given transaction ID.
+     *
+     * @param txId Transaction ID whose cleaner should be removed.
+     */
+    public void removeTxCleaner(UUID txId) throws IgniteInternalCheckedException {
+        if (!busyLock.enterBusy()) {
+            // Can be called on disconnect. Removing from a closed registry is not a problem.
+            return;
+        }
+
+        try {
+            txCleaners.remove(txId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Closes the registry and releases all resources.
      */
     public void close() {
@@ -127,7 +172,7 @@ public class ClientResourceRegistry {
         for (ClientResource r : res.values()) {
             try {
                 r.release();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (ex == null) {
                     ex = new IgniteInternalException(e);
                 } else {
@@ -137,6 +182,20 @@ public class ClientResourceRegistry {
         }
 
         res.clear();
+
+        for (var cleaner : txCleaners.values()) {
+            try {
+                // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
+                CompletableFuture<Void> ignored = cleaner.clean();
+            } catch (Throwable e) {
+                if (ex == null) {
+                    ex = new IgniteInternalException(e);
+                } else {
+                    // TODO: There is a problem here which causes broken logging and a failure in ItSqlKillCommandTest
+                    ex.addSuppressed(e);
+                }
+            }
+        }
 
         if (ex != null) {
             throw ex;
