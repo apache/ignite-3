@@ -389,7 +389,7 @@ cluster init --name=<clusterName> [--metastorage-group=<nodeNames>] [--cluster-m
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `--name` | Option | Yes | Human-readable name of the cluster. |
+| `--name` | Option | Yes | Human-readable name of the cluster. Can be changed after initialization. |
 | `--metastorage-group` | Option | No | Metastorage group nodes (comma-separated list). |
 | `--cluster-management-group` | Option | No | Names of nodes that will host the Cluster Management Group (comma-separated list). |
 | `--config` | Option | No | Cluster configuration that will be applied during initialization. |
