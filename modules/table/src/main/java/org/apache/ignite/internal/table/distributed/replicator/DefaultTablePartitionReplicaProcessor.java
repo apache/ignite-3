@@ -3442,7 +3442,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X) // S lock on RowId
+        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.S) // S lock on RowId
                 .thenApply(ignored -> rowId);
     }
 
