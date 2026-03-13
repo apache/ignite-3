@@ -682,6 +682,12 @@ public class StorageUpdateHandler {
         this.pendingRows.removePendingRowIds(txId);
     }
 
+    /**
+     * Blocks or unblocks the switching of write intents to regular values in tests.
+     * When blocked, the method {@link #switchWriteIntents} will do nothing. For test purposes only.
+     *
+     * @param blocked if {@code true} then switching of write intents will be blocked, if {@code false} then it will be unblocked.
+     */
     @TestOnly
     public void writeIntentSwitchBlocked(boolean blocked) {
         LOG.info("Test: write intent switch is {}", blocked ? "blocked" : "unblocked");

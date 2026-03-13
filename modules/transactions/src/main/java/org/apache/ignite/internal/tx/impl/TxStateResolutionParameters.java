@@ -188,6 +188,9 @@ public class TxStateResolutionParameters {
         return new TxStateResolutionTxStateResolutionParametersBuilder();
     }
 
+    /**
+     * Builder for {@link TxStateResolutionParameters}.
+     */
     public static class TxStateResolutionTxStateResolutionParametersBuilder {
         private UUID txId;
         private int tableId;
@@ -200,24 +203,48 @@ public class TxStateResolutionParameters {
         private Long awaitCommitPartitionAvailabilityTimeout = (long) AWAIT_PRIMARY_REPLICA_TIMEOUT;
         private TimeUnit awaitCommitPartitionAvailabilityTimeUnit = TimeUnit.SECONDS;
 
+        /**
+         * Transaction ID.
+         *
+         * @param txId Transaction ID.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder txId(UUID txId) {
             this.txId = txId;
 
             return this;
         }
 
+        /**
+         * Table ID.
+         *
+         * @param tableId Table ID.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder tableId(int tableId) {
             this.tableId = tableId;
 
             return this;
         }
 
+        /**
+         * Commit group ID.
+         *
+         * @param commitGroupId Commit group ID.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder commitGroupId(ZonePartitionId commitGroupId) {
             this.commitGroupId = commitGroupId;
 
             return this;
         }
 
+        /**
+         * Read timestamp.
+         *
+         * @param readTimestamp Read timestamp.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder readTimestamp(HybridTimestamp readTimestamp) {
             if (readTimestamp != null) {
                 this.readTimestamp = readTimestamp;
@@ -226,12 +253,24 @@ public class TxStateResolutionParameters {
             return this;
         }
 
+        /**
+         * Sender's group ID.
+         *
+         * @param senderGroupId Sender's group ID.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder senderGroupId(ZonePartitionId senderGroupId) {
             this.senderGroupId = senderGroupId;
 
             return this;
         }
 
+        /**
+         * Sender's current consistency token.
+         *
+         * @param senderCurrentConsistencyToken Sender's current consistency token.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder senderCurrentConsistencyToken(
                 @Nullable Long senderCurrentConsistencyToken
         ) {
@@ -240,6 +279,13 @@ public class TxStateResolutionParameters {
             return this;
         }
 
+        /**
+         * Row ID and newest commit timestamp known to the sender.
+         *
+         * @param rowId Row ID.
+         * @param newestCommitTimestamp Newest commit timestamp known to the sender.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder rowIdAndNewestCommitTimestamp(
                 RowId rowId,
                 @Nullable HybridTimestamp newestCommitTimestamp
@@ -250,6 +296,13 @@ public class TxStateResolutionParameters {
             return this;
         }
 
+        /**
+         * Await commit partition availability timeout and time unit.
+         *
+         * @param awaitCommitPartitionAvailabilityTimeout Await commit partition availability timeout.
+         * @param awaitCommitPartitionAvailabilityTimeUnit Await commit partition availability time unit.
+         * @return This builder.
+         */
         public TxStateResolutionTxStateResolutionParametersBuilder awaitCommitPartitionAvailabilityTimeout(
                 long awaitCommitPartitionAvailabilityTimeout,
                 TimeUnit awaitCommitPartitionAvailabilityTimeUnit
@@ -260,6 +313,11 @@ public class TxStateResolutionParameters {
             return this;
         }
 
+        /**
+         * Builds the parameters.
+         *
+         * @return Parameters.
+         */
         public TxStateResolutionParameters build() {
             requireNonNull(txId, "txId cannot be null");
             requireNonNull(commitGroupId, "commitGroupId cannot be null");

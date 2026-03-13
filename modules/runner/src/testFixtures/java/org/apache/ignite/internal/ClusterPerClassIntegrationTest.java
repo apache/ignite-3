@@ -721,11 +721,11 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.node(index);
     }
 
-    protected Stream<Ignite> runningNodes() {
+    protected static Stream<Ignite> runningNodesStream() {
         return CLUSTER.runningNodes();
     }
 
-    protected List<IgniteImpl> runningNodesList() {
+    protected static List<IgniteImpl> runningNodesList() {
         return CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList());
     }
 

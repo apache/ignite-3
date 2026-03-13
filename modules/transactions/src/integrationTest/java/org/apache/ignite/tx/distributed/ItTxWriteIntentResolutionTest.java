@@ -198,7 +198,7 @@ public class ItTxWriteIntentResolutionTest extends ClusterPerClassIntegrationTes
             boolean addVersionAfterReadTs,
             boolean changePrimaryOnWiResolution,
             IgniteBiTuple<Class<Exception>, String> expected
-    ) throws InterruptedException {
+    ) {
         int zoneCpId = zoneId(anyNode(), TABLE_NAME_CP);
         ZonePartitionId commitPartitionId = new ZonePartitionId(zoneCpId, 0);
 
@@ -411,7 +411,7 @@ public class ItTxWriteIntentResolutionTest extends ClusterPerClassIntegrationTes
         if (node != null) {
             partitionReplicaListener(node, groupId, tableId).storageUpdateHandler().writeIntentSwitchBlocked(blocked);
         } else {
-            runningNodes().forEach(n -> {
+            runningNodesStream().forEach(n -> {
                 partitionReplicaListener(unwrapIgniteImpl(n), groupId, tableId).storageUpdateHandler().writeIntentSwitchBlocked(blocked);
             });
         }
@@ -444,7 +444,7 @@ public class ItTxWriteIntentResolutionTest extends ClusterPerClassIntegrationTes
     }
 
     private void waitForReplication(ZonePartitionId groupId, int tableId) {
-        waitForReplication(groupId, tableId, runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()));
+        waitForReplication(groupId, tableId, runningNodesStream().map(TestWrappers::unwrapIgniteImpl).collect(toList()));
     }
 
     private void waitForReplication(ZonePartitionId groupId, int tableId, Collection<IgniteImpl> nodes) {
@@ -476,8 +476,8 @@ public class ItTxWriteIntentResolutionTest extends ClusterPerClassIntegrationTes
     private void waitForTxStateVacuum(Collection<IgniteImpl> nodes, UUID txId, int partId, boolean checkPersistent, long timeMs) {
         try {
             await()
-                .atMost(timeMs, TimeUnit.MILLISECONDS)
-                .until(() -> txStateIsAbsent(nodes, txId, TABLE_NAME, partId, checkPersistent, false));
+                    .atMost(timeMs, TimeUnit.MILLISECONDS)
+                    .until(() -> txStateIsAbsent(nodes, txId, TABLE_NAME, partId, checkPersistent, false));
         } catch (AssertionError e) {
             logCurrentTxState(nodes, txId, TABLE_NAME, partId);
             throw e;

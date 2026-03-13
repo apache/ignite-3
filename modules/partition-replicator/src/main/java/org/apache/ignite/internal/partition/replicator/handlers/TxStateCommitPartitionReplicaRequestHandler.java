@@ -251,54 +251,54 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                         SECONDS
                 )
                 .thenCompose(replicaMeta -> {
-                        long consistencyToken = replicaMeta.getStartTime().longValue();
+                    long consistencyToken = replicaMeta.getStartTime().longValue();
 
-                        if (senderCurrentConsistencyToken != null) {
-                            if (consistencyToken == senderCurrentConsistencyToken) {
-                                // This is request from actual primary
-                                // (probably the primary was moved to the sender node after it did the request or whatever).
-                                if (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE)) {
-                                    // The request doesn't have read timestamp - this means it's from RW txn.
-                                    // Sender node is current primary, it has the most recent state of the row, and there is WI
-                                    // so it was not cleaned up on group majority - this means the txn was never finished
-                                    // and can be aborted.
-                                    // The fact that it was not cleaned up on group majority follows from the absence of persistent
-                                    // state on the commit partition primary, which is possible only if
-                                    // - tx was never finished
-                                    // - or tx was previously aborted due to recovery (so one more abort won't break the data).
-                                    return txRecoveryEngine.triggerTxRecovery(
-                                                    txId,
-                                                    commitGroupId,
-                                                    localNode.name(),
-                                                    senderGroupId,
-                                                    senderId
-                                            );
-                                }
-                            } else {
-                                // The primary replica that sent the request has already expired.
-                                if (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE)) {
-                                    // The request doesn't have read timestamp - this means it's from RW txn.
-                                    // Respond with error, sender must abort its operation and respond with error to client
-                                    // (primary changed, the current transaction will not be able to be committed).
-                                    throw new PrimaryReplicaChangeDuringWriteIntentResolutionException();
-                                }
+                    if (senderCurrentConsistencyToken != null) {
+                        if (consistencyToken == senderCurrentConsistencyToken) {
+                            // This is request from actual primary
+                            // (probably the primary was moved to the sender node after it did the request or whatever).
+                            if (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE)) {
+                                // The request doesn't have read timestamp - this means it's from RW txn.
+                                // Sender node is current primary, it has the most recent state of the row, and there is WI
+                                // so it was not cleaned up on group majority - this means the txn was never finished
+                                // and can be aborted.
+                                // The fact that it was not cleaned up on group majority follows from the absence of persistent
+                                // state on the commit partition primary, which is possible only if
+                                // - tx was never finished
+                                // - or tx was previously aborted due to recovery (so one more abort won't break the data).
+                                return txRecoveryEngine.triggerTxRecovery(
+                                                txId,
+                                                commitGroupId,
+                                                localNode.name(),
+                                                senderGroupId,
+                                                senderId
+                                        );
+                            }
+                        } else {
+                            // The primary replica that sent the request has already expired.
+                            if (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE)) {
+                                // The request doesn't have read timestamp - this means it's from RW txn.
+                                // Respond with error, sender must abort its operation and respond with error to client
+                                // (primary changed, the current transaction will not be able to be committed).
+                                throw new PrimaryReplicaChangeDuringWriteIntentResolutionException();
                             }
                         }
+                    }
 
-                        String primaryNode = replicaMeta.getLeaseholder();
+                    String primaryNode = replicaMeta.getLeaseholder();
 
-                        return txMessageSender.resolveTxStateFromPrimaryReplica(
-                                txStateResolutionParameters()
-                                        .txId(txId)
-                                        .tableId(tableId)
-                                        .commitGroupId(commitGroupId)
-                                        .senderGroupId(senderGroupId)
-                                        .readTimestamp(readTimestamp)
-                                        .rowIdAndNewestCommitTimestamp(rowId, newestCommitTimestamp)
-                                        .build(),
-                                primaryNode,
-                                consistencyToken
-                        );
+                    return txMessageSender.resolveTxStateFromPrimaryReplica(
+                            txStateResolutionParameters()
+                                    .txId(txId)
+                                    .tableId(tableId)
+                                    .commitGroupId(commitGroupId)
+                                    .senderGroupId(senderGroupId)
+                                    .readTimestamp(readTimestamp)
+                                    .rowIdAndNewestCommitTimestamp(rowId, newestCommitTimestamp)
+                                    .build(),
+                            primaryNode,
+                            consistencyToken
+                    );
                 })
                 .whenComplete((txMeta, e) -> {
                     if (e == null && isFinalState(txMeta.txState())) {
