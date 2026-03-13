@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 
 import java.util.stream.Stream;
@@ -231,6 +232,22 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         assertQuery("SELECT /*+ FORCE_INDEX(t_test_key_idx) */ * FROM t WHERE test_key=?")
                 .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .withParams(values.get(0))
+                .check();
+    }
+
+    /**
+     * Hint in update clause.
+     */
+    @Test
+    public void testUpdateWithHint() {
+        checkQuery("UPDATE t /*+ FORCE_INDEX(t_test_key_idx) */ SET test_key = $0")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
+
+        checkQuery("UPDATE t /*+ FORCE_INDEX(t_test_key_idx) */ SET test_key = $2 WHERE test_key = $0")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
                 .check();
     }
 
