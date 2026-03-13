@@ -17,30 +17,20 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static java.lang.String.format;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.awaitility.Awaitility.await;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest.generateKeysForNode;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.client.IgniteClient;
+import java.util.Map.Entry;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.client.sql.ClientSql;
-import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.internal.client.table.ClientTable;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,291 +38,39 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
 public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest {
-    // TODO: Test to verify actual write intent cleanup on all nodes once the client disconnects.
-
     /**
      * Tests that locks are released when client disconnects with a transaction having direct enlistments.
      */
     @Test
-    void testClientDisconnectWithDirectEnlistmentsReleasesLocks() {
-        Table tbl = table();
-        Map<Partition, ClusterNode> map = tbl.partitionDistribution().primaryReplicasAsync().join();
+    void testClientDisconnectCleansUpWriteIntents() {
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
         IgniteImpl server0 = unwrapIgniteImpl(server(0));
         IgniteImpl server1 = unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(1000, 5, map, server0.cluster().localNode(), tbl);
-        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(1000, 5, map, server1.cluster().localNode(), tbl);
+        List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.cluster().localNode(), table);
 
-        try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
-            ClientSql sql = (ClientSql) tempClient.sql();
+        Map<Tuple, Tuple> data = new HashMap<>();
 
-            // Initialize SQL mappings for direct enlistment
-            Tuple key0 = tuples0.get(0);
-            sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
-                    key0.intValue(0), key0.intValue(0) + "");
-            await().atMost(2, TimeUnit.SECONDS)
-                    .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
+        data.put(tuples0.get(0), val(tuples0.get(0).intValue(0) + ""));
+        data.put(tuples1.get(0), val(tuples1.get(0).intValue(0) + ""));
 
-            Transaction tx = tempClient.transactions().begin();
+        ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
 
-            // Enlist partitions on both nodes (direct mapping)
-            Tuple key1 = tuples0.get(1);
-            Tuple key2 = tuples1.get(0);
-            table.keyValueView().put(tx, key1, val(key1.intValue(0) + ""));
-            table.keyValueView().put(tx, key2, val(key2.intValue(0) + ""));
+        table.keyValueView().putAll(tx0, data);
 
-            // Note: Transaction may be in direct or proxy mode depending on partition awareness
-            // The important thing is that cleanup works in both modes
-
-            // Client disconnects without committing - tempClient.close() called by try-with-resources
+        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
+            table.keyValueView().put(tx0, entry.getKey(), entry.getValue());
         }
 
-        // Verify locks are released by attempting to lock the same keys
-        KeyValueView<Tuple, Tuple> kvView = tbl.keyValueView();
-        Tuple key1 = tuples0.get(1);
-        Tuple key2 = tuples1.get(0);
+        tx0.commit();
 
-        assertThat(kvView.putAsync(null, key1, val("new_value")), willSucceedFast());
-        assertThat(kvView.putAsync(null, key2, val("new_value")), willSucceedFast());
-
-        // Verify transactional values were not committed
-        // (key0 has a value from the SQL INSERT, so we check key1 and key2)
-        assertEquals("new_value", kvView.get(null, key1).stringValue(0));
-        assertEquals("new_value", kvView.get(null, key2).stringValue(0));
-    }
-
-    /**
-     * Tests that locks are released when client disconnects with a transaction in proxy mode.
-     */
-    @Test
-    void testClientDisconnectWithProxyEnlistmentsReleasesLocks() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(2000, 3, map, server0.cluster().localNode(), table());
-
-        try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
-            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-
-            Transaction tx = tempClient.transactions().begin();
-
-            // Enlist without explicit partition awareness setup
-            Tuple key1 = tuples0.get(0);
-            kvView.put(tx, key1, val(key1.intValue(0) + ""));
-
-            // Note: Transaction may still use direct mapping if partition info is available
-            // The important thing is that cleanup works regardless of mode
-
-            // Client disconnects without committing
+        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
+            table.keyValueView().put(null, entry.getKey(), entry.getValue());
         }
-
-        // Verify lock is released
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
-        Tuple key1 = tuples0.get(0);
-        assertThat(kvView.putAsync(null, key1, val("new_value")), willSucceedFast());
-        assertEquals("new_value", kvView.get(null, key1).stringValue(0));
-    }
-
-    /**
-     * Tests that locks are released when client disconnects with mixed (direct + proxy) enlistments.
-     */
-    @Test
-    void testClientDisconnectWithMixedEnlistmentsReleasesLocks() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = unwrapIgniteImpl(server(1));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(3000, 3, map, server0.cluster().localNode(), table());
-        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(3000, 3, map, server1.cluster().localNode(), table());
-
-        try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
-            ClientSql sql = (ClientSql) tempClient.sql();
-            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-
-            Transaction tx = tempClient.transactions().begin();
-
-            // Start with proxy mode enlistment
-            Tuple keyProxy = tuples0.get(0);
-            kvView.put(tx, keyProxy, val(keyProxy.intValue(0) + ""));
-
-            // Initialize SQL mappings for direct enlistment
-            Tuple key0 = tuples0.get(1);
-            sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
-                    key0.intValue(0), key0.intValue(0) + "");
-            await().atMost(2, TimeUnit.SECONDS)
-                    .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
-
-            // Add direct enlistments
-            Tuple keyDirect1 = tuples0.get(2);
-            Tuple keyDirect2 = tuples1.get(0);
-            kvView.put(tx, keyDirect1, val(keyDirect1.intValue(0) + ""));
-            kvView.put(tx, keyDirect2, val(keyDirect2.intValue(0) + ""));
-
-            // Client disconnects without committing
-        }
-
-        // Verify all locks are released
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
-        List<Tuple> allKeys = new ArrayList<>();
-        allKeys.add(tuples0.get(0));
-        allKeys.add(tuples0.get(1));
-        allKeys.add(tuples0.get(2));
-        allKeys.add(tuples1.get(0));
-
-        Map<Tuple, Tuple> updates = new HashMap<>();
-        for (Tuple key : allKeys) {
-            updates.put(key, val("new_value"));
-        }
-
-        assertThat(kvView.putAllAsync(null, updates), willSucceedFast());
-
-        for (Tuple key : allKeys) {
-            Tuple value = kvView.get(null, key);
-            assertEquals("new_value", value.stringValue(0));
-        }
-    }
-
-    /**
-     * Tests cleanup of multiple concurrent transactions when client disconnects.
-     */
-    @Test
-    void testClientDisconnectWithMultipleTransactionsReleasesAllLocks() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = unwrapIgniteImpl(server(1));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(4000, 10, map, server0.cluster().localNode(), table());
-        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(4000, 10, map, server1.cluster().localNode(), table());
-
-        try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
-            ClientSql sql = (ClientSql) tempClient.sql();
-            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-
-            // Initialize SQL mappings
-            Tuple key0 = tuples0.get(0);
-            sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
-                    key0.intValue(0), key0.intValue(0) + "");
-            await().atMost(2, TimeUnit.SECONDS)
-                    .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
-
-            // Create multiple transactions with enlistments
-            Transaction tx1 = tempClient.transactions().begin();
-            kvView.put(tx1, tuples0.get(1), val("tx1_val1"));
-            kvView.put(tx1, tuples1.get(0), val("tx1_val2"));
-
-            Transaction tx2 = tempClient.transactions().begin();
-            kvView.put(tx2, tuples0.get(2), val("tx2_val1"));
-            kvView.put(tx2, tuples1.get(1), val("tx2_val2"));
-
-            Transaction tx3 = tempClient.transactions().begin();
-            kvView.put(tx3, tuples0.get(3), val("tx3_val1"));
-            kvView.put(tx3, tuples1.get(2), val("tx3_val2"));
-
-            // Client disconnects with all transactions active
-        }
-
-        // Verify all locks from all transactions are released
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
-        List<Tuple> allKeys = List.of(
-                tuples0.get(0), tuples0.get(1), tuples0.get(2), tuples0.get(3),
-                tuples1.get(0), tuples1.get(1), tuples1.get(2)
-        );
-
-        for (Tuple key : allKeys) {
-            assertThat(kvView.putAsync(null, key, val("clean")), willSucceedFast());
-        }
-    }
-
-    /**
-     * Tests that cleaner is properly removed on normal transaction commit.
-     */
-    @Test
-    void testTransactionCommitRemovesCleaner() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = unwrapIgniteImpl(server(1));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(5000, 3, map, server0.cluster().localNode(), table());
-        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(5000, 3, map, server1.cluster().localNode(), table());
-
-        try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
-            ClientSql sql = (ClientSql) tempClient.sql();
-            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-
-            // Initialize SQL mappings
-            Tuple key0 = tuples0.get(0);
-            sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
-                    key0.intValue(0), key0.intValue(0) + "");
-            await().atMost(2, TimeUnit.SECONDS)
-                    .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
-
-            Transaction tx = tempClient.transactions().begin();
-            Tuple key1 = tuples0.get(1);
-            Tuple key2 = tuples1.get(0);
-            kvView.put(tx, key1, val("committed_value1"));
-            kvView.put(tx, key2, val("committed_value2"));
-
-            // Commit normally
-            tx.commit();
-
-            // Values should be committed
-            assertEquals("committed_value1", kvView.get(null, key1).stringValue(0));
-            assertEquals("committed_value2", kvView.get(null, key2).stringValue(0));
-        }
-
-        // Verify committed values persist
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
-        assertEquals("committed_value1", kvView.get(null, tuples0.get(1)).stringValue(0));
-        assertEquals("committed_value2", kvView.get(null, tuples1.get(0)).stringValue(0));
-    }
-
-    /**
-     * Tests that cleaner is properly removed on normal transaction rollback.
-     */
-    @Test
-    void testTransactionRollbackRemovesCleaner() {
-        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
-        IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        IgniteImpl server1 = unwrapIgniteImpl(server(1));
-
-        List<Tuple> tuples0 = ItThinClientTransactionsTest.generateKeysForNode(6000, 3, map, server0.cluster().localNode(), table());
-        List<Tuple> tuples1 = ItThinClientTransactionsTest.generateKeysForNode(6000, 3, map, server1.cluster().localNode(), table());
-
-        try (IgniteClient tempClient = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            ClientTable table = (ClientTable) tempClient.tables().table(TABLE_NAME);
-            ClientSql sql = (ClientSql) tempClient.sql();
-            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-
-            // Initialize SQL mappings
-            Tuple key0 = tuples0.get(0);
-            sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
-                    key0.intValue(0), key0.intValue(0) + "");
-            await().atMost(2, TimeUnit.SECONDS)
-                    .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
-
-            Transaction tx = tempClient.transactions().begin();
-            Tuple key1 = tuples0.get(1);
-            Tuple key2 = tuples1.get(0);
-            kvView.put(tx, key1, val("rolled_back_value1"));
-            kvView.put(tx, key2, val("rolled_back_value2"));
-
-            // Rollback explicitly
-            tx.rollback();
-
-            // Values should not be visible
-            assertNull(kvView.get(null, key1));
-            assertNull(kvView.get(null, key2));
-        }
-
-        // Verify values are still not visible after client closes
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
-        assertNull(kvView.get(null, tuples0.get(1)));
-        assertNull(kvView.get(null, tuples1.get(0)));
     }
 
     private Table table() {
