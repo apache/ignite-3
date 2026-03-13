@@ -157,6 +157,8 @@ public class NodeImpl implements Node, RaftServerService {
 
     private volatile HybridClock clock;
 
+    private final HybridClock lastAppliedOpClock = new HybridClockImpl();
+
     /**
      * Internal states
      */
@@ -1588,6 +1590,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         resetElectionTimeoutToInitial();
         this.stepDownTimer.start();
+        this.clock.update(this.lastAppliedOpClock.current());
     }
 
     // should be in writeLock
@@ -2638,6 +2641,9 @@ public class NodeImpl implements Node, RaftServerService {
                 done,
                 this.currTerm
             );
+            if (request.timestamp() != null) {
+                lastAppliedOpClock.update(request.timestamp());
+            }
             this.logManager.appendEntries(entries, closure);
             // update configuration after _log_manager updated its memory status
             checkAndSetConfiguration(true);
