@@ -428,6 +428,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
+        // TODO IGNITE-28225 Retry channel creation in case of network issues.
         OrderingFuture<NettySender> channelFuture = connectionManager.channel(nodeId, type, addr);
 
         channelFuture.whenComplete((sender, ex) -> maybeLogHandshakeError(ex, nodeId, type, addr));

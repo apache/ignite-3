@@ -526,15 +526,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         var staleIdDetector = new InMemoryStaleIds();
         staleIdDetector.markAsStale(missingNodeId);
 
-        try (
-                Services senderServices = createMessagingService(
-                        senderNode,
-                        senderNetworkConfig,
-                        () -> {},
-                        messageSerializationRegistry,
-                        staleIdDetector
-                )
-        ) {
+        try (Services senderServices = createMessagingService(
+                senderNode,
+                senderNetworkConfig,
+                () -> {},
+                messageSerializationRegistry,
+                staleIdDetector
+        )) {
             assertThat(
                     operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
                     willThrow(RecipientLeftException.class)
@@ -557,15 +555,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         when(topologyService.getByConsistentId(missingNodeName)).thenReturn(null);
 
-        try (
-                Services senderServices = createMessagingService(
-                        senderNode,
-                        senderNetworkConfig,
-                        () -> {},
-                        messageSerializationRegistry,
-                        staleIdDetector
-                )
-        ) {
+        try (Services senderServices = createMessagingService(
+                senderNode,
+                senderNetworkConfig,
+                () -> {},
+                messageSerializationRegistry,
+                staleIdDetector
+        )) {
             assertThat(
                     operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
                     willThrow(UnresolvableConsistentIdException.class)
