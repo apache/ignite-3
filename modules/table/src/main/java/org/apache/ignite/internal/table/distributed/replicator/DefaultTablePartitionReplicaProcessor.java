@@ -1533,37 +1533,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-
-
-        if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
-            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
-            // Safe to invalidate waiters, which otherwise will block the cleanup process.
-            // Using non-retriable exception intentionally to prevent unnecessary retries.
-            Throwable cause = txStateMeta.lastException();
-            boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
-            boolean isFinishedDueToError = !isFinishedDueToTimeout
-                    && txStateMeta.lastExceptionErrorCode() != null;
-            Throwable publicCause = isFinishedDueToError ? cause : null;
-            Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
-
-            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
-            // Safe to invalidate waiters, which otherwise will block the cleanup process.
-            // Using non-retriable exception intentionally to prevent unnecessary retries.
-            lockManager.failAllWaiters(request.txId(), new TransactionException(
-                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                    format("Can't acquire a lock because {} [{}].",
-                            finishedTransactionErrorMessage(
-                                    isFinishedDueToTimeout,
-                                    isFinishedDueToError,
-                                    causeErrorCode,
-                                    publicCause != null
-                            ).toLowerCase(Locale.ROOT),
-                            formatTxInfo(request.txId(), txManager)),
-                    publicCause
-            ));
-        }
-
-
         // LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
 
         return awaitCleanupReadyFutures(request.txId())
@@ -1585,17 +1554,35 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         CompletableFuture<Void> fut = txCleanupReadyFutures.finishFuture(txId);
         // Perform fail after barrier.
         TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
             // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
             // Using non-retriable exception intentionally to prevent unnecessary retries.
+            Throwable cause = txStateMeta.lastException();
+            boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
+            boolean isFinishedDueToError = !isFinishedDueToTimeout
+                    && txStateMeta.lastExceptionErrorCode() != null;
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
+
+            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
+            // Safe to invalidate waiters, which otherwise will block the cleanup process.
+            // Using non-retriable exception intentionally to prevent unnecessary retries.
+            // TODO killed state !!!
             lockManager.failAllWaiters(txId, new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
-                    format("Can't acquire a lock because the transaction is already finished [{}].",
-                            formatTxInfo(txId, txManager))
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format("Can't acquire a lock because {} [{}].",
+                            finishedTransactionErrorMessage(
+                                    isFinishedDueToTimeout,
+                                    isFinishedDueToError,
+                                    causeErrorCode,
+                                    publicCause != null
+                            ).toLowerCase(Locale.ROOT),
+                            formatTxInfo(txId, txManager)),
+                    publicCause
             ));
         }
-
 
 //        txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
 //            // Cleanup operations (both read and update) aren't registered in two cases:
@@ -1748,38 +1735,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 //            ));
 //        }
 
-        AtomicReference<IgniteBiTuple<RequestType, CompletableFuture<?>>> futRef = new AtomicReference<>();
-
-        TxStateMeta txStateMeta = txManager.stateMeta(txId);
-        boolean finishing = txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING;
-        if (finishing) {
-            //TxStateMeta txStateMeta = txManager.stateMeta(txId);
-
-            TxState txState = txStateMeta == null ? null : txStateMeta.txState();
-            boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
-
-            Throwable cause = null;
-            if (txStateMeta != null) {
-                cause = txStateMeta.lastException();
-            }
-            boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta != null
-                    && txStateMeta.lastExceptionErrorCode() != null);
-            Throwable publicCause = isFinishedDueToError ? cause : null;
-            Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
-
-            return failedFuture(new TransactionException(
-                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                    format(finishedTransactionErrorMessage(
-                            isFinishedDueToTimeout,
-                            isFinishedDueToError,
-                            causeErrorCode,
-                            publicCause != null
-                    )
-                            + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
-                    publicCause
-            ));
-        }
-
         boolean locked = !txCleanupReadyFutures.addInflight(txId, new Predicate<UUID>() {
             @Override
             public boolean test(UUID uuid) {
@@ -1787,7 +1742,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 boolean finishing = txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING;
                 return finishing;
             }
-        }, futRef);
+        });
 
 //        TxCleanupReadyState txCleanupReadyState = txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
 //            // First check whether the transaction has already been finished.
@@ -1811,9 +1766,30 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 //        });
 
         if (locked) {
+            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+            TxState txState = txStateMeta == null ? null : txStateMeta.txState();
+            boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
+
+            Throwable cause = null;
+            if (txStateMeta != null) {
+                cause = txStateMeta.lastException();
+            }
+            boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta != null
+                    && txStateMeta.lastExceptionErrorCode() != null);
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
+
             return failedFuture(new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txManager.stateMeta(txId))
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format(finishedTransactionErrorMessage(
+                            isFinishedDueToTimeout,
+                            isFinishedDueToError,
+                            causeErrorCode,
+                            publicCause != null
+                    )
+                            + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                    publicCause
             ));
         }
 
