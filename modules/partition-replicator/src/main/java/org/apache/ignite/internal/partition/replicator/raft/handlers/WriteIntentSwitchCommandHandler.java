@@ -66,6 +66,7 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
         txFinishMarker.markFinished(switchCommand.txId(), switchCommand.commit(), switchCommand.commitTimestamp(), null);
 
         boolean applied = false;
+        boolean handledByAnyTable = false;
         for (int tableId : ((WriteIntentSwitchCommandV2) switchCommand).tableIds()) {
             RaftTableProcessor tableProcessor = raftTableProcessor(tableId);
 
@@ -84,11 +85,12 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
                     .processCommand(switchCommand, commandIndex, commandTerm, safeTimestamp);
 
             applied = applied || singleResult.wasApplied();
+            handledByAnyTable = true;
         }
 
         // We MUST bump information about last updated index+term at least in one storage.
         // See a comment in ZonePartitionRaftListener#onWrite() for explanation.
-        if (!applied && commandIndex > txStatePartitionStorage.lastAppliedIndex()) {
+        if (!handledByAnyTable && commandIndex > txStatePartitionStorage.lastAppliedIndex()) {
             txStatePartitionStorage.lastApplied(commandIndex, commandTerm);
         }
 

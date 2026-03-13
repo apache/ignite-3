@@ -483,15 +483,15 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         UpdateCommandV2 updateCommand = mock(UpdateCommandV2.class);
         when(updateCommand.tableId()).thenReturn(TABLE_ID);
 
-        WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
+        WriteIntentSwitchCommand writeIntentSwitchCommand = writeIntentSwitchCommand();
 
-        SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
+        SafeTimeSyncCommand safeTimeSyncCommand = safeTimeSyncCommand();
 
         FinishTxCommandV2 finishTxCommand = mock(FinishTxCommandV2.class);
         when(finishTxCommand.groupType()).thenReturn(PartitionReplicationMessageGroup.GROUP_TYPE);
         when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX_V2);
 
-        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = mock(PrimaryReplicaChangeCommand.class);
+        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = primaryReplicaChangeCommand();
 
         // Checks for MvPartitionStorage.
         listener.onWrite(List.of(
@@ -525,7 +525,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         verify(txStatePartitionStorage, never())
                 .compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
-        // First time for the command, second time for updating safe time.
+        // First time for safe time command above, second time for explicit call of lastApplied() in this test.
         verify(txStatePartitionStorage, times(2)).lastApplied(anyLong(), anyLong());
 
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
