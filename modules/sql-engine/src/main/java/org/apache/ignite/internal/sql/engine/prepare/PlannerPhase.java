@@ -132,7 +132,6 @@ public enum PlannerPhase {
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
             IgniteJoinConditionPushRule.INSTANCE,
-            CoreRules.JOIN_PUSH_TRANSITIVE_PREDICATES,
             CoreRules.FILTER_CORRELATE,
             CoreRules.FILTER_INTO_JOIN,
             CoreRules.FILTER_PROJECT_TRANSPOSE
@@ -206,6 +205,7 @@ public enum PlannerPhase {
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             IgniteJoinConditionPushRule.INSTANCE,
+            CoreRules.JOIN_PUSH_TRANSITIVE_PREDICATES,
 
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
