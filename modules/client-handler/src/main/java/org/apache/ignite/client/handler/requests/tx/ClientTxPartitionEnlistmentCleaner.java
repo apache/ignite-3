@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.tx;
 
 import static java.util.stream.Collectors.toList;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
