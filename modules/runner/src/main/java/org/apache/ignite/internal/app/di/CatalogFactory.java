@@ -24,10 +24,7 @@ import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
@@ -98,28 +95,6 @@ public class CatalogFactory {
                 1,
                 1,
                 TimeUnit.MINUTES
-        );
-    }
-
-    /** Creates the catalog manager. UpdateLogImpl is created inline because its lifecycle is managed by CatalogManagerImpl. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(100)
-    public CatalogManagerImpl catalogManager(
-            MetaStorageManager metaStorageManager,
-            ClockService clockService,
-            FailureManager failureManager,
-            SchemaSynchronizationConfiguration schemaSyncConfig,
-            PartitionCountCalculatorWrapper partitionCountCalculatorWrapper
-    ) {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metaStorageManager, failureManager);
-
-        return new CatalogManagerImpl(
-                updateLog,
-                clockService,
-                failureManager,
-                () -> schemaSyncConfig.delayDurationMillis().value(),
-                partitionCountCalculatorWrapper
         );
     }
 

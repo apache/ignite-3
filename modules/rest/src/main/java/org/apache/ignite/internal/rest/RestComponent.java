@@ -117,8 +117,23 @@ public class RestComponent implements IgniteComponent {
         boolean sslEnabled = sslConfigurationView.enabled();
         boolean dualProtocol = restConfiguration.dualProtocol().value();
 
-        if (startServer(restConfigurationView.port(), sslConfigurationView.port(), sslEnabled, dualProtocol)) {
-            return nullCompletedFuture();
+        int maxRetries = 5;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            if (startServer(restConfigurationView.port(), sslConfigurationView.port(), sslEnabled, dualProtocol)) {
+                return nullCompletedFuture();
+            }
+
+            if (attempt < maxRetries) {
+                LOG.info("REST port not yet available, retrying in 200ms"
+                        + " [HTTP port=" + httpPort + "], [HTTPS port=" + httpsPort + "]"
+                        + " [attempt=" + (attempt + 1) + "/" + maxRetries + "]");
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
 
         String msg = "Cannot start REST endpoint."

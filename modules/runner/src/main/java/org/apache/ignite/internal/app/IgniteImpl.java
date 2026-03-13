@@ -498,7 +498,8 @@ public class IgniteImpl implements Ignite {
                 () -> joinFuture
         );
         JdbcPortProvider jdbcPortProvider = diContext.getBean(JdbcPortProvider.class);
-        Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name, jdbcPortProvider);
+        Supplier<RestFactory> nodeManagementRestFactory =
+                () -> new NodeManagementRestFactory(lifecycleManager, () -> name, jdbcPortProvider);
         Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory =
@@ -802,7 +803,13 @@ public class IgniteImpl implements Ignite {
         // Stop ALL components in reverse start order. The componentLifecycleManager tracks both
         // DI-managed and manually-started components (via markAsStarted) in the correct order.
         componentLifecycleManager.stopAll(componentContext)
-                .thenRunAsync(diContext::close)
+                .whenCompleteAsync((res, ex) -> {
+                    try {
+                        diContext.close();
+                    } catch (Exception e) {
+                        LOG.warn("Failed to close DI context", e);
+                    }
+                })
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
                 .whenCompleteAsync(copyStateTo(stopFuture));

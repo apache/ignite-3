@@ -18,70 +18,26 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
-import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.NodeIdentity;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.disaster.system.ClusterIdService;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
-import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
-import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 
 /**
  * Micronaut factory for cluster management components.
  */
 @Factory
 public class ClusterManagementFactory {
-    /** Creates the cluster service. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1300)
-    public ClusterService clusterService(
-            NodeIdentity nodeIdentity,
-            NetworkConfiguration networkConfiguration,
-            NettyBootstrapFactory nettyBootstrapFactory,
-            MessageSerializationRegistry serializationRegistry,
-            ClusterIdService clusterIdService,
-            CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureManager failureManager,
-            MetricManager metricManager
-    ) {
-        return new ScaleCubeClusterService(
-                nodeIdentity.nodeName(),
-                networkConfiguration,
-                nettyBootstrapFactory,
-                serializationRegistry,
-                new InMemoryStaleIds(),
-                clusterIdService,
-                criticalWorkerRegistry,
-                failureManager,
-                ChannelTypeRegistryProvider.loadByServiceLoader(nodeIdentity.serviceProviderClassLoader()),
-                new DefaultIgniteProductVersionSource(),
-                metricManager
-        );
-    }
-
     /** Exposes the cluster messaging service as a named bean. */
     @Singleton
     @Named("clusterMessaging")

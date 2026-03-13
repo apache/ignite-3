@@ -28,8 +28,11 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.core.annotation.Order;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -37,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -48,7 +52,10 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -59,6 +66,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
@@ -69,6 +77,9 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 /**
  * Catalog service implementation.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(100)
 public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
         implements CatalogManager, SystemViewProvider {
     private static final int MAX_RETRY_COUNT = 10;
@@ -117,6 +128,24 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Partition count calculator for command update contexts.
      */
     private final PartitionCountCalculator partitionCountCalculator;
+
+    /** DI constructor that creates UpdateLogImpl internally and adapts configuration to suppliers. */
+    @Inject
+    public CatalogManagerImpl(
+            MetaStorageManager metaStorageManager,
+            ClockService clockService,
+            FailureProcessor failureProcessor,
+            SchemaSynchronizationConfiguration schemaSyncConfig,
+            PartitionCountCalculator partitionCountCalculator
+    ) {
+        this(
+                new UpdateLogImpl(metaStorageManager, failureProcessor),
+                clockService,
+                failureProcessor,
+                () -> schemaSyncConfig.delayDurationMillis().value(),
+                partitionCountCalculator
+        );
+    }
 
     /**
      * Constructor.

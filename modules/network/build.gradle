@@ -74,6 +74,7 @@ dependencies {
     testImplementation libs.bouncycastle.bcpkix.jdk18on;
 
     testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
+    testFixturesImplementation libs.micronaut.inject
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-configuration-root')
     testFixturesImplementation project(':ignite-failure-handler')
