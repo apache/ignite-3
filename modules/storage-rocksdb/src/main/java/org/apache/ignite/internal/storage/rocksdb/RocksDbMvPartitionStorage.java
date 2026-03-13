@@ -1207,9 +1207,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         dataIdKey.position(0).limit(keyLen);
 
-                        if (matches(rowId, dataIdKey)) {
-                            newestCommitTimestamp = readTimestampDesc(dataIdKey);
-                        }
+                        HybridTimestamp newestCommitTimestamp = matches(rowId, dataIdKey) ? readTimestampDesc(dataIdKey) : null;
 
                         row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId, newestCommitTimestamp);
                     } else {
