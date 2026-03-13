@@ -134,6 +134,7 @@ import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.events.RestEventsFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
+import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.node.NodePropertiesFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
@@ -496,7 +497,8 @@ public class IgniteImpl implements Ignite {
                 cmgMgr,
                 () -> joinFuture
         );
-        Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name);
+        JdbcPortProvider jdbcPortProvider = diContext.getBean(JdbcPortProvider.class);
+        Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name, jdbcPortProvider);
         Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory =
