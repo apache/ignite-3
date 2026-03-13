@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest.generateKeysForNode;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -36,7 +35,6 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
 import org.junit.jupiter.api.Test;
@@ -50,7 +48,7 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
      * Tests that locks are released when client disconnects with a transaction having direct enlistments.
      */
     @Test
-    void testClientDisconnectCleansUpWriteIntents() {
+    void testClientDisconnectReleasesTxLocksFast() {
         try (IgniteClient client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build()) {
             var table = (ClientTable) client.tables().table(TABLE_NAME);
             Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicas();
@@ -61,6 +59,7 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
             List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.cluster().localNode(), table);
             List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.cluster().localNode(), table);
 
+            // Perform a mix of operations to trigger direct tx logic.
             Map<Tuple, Tuple> data = new HashMap<>();
 
             data.put(tuples0.get(0), val(tuples0.get(0).intValue(0) + ""));
@@ -79,7 +78,7 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
             // Disconnect without commit or rollback.
         }
 
-        await().atMost(Duration.ofSeconds(3))
+        await().atMost(Duration.ofSeconds(2))
                 .untilAsserted(() -> assertEquals(0, txLockCount()));
     }
 
