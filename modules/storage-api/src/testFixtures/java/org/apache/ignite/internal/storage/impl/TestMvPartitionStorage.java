@@ -697,7 +697,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         HybridTimestamp newestCommitTimestamp = null;
 
-        if (versionChain.isWriteIntent()) {
+        if (versionChain.isWriteIntent() && versionChain.next != null) {
             newestCommitTimestamp = versionChain.next.ts;
         }
 

@@ -2885,9 +2885,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 newestCommitTsIsPresent
         );
 
-        HybridTimestamp readTs = outdatedReadTs
-                ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
-                : new HybridTimestamp(100, 0);
+        HybridTimestamp readTs;
+
+        if (writeIntentHasThisTxId) {
+            readTs = HybridTimestamp.MIN_VALUE;
+        } else {
+            readTs = outdatedReadTs
+                    ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
+                    : new HybridTimestamp(100, 0);
+        }
+
         HybridTimestamp newestCommitTs = newestCommitTsIsPresent ? new HybridTimestamp(50, 0) : null;
 
         TxStatePrimaryReplicaRequest request = TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()

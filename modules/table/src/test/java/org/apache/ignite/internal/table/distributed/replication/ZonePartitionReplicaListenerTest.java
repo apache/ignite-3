@@ -1374,6 +1374,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
+                .tableId(TABLE_ID)
+                .senderGroupId(zonePartitionIdMessage(grpId))
+                .senderCurrentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build(), randomUUID());
 
         assertThat(fut, willSucceedFast());
@@ -1398,6 +1402,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(txId)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThat(fut, willSucceedFast());
@@ -1649,6 +1654,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(10L)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThrowsWithCause(
@@ -1666,6 +1672,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThrowsWithCause(
