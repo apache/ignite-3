@@ -31,7 +31,11 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -51,7 +55,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -63,6 +69,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
@@ -99,6 +106,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -130,10 +138,14 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     private static final int TABLE_ID = 1;
 
+    private static final int NON_EXISTENT_TABLE_ID = 999;
+
     private static final PartitionKey ZONE_PARTITION_KEY = new PartitionKey(ZONE_ID, PARTITION_ID);
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -154,8 +166,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     @Spy
     private TxStatePartitionStorage txStatePartitionStorage = new TestTxStatePartitionStorage();
 
-    @Mock
-    private MvPartitionStorage mvPartitionStorage;
+    @Spy
+    private MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
 
     @InjectExecutorService
     private ExecutorService executor;
@@ -169,6 +181,9 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     @Mock
     private PartitionSnapshots partitionSnapshots;
+
+    @Mock
+    private CatalogService catalogService;
 
     @BeforeEach
     void setUp() {
@@ -277,11 +292,11 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
         when(command.primaryReplicaNodeName()).thenReturn(leaseInfo.primaryReplicaNodeName());
 
-        when(mvPartitionStorage.runConsistently(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             WriteClosure<?> closure = invocation.getArgument(0);
 
             return closure.execute(locker);
-        });
+        }).when(mvPartitionStorage).runConsistently(any());
 
         listener.onWrite(List.of(writeCommandClosure).iterator());
 
@@ -461,22 +476,22 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 .leaseStartTime(HybridTimestamp.MIN_VALUE.addPhysicalTime(1).longValue())
                 .build();
 
-        listener.onWrite(List.of(writeCommandClosure(raftIndex.incrementAndGet(), 1, command, null, null)).iterator());
+        listener.onWrite(List.of(writeCommandClosureWithoutSafeTime(raftIndex.incrementAndGet(), 1, command)).iterator());
 
         mvPartitionStorage.lastApplied(10L, 1L);
 
         UpdateCommandV2 updateCommand = mock(UpdateCommandV2.class);
         when(updateCommand.tableId()).thenReturn(TABLE_ID);
 
-        WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
+        WriteIntentSwitchCommand writeIntentSwitchCommand = writeIntentSwitchCommand();
 
-        SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
+        SafeTimeSyncCommand safeTimeSyncCommand = safeTimeSyncCommand();
 
         FinishTxCommandV2 finishTxCommand = mock(FinishTxCommandV2.class);
         when(finishTxCommand.groupType()).thenReturn(PartitionReplicationMessageGroup.GROUP_TYPE);
         when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX_V2);
 
-        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = mock(PrimaryReplicaChangeCommand.class);
+        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = primaryReplicaChangeCommand();
 
         // Checks for MvPartitionStorage.
         listener.onWrite(List.of(
@@ -510,7 +525,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         verify(txStatePartitionStorage, never())
                 .compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
-        // First time for the command, second time for updating safe time.
+        // First time for safe time command above, second time for explicit call of lastApplied() in this test.
         verify(txStatePartitionStorage, times(2)).lastApplied(anyLong(), anyLong());
 
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
@@ -530,6 +545,175 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         listener.onWrite(List.of(
                 writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
+    }
+
+    @Test
+    void onlyUpdatesMvStorageLastAppliedForWriteIntentSwitchCommandsThatTouchSomeTableStorages() {
+        mockCatalogForUpdateExecution();
+
+        listener.addTableProcessor(TABLE_ID, partitionListener(TABLE_ID));
+
+        WriteIntentSwitchCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
+                .txId(TestTransactionIds.newTransactionId())
+                .initiatorTime(clock.now())
+                .commit(true)
+                .tableIds(Set.of(TABLE_ID))
+                .build();
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        verify(mvPartitionStorage).lastApplied(3, 2);
+        verify(txStatePartitionStorage, never()).lastApplied(anyLong(), anyLong());
+    }
+
+    private void mockCatalogForUpdateExecution() {
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        when(catalog.indexes(anyInt())).thenReturn(List.of(mock(CatalogIndexDescriptor.class)));
+    }
+
+    @Test
+    void updatesTxStateStorageLastAppliedForWriteIntentSwitchCommandsThatTouchNoTableStorages() {
+        WriteIntentSwitchCommand command = writeIntentSwitchCommandForMissingTable();
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
+    }
+
+    private WriteIntentSwitchCommand writeIntentSwitchCommandForMissingTable() {
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
+                .txId(TestTransactionIds.newTransactionId())
+                .initiatorTime(clock.now())
+                .commit(true)
+                .tableIds(Set.of(NON_EXISTENT_TABLE_ID))
+                .build();
+    }
+
+    @Test
+    void skipsTxStateStorageLastAppliedUpdateForWriteIntentSwitchCommandsWhenIndexIsAhead() {
+        txStatePartitionStorage.lastApplied(10L, 10L);
+
+        WriteIntentSwitchCommand command = writeIntentSwitchCommandForMissingTable();
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(10L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(10L));
+    }
+
+    @Test
+    void onlyUpdatesMvStorageLastAppliedForTableAwareCommandsThatTouchTableStorages() {
+        mockCatalogForUpdateExecution();
+        when(mvPartitionStorage.leaseInfo()).thenReturn(new LeaseInfo(0, randomUUID(), "test"));
+
+        listener.addTableProcessor(TABLE_ID, partitionListener(TABLE_ID));
+
+        UpdateCommand command = updateCommand(TABLE_ID);
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        verify(mvPartitionStorage).lastApplied(3, 2);
+        verify(txStatePartitionStorage, never()).lastApplied(anyLong(), anyLong());
+    }
+
+    @Test
+    void updatesTxStateStorageLastAppliedForTableAwareCommandsThatTouchNoTableStorages() {
+        UpdateCommand command = updateCommand(NON_EXISTENT_TABLE_ID);
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
+    }
+
+    @Test
+    void skipsUpdateToTxStateStorageLastAppliedForTableAwareCommandsThatTouchNoTableStoragesButIndexIsAlreadyApplied() {
+        txStatePartitionStorage.lastApplied(10L, 10L);
+
+        UpdateCommand command = updateCommand(NON_EXISTENT_TABLE_ID);
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(10L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(10L));
+    }
+
+    @Test
+    void updatesTxStateStorageLastAppliedForUpdateMinimumActiveTxBeginTimeCommandsThatTouchNoTableStorages() {
+        WriteCommand command = updateMinimumActiveTxBeginTimeCommand();
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
+    }
+
+    @Test
+    void skipsUpdateToTxStateStorageLastAppliedForUpdateMinimumActiveTxBeginTimeCommandsThatTouchNoTableStoragesButIndexIsAlreadyApplied() {
+        txStatePartitionStorage.lastApplied(10L, 10L);
+
+        WriteCommand command = updateMinimumActiveTxBeginTimeCommand();
+
+        listener.onWrite(List.of(
+                writeCommandClosure(3, 2, command)
+        ).iterator());
+
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(10L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(10L));
+    }
+
+    @Test
+    void updatesLeaseInfoAndTxStateStorageLastAppliedForPrimaryReplicaChangeCommandsThatTouchNoTableStorages() {
+        WriteCommand command = primaryReplicaChangeCommand();
+
+        listener.onWrite(List.of(
+                writeCommandClosureWithoutSafeTime(3, 2, command)
+        ).iterator());
+
+        verify(txStatePartitionStorage).leaseInfo(any(), eq(3L), eq(2L));
+    }
+
+    @Test
+    void updatesLeaseInfoAndTxStateStorageLastAppliedForPrimaryReplicaChangeCommandsThatTouchSomeTableStorages() {
+        listener.addTableProcessor(TABLE_ID, partitionListener(TABLE_ID));
+
+        WriteCommand command = primaryReplicaChangeCommand();
+
+        listener.onWrite(List.of(
+                writeCommandClosureWithoutSafeTime(3, 2, command)
+        ).iterator());
+
+        verify(txStatePartitionStorage).leaseInfo(any(), eq(3L), eq(2L));
+    }
+
+    @Test
+    void updatesTxStateStorageLastAppliedForVacuumTxStateCommands() {
+        WriteCommand command = TX_MESSAGES_FACTORY.vacuumTxStatesCommand()
+                .txIds(Set.of(randomUUID()))
+                .build();
+
+        listener.onWrite(List.of(
+                writeCommandClosureWithoutSafeTime(3, 2, command)
         ).iterator());
 
         assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
@@ -599,9 +783,13 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     }
 
     private static UpdateCommandV2 updateCommand() {
+        return updateCommand(TABLE_ID);
+    }
+
+    private static UpdateCommandV2 updateCommand(int tableId) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .rowUuid(randomUUID())
-                .tableId(TABLE_ID)
+                .tableId(tableId)
                 .commitPartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
@@ -748,12 +936,37 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         return commandClosure;
     }
 
+    private static CommandClosure<WriteCommand> writeCommandClosureWithoutSafeTime(
+            long index,
+            long term,
+            WriteCommand writeCommand
+    ) {
+        return writeCommandClosure(index, term, writeCommand, null, null);
+    }
+
     private TablePartitionProcessor partitionListener(int tableId) {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
+
+        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+
+        lenient().doAnswer(invocation -> {
+            Runnable onApplication = invocation.getArgument(3);
+            if (onApplication != null) {
+                onApplication.run();
+            }
+            return null;
+        }).when(storageUpdateHandler).switchWriteIntents(any(), anyBoolean(), any(), any(Runnable.class), any());
+        lenient().doAnswer(invocation -> {
+            Runnable onApplication = invocation.getArgument(5);
+            if (onApplication != null) {
+                onApplication.run();
+            }
+            return null;
+        }).when(storageUpdateHandler).handleUpdate(any(), any(), any(), any(), anyBoolean(), any(Runnable.class), any(), any(), any());
 
         return new TablePartitionProcessor(
                 txManager,
@@ -763,8 +976,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                         outgoingSnapshotsManager,
                         ZONE_PARTITION_KEY
                 ),
-                mock(StorageUpdateHandler.class),
-                mock(CatalogService.class),
+                storageUpdateHandler,
+                catalogService,
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),
                 randomUUID(),
