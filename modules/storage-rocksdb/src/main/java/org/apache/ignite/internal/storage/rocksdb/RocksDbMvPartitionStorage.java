@@ -1197,8 +1197,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         int commitZoneId = transactionState.getInt();
                         int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
 
-                        HybridTimestamp newestCommitTimestamp = null;
-
                         it.next();
 
                         ByteBuffer dataIdKey = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
@@ -1207,6 +1205,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         dataIdKey.position(0).limit(keyLen);
 
+                        // Continue searching through committed versions to extract the most recent commit timestamp.
                         HybridTimestamp newestCommitTimestamp = matches(rowId, dataIdKey) ? readTimestampDesc(dataIdKey) : null;
 
                         row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId, newestCommitTimestamp);
