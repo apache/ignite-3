@@ -68,9 +68,11 @@ public class PredicatePushDownPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(Join.class))
                 .and(hasChildThat(isInstanceOf(ProjectableFilterableTableScan.class)
-                        .and(scan -> scan.condition().toString().contains("=($t0, 10)") && scan.getTable().getQualifiedName().contains("T1"))))
+                        .and(scan -> scan.condition().toString().contains("=($t0, 10)")
+                                && scan.getTable().getQualifiedName().contains("T1"))))
                 .and(hasChildThat(isInstanceOf(ProjectableFilterableTableScan.class)
-                        .and(scan -> scan.condition().toString().contains("=($t0, 10)") && scan.getTable().getQualifiedName().contains("T2"))))
+                        .and(scan -> scan.condition().toString().contains("=($t0, 10)")
+                                && scan.getTable().getQualifiedName().contains("T2"))))
         );
     }
 
