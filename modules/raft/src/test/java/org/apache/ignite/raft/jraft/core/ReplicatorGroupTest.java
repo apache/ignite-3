@@ -102,7 +102,7 @@ public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
 
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
+        Mockito.when(this.node.getJraftNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         mockSendEmptyEntries();

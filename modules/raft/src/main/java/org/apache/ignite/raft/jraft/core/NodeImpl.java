@@ -49,7 +49,12 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
+import org.apache.ignite.internal.metrics.sources.LogManagerMetricSource;
+import org.apache.ignite.internal.metrics.sources.NodeMetricSource;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
+import org.apache.ignite.internal.metrics.sources.ReadOnlyServiceMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
@@ -133,7 +138,6 @@ import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.raft.jraft.util.Describer;
-import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.RepeatedTimer;
@@ -154,6 +158,8 @@ public class NodeImpl implements Node, RaftServerService {
     private static final IgniteLogger LOG = Loggers.forClass(NodeImpl.class);
 
     public static final Status LEADER_STEPPED_DOWN = new Status(RaftError.EPERM, "Leader stepped down.");
+
+    private final MetricManager metricManager;
 
     private volatile HybridClock clock;
 
@@ -224,9 +230,14 @@ public class NodeImpl implements Node, RaftServerService {
     private final LongAdder applyQueueByteSize = new LongAdder();
 
     /**
-     * Metrics
+     * Jraft metric framework metrics
      */
-    private NodeMetrics metrics;
+    private NodeMetrics jraftMetrics;
+
+    /**
+     * Node metrics.
+     */
+    private final NodeMetricSource metrics;
 
     private NodeId nodeId;
     private JRaftServiceFactory serviceFactory;
@@ -264,10 +275,7 @@ public class NodeImpl implements Node, RaftServerService {
                 "Raft-Node-Lock report [node={}, currentThread={}, acquireMode={}, heldThread={}, queuedThreads={}, blockedMs={}].",
                     node.getNodeId(), Thread.currentThread(), acquireMode, heldThread, queuedThreads, blockedMs);
 
-            final NodeMetrics metrics = this.node.getNodeMetrics();
-            if (metrics != null) {
-                metrics.recordLatency("node-lock-blocked", blockedMs);
-            }
+            node.getNodeMetrics().onLockBlocked(blockedMs);
         }
     }
 
@@ -600,7 +608,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    public NodeImpl(final String groupId, final PeerId serverId) {
+    public NodeImpl(final String groupId, final PeerId serverId, MetricManager metricManager) {
             if (groupId != null) {
                 Utils.verifyGroupId(groupId);
             }
@@ -611,6 +619,12 @@ public class NodeImpl implements Node, RaftServerService {
             updateLastLeaderTimestamp(Utils.monotonicMs());
             this.confCtx = new ConfigurationCtx(this);
             this.wakingCandidate = null;
+
+            this.metricManager = metricManager;
+
+            metrics = new NodeMetricSource(groupId);
+            metricManager.registerSource(metrics);
+            metricManager.enable(metrics);
     }
 
     public HybridClock clock() {
@@ -639,7 +653,7 @@ public class NodeImpl implements Node, RaftServerService {
     private boolean initLogStorage() {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
-        this.logManager = new StripeAwareLogManager();
+        this.logManager = new StripeAwareLogManager(metricManager, groupId);
 
         LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
@@ -647,7 +661,7 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setConfigurationManager(this.configManager);
         opts.setNode(this);
         opts.setFsmCaller(this.fsmCaller);
-        opts.setNodeMetrics(this.metrics);
+
         opts.setRaftOptions(this.raftOptions);
         opts.setLogManagerDisruptor(options.getLogManagerDisruptor());
         opts.setLogStripes(options.getLogStripes());
@@ -922,7 +936,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.options = opts.getNodeOptions() == null ? new NodeOptions() : opts.getNodeOptions();
         this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = this.options.getRaftOptions();
-        this.metrics = new NodeMetrics(opts.isEnableMetrics());
+        this.jraftMetrics = new NodeMetrics(opts.isEnableMetrics());
         this.options.setFsm(opts.getFsm());
         this.options.setLogUri(opts.getLogUri());
         this.options.setRaftMetaUri(opts.getRaftMetaUri());
@@ -930,7 +944,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         this.configManager = new ConfigurationManager();
         // Create fsmCaller at first as logManager needs it to report error
-        this.fsmCaller = new FSMCallerImpl();
+        this.fsmCaller = new FSMCallerImpl(metricManager, groupId);
 
         initPools(options);
 
@@ -1019,7 +1033,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.options = opts;
         this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = opts.getRaftOptions();
-        this.metrics = new NodeMetrics(opts.isEnableMetrics());
+        this.jraftMetrics = new NodeMetrics(opts.isEnableMetrics());
         this.serverId.setPriority(opts.getElectionPriority());
         this.electionTimeoutCounter = 0;
         if (opts.getReplicationStateListeners() != null)
@@ -1042,12 +1056,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         applyQueue = applyDisruptor.subscribe(getNodeId(), new LogEntryAndClosureHandler());
 
-        if (this.metrics.getMetricRegistry() != null) {
-            this.metrics.getMetricRegistry().register("jraft-node-impl-disruptor",
-                new DisruptorMetricSet(this.applyQueue));
-        }
-
-        this.fsmCaller = new FSMCallerImpl();
+        this.fsmCaller = new FSMCallerImpl(metricManager, groupId);
         if (!initLogStorage()) {
             LOG.error("Node {} initLogStorage failed.", getNodeId());
             return false;
@@ -1109,16 +1118,13 @@ public class NodeImpl implements Node, RaftServerService {
         rgOpts.setRaftOptions(this.raftOptions);
         rgOpts.setTimerManager(this.options.getScheduler());
 
-        // Adds metric registry to RPC service.
-        this.options.setMetricRegistry(this.metrics.getMetricRegistry());
-
         if (!this.rpcClientService.init(this.options)) {
             LOG.error("Fail to init rpc service [node={}].", getNodeId());
             return false;
         }
         this.replicatorGroup.init(new NodeId(this.groupId, this.serverId), rgOpts);
 
-        this.readOnlyService = new ReadOnlyServiceImpl();
+        this.readOnlyService = new ReadOnlyServiceImpl(metricManager, groupId);
         final ReadOnlyServiceOptions rosOpts = new ReadOnlyServiceOptions();
         rosOpts.setFsmCaller(this.fsmCaller);
         rosOpts.setNode(this);
@@ -1341,7 +1347,8 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 false,
-                null
+                metricManager,
+                FsmCallerMetricSource.SOURCE_NAME + '.' + groupId
             ));
         } else {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -1361,7 +1368,8 @@ public class NodeImpl implements Node, RaftServerService {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("fsmcaller.disruptor")
+                    metricManager,
+                    FsmCallerMetricSource.SOURCE_NAME
                 ));
             }
         }
@@ -1376,7 +1384,8 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 false,
                 false,
-                opts.getRaftMetrics().disruptorMetrics("nodeimpl.disruptor")
+                metricManager,
+                NodeMetricSource.SOURCE_NAME
             ));
         }
 
@@ -1390,7 +1399,8 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 false,
                 false,
-                opts.getRaftMetrics().disruptorMetrics("readonlyservice.disruptor")
+                metricManager,
+                ReadOnlyServiceMetricSource.SOURCE_NAME
             ));
         }
 
@@ -1402,7 +1412,8 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 false,
-                null
+                metricManager,
+                LogManagerMetricSource.SOURCE_NAME + '.' + groupId
             ));
 
             opts.setLogStripes(IntStream.range(0, 1).mapToObj(i -> new Stripe()).collect(toList()));
@@ -1417,7 +1428,8 @@ public class NodeImpl implements Node, RaftServerService {
                     opts.getLogStripesCount(),
                     logStorage instanceof RocksDbSharedLogStorage,
                     opts.isLogYieldStrategy(),
-                    opts.getRaftMetrics().disruptorMetrics("logmanager.disruptor")
+                    metricManager,
+                    LogManagerMetricSource.SOURCE_NAME
                 ));
 
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
@@ -1843,7 +1855,17 @@ public class NodeImpl implements Node, RaftServerService {
      * @return returns metrics of current node.
      */
     @Override
-    public NodeMetrics getNodeMetrics() {
+    public NodeMetrics getJraftNodeMetrics() {
+        return this.jraftMetrics;
+    }
+
+    /**
+     * Returns the node metrics.
+     *
+     * @return returns metrics of current node.
+     */
+    @Override
+    public NodeMetricSource getNodeMetrics() {
         return this.metrics;
     }
 
@@ -1960,8 +1982,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         finally {
             this.readLock.unlock();
-            this.metrics.recordLatency("handle-read-index", Utils.monotonicMs() - startMs);
-            this.metrics.recordSize("handle-read-index-entries", Utils.size(request.entriesList()));
+            this.metrics.onHandleReadRequest(Utils.monotonicMs() - startMs, Utils.size(request.entriesList()));
         }
     }
 
@@ -1987,7 +2008,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         finally {
             this.readLock.unlock();
-            this.metrics.recordLatency("handle-get-leader", Utils.monotonicMs() - startMs);
+            this.metrics.onHandleGetLeader(Utils.monotonicMs() - startMs);
         }
     }
 
@@ -2190,7 +2211,7 @@ public class NodeImpl implements Node, RaftServerService {
                 );
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.getDone(), new Status(RaftError.EBUSY, errorMsg));
                 LOG.warn("Node {} apply queue byte size limit exceeded.", getNodeId());
-                this.metrics.recordTimes("apply-task-overload-times", 1);
+                metrics.onOverload();
                 if (task.getDone() == null) {
                     throw new OverloadException(errorMsg);
                 }
@@ -2222,7 +2243,7 @@ public class NodeImpl implements Node, RaftServerService {
                     String errorMsg = "Node is busy, has too many tasks, queue is full and bufferSize="+ this.applyQueue.getBufferSize();
                     Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.getDone(), new Status(RaftError.EBUSY, errorMsg));
                     LOG.warn("Node {} applyQueue is overload.", getNodeId());
-                    this.metrics.recordTimes("apply-task-overload-times", 1);
+                    metrics.onOverload();
                     if (task.getDone() == null) {
                         throw new OverloadException(errorMsg);
                     }
@@ -2650,13 +2671,9 @@ public class NodeImpl implements Node, RaftServerService {
             }
             final long processLatency = Utils.monotonicMs() - startMs;
             if (entriesCount == 0) {
-                this.metrics.recordLatency("handle-heartbeat-requests", processLatency);
+                this.metrics.onHandleHeartbeatRequest(processLatency);
             } else {
-                this.metrics.recordLatency("handle-append-entries", processLatency);
-            }
-            if (success) {
-                // Don't stats heartbeat requests.
-                this.metrics.recordSize("handle-append-entries-count", entriesCount);
+                this.metrics.onHandleAppendEntries(processLatency, entriesCount, success);
             }
         }
     }
@@ -3278,7 +3295,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         @Override
         public void run(final Status status) {
-            NodeImpl.this.metrics.recordLatency("request-vote", Utils.monotonicMs() - this.startMs);
+            NodeImpl.this.metrics.onRequestVote(Utils.monotonicMs() - this.startMs);
             if (!status.isOk()) {
                 LOG.warn("Node {} RequestVote to {} error: {}.", this.node.getNodeId(), this.peer, status);
             }
@@ -3344,7 +3361,7 @@ public class NodeImpl implements Node, RaftServerService {
         @Override
         public void run(final Status status) {
             long latency = Utils.monotonicMs() - this.startMs;
-            NodeImpl.this.metrics.recordLatency("pre-vote", latency);
+            NodeImpl.this.metrics.onPreVote(latency);
             if (!status.isOk()) {
                 LOG.warn("Node {} PreVote to {} latency={} error: {}.", getNodeId(), this.peer, latency, status);
             }
@@ -3524,6 +3541,7 @@ public class NodeImpl implements Node, RaftServerService {
                         }));
                     this.applyQueueByteSize.reset();
                 }
+                metricManager.unregisterSource(metrics);
             }
         }
         finally {
@@ -4277,7 +4295,7 @@ public class NodeImpl implements Node, RaftServerService {
             return null;
         }
         finally {
-            this.metrics.recordLatency("install-snapshot", Utils.monotonicMs() - startMs);
+            this.metrics.onInstallSnapshot( Utils.monotonicMs() - startMs);
         }
     }
 

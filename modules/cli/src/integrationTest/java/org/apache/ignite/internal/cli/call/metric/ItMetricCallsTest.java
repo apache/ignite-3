@@ -68,8 +68,9 @@ class ItMetricCallsTest extends CliIntegrationTest {
         assertThat(output.hasError()).isFalse();
 
         // And
-        assertThat(output.body()).contains(ALL_METRIC_SOURCES);
-        assertThat(output.body()).hasSize(ALL_METRIC_SOURCES.length);
+        MetricSource[] expectedMetrics = getExpectedNodeMetrics(node(0));
+
+        assertThat(output.body()).containsExactlyInAnyOrder(expectedMetrics);
     }
 
     @Test
@@ -86,7 +87,7 @@ class ItMetricCallsTest extends CliIntegrationTest {
         ThrowingConsumer<NodeMetricSources>[] assertions = CLUSTER.runningNodes()
                 .map(ignite -> (ThrowingConsumer<NodeMetricSources>) input -> {
                     assertThat(input.getNode()).isEqualTo(ignite.name());
-                    assertThat(input.getSources()).containsExactlyInAnyOrder(ALL_METRIC_SOURCES);
+                    assertThat(input.getSources()).containsExactlyInAnyOrder(getExpectedNodeMetrics(ignite));
                 })
                 .toArray(ThrowingConsumer[]::new);
 
