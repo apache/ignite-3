@@ -83,10 +83,10 @@ TEST_F(connection_test, using_asio) {
     fake_server fs{50900, get_logger()};
     fs.start();
 
-    proxy::message_listener listener;
+    auto listener = std::make_shared<proxy::message_listener>();
 
     proxy::asio_proxy proxy{
-        {proxy::configuration(50800, "127.0.0.1:50900", &listener)}
+        {proxy::configuration(50800, "127.0.0.1:50900", listener)}
     };
 
 

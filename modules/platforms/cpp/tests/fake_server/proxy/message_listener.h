@@ -18,9 +18,9 @@
 #include <queue>
 #include <utility>
 
-#include "message.h"
-
 namespace ignite::proxy {
+
+using message = std::vector<char>;
 
 class message_listener {
 public:
