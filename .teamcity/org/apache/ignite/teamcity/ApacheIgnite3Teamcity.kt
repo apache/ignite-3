@@ -79,7 +79,7 @@ class ApacheIgnite3Teamcity {
             "Examples",
             "ignite-examples"
         )
-private val IGNITE__FILE_IO = GradleModule(
+        private val IGNITE__FILE_IO = GradleModule(
             "File IO",
             "ignite-file-io"
         )
