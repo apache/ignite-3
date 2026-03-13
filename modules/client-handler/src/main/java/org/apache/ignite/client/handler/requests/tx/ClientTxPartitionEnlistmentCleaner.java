@@ -33,7 +33,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 
 /**
- * Helper class to clean up direct transaction enlistments on the client side.
+ * Helper class to clean up direct transaction enlistments on the server side for a client connection.
  */
 public class ClientTxPartitionEnlistmentCleaner {
     private final UUID txId;
