@@ -1199,14 +1199,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         it.next();
 
-                        ByteBuffer dataIdKey = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
+                        HybridTimestamp newestCommitTimestamp = null;
 
-                        int keyLen = it.key(dataIdKey);
+                        if (it.isValid()) {
+                            ByteBuffer dataIdKey = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
 
-                        dataIdKey.position(0).limit(keyLen);
+                            int keyLen = it.key(dataIdKey);
 
-                        // Continue searching through committed versions to extract the most recent commit timestamp.
-                        HybridTimestamp newestCommitTimestamp = matches(rowId, dataIdKey) ? readTimestampDesc(dataIdKey) : null;
+                            dataIdKey.position(0).limit(keyLen);
+
+                            // Continue searching through committed versions to extract the most recent commit timestamp.
+                            if (matches(rowId, dataIdKey)) {
+                                newestCommitTimestamp = readTimestampDesc(dataIdKey);
+                            }
+                        }
 
                         row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId, newestCommitTimestamp);
                     } else {
