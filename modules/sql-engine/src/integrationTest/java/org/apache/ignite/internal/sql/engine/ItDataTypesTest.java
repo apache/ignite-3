@@ -973,6 +973,30 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         );
     }
 
+    @Test
+    public void testNullDateToTimestamp() {
+        sql("CREATE TABLE test(id INT PRIMARY KEY, t1 DATE)");
+        sql("INSERT INTO test (id, t1) VALUES (1, null)");
+
+        assertQuery("SELECT id, t1::TIMESTAMP FROM test")
+                .returns(1, null)
+                .check();
+
+        assertQuery("SELECT id, t1::TIMESTAMP FROM (VALUES (1, null::DATE)) test(id, t1) ")
+                .returns(1, null)
+                .check();
+
+        // TimestampLtz
+
+        assertQuery("SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM test")
+                .returns(1, null)
+                .check();
+
+        assertQuery("SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM (VALUES (1, null::DATE)) test(id, t1) ")
+                .returns(1, null)
+                .check();
+    }
+
     private static RelDataType sqlType(SqlTypeName typeName) {
         return Commons.typeFactory().createSqlType(typeName);
     }
