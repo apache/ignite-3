@@ -1613,8 +1613,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
         RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
 
-        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_ZONE_ID, PARTITION_ID);
-        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_ZONE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta1 = new RowMeta(rowId1, txId, COMMIT_ZONE_ID, PARTITION_ID, HybridTimestamp.MIN_VALUE);
+        RowMeta expectedRowMeta2 = new RowMeta(rowId2, txId, COMMIT_ZONE_ID, PARTITION_ID, HybridTimestamp.MIN_VALUE);
 
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow2, txId);
@@ -1656,7 +1656,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void testClosestRowReconstruction() {
         RowId rowId = new RowId(PARTITION_ID, 0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
 
-        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_ZONE_ID, PARTITION_ID);
+        RowMeta expectedRowMeta = new RowMeta(rowId, txId, COMMIT_ZONE_ID, PARTITION_ID, HybridTimestamp.MIN_VALUE);
 
         addWrite(rowId, binaryRow, txId);
 

@@ -178,6 +178,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
@@ -286,6 +287,8 @@ public class PartitionReplicaLifecycleManager extends
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final TransactionStateResolver transactionStateResolver;
+
+    private final PlacementDriverHelper placementDriverHelper;
 
     private final TxMessageSender txMessageSender;
 
@@ -450,12 +453,14 @@ public class PartitionReplicaLifecycleManager extends
                 clockService
         );
 
+        placementDriverHelper = new PlacementDriverHelper(executorInclinedPlacementDriver, clockService);
+
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
                 clockService,
                 topologyService,
                 messagingService,
-                executorInclinedPlacementDriver,
+                placementDriverHelper,
                 txMessageSender,
                 txRecoveryEngine,
                 new Lazy<>(topologyService::localMember),
@@ -845,6 +850,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 executorInclinedSchemaSyncService,
                                                 catalogService,
                                                 executorInclinedPlacementDriver,
+                                                placementDriverHelper,
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
