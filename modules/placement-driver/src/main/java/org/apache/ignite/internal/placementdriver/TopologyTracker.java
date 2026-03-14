@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -104,6 +105,27 @@ public class TopologyTracker {
         }
 
         return null;
+    }
+
+    /**
+     * Returns {@code true} if the logical topology snapshot contains a node with the given transient node id.
+     *
+     * @param nodeId Node id.
+     */
+    public boolean containsNodeId(UUID nodeId) {
+        LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
+
+        if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {
+            return false;
+        }
+
+        for (LogicalNode node : logicalTopologySnap0.nodes()) {
+            if (node.id().equals(nodeId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     LogicalTopologySnapshot currentTopologySnapshot() {
