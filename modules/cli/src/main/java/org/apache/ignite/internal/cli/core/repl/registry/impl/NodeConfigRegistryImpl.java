@@ -24,34 +24,25 @@ import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
-import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link NodeConfigRegistry}. */
 @Singleton
-public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEventListener {
+public class NodeConfigRegistryImpl extends RegistryImplBase<Config> implements NodeConfigRegistry {
 
     private final NodeConfigShowCall nodeConfigShowCall;
-
-    @Nullable
-    private LazyObjectRef<Config> configRef;
 
     public NodeConfigRegistryImpl(NodeConfigShowCall nodeConfigShowCall) {
         this.nodeConfigShowCall = nodeConfigShowCall;
     }
 
-    @Override
-    public void onConnect(SessionInfo sessionInfo) {
-        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
-    }
-
     @Nullable
-    private Config fetchConfig(SessionInfo sessionInfo) {
+    @Override
+    protected Config doGetState(String url) {
         DefaultCallOutput<JsonString> result = nodeConfigShowCall.execute(
                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
+                NodeConfigShowCallInput.builder().nodeUrl(url).build()
         );
         if (result.hasError()) {
             return null;
@@ -59,14 +50,9 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEve
         return ConfigFactory.parseString(result.body().getValue());
     }
 
-    @Override
-    public void onDisconnect() {
-        configRef = null;
-    }
-
     @Nullable
     @Override
     public Config config() {
-        return configRef == null ? null : configRef.get();
+        return getResult();
     }
 }
