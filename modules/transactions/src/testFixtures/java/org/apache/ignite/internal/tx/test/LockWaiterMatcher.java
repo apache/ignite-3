@@ -39,7 +39,7 @@ public class LockWaiterMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> 
     protected boolean matchesSafely(CompletableFuture<Lock> item) {
         try {
             this.item = item;
-            item.get(100, TimeUnit.MILLISECONDS);
+            item.get(50, TimeUnit.MILLISECONDS);
             return false; // Timeout exception is expected.
         } catch (TimeoutException e) {
             return true;

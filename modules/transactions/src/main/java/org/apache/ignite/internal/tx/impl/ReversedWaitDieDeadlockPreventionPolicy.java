@@ -23,17 +23,10 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
 /**
- * Implements a deadlock prevention policy that resolves conflicts between two transactions (tx1 and tx2) contending for the same key. When
- * tx1 holds a lock and tx2 attempts to acquire it, the policy allows tx2 to wait for the lock if any of the following conditions are
- * met:
- * <ul>
- *     <li>tx2 is older than tx1.</li>
- *     <li>tx2 is younger than tx1 but has a higher {@link org.apache.ignite.internal.tx.TxPriority}.</li>
- *     <li>The wait timeout is greater than 0.</li>
- * </ul>
- * If none of these conditions are met, tx2 is aborted to prevent deadlock.
+ * Reversed wait die implementation. Same as wait die, but reverses the wait order: younger is allowed to wait for older, older is rejected
+ * if conflicts with younger.
  */
-public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+public class ReversedWaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
     private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
 
     /** {@inheritDoc} */
@@ -42,24 +35,13 @@ public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy
         return TX_ID_PRIORITY_COMPARATOR;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public long waitTimeout() {
-        return 0;
-    }
-
-    @Override
-    public final Waiter allowWait(Waiter waiter, Waiter owner) {
+    public Waiter allowWait(Waiter waiter, Waiter owner) {
         int res = txIdComparator().compare(waiter.txId(), owner.txId());
         assert res != 0;
 
-        // Waiter is allowed to wait for owner if it's older.
-        // IDs are sorted for older to younger.
-        return res < 0 ? null : waiter;
-    }
-
-    @Override
-    public final boolean reverse() {
-        return true;
+        // Waiter is allowed to wait for owner if it's younger.
+        // Otherwise we have to fail waiter.
+        return res > 0 ? null : waiter;
     }
 }

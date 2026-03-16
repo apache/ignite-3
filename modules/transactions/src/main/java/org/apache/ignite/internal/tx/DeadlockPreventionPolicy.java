@@ -56,15 +56,6 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Whether transaction priority if used for conflict resolution.
-     *
-     * @return Whether priority is used.
-     */
-    default boolean usePriority() {
-        return txIdComparator() != null;
-    }
-
-    /**
      * Invoke fail action on the owner.
      *
      * @param owner The owner.
@@ -86,9 +77,9 @@ public interface DeadlockPreventionPolicy {
     };
 
     /**
-     * Order for a first conflict waiter search.
+     * Return the order, in which the first conflicting waiter is searched.
      *
-     * @return
+     * @return If {@code true}, searches for older first.
      */
     default boolean reverse() {
         return false;

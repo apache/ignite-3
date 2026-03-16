@@ -32,7 +32,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for {@link WoundWaitDeadlockPreventionPolicy} with no-op fail action.
+ * Test for {@link WoundWaitDeadlockPreventionPolicy} with rollback fail action.
  */
 public class WoundWaitDeadlockPreventionRollbackFailActionTest extends AbstractLockingTest {
     @Override

@@ -28,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
+import org.apache.ignite.internal.tx.impl.NoWaitDeadlockPreventionPolicy;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,7 +37,7 @@ import org.junit.jupiter.api.Test;
 public class LockManagerTxLabelTest extends AbstractLockingTest {
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicyImpl(TxIdComparators.NONE, 0);
+        return new NoWaitDeadlockPreventionPolicy();
     }
 
     @Test

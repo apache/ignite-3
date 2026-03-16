@@ -142,7 +142,6 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
             assertThat(futTx1, willSucceedFast());
             assertThat(futTx2, conflictMatcher(tx1));
         }
-
     }
 
     @Test

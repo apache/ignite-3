@@ -23,24 +23,24 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
 /**
- * Wound-wait prevention policy. TODO desc.
+ * Timeout deadlock prevention policy.
  */
-public class WoundWaitDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
-    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
-
+public class TimeoutDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
     /** {@inheritDoc} */
     @Override
     public Comparator<UUID> txIdComparator() {
-        return TX_ID_PRIORITY_COMPARATOR;
+        return null;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public long waitTimeout() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public Waiter allowWait(Waiter waiter, Waiter owner) {
-        int res = txIdComparator().compare(waiter.txId(), owner.txId());
-        assert res != 0;
-
-        // Waiter is allowed to wait for owner if it's younger.
-        // Otherwise we have to fail owner.
-        return res > 0 ? null : owner;
+        return null;
     }
 }
