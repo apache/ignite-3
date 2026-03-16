@@ -24,12 +24,14 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexVisitor;
@@ -73,9 +75,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -94,10 +94,14 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
     private final PartitionPruningMetadataExtractor extractor;
 
-    private Pair<IgniteTable, Operation> modifiedTable;
+    private final IgniteTable modifiedTable;
 
-    ModifyNodeVisitor(PartitionPruningMetadataExtractor extractor) {
+    private final Operation operation;
+
+    ModifyNodeVisitor(PartitionPruningMetadataExtractor extractor, IgniteTable table, Operation operation) {
         this.extractor = extractor;
+        this.modifiedTable = table;
+        this.operation = operation;
     }
 
     /**
@@ -116,14 +120,6 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         if (operation != INSERT && operation != DELETE && operation != UPDATE) {
             return null;
         }
-
-        RelOptTable optTable = tableModify.getTable();
-        assert optTable != null;
-
-        IgniteTable table = optTable.unwrap(IgniteTable.class);
-        assert table != null;
-
-        modifiedTable = new Pair<>(table, operation);
 
         return visit((IgniteRel) tableModify.getInput());
     }
@@ -389,59 +385,102 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
         PartitionPruningColumns metadata = extractor.result.get(sourceId);
         // Do not propagate metadata if tables are different for now.
-        IgniteTable tableUnderModification = modifiedTable.getFirst();
-        if (metadata == null || tableUnderModification.id() != table.id()) {
+        if (metadata == null || modifiedTable.id() != table.id()) {
             return null;
         }
 
-        // Only handle column order-preserving projections for now.
-        boolean preserveOrder = requiredColumns != null && projectionPreservesColumnOrder(requiredColumns);
-        if (!preserveOrder) {
-            return null;
+        if (requiredColumns == null) {
+            // If there are no required columns, this scan is expected to return all columns.
+            requiredColumns = ImmutableIntList.copyOf(ImmutableIntList.range(0, table.descriptor().columnsCount()));
         }
 
-        if (!nullOrEmpty(projects)) {
-            assert requiredColumns != null : "No required columns: " + rel;
+        // Use the same path for all DML operation to ensure that
+        // if anything changes partition metadata won't be extracted at all. 
+        boolean projectionWasNull = nullOrEmpty(projects);
+        List<RexNode> projectionFromScan;
 
-            List<RexNode> expectedProjection = createProjectionFromScan(modifiedTable.getSecond(), projects, requiredColumns);
+        if (projectionWasNull) {
+            // If there is no projection, use identity projection.
+            List<RexNode> columnProjection = new ArrayList<>(requiredColumns.size());
+
+            RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
             RelDataType rowType = table.getRowType(rel.getCluster().getTypeFactory(), requiredColumns);
 
-            if (!RexUtils.isIdentity(expectedProjection, rowType)) {
-                return null;
+            for (int c : requiredColumns) {
+                RelDataType fieldType = rowType.getFieldList().get(c).getType();
+                columnProjection.add(rexBuilder.makeLocalRef(fieldType, c));
             }
+
+            projectionFromScan = columnProjection;
+        } else {
+            projectionFromScan = createProjectionFromScan(
+                    modifiedTable,
+                    operation,
+                    projects,
+                    requiredColumns,
+                    rel.getCluster().getRexBuilder()
+            );
+        }
+
+        // There are more colocation keys than projection elements.
+        IntList colocationKeys = PartitionPruningMetadataExtractor.distributionKeys(table);
+
+        // colocation keys: k1, k2
+        // INSERT INTO t
+        // k0, k1, k2
+        // SELECT
+        // 1, k1, k2 
+        // FROM t WHERE k1 = 1 and k2=3
+
+        int matchCount = 0;
+
+        for (int c : colocationKeys) {
+            RexNode node = projectionFromScan.get(c);
+            if (!(node instanceof RexLocalRef)) {
+                continue;
+            }
+            RexLocalRef ref = (RexLocalRef) node;
+            if (ref.getIndex() == c) {
+                matchCount++;
+            }
+        }
+
+        if (matchCount != colocationKeys.size()) {
+            return null;
         }
 
         return metadataToValues(table, metadata);
     }
 
-    private static boolean projectionPreservesColumnOrder(ImmutableIntList requiredColumns) {
-        // Expect required columns in the table definition order
-        for (int i = 0; i < requiredColumns.size(); i++) {
-            int c = requiredColumns.get(i);
-            if (c != i) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static List<RexNode> createProjectionFromScan(Operation operation,
+    private static List<RexNode> createProjectionFromScan(
+            IgniteTable table,
+            Operation operation,
             List<RexNode> projects,
-            ImmutableIntList requiredColumns
+            ImmutableIntList requiredColumns,
+            RexBuilder rexBuilder
     ) {
+        List<RexNode> result;
         if (operation == INSERT || operation == DELETE) {
             // Projections for INSERTs and DELETEs do not include any extra columns.
-            return projects;
+            result = projects;
         } else if (operation == UPDATE) {
             // UPDATEs have the following projection: [<columns in definition order>, <expressions as specified in UPDATE clause].
             // Example:
             // UPDATE t SET c3 = 100, c4='a' WHERE c1=42 AND c2=99
             // => 
             // [c1, c2, c3, c4, 100, 'a']
-            return projects.subList(0, requiredColumns.size());
+            result = projects.subList(0, requiredColumns.size());
         } else {
             throw new IllegalStateException("Unexpected modification operation: " + operation);
         }
+
+        // Re-columns in the projection so that each local ref is mapped to its table column.
+        return PartitionPruningMetadataExtractor.remapColumns(
+                table,
+                requiredColumns,
+                result,
+                rexBuilder
+        );
     }
 
     private static List<List<RexNode>> metadataToValues(

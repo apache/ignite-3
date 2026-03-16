@@ -253,19 +253,11 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
                 .build();
 
-        IgniteTable table2 = TestBuilders.table()
-                .name("T2")
-                .addKeyColumn("C1", NativeTypes.INT32)
-                .addKeyColumn("C2", NativeTypes.INT32)
-                .addColumn("C3", NativeTypes.INT32, true)
-                .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
-                .build();
-
         // Same table: same metadata
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT c1, c2, c3 FROM t1 WHERE c2 = 42 and c1 = ?",
-                    table1, table2
+                    table1
             );
             expectMetadata(Map.of(
                             1L, "[[0=?0, 1=42]]",
@@ -278,7 +270,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT c1, c2, c3 FROM t1 WHERE c2 IN (42, 99) and c1 = ?",
-                    table1, table2
+                    table1
             );
             expectMetadata(Map.of(
                             1L, "[[0=?0, 1=42], [0=?0, 1=99]]",
@@ -291,7 +283,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT c1, c2, c3 FROM t1 WHERE c2 IN (42, 99) and c1 IN (?, 10, 56)",
-                    table1, table2
+                    table1
             );
             expectMetadata(Map.of(
                             1L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=56, 1=42], [0=56, 1=99]]",
@@ -304,7 +296,16 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT * FROM t1 WHERE c2=42 and c1=?",
-                    table1, table2
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Projection with constants but insert order still matches.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, 3 FROM t1 WHERE  c2=42 and c3=99 and c1=?",
+                    table1
             );
             expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
         }
@@ -313,18 +314,67 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT c3, c2, c1 FROM t1 WHERE c2=42 and c1=?",
-                    table1, table2
+                    table1
             );
             expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
         }
 
-        // Projection with constants
+        // Permuting projection does not allow propagation
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c1 FROM t1 WHERE  c2=42 and c3=99 and c1=?",
+                    table1
+            );
+            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Projection with constants insertion order does not match.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT 10, c2, c3 FROM t1 WHERE c2=42 and c1=?",
-                    table1, table2
+                    table1
             );
             expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+        }
+    }
+
+    @Test
+    public void testInsertFromSelectNonSequentialKeyColumns() throws Exception {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32)
+                .addKeyColumn("C4", NativeTypes.INT32)
+                .addColumn("C5", NativeTypes.INT32)
+                .distribution(TestBuilders.affinity(List.of(3, 1), 1, 2))
+                .build();
+
+        // Insertion order matches
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c3, c4, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[1=42, 3=78]]", 2L, "[[1=42, 3=78]]"), actual);
+        }
+
+        // Insertion order is incorrect
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c3, c1, c4, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
+                    table1
+            );
+            expectMetadata(Map.of(2L, "[[1=42, 3=78]]"), actual);
+        }
+
+        // Insertion order matches but expressions at column positions are not supported
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c3, 78, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
+                    table1
+            );
+            expectMetadata(Map.of(2L, "[[1=42, 3=78]]"), actual);
         }
     }
 
