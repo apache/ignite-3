@@ -35,7 +35,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -460,10 +459,10 @@ public final class ExceptionUtils {
      * Checks if the given throwable is already present in the cause or suppressed hierarchy of the given throwable.
      *
      * @param t Throwable.
-     * @param dejaVu Known throwables.
+     * @param dejaVu Known exceptions.
      * @return True if seen before, false otherwise.
      */
-    public static boolean existingCauseOrSuppressed(Throwable t, HashSet<Throwable> dejaVu) {
+    public static boolean existingCauseOrSuppressed(@Nullable Throwable t, Set<Throwable> dejaVu) {
         if (t == null) {
             return false;
         }
