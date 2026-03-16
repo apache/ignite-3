@@ -21,12 +21,12 @@ import static org.apache.ignite.internal.util.ExceptionUtils.existingCauseOrSupp
 
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.client.handler.requests.tx.ClientTxPartitionEnlistmentCleaner;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -171,41 +171,35 @@ public class ClientResourceRegistry {
 
         busyLock.block();
 
-        IgniteInternalException ex = null;
+        AtomicReference<IgniteInternalException> ex = new AtomicReference<>();
         var dejaVu = new HashSet<Throwable>();
 
-        for (ClientResource r : res.values()) {
+        Consumer<Runnable> releaseSafe = r -> {
             try {
-                r.release();
+                r.run();
             } catch (Throwable e) {
-                if (ex == null) {
-                    ex = new IgniteInternalException(e);
+                if (ex.get() == null) {
+                    ex.set(new IgniteInternalException(e));
                     existingCauseOrSuppressed(e, dejaVu); // Seed dejaVu.
                 } else if (!existingCauseOrSuppressed(e, dejaVu)) {
-                    ex.addSuppressed(e);
+                    ex.get().addSuppressed(e);
                 }
             }
+        };
+
+        for (ClientResource r : res.values()) {
+            releaseSafe.accept(r::release);
         }
 
         res.clear();
 
-        // TODO: Dedup logic
         for (var cleaner : txCleaners.values()) {
-            try {
-                // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
-                CompletableFuture<Void> ignored = cleaner.clean();
-            } catch (Throwable e) {
-                if (ex == null) {
-                    ex = new IgniteInternalException(e);
-                    existingCauseOrSuppressed(e, dejaVu); // Seed dejaVu.
-                } else if (!existingCauseOrSuppressed(e, dejaVu)) {
-                    ex.addSuppressed(e);
-                }
-            }
+            // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
+            releaseSafe.accept(cleaner::clean);
         }
 
-        if (ex != null) {
-            throw ex;
+        if (ex.get() != null) {
+            throw ex.get();
         }
     }
 
