@@ -976,6 +976,11 @@ public class Node {
     public void stop() {
         invokeInterceptor = null;
 
+        // Match IgniteImpl.stopAsync() behavior: mark components as stopping before shutting down,
+        // so that in-flight Raft operations produce NodeStoppingException instead of TimeoutException.
+        cmgManager.markAsStopping();
+        metaStorageManager.markAsStopping();
+
         List<IgniteComponent> components = new ArrayList<>(nodeComponents);
         reverse(components);
 
