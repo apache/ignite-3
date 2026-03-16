@@ -641,13 +641,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Long> readLockAcquisitionFuture = zoneLock.readLock();
 
         try {
-            return readLockAcquisitionFuture.thenCompose(stamp -> {
+            return readLockAcquisitionFuture.thenCompose(stamp -> inBusyLockAsync(busyLock, () -> {
                 CompletableFuture<?>[] futures = zoneTablesRawSet(zonePartitionId.zoneId()).stream()
                         .map(this::stopTablePartitions)
                         .toArray(CompletableFuture[]::new);
 
                 return allOf(futures);
-            }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
+            })).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
         } catch (Throwable t) {
             readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 

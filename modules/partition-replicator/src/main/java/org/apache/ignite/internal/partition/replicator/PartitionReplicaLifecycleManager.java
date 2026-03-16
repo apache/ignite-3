@@ -1786,8 +1786,7 @@ public class PartitionReplicaLifecycleManager extends
             long eventRevision,
             Consumer<Boolean> afterReplicaStopAction
     ) {
-        // Not using the busy lock here, because this method is called on component stop.
-        return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
+        return inBusyLockAsync(busyLock, () -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             var eventParameters = new LocalPartitionReplicaEventParameters(zonePartitionId, eventRevision, false);
 
             return fireEvent(beforeReplicaStoppedEvent, eventParameters)
@@ -1811,7 +1810,7 @@ public class PartitionReplicaLifecycleManager extends
                             return nullCompletedFuture();
                         }
                     });
-        });
+        }));
     }
 
     private void closeTrackers(ZonePartitionId zonePartitionId) {
