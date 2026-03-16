@@ -17,7 +17,11 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.existingCauseOrSuppressed;
+
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -168,6 +172,7 @@ public class ClientResourceRegistry {
         busyLock.block();
 
         IgniteInternalException ex = null;
+        var dejaVu = new HashSet<Throwable>();
 
         for (ClientResource r : res.values()) {
             try {
@@ -175,7 +180,8 @@ public class ClientResourceRegistry {
             } catch (Throwable e) {
                 if (ex == null) {
                     ex = new IgniteInternalException(e);
-                } else {
+                    existingCauseOrSuppressed(e, dejaVu); // Seed dejaVu.
+                } else if (!existingCauseOrSuppressed(e, dejaVu)) {
                     ex.addSuppressed(e);
                 }
             }
@@ -183,6 +189,7 @@ public class ClientResourceRegistry {
 
         res.clear();
 
+        // TODO: Dedup logic
         for (var cleaner : txCleaners.values()) {
             try {
                 // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
@@ -190,8 +197,8 @@ public class ClientResourceRegistry {
             } catch (Throwable e) {
                 if (ex == null) {
                     ex = new IgniteInternalException(e);
-                } else {
-                    // TODO: There is a problem here which causes broken logging and a failure in ItSqlKillCommandTest
+                    existingCauseOrSuppressed(e, dejaVu); // Seed dejaVu.
+                } else if (!existingCauseOrSuppressed(e, dejaVu)) {
                     ex.addSuppressed(e);
                 }
             }
