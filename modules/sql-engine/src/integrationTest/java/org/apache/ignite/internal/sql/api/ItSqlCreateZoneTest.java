@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -53,22 +54,15 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
     private static final String NOT_EXISTED_PROFILE_NAME = "not-existed-profile";
     private static final String EXTRA_PROFILE_NAME = "extra-profile";
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_EXTRA_PROFILE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_EXTRA_PROFILE = renderConfigTemplate(
+            "  storage.profiles: {"
             + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
             + "        " + EXTRA_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
+    );
 
     @Override
     protected int initialNodes() {
