@@ -159,7 +159,6 @@ class SegmentFileManager implements ManuallyCloseable {
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
-            GroupInfoProvider groupInfoProvider,
             RaftConfiguration raftConfiguration,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
@@ -184,7 +183,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 logStorageView.maxCheckpointQueueSize()
         );
 
-        garbageCollector = new RaftLogGarbageCollector(segmentFilesDir, indexFileManager, groupInfoProvider);
+        garbageCollector = new RaftLogGarbageCollector(segmentFilesDir, indexFileManager);
     }
 
     void start() throws IOException {

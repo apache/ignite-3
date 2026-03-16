@@ -58,7 +58,8 @@ public class MigrationTestBase {
 
     private static final Path MIGRATION_TOOLS_CLI_FOLDER = Path.of("target/dependency/migration-tools-cli.jar");
 
-    // TODO: The output of list-caches must be easily parsable so that we can extract the nodeNames
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28146 The output of list-caches must be easily parsable
+    //  so that we can extract the nodeNames.
     protected static final List<String> NODE_NAMES = List.of(
             "ad26bff6-5ff5-49f1-9a61-425a827953ed",
             "c1099d16-e7d7-49f4-925c-53329286c444",
@@ -67,7 +68,7 @@ public class MigrationTestBase {
 
     protected static final Network network = Network.newNetwork();
 
-    // TODO: Add a cluster instead of a single instance. Create a ignite stuff perhaps.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28147 Add a cluster instead of a single instance. Create a ignite stuff perhaps.
     @Container
     protected static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network)
             .withLabel(MigrationTestBase.class.getSimpleName());
@@ -84,7 +85,7 @@ public class MigrationTestBase {
 
     /** Assert that the migration is successfull. */
     public static void migrationIsSuccessfull(String cacheName, String migrationMode) throws IOException, InterruptedException {
-        // TODO: Refactor
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28148 Refactor.
         String clusterAddress = "ai3.node.1:10800";
 
         // migrationArgs.add(1, "");

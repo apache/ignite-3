@@ -47,11 +47,12 @@ public class CommunicationSpiConverter implements ConfigurationConverter {
 
         target.port().update(tcpCommSpi.getLocalPort()).get();
         if (tcpCommSpi.getLocalPortRange() > 0) {
-            // TODO: Check if we can implement an additional policy for migrating the port range.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28163 Check if we can implement an additional policy
+            //  for migrating the port range.
             LOGGER.error("Local Port Range in TcpCommunicationSpi will be ignored. There's no similar feature in Apache Ignite 3");
         }
 
-        // TODO: Check if this is the correct delay config
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28164 Check if this is the correct delay config.
         target.inbound().tcpNoDelay().update(tcpCommSpi.isTcpNoDelay()).get();
     }
 }

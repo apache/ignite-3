@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -92,19 +93,7 @@ public class TopologyTracker {
      * @return Cluster node or {@code null} if topology has no a node with the consistent id.
      */
     public @Nullable InternalClusterNode nodeByConsistentId(String consistentId) {
-        LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
-
-        if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {
-            return null;
-        }
-
-        for (LogicalNode node : logicalTopologySnap0.nodes()) {
-            if (node.name().equals(consistentId)) {
-                return node;
-            }
-        }
-
-        return null;
+        return findNode(node -> node.name().equals(consistentId));
     }
 
     /**
@@ -113,19 +102,23 @@ public class TopologyTracker {
      * @param nodeId Node id.
      */
     public boolean containsNodeId(UUID nodeId) {
+        return findNode(node -> node.id().equals(nodeId)) != null;
+    }
+
+    private @Nullable InternalClusterNode findNode(Predicate<LogicalNode> predicate) {
         LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
 
         if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {
-            return false;
+            return null;
         }
 
         for (LogicalNode node : logicalTopologySnap0.nodes()) {
-            if (node.id().equals(nodeId)) {
-                return true;
+            if (predicate.test(node)) {
+                return node;
             }
         }
 
-        return false;
+        return null;
     }
 
     LogicalTopologySnapshot currentTopologySnapshot() {

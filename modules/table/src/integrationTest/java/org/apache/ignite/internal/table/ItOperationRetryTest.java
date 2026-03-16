@@ -26,11 +26,17 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,6 +53,8 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -215,6 +223,34 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
         assertThat(futureUpsert, willSucceedIn(20, SECONDS));
         assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
+    }
+
+    @Test
+    public void retryAfterLockFailureInSameTransaction() {
+        Transaction tx1 = node(0).transactions().begin();
+        Transaction tx2 = node(0).transactions().begin();
+
+        executeSql(0, tx1, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, NEW_RECORD_VALUE);
+
+        Exception firstAttempt = assertThrows(Exception.class, () ->
+                executeSql(0, tx2, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, "other value"));
+
+        assertInstanceOf(SqlException.class, firstAttempt);
+        assertThat(firstAttempt.getMessage(), containsString("Failed to acquire a lock during request handling"));
+        assertTrue(hasCause(firstAttempt, LockException.class, null), "Expected lock exception as a cause");
+
+        Exception secondAttempt = assertThrows(Exception.class, () ->
+                executeSql(0, tx2, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, "other value"));
+
+        if (secondAttempt.getMessage() != null && secondAttempt.getMessage().contains("Transaction is already finished")) {
+            assertInstanceOf(SqlException.class, secondAttempt);
+            assertTrue(hasCause(secondAttempt, LockException.class, null), "Expected lock exception as a cause");
+        } else {
+            fail();
+        }
+
+        tx1.rollback();
+        tx2.rollback();
     }
 
     private String  transferPrimaryTo(String newLeaseholderNodeName, ZonePartitionId replicationGroup) {

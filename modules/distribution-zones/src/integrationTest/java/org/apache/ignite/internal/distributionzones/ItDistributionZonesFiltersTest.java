@@ -156,7 +156,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         // This node pass the filter but storage profiles of a node do not match zone's storage profiles.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21387 recovery of this node is failing,
-        // TODO: because there are no appropriate storage profile on the node
+        //  because there are no appropriate storage profile on the node
         @Language("HOCON") String notMatchingProfiles = "{dummy:{engine:\"dummy\"},another_dummy:{engine:\"dummy\"}}";
         startNode(2, createStartConfig(secondNodeAttributes, notMatchingProfiles));
 

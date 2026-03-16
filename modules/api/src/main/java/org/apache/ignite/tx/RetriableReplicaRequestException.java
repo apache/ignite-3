@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
-
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.tx;
 
 /**
- * File chunk ack. This message is sent by the receiver to the sender to acknowledge the successful reception of a file chunk.
+ * This is the marker interface for exceptions that may be thrown during replica requests and may be retried, such as:
+ * <ul>
+ *     <li>primary replica miss and primary replica expired exception;</li>
+ *     <li>replication problems;</li>
+ *     <li>replica unavailability;</li>
+ * </ul>
+ * etc.
  */
-@Transferable(FileTransferMessageType.FILE_CHUNK_RESPONSE)
-public interface FileChunkResponse extends NetworkMessage {
-    /**
-     * Returns the error.
-     *
-     * @return Error error.
-     */
-    @Nullable
-    FileTransferError error();
+public interface RetriableReplicaRequestException {
 }
