@@ -263,7 +263,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 failureManager,
                 executorService,
-                replicaManager
+                replicaManager,
+                mock(ClockService.class)
         ) {
             @Override
             protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {

@@ -563,7 +563,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 storageIndexTracker,
                 new NoOpPartitionsSnapshots(),
-                mock(Executor.class)
+                mock(Executor.class),
+                clockService
         );
 
         zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);

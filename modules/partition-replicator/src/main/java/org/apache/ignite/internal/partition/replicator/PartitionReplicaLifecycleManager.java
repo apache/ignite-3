@@ -382,7 +382,8 @@ public class PartitionReplicaLifecycleManager extends
                         catalogService,
                         failureProcessor,
                         partitionOperationsExecutor,
-                        replicaMgr
+                        replicaMgr,
+                        clockService
                 ),
                 metricManager,
                 messagingService,

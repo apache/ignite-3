@@ -915,7 +915,8 @@ public class ItTxTestCluster {
                         safeTimeTracker,
                         storageIndexTracker,
                         mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
-                        partitionOperationsExecutor
+                        partitionOperationsExecutor,
+                        clockServices.get(assignment)
                 )
         );
 

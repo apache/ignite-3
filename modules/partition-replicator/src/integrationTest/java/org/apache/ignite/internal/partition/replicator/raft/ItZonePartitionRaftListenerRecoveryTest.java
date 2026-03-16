@@ -66,6 +66,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -181,6 +182,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
     private final List<IgniteComponent> components = new ArrayList<>();
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService clockService = new TestClockService(clock);
 
     private final Map<Integer, MockMvPartitionStorage> storagesByTableId = new HashMap<>();
 
@@ -336,7 +339,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 new PendingComparableValuesTracker<>(0L),
                 outgoingSnapshotsManager,
-                executor
+                executor,
+                clockService
         );
 
         for (int tableId : tableIds) {

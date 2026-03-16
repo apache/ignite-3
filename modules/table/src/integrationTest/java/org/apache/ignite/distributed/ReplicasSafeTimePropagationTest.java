@@ -397,7 +397,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             safeTs,
                             mock(PendingIndependentComparableValuesTracker.class),
                             outgoingSnapshotsManager,
-                            mock(Executor.class)
+                            mock(Executor.class),
+                            clockService
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {

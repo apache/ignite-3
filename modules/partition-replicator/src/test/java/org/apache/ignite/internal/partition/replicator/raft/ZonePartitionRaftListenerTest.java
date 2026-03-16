@@ -200,7 +200,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 safeTimeTracker,
                 storageIndexTracker,
                 outgoingSnapshotsManager,
-                executor
+                executor,
+                mock(ClockService.class)
         );
     }
 
