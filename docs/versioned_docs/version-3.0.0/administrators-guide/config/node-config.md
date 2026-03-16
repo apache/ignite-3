@@ -146,12 +146,6 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
 {
   "ignite" : {
     "network" : {
-      "fileTransfer" : {
-        "chunkSizeBytes" : 1048576,
-        "maxConcurrentRequests" : 4,
-        "responseTimeoutMillis" : 10000,
-        "threadPoolSize" : 8
-      },
       "inbound" : {
         "soBacklog" : 128,
         "soKeepAlive" : true,
@@ -223,11 +217,6 @@ In Apache Ignite 3, you can choose between two node discovery types. With `STATI
 
 | Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
 |----------|---------|-------------|------------|------------------|-------------------|
-| fileTransfer |  | File transfer configuration. |  |  |  |
-| fileTransfer.chunkSizeBytes | 1048576 | Chunk size in bytes. | Yes | Yes | 1 - Integer.MAX_VALUE |
-| fileTransfer.maxConcurrentRequests | 4 | Maximum number of concurrent requests. | Yes | Yes | 1 - Integer.MAX_VALUE |
-| fileTransfer.responseTimeoutMillis | 10000 | Node response timeout during file transfer. | Yes | Yes | 0 - inf |
-| fileTransfer.threadPoolSize | 8 | File sender thread pool size. | Yes | Yes | 1 - Integer.MAX_VALUE |
 | inbound |  | Server socket configuration. See [TCP documentation](https://man7.org/linux/man-pages/man7/tcp.7.html) and [socket documentation](https://man7.org/linux/man-pages/man7/socket.7.html) for more information. |  |  |  |
 | inbound.soBacklog | 128 | The size of the backlog. | Yes | Yes | 0 - Integer.MAX_VALUE |
 | inbound.soKeepAlive | true | Defines if the keep-alive packets are allowed. | Yes | Yes | true, false |

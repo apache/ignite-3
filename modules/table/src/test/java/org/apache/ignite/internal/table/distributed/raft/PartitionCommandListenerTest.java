@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -130,7 +129,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
@@ -276,7 +274,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class),
                 placementDriver,
                 clockService,
                 new ZonePartitionId(ZONE_ID, PARTITION_ID)
@@ -385,25 +382,42 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @MethodSource("allCommandsUpdatingLastAppliedIndex")
-    void updatesLastAppliedForCommandsUpdatingLastAppliedIndex(WriteCommand command) {
-        commandListener.processCommand(command, 3, 2, hybridClock.now());
+    @MethodSource("commandsVariationsForIndexAdvanceTesting")
+    void updatesLastAppliedForCommandsUpdatingLastAppliedIndex(LabeledCommand command) {
+        commandListener.processCommand(command.command, 3, 2, hybridClock.now());
 
         verify(mvPartitionStorage).lastApplied(3, 2);
     }
 
-    private static UpdateCommandV2 updateCommand() {
+    private static UpdateCommandV2 updateCommandWithLeaseStartTime() {
+        return updateCommand(999L);
+    }
+
+    private static UpdateCommandV2 updateCommandWithoutLeaseStartTime() {
+        return updateCommand(null);
+    }
+
+    private static UpdateCommandV2 updateCommand(@Nullable Long leaseStartTime) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .rowUuid(randomUUID())
                 .tableId(TABLE_ID)
                 .commitPartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
+                .leaseStartTime(leaseStartTime)
                 .initiatorTime(anyTime())
                 .build();
     }
 
-    private static UpdateAllCommandV2 updateAllCommand() {
+    private static UpdateAllCommandV2 updateAllCommandWithLeaseStartTime() {
+        return updateAllCommand(999L);
+    }
+
+    private static UpdateAllCommandV2 updateAllCommandWithoutLeaseStartTime() {
+        return updateAllCommand(null);
+    }
+
+    private static UpdateAllCommandV2 updateAllCommand(@Nullable Long leaseStartTime) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .messageRowsToUpdate(singletonMap(
                         randomUUID(),
@@ -413,24 +427,38 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .commitPartitionId(defaultPartitionIdMessage())
                 .txCoordinatorId(randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
+                .leaseStartTime(leaseStartTime)
                 .initiatorTime(anyTime())
                 .build();
     }
 
-    private static Stream<Arguments> allCommandsUpdatingLastAppliedIndex() {
-        return Stream.of(
-                updateCommand(),
-                updateAllCommand(),
-                writeIntentSwitchCommand(),
-                primaryReplicaChangeCommand(),
-                buildIndexCommand()
-        ).map(Arguments::of);
+    private static List<LabeledCommand> commandsVariationsForIndexAdvanceTesting() {
+        return List.of(
+                new LabeledCommand("UpdateCommand without lease start time", updateCommandWithoutLeaseStartTime()),
+                new LabeledCommand("UpdateCommand with lease start time", updateCommandWithLeaseStartTime()),
+                new LabeledCommand("UpdateAllCommand without lease start time", updateAllCommandWithoutLeaseStartTime()),
+                new LabeledCommand("UpdateAllCommand with lease start time", updateAllCommandWithLeaseStartTime()),
+                new LabeledCommand(writeIntentSwitchCommand()),
+                new LabeledCommand(primaryReplicaChangeCommand()),
+                new LabeledCommand(updateMinimumActiveTxBeginTimeCommand()),
+                new LabeledCommand(buildIndexCommand())
+        );
     }
 
     private static PrimaryReplicaChangeCommand primaryReplicaChangeCommand() {
         return new ReplicaMessagesFactory().primaryReplicaChangeCommand()
                 .primaryReplicaNodeId(randomUUID())
                 .primaryReplicaNodeName("test-node")
+                .build();
+    }
+
+    private static WriteCommand updateMinimumActiveTxBeginTimeCommand() {
+        HybridTimestamp baseTime = HybridTimestamp.MIN_VALUE;
+
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxBeginTimeCommand()
+                .initiatorTime(baseTime)
+                .safeTime(baseTime.addPhysicalTime(1))
+                .timestamp(baseTime.addPhysicalTime(1000).longValue())
                 .build();
     }
 
@@ -522,6 +550,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void testBuildIndexCommand() {
         int indexId = pkStorage.id();
 
+        when(indexUpdateHandler.getNextRowIdToBuildIndex(anyInt())).thenReturn(RowId.lowestRowId(PARTITION_ID));
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 
         RowId row0 = new RowId(PARTITION_ID);
@@ -564,6 +593,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
 
+        when(indexUpdateHandler.getNextRowIdToBuildIndex(anyInt())).thenReturn(RowId.lowestRowId(PARTITION_ID));
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 
         RowId row0 = new RowId(PARTITION_ID);
@@ -954,5 +984,24 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         lenient().when(indexMeta.statusChange(eq(BUILDING))).thenReturn(change1);
 
         return indexMeta;
+    }
+
+    private static class LabeledCommand {
+        private final String label;
+        private final WriteCommand command;
+
+        private LabeledCommand(WriteCommand command) {
+            this(command.getClass().getSimpleName(), command);
+        }
+
+        private LabeledCommand(String label, WriteCommand command) {
+            this.label = label;
+            this.command = command;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }

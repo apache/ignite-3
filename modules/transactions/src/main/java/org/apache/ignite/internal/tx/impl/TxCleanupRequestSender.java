@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.lang.Math.min;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
-import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
-import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.IgniteUtils.scheduleRetry;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,10 +39,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
@@ -62,9 +63,10 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
-    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
-
     private static final int ATTEMPTS_LOG_THRESHOLD = 100;
+
+    private static final int RETRY_INITIAL_TIMEOUT_MS = 20;
+    private static final int RETRY_MAX_TIMEOUT_MS = 30_000;
 
     private final IgniteThrottledLogger throttledLog;
 
@@ -82,6 +84,9 @@ public class TxCleanupRequestSender {
     /** Executor that executes async cleanup actions. */
     private final ExecutorService cleanupExecutor;
 
+    /** Executor that is used to schedule retries of cleanup messages in case of retryable errors. */
+    private final ScheduledExecutorService retryExecutor;
+
     /**
      * The constructor.
      *
@@ -89,20 +94,21 @@ public class TxCleanupRequestSender {
      * @param placementDriverHelper Placement driver helper.
      * @param txStateVolatileStorage Volatile transaction state storage.
      * @param cleanupExecutor Cleanup executor.
-     * @param throttledLogExecutor Executor to clean up the throttled logger cache.
+     * @param commonScheduler Common scheduler.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
             VolatileTxStateMetaStorage txStateVolatileStorage,
             ExecutorService cleanupExecutor,
-            Executor throttledLogExecutor
+            ScheduledExecutorService commonScheduler
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
         this.txStateVolatileStorage = txStateVolatileStorage;
         this.cleanupExecutor = cleanupExecutor;
-        this.throttledLog = toThrottledLogger(Loggers.forClass(TxCleanupRequestSender.class), throttledLogExecutor);
+        this.retryExecutor = commonScheduler;
+        this.throttledLog = toThrottledLogger(Loggers.forClass(TxCleanupRequestSender.class), commonScheduler);
     }
 
     /**
@@ -165,11 +171,12 @@ public class TxCleanupRequestSender {
             commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
         }
 
-        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                .commitPartitionId(commitPartitionId)
-                .commitTimestamp(commitTimestamp)
-                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                .build())
+        commitTimestampFuture.thenAccept(commitTimestamp ->
+                txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                        .commitPartitionId(commitPartitionId)
+                        .commitTimestamp(commitTimestamp)
+                        .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                        .build())
         );
     }
 
@@ -182,7 +189,7 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
-        return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null, 0);
+        return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null, RETRY_INITIAL_TIMEOUT_MS, 0);
     }
 
     /**
@@ -197,7 +204,7 @@ public class TxCleanupRequestSender {
      */
     public CompletableFuture<Void> cleanup(
             @Nullable ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -219,7 +226,7 @@ public class TxCleanupRequestSender {
             enlistedPartitionGroups.add(new EnlistedPartitionGroup(partitionId, partition.tableIds()));
         });
 
-        return cleanupPartitions(commitPartitionId, partitionsByPrimaryName, commit, commitTimestamp, txId, 0);
+        return cleanupPartitions(commitPartitionId, partitionsByPrimaryName, commit, commitTimestamp, txId, RETRY_INITIAL_TIMEOUT_MS, 0);
     }
 
     /**
@@ -239,7 +246,7 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return cleanup(commitPartitionId, partitions, commit, commitTimestamp, txId, 0);
+        return cleanup(commitPartitionId, partitions, commit, commitTimestamp, txId, RETRY_INITIAL_TIMEOUT_MS, 0);
     }
 
     private CompletableFuture<Void> cleanup(
@@ -248,6 +255,7 @@ public class TxCleanupRequestSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
+            long timeout,
             int attemptsMade
     ) {
         Map<ZonePartitionId, EnlistedPartitionGroup> partitionIds = partitions.stream()
@@ -270,6 +278,7 @@ public class TxCleanupRequestSender {
                             commitTimestamp,
                             txId,
                             toPartitionInfos(partitionData.partitionsWithoutPrimary, partitionIds),
+                            timeout,
                             attemptsMade
                     );
 
@@ -283,6 +292,7 @@ public class TxCleanupRequestSender {
                             commit,
                             commitTimestamp,
                             txId,
+                            timeout,
                             attemptsMade
                     );
                 });
@@ -311,6 +321,7 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             List<EnlistedPartitionGroup> partitionsWithoutPrimary,
+            long timeout,
             int attemptsMade
     ) {
         Map<ZonePartitionId, EnlistedPartitionGroup> partitionIds = partitionsWithoutPrimary.stream()
@@ -324,7 +335,15 @@ public class TxCleanupRequestSender {
                             partitionIdsByPrimaryName,
                             partitionIds
                     );
-                    return cleanupPartitions(commitPartitionId, partitionsByPrimaryName, commit, commitTimestamp, txId, attemptsMade);
+                    return cleanupPartitions(
+                            commitPartitionId,
+                            partitionsByPrimaryName,
+                            commit,
+                            commitTimestamp,
+                            txId,
+                            timeout,
+                            attemptsMade
+                    );
                 });
     }
 
@@ -334,6 +353,7 @@ public class TxCleanupRequestSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
+            long timeout,
             int attemptsMade
     ) {
         List<CompletableFuture<Void>> cleanupFutures = new ArrayList<>();
@@ -343,7 +363,7 @@ public class TxCleanupRequestSender {
             List<EnlistedPartitionGroup> nodePartitions = entry.getValue();
 
             cleanupFutures.add(sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node,
-                    commitPartitionId == null ? null : nodePartitions, attemptsMade));
+                    commitPartitionId == null ? null : nodePartitions, timeout, attemptsMade));
         }
 
         return allOf(cleanupFutures.toArray(new CompletableFuture<?>[0]));
@@ -356,9 +376,19 @@ public class TxCleanupRequestSender {
             UUID txId,
             String node,
             @Nullable Collection<EnlistedPartitionGroup> partitions,
+            long timeout,
             int attemptsMade
     ) {
         return txMessageSender.cleanup(node, partitions, txId, commit, commitTimestamp)
+                .thenApply(response -> {
+                    if (response instanceof TxCleanupMessageErrorResponse) {
+                        TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) response;
+
+                        sneakyThrow(errorResponse.throwable());
+                    }
+
+                    return response;
+                })
                 .handleAsync((networkMessage, throwable) -> {
                     if (throwable != null) {
                         if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
@@ -379,42 +409,53 @@ public class TxCleanupRequestSender {
                             // or will run `switchWriteIntentsOnPartitions` for partitions with no primary.
                             // At the end of the day all write intents will be properly converted.
                             if (partitions == null) {
-                                // If we don't have any partition, which is the recovery or unlock only case,
+                                // If we don't have any partition, which is the recovery or "unlock only" case,
                                 // just try again with the same node.
-                                return sendCleanupMessageWithRetries(
-                                        commitPartitionId,
-                                        commit,
-                                        commitTimestamp,
-                                        txId,
-                                        node,
-                                        partitions,
-                                        attemptsMade + 1
+                                return scheduleRetry(
+                                        () -> sendCleanupMessageWithRetries(
+                                                commitPartitionId,
+                                                commit,
+                                                commitTimestamp,
+                                                txId,
+                                                node,
+                                                partitions,
+                                                incrementTimeout(timeout),
+                                                attemptsMade + 1
+                                        ),
+                                        timeout,
+                                        TimeUnit.MILLISECONDS,
+                                        retryExecutor
                                 );
                             }
 
                             // Run a cleanup that finds new primaries for the given partitions.
                             // This covers the case when a partition primary died and we still want to switch write intents.
-                            return cleanup(commitPartitionId, partitions, commit, commitTimestamp, txId, attemptsMade + 1);
+                            return scheduleRetry(
+                                    () -> cleanup(
+                                        commitPartitionId,
+                                        partitions,
+                                        commit,
+                                        commitTimestamp,
+                                        txId,
+                                        incrementTimeout(timeout),
+                                        attemptsMade + 1
+                                    ),
+                                    timeout,
+                                    TimeUnit.MILLISECONDS,
+                                    retryExecutor
+                            );
                         }
 
                         return CompletableFuture.<Void>failedFuture(throwable);
                     }
 
-                    if (networkMessage instanceof TxCleanupMessageErrorResponse) {
-                        TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) networkMessage;
-                        if (writeIntentSwitchFailureShouldBeLogged(errorResponse.throwable())) {
-                            LOG.warn(
-                                    "First cleanup attempt failed (the transaction outcome is not affected) {}.",
-                                    errorResponse.throwable(), formatTxInfo(txId, txStateVolatileStorage)
-                            );
-                        }
-
-                        // We don't fail the resulting future as a failing cleanup is not a problem.
-                    }
-
                     return CompletableFutures.<Void>nullCompletedFuture();
                 }, cleanupExecutor)
                 .thenCompose(v -> v);
+    }
+
+    private static long incrementTimeout(long currentTimeout) {
+        return min(currentTimeout * 2, RETRY_MAX_TIMEOUT_MS);
     }
 
     private static class CleanupContext {

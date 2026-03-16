@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters.log;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.metrics.HitRateMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.StringGauge;
@@ -73,7 +73,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith({ConfigurationExtension.class})
 public class LogPushExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters {log {"
+    @InjectConfiguration(value = "mock.exporters {log {"
             + "exporterName = logPush, "
             + "periodMillis = 300, "
             + "oneLinePerMetricSource = false,"
@@ -86,7 +86,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
             + "  \"similar.name.*\", "
             + "  \"ignored\""
             + "]"
-            + "}}")
+            + "}}", type = DISTRIBUTED)
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();
@@ -165,14 +165,13 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     Map.of("IgnoredMetric", new IntGauge("IgnoredMetric", "", () -> 1))
             );
 
-    private MetricManager metricManager;
+    private MetricManagerImpl metricManager;
 
     private LogPushExporter exporter;
 
     @BeforeEach
     void setUp() {
-        metricManager = new MetricManagerImpl();
-        metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
+        metricManager = new MetricManagerImpl("nodeName", () -> CLUSTER_ID, metricConfiguration);
 
         // Register JVM and OS metric sources for system metrics (heap, CPU).
         metricManager.registerSource(new JvmMetricSource());

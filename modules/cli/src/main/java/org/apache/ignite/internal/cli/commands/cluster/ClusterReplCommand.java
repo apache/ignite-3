@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.cli.commands.cluster;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.metric.ClusterMetricReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.topology.TopologyReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.metric.ClusterMetricCommand;
+import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;
+import org.apache.ignite.internal.cli.commands.cluster.topology.TopologyCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitCommand;
 import picocli.CommandLine.Command;
 
 /**
@@ -31,12 +31,12 @@ import picocli.CommandLine.Command;
  */
 @Command(name = "cluster",
         subcommands = {
-                ClusterConfigReplCommand.class,
+                ClusterConfigCommand.class,
                 ClusterInitReplCommand.class,
-                ClusterStatusReplCommand.class,
-                TopologyReplCommand.class,
-                ClusterUnitReplCommand.class,
-                ClusterMetricReplCommand.class,
+                ClusterStatusCommand.class,
+                TopologyCommand.class,
+                ClusterUnitCommand.class,
+                ClusterMetricCommand.class,
         },
         description = "Manages an Ignite cluster")
 public class ClusterReplCommand extends BaseCommand {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -41,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
 
-    @InjectConfiguration
+    @InjectConfiguration(type = DISTRIBUTED)
     private EventLogConfiguration cfg;
 
     private ConfigurationBasedChannelRegistry registry;

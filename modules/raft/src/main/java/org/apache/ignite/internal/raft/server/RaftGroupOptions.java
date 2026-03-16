@@ -19,10 +19,11 @@ package org.apache.ignite.internal.raft.server;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.SafeTimeValidator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,8 +33,8 @@ public class RaftGroupOptions {
     /** Whether volatile stores should be used for the corresponding Raft Group. Classic Raft uses persistent ones. */
     private final boolean volatileStores;
 
-    /** Log storage factory. */
-    private LogStorageFactory logStorageFactory;
+    /** Log storage manager. */
+    private LogStorageManager logStorageManager;
 
     /** Snapshot storage factory. */
     private @Nullable SnapshotStorageFactory snapshotStorageFactory;
@@ -63,6 +64,8 @@ public class RaftGroupOptions {
      * If the group is declared as a system group, certain threads are dedicated specifically for that one.
      */
     private boolean isSystemGroup = false;
+
+    private @Nullable SafeTimeValidator safeTimeValidator;
 
     /**
      * Gets a system group flag.
@@ -130,17 +133,17 @@ public class RaftGroupOptions {
     }
 
     /**
-     * Returns a log storage factory that's used to create log storage for a raft group.
+     * Returns a log storage manager that's used to create log storage for a raft group.
      */
-    public LogStorageFactory getLogStorageFactory() {
-        return logStorageFactory;
+    public LogStorageManager getLogStorageManager() {
+        return logStorageManager;
     }
 
     /**
-     * Adds log storage factory to options.
+     * Adds log storage manager to options.
      */
-    public RaftGroupOptions setLogStorageFactory(LogStorageFactory logStorageFactory) {
-        this.logStorageFactory = logStorageFactory;
+    public RaftGroupOptions setLogStorageManager(LogStorageManager logStorageManager) {
+        this.logStorageManager = logStorageManager;
 
         return this;
     }
@@ -266,5 +269,14 @@ public class RaftGroupOptions {
      */
     public int maxClockSkew() {
         return maxClockSkewMs;
+    }
+
+    public @Nullable SafeTimeValidator safeTimeValidator() {
+        return safeTimeValidator;
+    }
+
+    public RaftGroupOptions safeTimeValidator(@Nullable SafeTimeValidator safeTimeValidator) {
+        this.safeTimeValidator = safeTimeValidator;
+        return this;
     }
 }

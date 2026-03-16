@@ -40,7 +40,7 @@ import org.apache.ignite.internal.raft.StoredRaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.raft.jraft.core.TestCluster;
@@ -65,7 +65,7 @@ class ItJraftServerTest extends JraftAbstractTest {
     void testDurableStorageDestructionFinishAfterRestart() throws Exception {
         doTestDurableStorageDestructionFinishAfterRestart(false);
 
-        // New log storage factory was created after restart.
+        // New log storage manager was created after restart.
         verify(logStorageFactories.get(SERVER_INDEX), times(1)).destroyLogStorage(anyString());
     }
 
@@ -73,7 +73,7 @@ class ItJraftServerTest extends JraftAbstractTest {
     void testVolatileLogStorageIsNotDestroyedOnRestart() throws Exception {
         doTestDurableStorageDestructionFinishAfterRestart(true);
 
-        // New log storage factory was created after restart.
+        // New log storage manager was created after restart.
         verify(logStorageFactories.get(SERVER_INDEX), never()).destroyLogStorage(anyString());
     }
 
@@ -84,10 +84,10 @@ class ItJraftServerTest extends JraftAbstractTest {
 
         // Log storage destruction must fail, so raft server will save the intent to destroy the storage
         // and will complete it successfully on restart.
-        LogStorageFactory logStorageFactory = logStorageFactories.get(SERVER_INDEX);
-        doThrow(LogStorageException.class).doCallRealMethod().when(logStorageFactory).destroyLogStorage(anyString());
+        LogStorageManager logStorageManager = logStorageFactories.get(SERVER_INDEX);
+        doThrow(LogStorageException.class).doCallRealMethod().when(logStorageManager).destroyLogStorage(anyString());
 
-        RaftGroupOptions groupOptions = getRaftGroupOptions(isVolatile, logStorageFactory);
+        RaftGroupOptions groupOptions = getRaftGroupOptions(isVolatile, logStorageManager);
 
         assertThrows(
                 IgniteInternalException.class,
@@ -95,7 +95,7 @@ class ItJraftServerTest extends JraftAbstractTest {
                 "Failed to delete storage for node: "
         );
 
-        verify(logStorageFactory, times(1)).destroyLogStorage(anyString());
+        verify(logStorageManager, times(1)).destroyLogStorage(anyString());
 
         // Node data path deletion happens after log storage destruction, so it should be intact.
         assertTrue(Files.exists(nodeDataPath));
@@ -128,9 +128,9 @@ class ItJraftServerTest extends JraftAbstractTest {
         return nodeDataPath;
     }
 
-    private RaftGroupOptions getRaftGroupOptions(boolean isVolatile, LogStorageFactory logStorageFactory) {
+    private RaftGroupOptions getRaftGroupOptions(boolean isVolatile, LogStorageManager logStorageManager) {
         RaftGroupOptions groupOptions = isVolatile ? RaftGroupOptions.forVolatileStores() : RaftGroupOptions.forPersistentStores();
-        groupOptions.setLogStorageFactory(logStorageFactory);
+        groupOptions.setLogStorageManager(logStorageManager);
         groupOptions.serverDataPath(serverDataPath);
         groupOptions.commandsMarshaller(TestCluster.commandsMarshaller(server.clusterService()));
         return groupOptions;

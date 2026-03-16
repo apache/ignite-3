@@ -60,7 +60,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
         ImmutableBitSet grpSet = grpSets.get(0);
-        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
@@ -145,7 +145,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
-        StructNativeType outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        StructNativeType outputRowSchema = createOutputSchema(call, inRowType, grpSet);
         RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(outputRowSchema);
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(

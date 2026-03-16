@@ -62,6 +62,7 @@ import org.apache.ignite.migrationtools.sql.SqlDdlGenerator.GenerateTableResult;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeDescriptor;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryMapImpl;
 import org.apache.ignite.migrationtools.tests.models.ComplexKeyIntStr;
+import org.apache.ignite.migrationtools.tests.models.IdentifiedPojo;
 import org.apache.ignite.migrationtools.tests.models.InterceptingFieldsModel;
 import org.apache.ignite.migrationtools.tests.models.SimplePojo;
 import org.apache.ignite3.catalog.ColumnSorted;
@@ -134,7 +135,7 @@ class SqlDdlGeneratorTest {
     }
 
     static List<Arguments> provideSupportedClasses() {
-        // TODO: Check lengths
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28160 Check lengths.
         List<Map.Entry<Class<?>, String>> primitives = List.of(
                 entry(boolean.class, "BOOLEAN"),
                 entry(byte.class, "TINYINT"),
@@ -281,6 +282,7 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideSupportedClasses")
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     void testTableDefUsingIndexedTypes(
             BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields,
@@ -321,7 +323,7 @@ class SqlDdlGeneratorTest {
             aliases.put("affinityStr", "AFFINITY_STR");
         }
 
-        // TODO: This is wrong, we are not doing the aliasses.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28161 This is wrong, we are not doing the aliasses.
         testCacheConfig(
                 cacheCfg,
                 allowExtraFields,
@@ -379,7 +381,7 @@ class SqlDdlGeneratorTest {
             BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields
     ) {
-        // TODO: Make dynamic pojos with BB to cover all the possible scenarios...
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28162 Make dynamic pojos with BB to cover all the possible scenarios.
         var cacheCfg = cacheConfigSupplier.apply(int.class, Person.class);
 
         Map<String, String> expectedValFieldToColumnMappings = Map.ofEntries(
@@ -495,6 +497,35 @@ class SqlDdlGeneratorTest {
                 entry(InterceptingFieldsModel.Key.class.getName(), InterceptingFieldsModel.Value.class.getName()),
                 expectedKeyFieldToColumnMappings,
                 expectedValFieldToColumnMappings
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideCacheConfigSupplier")
+    void testTableDefWithFieldsFromSuperClass(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
+        var cacheCfg = cacheConfigSupplier.apply(UUID.class, IdentifiedPojo.class);
+
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                List.of(
+                        primaryKey("KEY", "UUID"),
+                        nonKey("name", "VARCHAR", true),
+                        nonKey("amount", "INT", false),
+                        nonKey("decimalAmount", "DOUBLE", true),
+                        nonKey("id", "UUID", true)
+                ),
+                entry(UUID.class.getName(), IdentifiedPojo.class.getName()),
+                Map.ofEntries(),
+                Map.ofEntries(
+                        entry("name", "name"),
+                        entry("amount", "amount"),
+                        entry("decimalAmount", "decimalAmount"),
+                        entry("id", "id")
+                )
         );
     }
 

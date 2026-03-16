@@ -254,7 +254,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // LongJob catches interruption and completes normally — cooperative cancellation honors the result.
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
         assertThatNoRequestsWereSent();
     }
@@ -432,7 +433,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteRequest capturedRequest = invokeAndCaptureRequest(ExecuteRequest.class);
 
         assertThat(capturedRequest.jobClassName(), is(jobClassName));
-        assertThat(SharedComputeUtils.unmarshalArgOrResult(capturedRequest.input(), null, null), is(equalTo(arg)));
+        assertThat(SharedComputeUtils.unmarshalArg(capturedRequest.input(), null, null), is(equalTo(arg)));
     }
 
     private void assertThatJobResultRequestWasSent(UUID jobId) {
@@ -500,7 +501,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .build();
         JobResultResponse jobResultResponse = sendRequestAndCaptureResponse(jobResultRequest, testNode, 456L);
 
-        assertThat(SharedComputeUtils.unmarshalArgOrResult(jobResultResponse.result(), null, null), is("jobResponse"));
+        assertThat(SharedComputeUtils.unmarshalResult(jobResultResponse.result(), null, null), is("jobResponse"));
         assertThat(jobResultResponse.throwable(), is(nullValue()));
     }
 
@@ -746,7 +747,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private static CompletableFuture<String> unwrapResult(JobExecution<ComputeJobDataHolder> execution) {
-        return execution.resultAsync().thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(r, null, null));
+        return execution.resultAsync().thenApply(r -> SharedComputeUtils.unmarshalResult(r, null, null));
     }
 
     private static class SimpleJob implements ComputeJob<String, String> {

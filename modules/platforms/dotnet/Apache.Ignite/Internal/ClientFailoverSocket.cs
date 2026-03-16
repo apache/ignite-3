@@ -208,10 +208,42 @@ namespace Apache.Ignite.Internal
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
-        public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
+        public async Task<ClientResponse> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBuffer? request = null,
+            PreferredNode preferredNode = default,
+            IRetryPolicy? retryPolicyOverride = null,
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default) =>
+            await DoOutInOpAndGetSocketAsync(
+                clientOp,
+                tx,
+                request,
+                static (_, request0) => request0,
+                preferredNode,
+                retryPolicyOverride,
+                expectNotifications,
+                cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// Performs an in-out operation and returns the socket along with the response.
+        /// </summary>
+        /// <param name="clientOp">Operation.</param>
+        /// <param name="tx">Transaction.</param>
+        /// <param name="arg">Argument.</param>
+        /// <param name="requestWriter">Request writer.</param>
+        /// <param name="preferredNode">Preferred node.</param>
+        /// <param name="retryPolicyOverride">Retry policy.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <typeparam name="TArg">Arg type.</typeparam>
+        /// <returns>Response data and socket.</returns>
+        public async Task<ClientResponse> DoOutInOpAndGetSocketAsync<TArg>(
+            ClientOp clientOp,
+            Transaction? tx,
+            TArg arg,
+            Func<ClientSocket, TArg, PooledArrayBuffer?> requestWriter,
             PreferredNode preferredNode = default,
             IRetryPolicy? retryPolicyOverride = null,
             bool expectNotifications = false,
@@ -225,19 +257,23 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
+                using var request = requestWriter(tx.Socket, arg);
                 var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications, cancellationToken).ConfigureAwait(false);
-                return (buffer, tx.Socket);
+                return new ClientResponse(buffer, tx.Socket);
             }
 
             return await DoWithRetryAsync(
-                (clientOp, request, expectNotifications, cancellationToken),
+                (clientOp, requestWriter, arg, expectNotifications, cancellationToken),
                 static (_, arg) => arg.clientOp,
                 async static (socket, arg) =>
                 {
                     PooledBuffer res = await socket.DoOutInOpAsync(
-                        arg.clientOp, arg.request, arg.expectNotifications, arg.cancellationToken).ConfigureAwait(false);
+                        clientOp: arg.clientOp,
+                        request: arg.requestWriter(socket, arg.arg),
+                        expectNotifications: arg.expectNotifications,
+                        cancellationToken: arg.cancellationToken).ConfigureAwait(false);
 
-                    return (Buffer: res, Socket: socket);
+                    return new ClientResponse(Buffer: res, Socket: socket);
                 },
                 preferredNode,
                 retryPolicyOverride)

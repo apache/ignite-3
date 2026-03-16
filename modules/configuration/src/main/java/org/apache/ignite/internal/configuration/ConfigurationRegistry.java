@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
@@ -263,5 +264,30 @@ public class ConfigurationRegistry implements IgniteComponent {
      */
     public long notificationCount() {
         return changer.notificationCount();
+    }
+
+    /**
+     * Creates an instance of {@code ConfigurationRegistry}.
+     *
+     * @param configurationModule the module containing configuration root keys, migration logic, and deleted prefixes.
+     * @param storage the storage system to persist configuration data.
+     * @param generator the generator responsible for creating the configuration tree structure.
+     * @param configurationValidator the validator ensuring the correctness of configuration updates.
+     * @return a new {@code ConfigurationRegistry} instance initialized with the specified parameters.
+     */
+    public static ConfigurationRegistry create(
+            ConfigurationModule configurationModule,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
+    ) {
+        return new ConfigurationRegistry(
+                configurationModule.rootKeys(),
+                storage,
+                generator,
+                configurationValidator,
+                configurationModule::migrateDeprecatedConfigurations,
+                KeyIgnorer.fromDeletedPrefixes(configurationModule.deletedPrefixes())
+        );
     }
 }

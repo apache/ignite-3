@@ -45,7 +45,7 @@ class PipelineTest {
     void verbose() {
         // When start pipeline with verbose
         CallExecutionPipeline.builder(new ThrowingStrCall())
-                .inputProvider(StringCallInput::new)
+                .input(new StringCallInput())
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))
@@ -61,7 +61,7 @@ class PipelineTest {
     void noVerbose() {
         // When start pipeline without verbose
         CallExecutionPipeline.builder(new ThrowingStrCall())
-                .inputProvider(StringCallInput::new)
+                .input(new StringCallInput())
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))
@@ -80,7 +80,7 @@ class PipelineTest {
 
         // When start async pipeline with verbose
         CallExecutionPipeline.asyncBuilder(ignoredProgressTracker -> asyncCall)
-                .inputProvider(StringCallInput::new)
+                .input(new StringCallInput())
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))
@@ -101,7 +101,7 @@ class PipelineTest {
 
         // When start async pipeline with verbose
         CallExecutionPipeline.asyncBuilder(ignoredProgressTracker -> asyncCall)
-                .inputProvider(StringCallInput::new)
+                .input(new StringCallInput())
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))

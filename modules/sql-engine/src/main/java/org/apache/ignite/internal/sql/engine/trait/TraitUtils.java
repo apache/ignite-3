@@ -130,9 +130,9 @@ public class TraitUtils {
         }
 
         if (converter == RelCollationTraitDef.INSTANCE) {
-            return convertCollation(planner, (RelCollation) toTrait, rel);
+            return convertCollation((RelCollation) toTrait, rel);
         } else if (converter == DistributionTraitDef.INSTANCE) {
-            return convertDistribution(planner, (IgniteDistribution) toTrait, rel);
+            return convertDistribution((IgniteDistribution) toTrait, rel);
         } else {
             return convertOther(planner, converter, toTrait, rel);
         }
@@ -142,8 +142,7 @@ public class TraitUtils {
      * Convert collation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
-    public static RelNode convertCollation(RelOptPlanner planner,
-            RelCollation toTrait, RelNode rel) {
+    public static RelNode convertCollation(RelCollation toTrait, RelNode rel) {
         RelCollation fromTrait = collation(rel);
 
         if (fromTrait.satisfies(toTrait)) {
@@ -159,8 +158,7 @@ public class TraitUtils {
      * Convert distribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
-    public static RelNode convertDistribution(RelOptPlanner planner,
-            IgniteDistribution toTrait, RelNode rel) {
+    public static RelNode convertDistribution(IgniteDistribution toTrait, RelNode rel) {
         IgniteDistribution fromTrait = distribution(rel);
 
         if (fromTrait.satisfies(toTrait)) {

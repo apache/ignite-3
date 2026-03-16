@@ -17,14 +17,11 @@
 
 package org.apache.ignite.migrationtools.persistence.mappers;
 
-import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.migrationtools.persistence.utils.pubsub.BasicProcessor;
-import org.apache.ignite3.table.Tuple;
 
 /** Processes {@link CacheDataRow} into Java Object entries. */
 public class CacheDataRowProcessor extends BasicProcessor<CacheDataRow, Map.Entry<Object, Object>> {
@@ -43,25 +40,7 @@ public class CacheDataRowProcessor extends BasicProcessor<CacheDataRow, Map.Entr
         var val = row.value();
         Object valVal = (val instanceof BinaryObjectImpl) ? val : val.value(cacheObjectCtx, false);
 
-        // TODO: I prefer to have some typings.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28180 I prefer to have some typings.
         subscriber.onNext(Map.entry(keyVal, valVal));
-    }
-
-    private static Tuple parseBinaryObject(BinaryObjectImpl obj) {
-        var fieldNames = obj.rawType().fieldNames();
-        Map<String, Object> fields = new HashMap<>(fieldNames.size());
-        for (String fieldName : fieldNames) {
-            var val = obj.field(fieldName);
-            if (val instanceof BinaryObject) {
-                BinaryObject nested = ((BinaryObject) val);
-                if (nested.type().isEnum()) {
-                    val = nested.enumName();
-                } else {
-                    val = parseBinaryObject((BinaryObjectImpl) val);
-                }
-            }
-            fields.put(fieldName, val);
-        }
-        return Tuple.create(fields);
     }
 }

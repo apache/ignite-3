@@ -81,4 +81,10 @@ int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd);
  */
 void init_wsa();
 
+int send(SOCKET socket, const void* buf, size_t len);
+
+int recv(SOCKET socket, void* buf, int len);
+
+void close(SOCKET socket);
+
 } // namespace ignite::network::detail

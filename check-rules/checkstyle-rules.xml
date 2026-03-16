@@ -387,6 +387,12 @@
       <property name="format" value="^(?!CHECKSTYLE:ON)(?!noinspection)(?!---)(?!===)([^\s\/*])"/>
       <message key="todo.match" value="Comment text should start with space."/>
     </module>
+    <!-- TODO comments must include a Jira ticket number: TODO: IGNITE-XXXXX ... -->
+    <module name="TodoComment">
+      <property name="id" value="TodoWithJiraTicket"/>
+      <property name="format" value="TODO(?!.*IGNITE-\d+)"/>
+      <message key="todo.match" value="TODO comment must include a Jira ticket number (IGNITE-XXXXX)"/>
+    </module>
     <!-- https://checkstyle.org/filters/suppressionxpathfilter.html -->
     <module name="SuppressionXpathFilter">
       <property name="file" value="${org.checkstyle.google.suppressionxpathfilter.config}"
@@ -397,6 +403,15 @@
     <module name="SuppressionCommentFilter"/>
     <!-- https://checkstyle.org/checks/coding/packagedeclaration.html -->
     <module name="PackageDeclaration"/>
+    <!-- Custom check: logger class argument must match enclosing class -->
+    <module name="org.apache.ignite.internal.checkstyle.LoggerClassMismatchCheck">
+      <!-- default: LOG|log|LOGGER|logger -->
+      <!-- <property name="fieldNamePattern" value="LOG|log|LOGGER|logger"/> -->
+      <!-- default: getLogger,forClass -->
+      <!-- <property name="factoryMethods" value="getLogger,forClass"/> -->
+      <!-- Comma-separated fully qualified class names to exclude from the check -->
+      <!-- <property name="excludeClasses" value=""/> -->
+    </module>
   </module>
   <module name="Header">
     <property name="headerFile" value="${checkstyle.header.file}" default="LICENSE.txt"/>

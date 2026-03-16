@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +55,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     private final List<ColumnMetadata> columns = new ArrayList<>();
     private final List<InternalSqlRow> rows = new ArrayList<>();
 
-    FakeCursor(String qry, SqlProperties properties, Object[] params, FakeIgniteQueryProcessor proc) {
+    FakeCursor(String qry, SqlProperties properties, FakeIgniteQueryProcessor proc) {
         this.qry = qry;
 
         if ("SELECT PROPS".equals(qry)) {
@@ -113,11 +114,12 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             columns.add(new FakeColumnMetadata("script", ColumnType.STRING));
         } else if ("SELECT PA".equals(qry)) {
             paMeta = new PartitionAwarenessMetadata(1, new int[] {0, -1, -2, 2}, new int[] {100, 500},
-                    DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
+                    DirectTxMode.SUPPORTED_TRACKING_REQUIRED, QualifiedName.parse("PUBLIC.TBL"));
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         } else if ("SELECT SINGLE COLUMN PA".equals(qry)) {
-            paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0], DirectTxMode.SUPPORTED);
+            paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0], DirectTxMode.SUPPORTED,
+                    QualifiedName.parse("PUBLIC.TBL"));
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         } else if ("SELECT ALLOWED QUERY TYPES".equals(qry)) {

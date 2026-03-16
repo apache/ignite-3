@@ -47,7 +47,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.table.QualifiedName;
@@ -63,7 +63,7 @@ import org.rocksdb.Slice;
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile storages for storing RAFT meta
  * and RAFT log, while they are persistent for persistent storages.
  */
-@WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
+@WithSystemProperty(key = SharedLogStorageManagerUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
 class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 

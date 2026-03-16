@@ -165,8 +165,6 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 |---|---|---|
 | `IGN-NETWORK-1` | The node with the specified ID is not in the physical topology. | Check the error message and node ID. Update node ID if it is incorrect. If the node is offline, check why and bring it back online. |
 | `IGN-NETWORK-2` | Port is already in use. | Most likely, Apache Ignite tried to access the port occupied by a different process. Change the port or free it, and then restart the node. |
-| `IGN-NETWORK-3` | File transfer error. | Check network connectivity and retry the file transfer. |
-| `IGN-NETWORK-4` | File validation error. | Ensure the file is not corrupted. |
 | `IGN-NETWORK-5` | Recipient node has left the physical topology. | Check the error message. The node is unavailable and need to be brought back into the cluster. |
 | `IGN-NETWORK-6` | Could not resolve address. Most likely, the IP address specified in the operation is not available locally. | Change the node configuration to make the address available or use a different IP address. |
 

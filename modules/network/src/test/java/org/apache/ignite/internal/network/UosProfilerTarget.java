@@ -62,6 +62,7 @@ public class UosProfilerTarget {
         deserialize();
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // Used manually by toggling the commented-out call in main()
     private static void serialize() throws Exception {
         int accumulatedCode = 1;
         int count = (obj instanceof TestClass) ? 30_000_000 : 100_000;

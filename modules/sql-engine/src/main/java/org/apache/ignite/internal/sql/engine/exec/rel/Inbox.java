@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.calcite.util.Util.unexpected;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2LongArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -115,6 +117,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     @Override
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0;
+
+        onRequestReceived();
 
         requested = rowsCnt;
 
@@ -542,6 +546,14 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
          */
         private @Nullable SharedState sharedStateHolder = null;
 
+        // Metrics
+        Int2LongMap batchTimestamps = new Int2LongArrayMap(IO_BATCH_CNT);
+        long rowsReceived = 0L;
+        long batchesRequested = 0L;
+        long requestTotalTime = 0L;
+        long requestMinTime = Long.MAX_VALUE;
+        long requestMaxTime = 0L;
+
         private RemoteSource(BatchRequester batchRequester) {
             this.batchRequester = batchRequester;
         }
@@ -555,6 +567,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         void reset(SharedState state) {
             sharedStateHolder = state;
             batches.clear();
+            batchTimestamps.clear();
 
             this.lastEnqueued = lastRequested;
             this.state = State.WAITING;
@@ -569,6 +582,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 // drop it
                 return;
             }
+
+            batchReceived(id, rows.size());
 
             batches.offer(new Batch<>(id, last, rows));
 
@@ -587,6 +602,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
             if (maxInFlightCount / 2 >= currentInFlightCount) {
                 int countOfBatches = maxInFlightCount - currentInFlightCount;
+
+                onBatchesRequested(countOfBatches);
 
                 lastRequested += countOfBatches;
 
@@ -653,6 +670,53 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             state = curr.rows.isEmpty() ? State.END : State.READY;
 
             lastEnqueued = curr.batchId;
+        }
+
+        void dumpMetrics(IgniteStringBuilder writer, String indent, String nodeName) {
+            writer.app(indent).app("Remote node: nodeName=").app(nodeName)
+                    .app(", receivedRows=").app(rowsReceived)
+                    .app(", batchesRequested=").app(batchesRequested);
+
+            if (batchesRequested > 0) {
+                writer.app(", requestTime=[agv=").app(MetricsAwareNode.beautifyNanoTime(requestTotalTime / batchesRequested))
+                        .app(", min=").app(MetricsAwareNode.beautifyNanoTime(requestMinTime))
+                        .app(", max=").app(MetricsAwareNode.beautifyNanoTime(requestMaxTime)).app("]");
+            }
+        }
+
+        private void onBatchesRequested(int countOfBatches) {
+            long timestamp = System.nanoTime();
+            batchesRequested += countOfBatches;
+            for (int i = 1; i <= countOfBatches; i++) {
+                batchTimestamps.put(lastRequested + i, timestamp);
+            }
+        }
+
+        private void batchReceived(int id, int rows) {
+            this.rowsReceived += rows;
+
+            long time = System.nanoTime() - batchTimestamps.remove(id);
+            this.requestTotalTime += time;
+            this.requestMinTime = Math.min(time, requestMinTime);
+            this.requestMaxTime = Math.max(time, requestMaxTime);
+        }
+    }
+
+    @Override
+    @TestOnly
+    public void dumpNodeMetrics(IgniteStringBuilder writer, String indent) {
+        // Calculate aggregated statistics.
+        onRowsReceived(perNodeBuffers.values().stream().mapToLong(n -> n.rowsReceived).sum());
+
+        writer.app(indent);
+        dumpMetrics0(writer);
+        writer.app(", fragmentId=").app(srcFragmentId);
+        writer.nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+        for (String nodeName : srcNodeNames) {
+            perNodeBuffers.get(nodeName).dumpMetrics(writer, childIndent, nodeName);
+            writer.nl();
         }
     }
 }

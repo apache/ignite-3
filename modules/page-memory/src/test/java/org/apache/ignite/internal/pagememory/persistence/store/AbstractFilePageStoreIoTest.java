@@ -354,6 +354,28 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
         }
     }
 
+    @Test
+    void testRenameDoesNotReReadHeader() throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath)) {
+            filePageStoreIo.ensure();
+
+            // Corrupt the file header on disk.
+            // If renameFilePath were to re-read the header, it would fail with "Invalid file signature".
+            try (FileIo rawIo = new RandomAccessFileIoFactory().create(filePath, WRITE)) {
+                rawIo.writeFully(ByteBuffer.allocate(8), 0);
+                rawIo.force();
+            }
+
+            Path newFilePath = workDir.resolve("test0");
+
+            // Should succeed because renameFilePath does not re-read the header.
+            assertDoesNotThrow(() -> filePageStoreIo.renameFilePath(newFilePath));
+            assertEquals(newFilePath, filePageStoreIo.filePath());
+        }
+    }
+
     @RepeatedTest(100)
     void testRenameAndEnsureRace() throws Exception {
         Path filePath = workDir.resolve("test");

@@ -78,7 +78,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
@@ -91,6 +91,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -129,7 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock TopologyService topologyService,
             @Mock Marshaller marshaller,
             @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            @Mock VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator
+            @Mock VolatileLogStorageManagerCreator volatileLogStorageManagerCreator
     ) {
         messagingResponses.clear();
 
@@ -163,10 +164,11 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 marshaller,
+                new PermissiveSafeTimeValidator(),
                 raftGroupServiceFactory,
                 raftManager,
                 partitionsConfigurer,
-                volatileLogStorageFactoryCreator,
+                volatileLogStorageManagerCreator,
                 Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()

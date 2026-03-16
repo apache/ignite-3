@@ -511,7 +511,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = compute()
-                .executeAsync(JobTarget.node(clusterNode(executeNode)), silentSleepJob(), 100L, cancelHandle.token());
+                .executeAsync(JobTarget.node(clusterNode(executeNode)), cancelAwareSleepJob(), 100L, cancelHandle.token());
 
         cancelHandle.cancel();
 
@@ -526,7 +526,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() -> compute()
-                .execute(JobTarget.node(clusterNode(executeNode)), silentSleepJob(), 100L, cancelHandle.token()));
+                .execute(JobTarget.node(clusterNode(executeNode)), cancelAwareSleepJob(), 100L, cancelHandle.token()));
 
         cancelHandle.cancel();
 
@@ -544,7 +544,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<Collection<Void>> resultsFut = compute().executeAsync(
                 BroadcastJobTarget.nodes(executeNodes),
-                silentSleepJob(), 100L, cancelHandle.token()
+                cancelAwareSleepJob(), 100L, cancelHandle.token()
         );
 
         cancelHandle.cancel();
@@ -563,7 +563,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> compute().execute(
                 BroadcastJobTarget.nodes(executeNodes),
-                silentSleepJob(), 100L, cancelHandle.token()
+                cancelAwareSleepJob(), 100L, cancelHandle.token()
         ));
 
         cancelHandle.cancel();
@@ -698,19 +698,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        CompletionException completionException = assertThrows(CompletionException.class, () -> execution.resultAsync().join());
+        // Job ignores cancellation and completes normally — cooperative cancellation means the result is honored.
+        assertThat(execution.resultAsync(), willBe(nullValue()));
 
-        // Unwrap CompletionException, ComputeException should be the cause thrown from the API
-        assertThat(completionException.getCause(), instanceOf(ComputeException.class));
-        ComputeException computeException = (ComputeException) completionException.getCause();
-
-        // ComputeException should be caused by the CancellationException thrown from the executor which detects that the job completes,
-        // but was previously cancelled
-        assertThat(computeException.getCause(), instanceOf(CancellationException.class));
-        CancellationException cancellationException = (CancellationException) computeException.getCause();
-        assertThat(cancellationException.getCause(), is(nullValue()));
-
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -950,6 +941,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private JobDescriptor<Long, Void> silentSleepJob() {
         return JobDescriptor.<Long, Void>builder(jobClassName("SilentSleepJob")).units(units()).build();
+    }
+
+    private JobDescriptor<Long, Void> cancelAwareSleepJob() {
+        return JobDescriptor.<Long, Void>builder(jobClassName("CancelAwareSleepJob")).units(units()).build();
     }
 
     private JobDescriptor<Void, Long> getPartitionJob() {
