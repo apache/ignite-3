@@ -25,11 +25,14 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,15 +40,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 class SchemaSafeTimeTrackerImplTest extends BaseIgniteAbstractTest {
     @Mock
     private ClusterTime clusterTime;
+
+    @InjectExecutorService(threadCount = 1)
+    private ExecutorService executor;
 
     private SchemaSafeTimeTrackerImpl tracker;
 
     @BeforeEach
     void createTracker() {
-        tracker = new SchemaSafeTimeTrackerImpl(clusterTime);
+        tracker = new SchemaSafeTimeTrackerImpl(clusterTime, executor);
     }
 
     @Test

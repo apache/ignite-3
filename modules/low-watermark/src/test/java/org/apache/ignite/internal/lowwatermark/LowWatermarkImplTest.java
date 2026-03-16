@@ -86,7 +86,7 @@ import org.mockito.InOrder;
 /** For {@link LowWatermarkImpl} testing. */
 @ExtendWith(ConfigurationExtension.class)
 public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration
+    @InjectConfiguration(validate = false)
     private LowWatermarkConfiguration lowWatermarkConfig;
 
     private final ClockService clockService = spy(new TestClockService(new HybridClockImpl()));

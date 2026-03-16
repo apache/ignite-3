@@ -127,6 +127,7 @@ void set_error(const ignite::ignite_error &error) {
         case ignite::error::code::TX_ALREADY_FINISHED:
         case ignite::error::code::TX_STALE_OPERATION:
         case ignite::error::code::TX_STALE_READ_ONLY_OPERATION:
+        case ignite::error::code::TX_ALREADY_FINISHED_WITH_EXCEPTION:
         case ignite::error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT: {
             error_class = py_get_module_database_error_class();
             break;
@@ -157,8 +158,6 @@ void set_error(const ignite::ignite_error &error) {
 
         case ignite::error::code::UNRESOLVABLE_CONSISTENT_ID:
         case ignite::error::code::BIND:
-        case ignite::error::code::FILE_TRANSFER:
-        case ignite::error::code::FILE_VALIDATION:
         case ignite::error::code::RECIPIENT_LEFT:
         case ignite::error::code::ADDRESS_UNRESOLVED: {
             error_class = py_get_module_database_error_class();

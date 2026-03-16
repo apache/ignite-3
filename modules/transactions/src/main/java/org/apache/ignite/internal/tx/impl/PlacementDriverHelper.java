@@ -38,10 +38,13 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A helper class to retrieve primary replicas with exception handling.
@@ -117,6 +120,17 @@ public class PlacementDriverHelper {
 
                     return primaryReplica;
                 });
+    }
+
+    /**
+     * See {@link LeasePlacementDriver#getCurrentPrimaryReplica(ReplicationGroupId, HybridTimestamp)}. Gets primary replica for now.
+     *
+     * @param partitionId Partition id.
+     * @return Primary replica for the provided partition, or null if there is no primary at the moment.
+     */
+    @Nullable
+    public ReplicaMeta getCurrentPrimaryReplica(ZonePartitionId partitionId) {
+        return placementDriver.getCurrentPrimaryReplica(partitionId, clockService.current());
     }
 
     /**

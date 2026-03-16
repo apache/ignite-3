@@ -261,7 +261,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                // TODO: perhaps need to pass last commit time as a param
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-28183 perhaps need to pass last commit time as a param
                 handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null, null);
             }
         },

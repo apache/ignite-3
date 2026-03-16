@@ -47,7 +47,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,6 +97,7 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -129,6 +133,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  * Meta storage client tests.
@@ -226,7 +232,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             );
             this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
 
-            this.mockStorage = mock(KeyValueStorage.class);
+            this.mockStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
         }
 
         void start(PeersAndLearners configuration) {
@@ -395,7 +401,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     public void testGetAll() {
         Node node = prepareNodes(1).get(0);
 
-        when(node.mockStorage.getAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        doReturn(EXPECTED_SRV_RESULT_COLL).when(node.mockStorage).getAll(anyList());
 
         startNodes();
 
@@ -410,7 +416,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     public void testGetAllWithUpperBoundRevision() {
         Node node = prepareNodes(1).get(0);
 
-        when(node.mockStorage.getAll(anyList(), eq(10L))).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        doReturn(EXPECTED_SRV_RESULT_COLL).when(node.mockStorage).getAll(anyList(), eq(10L));
 
         startNodes();
 
@@ -685,7 +691,19 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         var ifCaptor = ArgumentCaptor.forClass(If.class);
 
-        when(node.mockStorage.invoke(any(), any(), any())).thenReturn(ops().yield(true).result(), null, null);
+        doAnswer(new Answer() {
+            private boolean first = true;
+
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                // To update last applied index in the storage.
+                invocation.callRealMethod();
+
+                Object result = first ? ops().yield(true).result() : null;
+                first = false;
+                return result;
+            }
+        }).when(node.mockStorage).invoke(any(), any(), any());
 
         startNodes();
 
@@ -736,8 +754,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         byte[] expVal = {2};
 
-        when(node.mockStorage.invoke(any(), any(), any(), any(), any())).thenReturn(true);
-
         startNodes();
 
         Condition condition = Conditions.notExists(expKey);
@@ -764,8 +780,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         assertEquals(OperationType.NO_OP, failureCaptor.getValue().get(0).type());
     }
 
-    // TODO: IGNITE-14693 Add tests for exception handling logic: onError,
-    // TODO: (CompactedException | OperationTimeoutException)
+    // TODO: IGNITE-14693 Add tests for exception handling logic: onError, (CompactedException | OperationTimeoutException).
 
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.

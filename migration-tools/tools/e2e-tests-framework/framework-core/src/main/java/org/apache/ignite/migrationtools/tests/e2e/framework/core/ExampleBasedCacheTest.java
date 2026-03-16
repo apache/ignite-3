@@ -58,7 +58,7 @@ public interface ExampleBasedCacheTest<K, V> {
 
     /**
      * This method exposes references to JDBC Tests.
-     * TODO: This still does not feel a good way of exporting the results.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-28173 This still does not feel a good way of exporting the results.
      *  Probably, it would be better to have an annotation directly on the method, like @TestTemplate.
      *  The main issue is that we don't want to load the whole class because it depends on both ignite 2 and ignite 3 classes.
      */

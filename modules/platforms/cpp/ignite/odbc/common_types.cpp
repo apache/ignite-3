@@ -211,6 +211,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
         case error::code::TX_DELAYED_ACK:
         case error::code::TX_KILLED:
+        case error::code::TX_ALREADY_FINISHED_WITH_EXCEPTION:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -242,8 +243,6 @@ sql_state error_code_to_sql_state(error::code code) {
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
         case error::code::BIND:
-        case error::code::FILE_TRANSFER:
-        case error::code::FILE_VALIDATION:
         case error::code::RECIPIENT_LEFT:
         case error::code::ADDRESS_UNRESOLVED:
             return sql_state::S08001_CANNOT_CONNECT;

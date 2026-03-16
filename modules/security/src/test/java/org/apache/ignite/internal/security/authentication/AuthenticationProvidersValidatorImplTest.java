@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -44,7 +45,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class)
+    @InjectConfiguration(
+            polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class,
+            type = ConfigurationType.DISTRIBUTED,
+            validate = false
+    )
     private SecurityConfiguration securityConfiguration;
 
     @Test

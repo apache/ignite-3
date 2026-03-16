@@ -135,12 +135,6 @@ public interface TxManager extends IgniteComponent {
      */
     @Nullable TxStateMeta stateMeta(UUID txId);
 
-    CompletableFuture<@Nullable TransactionMeta> checkEnlistedPartitionsAndAbortIfNeeded(
-            TxStateMeta txMeta,
-            InternalTransaction tx,
-            long currentEnlistmentConsistencyToken,
-            ZonePartitionId senderGroupId);
-
     /**
      * Atomically changes the state meta of a transaction.
      *
@@ -150,6 +144,21 @@ public interface TxManager extends IgniteComponent {
      */
     @Nullable
     <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);
+
+    /**
+     * Atomically replaces metadata of an already existing transaction state, but only if the resulting state keeps the same
+     * {@link TxStateMeta#txState()} value.
+     *
+     * <p>If the transaction is absent, the update is skipped. If the updater returns {@code null}, the existing metadata is preserved and
+     * the removal is skipped. If the updater changes {@code txState}, the update is skipped as well. Otherwise, the returned metadata is
+     * stored as-is, so this method may be used for any non-state changes.
+     *
+     * @param txId Transaction id.
+     * @param updater Transaction meta updater.
+     * @return Stored transaction state after the operation.
+     */
+    @Nullable
+    <T extends TxStateMeta> T enrichTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);
 
     /**
      * Returns lock manager.
@@ -174,10 +183,13 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code true} if a commit requested.
-     * @param timeoutExceeded {@code true} if a timeout exceeded. 'commit' and timeout must not be {@code true} at the same time.
      */
-    void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    CompletableFuture<Void> finishFull(
+            HybridTimestampTracker timestampTracker,
+            UUID txId,
+            @Nullable HybridTimestamp ts,
+            boolean commit,
+            Throwable finishReason
     );
 
     /**
@@ -187,7 +199,7 @@ public interface TxManager extends IgniteComponent {
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
      * @param commitIntent {@code true} if a commit requested.
-     * @param timeoutExceeded {@code true} if a timeout exceeded.
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      * @param recovery {@code true} if finished by recovery.
      * @param noRemoteWrites {@code true} if remote(directly mapped) part of this transaction has no writes.
      * @param enlistedGroups Map of enlisted partitions.
@@ -197,7 +209,7 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             @Nullable ZonePartitionId commitPartition,
             boolean commitIntent,
-            boolean timeoutExceeded,
+            @Nullable Throwable finishReason,
             boolean recovery,
             boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,

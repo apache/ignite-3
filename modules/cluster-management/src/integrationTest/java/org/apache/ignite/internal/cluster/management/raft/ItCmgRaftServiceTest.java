@@ -223,7 +223,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             return clusterService.topologyService().localMember();
         }
 
-        private CompletableFuture<Collection<LogicalNode>> logicalTopologyNodes() {
+        private CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
             return raftService.logicalTopology(RaftCommandRunner.NO_TIMEOUT).thenApply(LogicalTopologySnapshot::nodes);
         }
 

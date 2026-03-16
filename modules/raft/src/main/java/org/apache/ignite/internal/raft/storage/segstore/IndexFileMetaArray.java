@@ -29,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Reads from multiple threads are thread-safe, but writes are expected to be done from a single thread only.
  */
 class IndexFileMetaArray {
+    private static final int MISSING_ARRAY_INDEX = -1;
+
     static final int INITIAL_CAPACITY = 10;
 
     private final IndexFileMeta[] array;
@@ -165,14 +167,9 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray onIndexCompacted(FileProperties oldProperties, IndexFileMeta newMeta) {
-        // Find index meta associated with the file being compacted.
-        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+        int updateIndex = arrayIndexByFileOrdinal(oldProperties.ordinal());
 
-        assert oldProperties.ordinal() >= smallestOrdinal;
-
-        int updateIndex = oldProperties.ordinal() - smallestOrdinal;
-
-        if (updateIndex >= size) {
+        if (updateIndex == MISSING_ARRAY_INDEX) {
             return this;
         }
 
@@ -206,6 +203,25 @@ class IndexFileMetaArray {
         newArray[updateIndex] = newMeta;
 
         return new IndexFileMetaArray(newArray, size);
+    }
+
+    @Nullable
+    IndexFileMeta findByFileOrdinal(int fileOrdinal) {
+        int arrayIndex = arrayIndexByFileOrdinal(fileOrdinal);
+
+        return arrayIndex == MISSING_ARRAY_INDEX ? null : array[arrayIndex];
+    }
+
+    private int arrayIndexByFileOrdinal(int fileOrdinal) {
+        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+
+        if (fileOrdinal < smallestOrdinal) {
+            return MISSING_ARRAY_INDEX;
+        }
+
+        int arrayIndex = fileOrdinal - smallestOrdinal;
+
+        return arrayIndex >= size ? MISSING_ARRAY_INDEX : arrayIndex;
     }
 
     @Override
