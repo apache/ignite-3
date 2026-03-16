@@ -365,7 +365,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Fail the transaction with exception so finishing it is not possible.
+     * Fails the transaction with exception so finishing it is not possible.
      *
      * @param e Fail reason.
      */
@@ -375,7 +375,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Set no remote writes flag.
+     * Sets no remote writes flag.
      *
      * @param noRemoteWrites The value.
      */

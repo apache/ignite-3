@@ -150,6 +150,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         return property == null ? defaultValue : Integer.parseInt(property.propertyValue());
     }
 
+    private Exception resolveTransactionSealedException(UUID txId) {
+        return new TransactionKilledException(txId);
+    }
+
     @Override
     public void start(DeadlockPreventionPolicy deadlockPreventionPolicy) {
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
@@ -172,9 +176,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         assert lockMode != null : "Lock mode is null";
 
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy(coarse) lock.
-            //CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
+            CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
 
-            return nullCompletedFuture(); // state.acquire(txId, lockMode);
+            return state.acquire(txId, lockMode);
         }
 
         while (true) {
@@ -487,12 +491,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> slockWaiters = new HashMap<>();
         private final ConcurrentHashMap<UUID, Lock> slockOwners = new ConcurrentHashMap<>();
         private final LockKey lockKey;
-        private final Comparator<UUID> txComparator;
 
         CoarseLockState(LockKey lockKey) {
             this.lockKey = lockKey;
-            txComparator =
-                    deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
         }
 
         @Override
@@ -586,7 +587,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             if (ixlockOwners.containsKey(txId)) {
                                 if (ixlockOwners.size() == 1) {
                                     // Safe to upgrade.
-                                    track(txId, this); // Double track.
+                                    if (!track(txId, this)) { // Double track.
+                                        return failedFuture(resolveTransactionSealedException(txId));
+                                    }
                                     Lock lock = new Lock(lockKey, lockMode, txId);
                                     slockOwners.putIfAbsent(txId, lock);
                                     return completedFuture(lock);
@@ -602,17 +605,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 assert false : "Should not reach here";
                             }
 
-                            // Validate reordering with IX locks if prevention is enabled.
-                            if (deadlockPreventionPolicy.usePriority()) {
-                                for (Lock lock : ixlockOwners.values()) {
-                                    // Allow only high priority transactions to wait.
-                                    if (txComparator.compare(lock.txId(), txId) < 0) {
-                                        return notifyAndFail(txId, lock.txId(), lockMode, lock.lockMode());
-                                    }
-                                }
-                            }
+                            // Deadlock are not possible for coarse locks, because IX locks don't wait.
 
-                            track(txId, this);
+                            if (!track(txId, this)) {
+                                return failedFuture(resolveTransactionSealedException(txId));
+                            }
 
                             CompletableFuture<Lock> fut = new CompletableFuture<>();
                             IgniteBiTuple<Lock, CompletableFuture<Lock>> prev = slockWaiters.putIfAbsent(txId,
@@ -622,8 +619,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             Lock lock = new Lock(lockKey, lockMode, txId);
                             Lock prev = slockOwners.putIfAbsent(txId, lock);
 
+                            // Do not track on reenter.
                             if (prev == null) {
-                                track(txId, this); // Do not track on reenter.
+                                if (!track(txId, this)) {
+                                    return failedFuture(resolveTransactionSealedException(txId));
+                                }
                             }
 
                             return completedFuture(lock);
@@ -643,7 +643,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             if (slockOwners.containsKey(txId)) {
                                 if (slockOwners.size() == 1) {
                                     // Safe to upgrade.
-                                    track(txId, this); // Double track.
+                                    if (!track(txId, this)) { // Double track.
+                                        return failedFuture(resolveTransactionSealedException(txId));
+                                    }
                                     Lock lock = new Lock(lockKey, lockMode, txId);
                                     ixlockOwners.putIfAbsent(txId, lock);
                                     return completedFuture(lock);
@@ -666,8 +668,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             Lock lock = new Lock(lockKey, lockMode, txId);
                             Lock prev = ixlockOwners.putIfAbsent(txId, lock); // Avoid overwrite existing lock.
 
+                            // Do not track on reenter.
                             if (prev == null) {
-                                track(txId, this); // Do not track on reenter.
+                                if (!track(txId, this)) {
+                                    ixlockOwners.remove(txId);
+                                    return failedFuture(resolveTransactionSealedException(txId));
+                                }
                             }
 
                             return completedFuture(lock);
@@ -926,17 +932,21 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
         }
 
+        private void failWaiter(WaiterImpl waiter, List<Runnable> notifications, Exception exception) {
+            if (!waiter.locked()) {
+                waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
+            } else if (waiter.hasLockIntent()) {
+                waiter.refuseIntent(); // Upgrade attempt has notifications, restore old lock.
+            }
+            waiter.fail(exception);
+            notifications.add(waiter::notifyLocked);
+        }
+
         private List<Runnable> tryAcquireInternal(WaiterImpl waiter, boolean track, boolean unlock) {
             List<Runnable> notifications = new ArrayList<>();
 
             if (sealed(waiter.txId)) {
-                if (!waiter.locked()) {
-                    waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
-                } else if (waiter.hasLockIntent()) {
-                    waiter.refuseIntent(); // Upgrade attempt has notifications, restore old lock.
-                }
-                waiter.fail(new TransactionKilledException(waiter.txId));
-                notifications.add(waiter::notifyLocked);
+                failWaiter(waiter, notifications, resolveTransactionSealedException(waiter.txId));
                 return notifications;
             }
 
@@ -955,15 +965,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     // Put to wait queue, track.
                     if (track) {
-                        boolean ok = track(waiter.txId, this);
-                        if (!ok) {
-                            if (!waiter.locked()) {
-                                waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
-                            } else if (waiter.hasLockIntent()) {
-                                waiter.refuseIntent(); // Upgrade attempt has failed, restore old lock.
-                            }
-                            waiter.fail(new TransactionKilledException(waiter.txId));
-                            notifications.add(waiter::notifyLocked);
+                        if (!track(waiter.txId, this)) {
+                            failWaiter(waiter, notifications, resolveTransactionSealedException(waiter.txId));
                             return true;
                         }
                     }
@@ -974,28 +977,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 } else {
                     // Wait is not allowed, fail one of lockers according to policy.
                     if (toFail == waiter) {
-                        if (!waiter.locked()) {
-                            waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
-                        } else if (waiter.hasLockIntent()) {
-                            waiter.refuseIntent(); // Upgrade attempt has notifications, restore old lock.
-                        }
-                        waiter.fail(createLockException(waiter, owner, isOrphanOwner));
-                        notifications.add(waiter::notifyLocked);
+                        failWaiter(waiter, notifications, createLockException(waiter, owner, isOrphanOwner));
 
                         return true;
                     } else {
                         // Track waiter.
                         if (track) {
-                            boolean ok = track(waiter.txId, this);
-                            if (!ok) {
-                                if (!waiter.locked()) {
-                                    waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
-                                } else if (waiter.hasLockIntent()) {
-                                    // TODO should have lockIntent replace with assert.
-                                    waiter.refuseIntent(); // Upgrade attempt has failed, restore old lock.
-                                }
-                                waiter.fail(new TransactionKilledException(waiter.txId));
-                                notifications.add(waiter::notifyLocked);
+                            if (!track(waiter.txId, this)) {
+                                failWaiter(waiter, notifications, resolveTransactionSealedException(waiter.txId));
                                 return true;
                             }
                         }
@@ -1010,21 +999,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             });
 
             if (!notifications.isEmpty() || needWait[0]) {
-                // Grant not allowed.
+                // Grant is not allowed.
                 return notifications;
             }
 
-            // Lock granted, track if possible.
+            // Lock granted, track if possible, otherwise fail the lock attempt.
             if (track) {
-                boolean ok = track(waiter.txId, this);
-                if (!ok) {
-                    if (!waiter.locked()) {
-                        waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
-                    } else if (waiter.hasLockIntent()) {
-                        waiter.refuseIntent(); // Upgrade attempt has failed, restore old lock.
-                    }
-                    waiter.fail(new TransactionKilledException(waiter.txId));
-                    notifications.add(waiter::notifyLocked);
+                if (!track(waiter.txId, this)) {
+                    failWaiter(waiter, notifications, resolveTransactionSealedException(waiter.txId));
                     return notifications;
                 }
             }

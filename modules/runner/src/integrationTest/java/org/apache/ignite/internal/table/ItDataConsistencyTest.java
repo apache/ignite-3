@@ -45,6 +45,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.RunInTransactionInternalImpl;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,8 +202,13 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
         for (int i = 0; i < initialNodes(); i++) {
             IgniteImpl ignite = unwrapIgniteImpl(node(i));
-            await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
-                    .until(() -> ignite.txManager().lockManager().isEmpty());
+            try {
+                await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
+                        .until(() -> ignite.txManager().lockManager().isEmpty());
+            } catch (ConditionTimeoutException e) {
+                // TODO Dump lock manager state.
+                throw e;
+            }
         }
     }
 
