@@ -24,7 +24,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.TestMetricManager;
-import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -110,8 +109,7 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
                 1,
                 false,
                 false,
-                new TestMetricManager(),
-                FsmCallerMetricSource.SOURCE_NAME
+                null
         ));
         assertTrue(this.fsmCaller.init(opts));
     }

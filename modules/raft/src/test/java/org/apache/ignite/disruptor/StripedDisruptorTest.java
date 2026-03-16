@@ -37,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -68,8 +67,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 1,
                 false,
                 false,
-                new TestMetricManager(),
-                "test");
+                null);
 
         var nodeId1 = new NodeId("grp1", new PeerId("foo"));
         var nodeId2 = new NodeId("grp2", new PeerId("foo"));
@@ -126,8 +124,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 5,
                 false,
                 false,
-                new TestMetricManager(),
-                "test");
+                null);
 
         GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
 
@@ -168,8 +165,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 stripes,
                 false,
                 false,
-                new TestMetricManager(),
-                "test");
+                null);
 
         int handlers = random.nextInt(100) + 1;
 
@@ -213,8 +209,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 stripes,
                 false,
                 false,
-                new TestMetricManager(),
-                "test");
+                null);
 
         HashMap<NodeId, RingBuffer<NodeIdAwareTestObj>> queues = new HashMap<>();
         GroupAwareTestObjHandler[] handlers = new GroupAwareTestObjHandler[stripes];
@@ -274,8 +269,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 1,
                 supportBatching,
                 false,
-                new TestMetricManager(),
-                "test");
+                null);
 
         RingBuffer<NodeIdAwareTestObj> queue = null;
         GroupAwareTestObjHandler[] handlers = new GroupAwareTestObjHandler[totalHandlers];
@@ -352,8 +346,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 1,
                 false,
                 false,
-                new TestMetricManager(),
-                "test");
+                null);
 
         RingBuffer<NodeIdAwareTestObj> queue = null;
         GroupAwareTestObjHandler[] handlers = new GroupAwareTestObjHandler[totalHandlers];

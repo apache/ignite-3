@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.metrics.TestMetricManager;
-import org.apache.ignite.internal.metrics.sources.LogManagerMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -111,8 +110,7 @@ public class LogManagerTest extends BaseStorageTest {
                 1,
                 false,
                 false,
-                new TestMetricManager(),
-                LogManagerMetricSource.SOURCE_NAME
+                null
         ));
         assertTrue(this.logManager.init(opts));
     }

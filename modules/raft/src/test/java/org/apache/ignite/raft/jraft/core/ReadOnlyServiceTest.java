@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.metrics.TestMetricManager;
-import org.apache.ignite.internal.metrics.sources.ReadOnlyServiceMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -99,8 +98,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                 1,
                 false,
                 false,
-                new TestMetricManager(),
-                ReadOnlyServiceMetricSource.SOURCE_NAME
+                null
         ));
         NodeOptions nodeOptions = new NodeOptions();
         ExecutorService executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
