@@ -34,7 +34,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -68,7 +67,7 @@ class CmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(cmgRaftService.completeJoinCluster(new EmptyNodeAttributes()), willCompleteSuccessfully());
 
-        verify(raftGroupService).run(any(), eq(RaftCommandRunner.NO_TIMEOUT));
+        verify(raftGroupService).run(any(), eq(TimeAwareRaftGroupService.NO_TIMEOUT));
     }
 
     private static class EmptyNodeAttributes implements NodeAttributes {

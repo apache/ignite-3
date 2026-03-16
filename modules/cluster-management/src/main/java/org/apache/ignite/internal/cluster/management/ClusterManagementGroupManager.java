@@ -99,7 +99,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -818,7 +817,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * cluster state.
      */
     private CompletableFuture<Void> updateLogicalTopology(CmgRaftService service) {
-        return service.logicalTopology(RaftCommandRunner.NO_TIMEOUT)
+        return service.logicalTopology(TimeAwareRaftGroupService.NO_TIMEOUT)
                 .thenCompose(logicalTopology -> inBusyLock(() -> {
                     Set<UUID> physicalTopologyIds = clusterService.topologyService().allMembers()
                             .stream()
@@ -1121,7 +1120,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     private void sendClusterState(CmgRaftService raftService, Collection<InternalClusterNode> nodes) {
-        raftService.logicalTopology(RaftCommandRunner.NO_TIMEOUT)
+        raftService.logicalTopology(TimeAwareRaftGroupService.NO_TIMEOUT)
                 .thenCompose(topology -> {
                     // TODO https://issues.apache.org/jira/browse/IGNITE-24769
                     Set<InternalClusterNode> logicalTopology = topology.nodes().stream()
@@ -1265,13 +1264,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
     public CompletableFuture<Set<String>> metaStorageNodes() {
-        return metaStorageNodes(RaftCommandRunner.NO_TIMEOUT);
+        return metaStorageNodes(TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     /**
      * Returns a future that, when complete, resolves into a list of node names that host the Meta Storage.
      *
-     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
+     * @param timeout Timeout in milliseconds. Use {@link TimeAwareRaftGroupService#NO_TIMEOUT} for infinite wait.
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
     public CompletableFuture<Set<String>> metaStorageNodes(long timeout) {
@@ -1283,13 +1282,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * Returns a future that, when complete, resolves into a Meta storage info.
      */
     public CompletableFuture<MetaStorageInfo> metaStorageInfo() {
-        return metaStorageInfo(RaftCommandRunner.NO_TIMEOUT);
+        return metaStorageInfo(TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     /**
      * Returns a future that, when complete, resolves into a Meta storage info.
      *
-     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
+     * @param timeout Timeout in milliseconds. Use {@link TimeAwareRaftGroupService#NO_TIMEOUT} for infinite wait.
      */
     public CompletableFuture<MetaStorageInfo> metaStorageInfo(long timeout) {
         if (!busyLock.enterBusy()) {
@@ -1347,13 +1346,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @return Future that, when complete, resolves into a logical topology snapshot.
      */
     public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
-        return logicalTopology(RaftCommandRunner.NO_TIMEOUT);
+        return logicalTopology(TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     /**
      * Returns a future that, when complete, resolves into a logical topology snapshot.
      *
-     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
+     * @param timeout Timeout in milliseconds. Use {@link TimeAwareRaftGroupService#NO_TIMEOUT} for infinite wait.
      * @return Future that, when complete, resolves into a logical topology snapshot.
      */
     public CompletableFuture<LogicalTopologySnapshot> logicalTopology(long timeout) {
@@ -1373,14 +1372,14 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * Logical Topology as well as nodes that only have passed the validation step.
      */
     public CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
-        return validatedNodes(RaftCommandRunner.NO_TIMEOUT);
+        return validatedNodes(TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     /**
      * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
      * Logical Topology as well as nodes that only have passed the validation step.
      *
-     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
+     * @param timeout Timeout in milliseconds. Use {@link TimeAwareRaftGroupService#NO_TIMEOUT} for infinite wait.
      */
     public CompletableFuture<Set<InternalClusterNode>> validatedNodes(long timeout) {
         if (!busyLock.enterBusy()) {
@@ -1419,7 +1418,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @return Future that completes when the command is executed by the CMG.
      */
     public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
-        return changeMetastorageNodesInternal(newMetastorageNodes, null, RaftCommandRunner.NO_TIMEOUT);
+        return changeMetastorageNodesInternal(newMetastorageNodes, null, TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     /**
@@ -1431,7 +1430,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @return Future that completes when the command is executed by the CMG.
      */
     public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes, long metastorageRepairingConfigIndex) {
-        return changeMetastorageNodesInternal(newMetastorageNodes, metastorageRepairingConfigIndex, RaftCommandRunner.NO_TIMEOUT);
+        return changeMetastorageNodesInternal(newMetastorageNodes, metastorageRepairingConfigIndex, TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     /**
@@ -1440,7 +1439,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @param newMetastorageNodes Metastorage node names to set.
      * @param metastorageRepairingConfigIndex Raft index in the Metastorage group under which the forced configuration is
      *     (or will be) saved.
-     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
+     * @param timeout Timeout in milliseconds. Use {@link TimeAwareRaftGroupService#NO_TIMEOUT} for infinite wait.
      * @return Future that completes when the command is executed by the CMG.
      */
     public CompletableFuture<Void> changeMetastorageNodes(

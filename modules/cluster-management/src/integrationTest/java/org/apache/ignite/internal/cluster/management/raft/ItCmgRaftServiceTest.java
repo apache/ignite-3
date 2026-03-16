@@ -74,7 +74,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -224,11 +223,11 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         private CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
-            return raftService.logicalTopology(RaftCommandRunner.NO_TIMEOUT).thenApply(LogicalTopologySnapshot::nodes);
+            return raftService.logicalTopology(TimeAwareRaftGroupService.NO_TIMEOUT).thenApply(LogicalTopologySnapshot::nodes);
         }
 
         private CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
-            return raftService.validatedNodes(RaftCommandRunner.NO_TIMEOUT);
+            return raftService.validatedNodes(TimeAwareRaftGroupService.NO_TIMEOUT);
         }
     }
 
