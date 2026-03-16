@@ -37,8 +37,6 @@ import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -55,8 +53,6 @@ import org.junit.jupiter.api.Test;
  * Test data consistency in mixed read-write load.
  */
 public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItDataConsistencyTest.class);
-
     private static final String ZONE_NAME = "test_zone";
     private static final String TABLE_NAME = "accounts";
     private static final int WRITE_PARALLELISM = Runtime.getRuntime().availableProcessors();

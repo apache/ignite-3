@@ -20,6 +20,10 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -58,11 +62,13 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.LockTableOverflowException;
 import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.internal.tx.TransactionKilledException;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -150,7 +156,25 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     private Exception resolveTransactionSealedException(UUID txId) {
-        return new TransactionKilledException(txId);
+        TxStateMeta meta = txStateVolatileStorage.state(txId);
+        Throwable cause = meta == null ? null : meta.lastException();
+        boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
+        boolean isFinishedDueToError = meta != null && !isFinishedDueToTimeout && meta.lastExceptionErrorCode() != null;
+        Throwable publicCause = isFinishedDueToError ? cause : null;
+        Integer causeErrorCode = meta == null ? null : meta.lastExceptionErrorCode();
+
+        return new TransactionException(
+                finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                format("{} [{}, txState={}].",
+                        finishedTransactionErrorMessage(
+                                isFinishedDueToTimeout,
+                                isFinishedDueToError,
+                                causeErrorCode,
+                                publicCause != null
+                        ),
+                        formatTxInfo(txId, txStateVolatileStorage, false),
+                        meta),
+                publicCause);
     }
 
     @Override
