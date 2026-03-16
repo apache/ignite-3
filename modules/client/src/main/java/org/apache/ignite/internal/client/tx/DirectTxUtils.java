@@ -216,11 +216,7 @@ public class DirectTxUtils {
             assert tx != null;
             assert ctx.pm != null;
 
-            String consistentId = in.unpackStringNullable();
-            long token = in.unpackLong();
-            boolean isNoop = in.unpackBoolean();
-
-            if (consistentId == null) { // This may happen on no-op enlistment when a newer client is connected to older server.
+            if (in.tryUnpackNil()) { // This may happen on no-op enlistment when a newer client is connected to older server.
                 payloadChannel.clientChannel().inflights().removeInflight(tx.txId(), null);
 
                 // If this is first enlistment to a partition, we hit a bug and can't do anything but fail.
@@ -229,7 +225,11 @@ public class DirectTxUtils {
                             "Encountered no-op on first direct enlistment, server version upgrade is required"));
                 }
             } else {
-                if (isNoop) {
+                String consistentId = in.unpackString();
+                long token = in.unpackLong();
+
+                // Test if no-op enlistment.
+                if (in.unpackBoolean()) {
                     payloadChannel.clientChannel().inflights().removeInflight(tx.txId(), null);
                 }
 
