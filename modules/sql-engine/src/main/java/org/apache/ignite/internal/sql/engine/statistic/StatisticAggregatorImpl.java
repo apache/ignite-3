@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,7 +55,7 @@ public class StatisticAggregatorImpl implements
         StatisticAggregator<Collection<InternalTable>, CompletableFuture<Int2ObjectMap<PartitionModificationInfo>>> {
     private static final IgniteLogger LOG = Loggers.forClass(StatisticAggregatorImpl.class);
 
-    private final Supplier<Collection<LogicalNode>> clusterNodes;
+    private final Supplier<Set<LogicalNode>> clusterNodes;
 
     private final MessagingService messagingService;
 
@@ -67,7 +68,7 @@ public class StatisticAggregatorImpl implements
 
     /** Constructor. */
     public StatisticAggregatorImpl(
-            Supplier<Collection<LogicalNode>> clusterNodes,
+            Supplier<Set<LogicalNode>> clusterNodes,
             MessagingService messagingService
     ) {
         this.clusterNodes = clusterNodes;

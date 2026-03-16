@@ -171,11 +171,12 @@ public class TxCleanupRequestSender {
             commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
         }
 
-        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                .commitPartitionId(commitPartitionId)
-                .commitTimestamp(commitTimestamp)
-                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                .build())
+        commitTimestampFuture.thenAccept(commitTimestamp ->
+                txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                        .commitPartitionId(commitPartitionId)
+                        .commitTimestamp(commitTimestamp)
+                        .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                        .build())
         );
     }
 
@@ -410,15 +411,20 @@ public class TxCleanupRequestSender {
                             if (partitions == null) {
                                 // If we don't have any partition, which is the recovery or "unlock only" case,
                                 // just try again with the same node.
-                                return sendCleanupMessageWithRetries(
-                                        commitPartitionId,
-                                        commit,
-                                        commitTimestamp,
-                                        txId,
-                                        node,
-                                        partitions,
-                                        incrementTimeout(timeout),
-                                        attemptsMade + 1
+                                return scheduleRetry(
+                                        () -> sendCleanupMessageWithRetries(
+                                                commitPartitionId,
+                                                commit,
+                                                commitTimestamp,
+                                                txId,
+                                                node,
+                                                partitions,
+                                                incrementTimeout(timeout),
+                                                attemptsMade + 1
+                                        ),
+                                        timeout,
+                                        TimeUnit.MILLISECONDS,
+                                        retryExecutor
                                 );
                             }
 

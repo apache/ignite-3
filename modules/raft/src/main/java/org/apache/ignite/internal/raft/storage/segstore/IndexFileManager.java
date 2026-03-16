@@ -23,6 +23,10 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 import static org.apache.ignite.internal.util.IgniteUtils.fsyncFile;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
@@ -185,6 +189,12 @@ class IndexFileManager {
 
         metaSpecs.forEach(this::putIndexFileMeta);
 
+        var groupIdsInFile = new LongOpenHashSet(metaSpecs.size());
+
+        metaSpecs.forEach(metaSpec -> groupIdsInFile.add((long) metaSpec.groupId()));
+
+        putIndexFileMetasForMissingGroups(groupIdsInFile, newFileProperties);
+
         return indexFilePath;
     }
 
@@ -269,7 +279,7 @@ class IndexFileManager {
                 return null;
             }
 
-            IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
+            IndexFileMeta indexFileMeta = groupIndexMeta.indexMetaByLogIndex(logIndex);
 
             if (indexFileMeta == null) {
                 return null;
@@ -330,6 +340,40 @@ class IndexFileManager {
 
     Path indexFilePath(FileProperties fileProperties) {
         return indexFilesDir.resolve(indexFileName(fileProperties));
+    }
+
+    /**
+     * Returns information about a segment file (identified by its ordinal) as a [groupId -> descriptor] mapping.
+     *
+     * <p>If all entries from the file for a given group have been <i>logically</i> removed, for example, as a result of later prefix
+     * truncation, then the mapping will not contain an entry for this group. Otherwise, it will contain the smallest and largest log
+     * indices across all index files for this group.
+     */
+    Long2ObjectMap<GroupDescriptor> describeSegmentFile(int fileOrdinal) {
+        var result = new Long2ObjectOpenHashMap<GroupDescriptor>(groupIndexMetas.size());
+
+        groupIndexMetas.forEach((groupId, groupIndexMeta) -> {
+            IndexFileMeta indexFileMeta = groupIndexMeta.indexMetaByFileOrdinal(fileOrdinal);
+
+            if (indexFileMeta != null) {
+                // Even if index meta exists, it may still be obsolete due to suffix truncations (during suffix truncations we do not trim
+                // the meta as during prefix truncations, but add a new meta block).
+                long firstLogIndexInclusive = groupIndexMeta.firstLogIndexInclusive();
+
+                long lastLogIndexExclusive = groupIndexMeta.lastLogIndexExclusive();
+
+                boolean isObsolete = indexFileMeta.firstLogIndexInclusive() >= lastLogIndexExclusive
+                        || indexFileMeta.lastLogIndexExclusive() <= firstLogIndexInclusive;
+
+                if (!isObsolete) {
+                    var groupDescriptor = new GroupDescriptor(firstLogIndexInclusive, lastLogIndexExclusive);
+
+                    result.put((long) groupId, groupDescriptor);
+                }
+            }
+        });
+
+        return result;
     }
 
     private static FileHeaderWithIndexMetas serializeHeaderAndFillMetadata(
@@ -441,6 +485,20 @@ class IndexFileManager {
         }
     }
 
+    /**
+     * Adds empty index file metas for Raft groups that are not present in a particular index file (but exist in one of the previous files).
+     * This is needed because we rely on the invariant that IndexFileMeta array for every group has continuous file ordinals.
+     */
+    private void putIndexFileMetasForMissingGroups(LongSet groupIdsInFile, FileProperties indexFileProperties) {
+        groupIndexMetas.forEach((groupId, groupIndexMeta) -> {
+            if (!groupIdsInFile.contains((long) groupId)) {
+                var emptyIndexMeta = IndexFileMeta.empty(groupIndexMeta.lastLogIndexExclusive(), indexFileProperties);
+
+                groupIndexMeta.addIndexMeta(emptyIndexMeta);
+            }
+        });
+    }
+
     private static Path syncAndRename(Path from, Path to) throws IOException {
         fsyncFile(from);
 
@@ -505,6 +563,8 @@ class IndexFileManager {
                 ));
             }
 
+            var groupIdsInFile = new LongOpenHashSet(numGroups);
+
             for (int i = 0; i < numGroups; i++) {
                 ByteBuffer groupMetaBuffer = readBytes(is, GROUP_META_SIZE, indexFilePath);
 
@@ -519,10 +579,14 @@ class IndexFileManager {
                         firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileProperties
                 );
 
+                groupIdsInFile.add(groupId);
+
                 var metaSpec = new IndexMetaSpec(groupId, indexFileMeta, firstIndexKept);
 
                 putIndexFileMeta(metaSpec);
             }
+
+            putIndexFileMetasForMissingGroups(groupIdsInFile, fileProperties);
         }
     }
 
@@ -593,6 +657,28 @@ class IndexFileManager {
 
         long firstIndexKept() {
             return firstIndexKept;
+        }
+    }
+
+    /** Class that provides information about a Raft group. */
+    static class GroupDescriptor {
+        /** First log index for the group across all files (inclusive). */
+        private final long firstLogIndexInclusive;
+
+        /** Last log index for the group across all files (exclusive). */
+        private final long lastLogIndexExclusive;
+
+        private GroupDescriptor(long firstLogIndexInclusive, long lastLogIndexExclusive) {
+            this.firstLogIndexInclusive = firstLogIndexInclusive;
+            this.lastLogIndexExclusive = lastLogIndexExclusive;
+        }
+
+        long firstLogIndexInclusive() {
+            return firstLogIndexInclusive;
+        }
+
+        long lastLogIndexExclusive() {
+            return lastLogIndexExclusive;
         }
     }
 }

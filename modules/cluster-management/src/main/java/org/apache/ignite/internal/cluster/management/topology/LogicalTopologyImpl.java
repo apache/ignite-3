@@ -19,11 +19,12 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,7 +79,6 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private LogicalTopologySnapshot readLogicalTopology() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-28066
         byte[] bytes = storage.get(LOGICAL_TOPOLOGY_KEY);
 
         return bytes == null ? LogicalTopologySnapshot.INITIAL
@@ -99,7 +99,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
     public void putNode(LogicalNode nodeToPut) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, LogicalNode> mapByName = new HashMap<>(snapshot.nodesByName());
+        Map<String, LogicalNode> mapByName = snapshot.nodes().stream()
+                .collect(toMap(LogicalNode::name, identity()));
 
         Runnable fireRemovalTask = null;
 
@@ -166,7 +167,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
     public void removeNodes(Set<LogicalNode> nodesToRemove) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<UUID, LogicalNode> mapById = new HashMap<>(snapshot.nodesById());
+        Map<UUID, LogicalNode> mapById = snapshot.nodes().stream()
+                .collect(toMap(LogicalNode::id, identity()));
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.
         List<LogicalNode> sortedNodesToRemove = nodesToRemove.stream()
@@ -199,7 +201,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
     @Override
     public boolean isNodeInLogicalTopology(LogicalNode needle) {
-        return readLogicalTopology().hasNode(needle.id());
+        return readLogicalTopology().nodes().stream()
+                .anyMatch(node -> node.id().equals(needle.id()));
     }
 
     private void fireNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot snapshot) {

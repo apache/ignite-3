@@ -556,7 +556,10 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private static LogicalNode getLogicalNode(IgniteImpl ignite) {
-        return ignite.logicalTopologyService().localLogicalTopology().node(ignite.name())
+
+        return ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
+                .filter(n -> n.name().equals(ignite.name()))
+                .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
     }
 }

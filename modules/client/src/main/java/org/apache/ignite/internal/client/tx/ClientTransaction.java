@@ -23,9 +23,13 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
 import java.util.ArrayList;
@@ -38,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -49,7 +54,9 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -88,6 +95,12 @@ public class ClientTransaction implements Transaction {
 
     /** State. */
     private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
+
+    /** The reason why the transaction became unusable before the explicit finish on the client side. */
+    private volatile @Nullable Throwable finishCause;
+
+    /** Error code to expose after the transaction is finished. */
+    private volatile int finishCode = TX_ALREADY_FINISHED_ERR;
 
     /** Read-only flag. */
     private final boolean isReadOnly;
@@ -379,6 +392,30 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
+        try {
+            return rollbackAsyncInternal().handle((res, e) -> {
+                if (e != null) {
+                    if (hasCause(e, IgniteClientConnectionException.class)) {
+                        // Connection exception: tx rolled back on server.
+                        return null;
+                    }
+
+                    throw sneakyThrow(ViewUtils.ensurePublicException(e));
+                }
+
+                return null;
+            });
+        } catch (Throwable t) {
+            if (hasCause(t, IgniteClientConnectionException.class)) {
+                // Connection exception: tx rolled back on server.
+                return nullCompletedFuture();
+            }
+
+            throw sneakyThrow(ViewUtils.ensurePublicException(t));
+        }
+    }
+
+    private CompletableFuture<Void> rollbackAsyncInternal() {
         enlistPartitionLock.writeLock().lock();
 
         try {
@@ -461,6 +498,15 @@ public class ClientTransaction implements Transaction {
         int state = clientTx.state.get();
 
         if (state == STATE_OPEN) {
+            if (clientTx.finishCause != null) {
+                throw new TransactionException(
+                        clientTx.finishCode,
+                        format("{} [tx={}, committed=false].",
+                                finishedMessage(clientTx.finishCode),
+                                clientTx),
+                        clientTx.finishCode == TX_ALREADY_FINISHED_ERR ? null : clientTx.finishCause);
+            }
+
             return clientTx;
         }
 
@@ -474,12 +520,70 @@ public class ClientTransaction implements Transaction {
             return new TransactionException(
                     TX_KILLED_ERR,
                     format("Transaction is killed [tx={}].", clientTx));
+        } else if (clientTx.finishCode != TX_ALREADY_FINISHED_ERR) {
+            return new TransactionException(
+                    clientTx.finishCode,
+                    format("{} [tx={}, committed={}].",
+                            finishedMessage(clientTx.finishCode),
+                            clientTx,
+                            state == STATE_COMMITTED ? "true" : "false"),
+                    clientTx.finishCause);
         } else {
             return new TransactionException(
                     TX_ALREADY_FINISHED_ERR,
                     format("Transaction is already finished [tx={}, committed={}].", clientTx,
                             state == STATE_COMMITTED ? "true" : "false"));
         }
+    }
+
+    /**
+     * Records a failed transactional operation as the transaction finish reason.
+     *
+     * <p>Preserves known transaction finish codes ({@code TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR},
+     * {@code TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR}, {@code TX_KILLED_ERR}) from the given exception.
+     * SQL operation failures are treated as {@code TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR}.
+     * Any other failure is treated as {@code TX_ALREADY_FINISHED_ERR}.</p>
+     *
+     * @param cause Operation failure.
+     */
+    public void recordOperationFailure(Throwable cause) {
+        Throwable unwrapped = ExceptionUtils.unwrapCause(cause);
+
+        finishCause = unwrapped;
+
+        if (unwrapped instanceof TransactionException) {
+            int code = ((TransactionException) unwrapped).code();
+
+            if (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR
+                    || code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR
+                    || code == TX_KILLED_ERR) {
+                finishCode = code;
+                return;
+            }
+        }
+
+        if (unwrapped instanceof SqlException) {
+            finishCode = TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+            return;
+        }
+
+        finishCode = TX_ALREADY_FINISHED_ERR;
+    }
+
+    private static String finishedMessage(int code) {
+        if (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR) {
+            return "Transaction is already finished due to timeout";
+        }
+
+        if (code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR) {
+            return "Transaction is already finished due to an error";
+        }
+
+        if (code == TX_KILLED_ERR) {
+            return "Transaction is killed";
+        }
+
+        return "Transaction is already finished";
     }
 
     static IgniteException unsupportedTxTypeException(Transaction tx) {

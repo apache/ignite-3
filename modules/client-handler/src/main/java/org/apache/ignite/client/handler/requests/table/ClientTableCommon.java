@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VAL
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.tx.TransactionErrors.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
@@ -534,7 +535,7 @@ public class ClientTableCommon {
                             // Remote transaction will be synchronously rolled back if the timeout has exceeded.
                             if (remote.isRolledBackWithTimeoutExceeded()) {
                                 throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                                        "Transaction is already finished [tx=" + remote + "].");
+                                        MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT + " [tx=" + remote + "].");
                             }
 
                             return remote;

@@ -63,7 +63,7 @@ public class ComputeCancellationExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -75,7 +75,7 @@ public class ComputeCancellationExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
 
             deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
@@ -100,7 +100,7 @@ public class ComputeCancellationExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nExecuting compute job...");
+            System.out.println("Executing compute job...");
 
             CompletableFuture<Void> resultFuture = client.compute().executeAsync(jobTarget, job, null, cancelHandle.token());
 
@@ -110,14 +110,14 @@ public class ComputeCancellationExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nCancelling compute job...");
+            System.out.println("Cancelling compute job...");
 
             cancelHandle.cancel();
 
             try {
                 resultFuture.join();
             } catch (CompletionException ex) {
-                System.out.println("\nThe compute job was cancelled: " + ex.getMessage());
+                System.out.println("The compute job was cancelled: " + ex.getMessage());
             }
         } finally {
 

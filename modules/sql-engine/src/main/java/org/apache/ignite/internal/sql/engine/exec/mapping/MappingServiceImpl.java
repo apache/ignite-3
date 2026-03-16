@@ -518,7 +518,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
                 if (topology.version() < topologySnapshot.version()) {
-                    topology = new TopologySnapshot(topologySnapshot.version(), topologySnapshot.nodeNames());
+                    topology = new TopologySnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
                 }
 
                 if (initialTopologyFuture.isDone() || !topology.nodes().contains(localNodeName)) {
@@ -531,6 +531,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         TopologySnapshot topology() {
             return topology;
+        }
+
+        private Set<String> deriveNodeNames(LogicalTopologySnapshot topology) {
+            return topology.nodes().stream()
+                    .map(LogicalNode::name)
+                    .collect(Collectors.toUnmodifiableSet());
         }
 
         class TopologySnapshot {
