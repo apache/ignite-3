@@ -661,7 +661,6 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setConfigurationManager(this.configManager);
         opts.setNode(this);
         opts.setFsmCaller(this.fsmCaller);
-
         opts.setRaftOptions(this.raftOptions);
         opts.setLogManagerDisruptor(options.getLogManagerDisruptor());
         opts.setLogStripes(options.getLogStripes());
@@ -1347,8 +1346,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 false,
-                metricManager,
-                FsmCallerMetricSource.SOURCE_NAME + '.' + groupId
+                null
             ));
         } else {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -1368,8 +1366,7 @@ public class NodeImpl implements Node, RaftServerService {
                     opts.getStripes(),
                     false,
                     false,
-                    metricManager,
-                    FsmCallerMetricSource.SOURCE_NAME
+                    opts.getRaftMetrics().disruptorMetrics("fsmcaller.disruptor")
                 ));
             }
         }
@@ -1384,8 +1381,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 false,
                 false,
-                metricManager,
-                NodeMetricSource.SOURCE_NAME
+                opts.getRaftMetrics().disruptorMetrics("nodeimpl.disruptor")
             ));
         }
 
@@ -1399,8 +1395,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 false,
                 false,
-                metricManager,
-                ReadOnlyServiceMetricSource.SOURCE_NAME
+                opts.getRaftMetrics().disruptorMetrics("readonlyservice.disruptor")
             ));
         }
 
@@ -1412,8 +1407,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 false,
-                metricManager,
-                LogManagerMetricSource.SOURCE_NAME + '.' + groupId
+                null
             ));
 
             opts.setLogStripes(IntStream.range(0, 1).mapToObj(i -> new Stripe()).collect(toList()));
@@ -1428,8 +1422,7 @@ public class NodeImpl implements Node, RaftServerService {
                     opts.getLogStripesCount(),
                     logStorage instanceof RocksDbSharedLogStorage,
                     opts.isLogYieldStrategy(),
-                    metricManager,
-                    LogManagerMetricSource.SOURCE_NAME
+                    opts.getRaftMetrics().disruptorMetrics("logmanager.disruptor")
                 ));
 
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));

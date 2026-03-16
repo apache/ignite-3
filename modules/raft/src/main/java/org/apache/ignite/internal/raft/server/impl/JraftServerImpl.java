@@ -60,11 +60,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
-import org.apache.ignite.internal.metrics.sources.LogManagerMetricSource;
-import org.apache.ignite.internal.metrics.sources.NodeMetricSource;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
-import org.apache.ignite.internal.metrics.sources.ReadOnlyServiceMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -167,7 +163,7 @@ public class JraftServerImpl implements RaftServer {
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
-    private final MetricManager metricManager;
+    private final   MetricManager metricManager;
 
     /**
      * The constructor.
@@ -328,8 +324,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    metricManager,
-                    FsmCallerMetricSource.SOURCE_NAME
+                    opts.getRaftMetrics().disruptorMetrics("fsmcaller.disruptor")
             ));
         }
 
@@ -343,8 +338,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    metricManager,
-                    NodeMetricSource.SOURCE_NAME
+                    opts.getRaftMetrics().disruptorMetrics("nodeimpl.disruptor")
             ));
         }
 
@@ -358,8 +352,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    metricManager,
-                    ReadOnlyServiceMetricSource.SOURCE_NAME
+                    opts.getRaftMetrics().disruptorMetrics("readonlyservice.disruptor")
             ));
         }
 
@@ -373,8 +366,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getLogStripesCount(),
                     true,
                     opts.isLogYieldStrategy(),
-                    metricManager,
-                    LogManagerMetricSource.SOURCE_NAME
+                    opts.getRaftMetrics().disruptorMetrics("logmanager.disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));

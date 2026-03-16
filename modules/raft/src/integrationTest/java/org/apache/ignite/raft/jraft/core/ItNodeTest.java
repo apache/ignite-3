@@ -101,7 +101,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.TestMetricManager;
-import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -339,8 +338,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 1,
                 false,
                 false,
-                new TestMetricManager(),
-                FsmCallerMetricSource.SOURCE_NAME
+                null
         ) {
             @Override
             public RingBuffer<ApplyTask> subscribe(

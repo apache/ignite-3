@@ -53,8 +53,6 @@ import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.internal.cli.sql.table.Table;
-import org.apache.ignite.internal.cluster.management.CmgGroupId;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -387,11 +385,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default").enabled(true),
                 new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits").enabled(true),
                 new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube").enabled(true),
-                new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound").enabled(true),
-                new MetricSource().name("raft.fsmcaller.disruptor").enabled(true),
-                new MetricSource().name("raft.logmanager.disruptor").enabled(true),
-                new MetricSource().name("raft.readonlyservice.disruptor").enabled(true),
-                new MetricSource().name("raft.node.disruptor").enabled(true),
+                new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound").enabled(true)
         };
 
         List<MetricSource> metrics = new ArrayList<>(Arrays.asList(commonMetrics));
@@ -401,11 +395,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             metrics.add(new MetricSource().name("raft.logmanager." + node.groupId().toString()).enabled(true));
             metrics.add(new MetricSource().name("raft.node." + node.groupId().toString()).enabled(true));
             metrics.add(new MetricSource().name("raft.readonlyservice." + node.groupId().toString()).enabled(true));
-
-            if (node.groupId() == MetastorageGroupId.INSTANCE || node.groupId() == CmgGroupId.INSTANCE) {
-                metrics.add(new MetricSource().name("raft.logmanager." + node.groupId().toString() + ".disruptor").enabled(true));
-                metrics.add(new MetricSource().name("raft.fsmcaller." + node.groupId().toString() + ".disruptor").enabled(true));
-            }
         }
 
         return metrics.toArray(MetricSource[]::new);

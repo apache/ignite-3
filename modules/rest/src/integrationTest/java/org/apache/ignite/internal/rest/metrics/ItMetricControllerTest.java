@@ -47,8 +47,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.cluster.management.CmgGroupId;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.rest.api.metric.MetricSource;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricSources;
 import org.hamcrest.FeatureMatcher;
@@ -212,11 +210,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
                 new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default", true),
                 new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits", true),
                 new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube", true),
-                new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound", true),
-                new MetricSource("raft.fsmcaller.disruptor", true),
-                new MetricSource("raft.logmanager.disruptor", true),
-                new MetricSource("raft.readonlyservice.disruptor", true),
-                new MetricSource("raft.node.disruptor", true)
+                new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound", true)
         };
 
         List<MetricSource> metrics = new ArrayList<>(Arrays.asList(commonMetrics));
@@ -226,11 +220,6 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             metrics.add(new MetricSource("raft.logmanager." + node.groupId().toString(), true));
             metrics.add(new MetricSource("raft.node." + node.groupId().toString(), true));
             metrics.add(new MetricSource("raft.readonlyservice." + node.groupId().toString(), true));
-
-            if (node.groupId() == MetastorageGroupId.INSTANCE || node.groupId() == CmgGroupId.INSTANCE) {
-                metrics.add(new MetricSource("raft.logmanager." + node.groupId().toString() + ".disruptor", true));
-                metrics.add(new MetricSource("raft.fsmcaller." + node.groupId().toString() + ".disruptor", true));
-            }
         }
 
         return metrics.toArray(MetricSource[]::new);

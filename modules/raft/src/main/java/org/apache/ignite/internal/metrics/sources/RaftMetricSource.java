@@ -21,8 +21,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
@@ -50,6 +52,12 @@ public class RaftMetricSource implements MetricSource {
 
     private volatile boolean enabled;
 
+    /** Disruptor stripe count. */
+    private final int stripeCount;
+
+    /** Log disruptor stripe count. */
+    private final int logStripeCount;
+
     /** Metric set. */
     private final Map<String, Metric> metrics;
 
@@ -67,6 +75,9 @@ public class RaftMetricSource implements MetricSource {
      * @param logStripeCount Log manager disruptor stripe count.
      */
     public RaftMetricSource(int stripeCount, int logStripeCount) {
+        this.stripeCount = stripeCount;
+        this.logStripeCount = logStripeCount;
+
         this.metrics = createMetrics();
     }
 
@@ -93,12 +104,84 @@ public class RaftMetricSource implements MetricSource {
     }
 
     private Map<String, Metric> createMetrics() {
+        long[] bounds = {10L, 20L, 30L, 40L, 50L};
+
         var metrics = new HashMap<String, Metric>();
+
+        // jraft-fsmcaller-disruptor
+        metrics.put("fsmcaller.disruptor.Batch",
+                new DistributionMetric(
+                        "fsmcaller.disruptor.Batch",
+                        "The histogram of the batch size to handle in the state machine for partitions",
+                        bounds
+                ));
+        metrics.put("fsmcaller.disruptor.Stripes",
+                new DistributionMetric(
+                        "fsmcaller.disruptor.Stripes",
+                        "The histogram of distribution data by stripes in the state machine for partitions",
+                        LongStream.range(0, stripeCount).toArray()
+                ));
+
+        // jraft-nodeimpl-disruptor
+        metrics.put("nodeimpl.disruptor.Batch",
+                new DistributionMetric(
+                        "nodeimpl.disruptor.Batch",
+                        "The histogram of the batch size to handle node operations for partitions",
+                        bounds
+                ));
+        metrics.put("nodeimpl.disruptor.Stripes",
+                new DistributionMetric(
+                        "nodeimpl.disruptor.Stripes",
+                        "The histogram of distribution data by stripes for node operations for partitions",
+                        LongStream.range(0, stripeCount).toArray()
+                ));
+
+        // jraft-readonlyservice-disruptor
+        metrics.put("readonlyservice.disruptor.Batch",
+                new DistributionMetric(
+                        "readonlyservice.disruptor.Batch",
+                        "The histogram of the batch size to handle readonly operations for partitions",
+                        bounds
+                ));
+        metrics.put("readonlyservice.disruptor.Stripes",
+                new DistributionMetric(
+                        "readonlyservice.disruptor.Stripes",
+                        "The histogram of distribution data by stripes readonly operations for partitions",
+                        LongStream.range(0, stripeCount).toArray()
+                ));
+
+        // jraft-logmanager-disruptor
+        metrics.put("logmanager.disruptor.Batch",
+                new DistributionMetric(
+                        "logmanager.disruptor.Batch",
+                        "The histogram of the batch size to handle in the log for partitions",
+                        bounds
+                ));
+
+        metrics.put("logmanager.disruptor.Stripes",
+                new DistributionMetric(
+                        "logmanager.disruptor.Stripes",
+                        "The histogram of distribution data by stripes in the log for partitions",
+                        LongStream.range(0, logStripeCount).toArray()
+                ));
 
         metrics.put(RAFT_GROUP_LEADERS, leadersCount);
         metrics.put(SAVE_META_DURATION, lastSaveMetaDuration);
 
         return metrics;
+    }
+
+    /**
+     * Disruptor metrics source.
+     *
+     * @param name Disruptor name.
+     * @return Object to track metrics.
+     */
+    public DisruptorMetrics disruptorMetrics(String name) {
+        return new DisruptorMetrics(
+                (DistributionMetric) metrics.get(name + ".Batch"),
+                (DistributionMetric) metrics.get(name + ".Stripes")
+        );
     }
 
     @Override
@@ -113,5 +196,30 @@ public class RaftMetricSource implements MetricSource {
 
     public void onSaveMeta(long duration) {
         lastSaveMetaDuration.value(duration);
+    }
+
+    /**
+     * Striped disruptor metrics.
+     */
+    public class DisruptorMetrics {
+        private final DistributionMetric batchSizeHistogramMetric;
+        private final DistributionMetric stripeHistogramMetric;
+
+        DisruptorMetrics(DistributionMetric averageBatchSizeMetric, DistributionMetric stripeHistogramMetric) {
+            this.batchSizeHistogramMetric = averageBatchSizeMetric;
+            this.stripeHistogramMetric = stripeHistogramMetric;
+        }
+
+        public boolean enabled() {
+            return enabled;
+        }
+
+        public void addBatchSize(long size) {
+            batchSizeHistogramMetric.add(size);
+        }
+
+        public void hitToStripe(int stripe) {
+            stripeHistogramMetric.add(stripe);
+        }
     }
 }
