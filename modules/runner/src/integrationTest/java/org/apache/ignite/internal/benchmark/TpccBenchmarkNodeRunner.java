@@ -19,11 +19,13 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllResultSet;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.Ignite;
@@ -32,26 +34,22 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.tx.Transaction;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.State;
 
 /**
- * Base benchmark class for {@link SelectBenchmark} and {@link InsertBenchmark}.
- *
- * <p>Starts an Ignite cluster with a single table {@link #TABLE_NAME}, that has
- * single PK column and 10 value columns.
+ * Extendable class to start a dedicated cluster node for TPC-C benchmark.
  */
-@State(Scope.Benchmark)
 public class TpccBenchmarkNodeRunner {
-    private static final IgniteLogger LOG = Loggers.forClass(TpccBenchmarkNodeRunner.class);
-
     private static final int BASE_PORT = 3344;
-    protected static final int BASE_CLIENT_PORT = 10800;
+    private static final int BASE_CLIENT_PORT = 10800;
     private static final int BASE_REST_PORT = 10300;
 
     private static final List<IgniteServer> igniteServers = new ArrayList<>();
@@ -59,21 +57,7 @@ public class TpccBenchmarkNodeRunner {
     protected static Ignite publicIgnite;
     protected static IgniteImpl igniteImpl;
 
-    @Nullable
-    protected String clusterConfiguration() {
-        return "ignite {}";
-    }
-
     public static void main(String[] args) throws Exception {
-//        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-//            LOG.info("Shut down initiated");
-//
-//            try {
-//                IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
-//            } catch (Exception e) {
-//                LOG.error("Shut down failed", e);
-//            }
-//        }));
         TpccBenchmarkNodeRunner runner = new TpccBenchmarkNodeRunner();
         runner.startCluster();
     }
@@ -97,7 +81,7 @@ public class TpccBenchmarkNodeRunner {
                 + "  },\n"
                 + "  storage.profiles: {"
                 + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
-                + "        " + DEFAULT_STORAGE_PROFILE + ".sizeBytes: 2073741824 " // Avoid page replacement.
+                + "        " + DEFAULT_STORAGE_PROFILE + ".sizeBytes: " + pageMemorySize() + " "
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
@@ -141,12 +125,21 @@ public class TpccBenchmarkNodeRunner {
         }
     }
 
-    private static String nodeName(int port) {
+    @Nullable
+    protected String clusterConfiguration() {
+        return "ignite {}";
+    }
+
+    protected static String nodeName(int port) {
         return "node_" + port;
     }
 
     protected Path workDir() throws Exception {
         return new File("c:/work/tpcc").toPath();
+    }
+
+    protected int pageMemorySize() {
+        return 2073741824;
     }
 
     protected String logPath() {
@@ -159,5 +152,34 @@ public class TpccBenchmarkNodeRunner {
 
     protected int nodes() {
         return 1;
+    }
+
+    protected void dumpWarehouse() {
+        final String query = "select * from warehouse";
+        System.out.println("Executing the query: ");
+        List<List<Object>> rows = sql(publicIgnite, null, null, null, query);
+        for (List<Object> row : rows) {
+            System.out.println("Row: " + row);
+        }
+    }
+
+    protected static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable String schema, @Nullable ZoneId zoneId,
+            String query, Object... args) {
+        IgniteSql sql = node.sql();
+        StatementBuilder builder = sql.statementBuilder()
+                .query(query);
+
+        if (zoneId != null) {
+            builder.timeZoneId(zoneId);
+        }
+
+        if (schema != null) {
+            builder.defaultSchema(schema);
+        }
+
+        Statement statement = builder.build();
+        try (ResultSet<SqlRow> rs = sql.execute(tx, statement, args)) {
+            return getAllResultSet(rs);
+        }
     }
 }
