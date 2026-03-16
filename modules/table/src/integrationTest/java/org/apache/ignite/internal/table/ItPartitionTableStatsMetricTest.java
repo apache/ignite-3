@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_COUNTER;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_NEXT_MILESTONE;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -31,7 +32,6 @@ import org.apache.ignite.internal.table.distributed.PartitionModificationCounter
 import org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -265,27 +265,18 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
             expectModsCount(tableWithReplicas, expectedModsCount * replicas);
 
             // Timestamp should change because we reached the threshold.
-            Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsNoReplicas))
-            );
-            Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP),
-                            greaterThan(initTsWithReplicas))
-            );
+            await().until(() -> metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsNoReplicas));
+            await().until(() -> metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsWithReplicas));
 
-            Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
-            );
-            Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
-            );
+            await().until(() -> metricFromAnyNode(tableNoReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2));
+            await().until(() -> metricFromAnyNode(tableWithReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2));
         }
     }
 
     private static void expectAggregatedMetricValue(String tableName, long value, String metricName) {
         TableTuple table = TableTuple.of(tableName);
 
-        Awaitility.await().untilAsserted(() -> {
+        await().untilAsserted(() -> {
             long aggregatedValue = 0;
 
             for (int part = 0; part < table.partsCount; part++) {
