@@ -516,6 +516,10 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * Tests a case where an explicit staleness check is expected, and the recipient gone stale already. In such a case staleness check
+     * should lead to {@link RecipientLeftException}.
+     */
     @ParameterizedTest
     @EnumSource(SendByClusterNodeOperation.class)
     void sendByClusterNodeToStaleNode(SendByClusterNodeOperation operation) throws Exception {
@@ -540,6 +544,10 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * Tests a case where an explicit staleness check is not expected, and the recipient gone stale already. In such a case there should be
+     * no staleness check and we should get a {@link UnresolvableConsistentIdException}.
+     */
     @ParameterizedTest
     @EnumSource(SendByConsistentCoordinateOperation.class)
     void sendByConsistentIdToStaleNode(SendByConsistentCoordinateOperation operation) throws Exception {
@@ -571,6 +579,10 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * Tests a case where a node does not exist in topology, and we use the name to access it. This situation should lead to
+     * {@link UnresolvableConsistentIdException}.
+     */
     @ParameterizedTest
     @EnumSource(SendByConsistentCoordinateOperation.class)
     void sendByConsistentIdToMissingNode(SendByConsistentCoordinateOperation operation) throws Exception {
