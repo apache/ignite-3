@@ -50,6 +50,7 @@ public class TestInvokeDynamicBytecodeExpression {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, String prefix)
         throws Exception {
         MethodHandle methodHandle = callerLookup.findVirtual(String.class, "concat", MethodType.methodType(String.class, String.class));

@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     private Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
-    private final @Nullable Predicate<RowT> filters;
+    private final Predicate<RowT> filters;
 
     private final @Nullable Function<RowT, RowT> rowTransformer;
 
@@ -50,6 +50,11 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     /** Flag that indicate scan method was called already. */
     private boolean dataRequested;
+
+    // Metrics
+    private long filteredRows = 0L;
+    private long scanStartTime = -1L;
+    private long scanTime = 0L;
 
     /**
      * Constructor.
@@ -75,6 +80,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     @Override
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
+
+        onRequestReceived();
 
         requested = rowsCnt;
 
@@ -136,6 +143,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                     RowT row = inBuff.poll();
 
                     if (filters != null && !filters.test(row)) {
+                        onRowFiltered();
                         continue;
                     }
 
@@ -179,6 +187,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
             // we must not request rows more than inBufSize
             waiting = inBufSize - inBuff.size();
         }
+
+        onScanStarted();
 
         Subscription subscription = this.activeSubscription;
         if (subscription != null) {
@@ -233,8 +243,12 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
             // It is safe not to be aware about already closed execution flow.
             inBuffInner.add(row);
 
-            if (inBuffInner.size() == inBufSize) {
+            int size = inBuffInner.size();
+            if (size == inBufSize) {
                 StorageScanNode.this.execute(() -> {
+                    onRowsReceived(size);
+                    onScanFinished();
+
                     waiting = 0;
                     push();
                 });
@@ -253,11 +267,48 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         @Override
         public void onComplete() {
             StorageScanNode.this.execute(() -> {
+                onRowsReceived(inBuff.size());
+                onScanFinished();
+
                 activeSubscription = null;
                 waiting = 0;
 
                 push();
             });
         }
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        writer.app(this.getClass().getSimpleName()).app(": ");
+
+        writer.app("scannedRows=").app(receivedRowsCount);
+
+        if (requestCount > 0) {
+            writer.app(", requests=").app(requestCount);
+        }
+
+        if (rewindCount > 0) {
+            writer.app(", rewinds=").app(rewindCount);
+        }
+
+        if (filteredRows > 0) {
+            writer.app(", filteredRows=").app(filteredRows);
+        }
+
+        writer.app(", scanTime=").app(MetricsAwareNode.beautifyNanoTime(scanTime));
+    }
+
+    private void onRowFiltered() {
+        filteredRows++;
+    }
+
+    private void onScanStarted() {
+        scanStartTime = System.nanoTime();
+    }
+
+    private void onScanFinished() {
+        scanTime += System.nanoTime() - scanStartTime;
+        scanStartTime = -1L;
     }
 }

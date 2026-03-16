@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionErrors.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,11 +31,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
+import org.apache.ignite.tx.TransactionException;
 
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
@@ -124,9 +130,15 @@ class TransactionExpirationRegistry {
     }
 
     private void abortTransaction(InternalTransaction tx) {
-        tx.rollbackTimeoutExceededAsync().whenComplete((res, ex) -> {
-            if (ex != null) {
-                LOG.error("Transaction has aborted due to timeout {}.", ex,
+        Throwable abortionReason = new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                format(MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT + " {}",
+                formatTxInfo(tx.id(), volatileTxStateMetaStorage)));
+        tx.rollbackWithExceptionAsync(abortionReason).whenComplete((res, ex) -> {
+            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                LOG.error("Transaction abortion has failed {}.", ex,
+                        formatTxInfo(tx.id(), volatileTxStateMetaStorage));
+            } else {
+                LOG.debug("Transaction has aborted due to timeout {}.",
                         formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             }
         });

@@ -63,7 +63,7 @@ import org.jetbrains.annotations.Nullable;
 public class RestComponent implements IgniteComponent {
     /**
      * Lock for micronaut server startup.
-     * TODO: remove when fix https://github.com/micronaut-projects/micronaut-core/issues/10091
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-28127 remove.
      */
     private static final Object SHARED_STARTUP_LOCK = new Object();
 

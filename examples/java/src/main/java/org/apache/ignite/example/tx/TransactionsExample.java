@@ -17,52 +17,67 @@
 
 package org.apache.ignite.example.tx;
 
-import static java.sql.DriverManager.getConnection;
-
-import java.sql.Connection;
-import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 
-/* This example demonstrates the usage of the Ignite Transactions API */
+/**
+ * This example demonstrates the usage of the Ignite Transactions API.
+ *
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
+ */
 public class TransactionsExample {
 
+    /**
+     * Runs the TransactionsExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception if any error occurs.
+     */
     public static void main(String[] args) throws Exception {
+        //--------------------------------------------------------------------------------------
+        //
+        // Creating a client to connect to the cluster.
+        //
+        //--------------------------------------------------------------------------------------
 
-        /* Create 'accounts' table via JDBC */
-        try (
-                Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate(
+        System.out.println("Connecting to server...");
+
+        try (IgniteClient client = IgniteClient.builder()
+                .addresses("127.0.0.1:10800")
+                .build()) {
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating 'accounts' table.
+            //
+            //--------------------------------------------------------------------------------------
+
+            client.sql().execute(
                     "CREATE TABLE IF NOT EXISTS accounts ("
                             + "accountNumber INT PRIMARY KEY,"
                             + "firstName VARCHAR,"
                             + "lastName VARCHAR,"
                             + "balance DOUBLE)"
             );
-        }
 
-        /* Creating a client to connect to the cluster */
-        System.out.println("\nConnecting to server...");
+            //--------------------------------------------------------------------------------------
+            //
+            // Preparing key-value view.
+            //
+            //--------------------------------------------------------------------------------------
 
-        try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build()) {
-
-            /* Prepare key-value view */
             KeyValueView<AccountKey, Account> accounts = client.tables()
                     .table("accounts")
                     .keyValueView(AccountKey.class, Account.class);
 
             AccountKey key = new AccountKey(123);
 
-            /* Insert initial account */
+            // Insert initial account.
             accounts.put(null, key, new Account("John", "Doe", 1000.0d));
             System.out.println("Initial balance: " + accounts.get(null, key).balance);
 
-            /* Using synchronous transactional API to update the balance */
+            // Using synchronous transactional API to update the balance.
             client.transactions().runInTransaction(tx -> {
                 Account acct = accounts.get(tx, key);
                 acct.balance += 200.0d;
@@ -71,7 +86,7 @@ public class TransactionsExample {
 
             System.out.println("Balance after the sync transaction: " + accounts.get(null, key).balance);
 
-            /* Using asynchronous transactional API to update the balance */
+            // Using asynchronous transactional API to update the balance.
             CompletableFuture<Void> future = client.transactions().runInTransactionAsync(tx ->
                     accounts.getAsync(tx, key)
                             .thenCompose(acct -> {
@@ -82,24 +97,28 @@ public class TransactionsExample {
             future.join();
             System.out.println("Balance after the async transaction: " + accounts.get(null, key).balance);
 
-        } finally {
+            //--------------------------------------------------------------------------------------
+            //
+            // Dropping the table.
+            //
+            //--------------------------------------------------------------------------------------
 
-            /* Drop table */
-            System.out.println("\nDropping the table...");
-            try (
-                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE IF EXISTS accounts");
-            }
+            System.out.println("Dropping the table...");
+
+            client.sql().execute("DROP TABLE IF EXISTS accounts");
         }
     }
 
-    /* POJO class for key */
+    /**
+     * POJO class that represents key.
+     */
     static class AccountKey {
         int accountNumber;
 
-        /* Default constructor required for deserialization */
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         AccountKey() {
         }
 
@@ -108,13 +127,18 @@ public class TransactionsExample {
         }
     }
 
-    /* POJO class for value */
+    /**
+     * POJO class that represents value.
+     */
     static class Account {
         String firstName;
         String lastName;
         double balance;
 
-        /* Default constructor required for deserialization */
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         Account() {
         }
 

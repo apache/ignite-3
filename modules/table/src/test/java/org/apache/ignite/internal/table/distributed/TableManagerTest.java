@@ -95,6 +95,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -572,22 +573,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
-                txConfig,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                clusterService.serializationRegistry(),
-                replicaMgr,
                 mock(LockManager.class),
                 mock(ReplicaService.class),
                 tm,
                 dsm,
-                sharedTxStateStorage,
                 msm,
                 sm,
+                mock(ValidationSchemasSource.class),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
-                scheduledExecutor,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(node.name(), clusterService.messagingService(), failureProcessor),
                 new AlwaysSyncedSchemaSyncService(),
@@ -600,7 +597,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 lowWatermark,
                 mock(TransactionInflights.class),
                 indexMetaStorage,
-                logSyncer,
                 partitionReplicaLifecycleManager,
                 new MinimumRequiredTimeCollectorServiceImpl(),
                 systemDistributedConfiguration,

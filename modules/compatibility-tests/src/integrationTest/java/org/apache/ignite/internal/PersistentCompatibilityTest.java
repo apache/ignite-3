@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
@@ -69,7 +67,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ParameterizedClass
 @MethodSource("baseVersions")
-@MicronautTest(rebuildContext = true)
 // In older versions ThreadAssertingStorageEngine doesn't implement wrapper interface, so it's not possible to cast it to
 // PersistentPageMemoryStorageEngine
 @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
@@ -151,7 +148,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     }
 
     @Test
-    void testNewVersionWithNewDeltaFiles() throws IOException {
+    void testNewVersionWithNewDeltaFiles() {
         String newRowValue = "new_row";
 
         insertRow(node(0), TABLE_WITH_NEW_DELTA_FILES, 5, newRowValue);
@@ -179,11 +176,11 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
         assertThat(estimatedSizeFut.join(), is(EXPECTED_ROWS));
     }
 
-    private void doCheckpointWithCompaction() throws IOException {
+    private void doCheckpointWithCompaction() {
         doCheckpoint(false);
     }
 
-    private void doCheckpointWithoutCompaction() throws IOException {
+    private void doCheckpointWithoutCompaction() {
         doCheckpoint(true);
     }
 

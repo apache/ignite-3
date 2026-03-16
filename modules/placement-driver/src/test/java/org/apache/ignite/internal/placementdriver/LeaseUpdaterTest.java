@@ -110,7 +110,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
     private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
 
-    @InjectConfiguration("mock.leaseExpirationIntervalMillis = " + TEST_LEASE_INTERVAL_MILLIS)
+    @InjectConfiguration(value = "mock.leaseExpirationIntervalMillis = " + TEST_LEASE_INTERVAL_MILLIS, validate = false)
     private ReplicationConfiguration replicationConfiguration;
 
     @Mock

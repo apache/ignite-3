@@ -271,10 +271,6 @@ public class LeastRestrictiveTypesTest {
             this.relDataType = relDataType;
         }
 
-        private static LeastRestrictiveType none() {
-            return new LeastRestrictiveType(null);
-        }
-
         @Override
         public String toString() {
             return relDataType != null ? relDataType.toString() : "<none>";

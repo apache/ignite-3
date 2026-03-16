@@ -80,8 +80,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(
-                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
-        );
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, null);
 
         assertThat(tx.schemaTimestamp(), is(beginTs));
     }
@@ -94,7 +93,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private void startTxAndTryToEnlist(boolean commit) {
         HashSet<UUID> finishedTxs = new HashSet<>();
 
-        Mockito.when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+        Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), any(), any()))
                 .thenAnswer(invocation -> {
                     finishedTxs.add(invocation.getArgument(7));
 
@@ -114,8 +113,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(
-                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
-        );
+                txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000, null);
 
         tx.assignCommitPartition(txCommitPart);
 

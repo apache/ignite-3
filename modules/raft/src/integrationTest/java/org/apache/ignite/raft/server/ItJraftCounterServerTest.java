@@ -123,7 +123,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 RaftGroupOptions groupOptions = groupOptions(raftServer);
 
-                groupOptions.setLogStorageFactory(logStorageFactories.get(finalI));
+                groupOptions.setLogStorageManager(logStorageFactories.get(finalI));
                 groupOptions.serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(
@@ -154,7 +154,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(raftServer)
-                            .setLogStorageFactory(logStorageFactories.get(0))
+                            .setLogStorageManager(logStorageFactories.get(0))
                             .serverDataPath(serverWorkingDirs.get(0).metaPath())
             );
         }, opts -> {
@@ -185,7 +185,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                         initialMembersConf,
                         listenerFactory.get(),
                         groupOptions(srv)
-                                .setLogStorageFactory(logStorageFactories.get(j))
+                                .setLogStorageManager(logStorageFactories.get(j))
                                 .serverDataPath(serverWorkingDirs.get(j).metaPath())
                 );
             }
@@ -585,7 +585,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                         Peer serverPeer = initialMembersConf.peer(localNodeName);
 
                         RaftGroupOptions groupOptions = groupOptions(srv)
-                                .setLogStorageFactory(logStorageFactories.get(j))
+                                .setLogStorageManager(logStorageFactories.get(j))
                                 .serverDataPath(serverWorkingDirs.get(j).metaPath());
                         srv.startRaftNode(new RaftNodeId(groupId, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions);
                     }
@@ -647,7 +647,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 RaftGroupOptions opts = groupOptions(raftServer)
                         .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage))
-                        .setLogStorageFactory(logStorageFactories.get(finalI))
+                        .setLogStorageManager(logStorageFactories.get(finalI))
                         .serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
@@ -713,7 +713,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 RaftGroupOptions opts = groupOptions(raftServer)
                         .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage))
-                        .setLogStorageFactory(logStorageFactories.get(finalI))
+                        .setLogStorageManager(logStorageFactories.get(finalI))
                         .serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
@@ -872,7 +872,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
             r.startRaftNode(
@@ -880,7 +880,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
         }, opts -> {});
@@ -920,7 +920,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
             r.startRaftNode(
@@ -928,7 +928,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
         }, opts -> {});

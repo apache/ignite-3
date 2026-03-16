@@ -54,6 +54,7 @@ import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -99,7 +100,9 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
             ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
             ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
-            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME,
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD
     ));
 
     /** Connection id generator.
@@ -147,6 +150,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final ClientPrimaryReplicaTracker primaryReplicaTracker;
 
+    private final EventLog eventLog;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -177,6 +182,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
      * @param clientConnectorConfiguration Configuration of the connector.
+     * @param eventLog Event log.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
      * @param ddlBatchingSuggestionEnabled Boolean supplier indicates whether the suggestion related DDL batching is enabled.
@@ -197,6 +203,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             CatalogService catalogService,
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
+            EventLog eventLog,
             LowWatermark lowWatermark,
             Executor partitionOperationsExecutor,
             Supplier<Boolean> ddlBatchingSuggestionEnabled
@@ -216,6 +223,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert catalogService != null;
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
+        assert eventLog != null;
         assert ddlBatchingSuggestionEnabled != null;
         assert lowWatermark != null;
         assert partitionOperationsExecutor != null;
@@ -233,6 +241,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.eventLog = eventLog;
         this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(
                 placementDriver,
                 catalogService,
@@ -352,7 +361,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                                         configuration.idleTimeoutMillis(), 0, 0, TimeUnit.MILLISECONDS);
 
                                 ch.pipeline().addLast(idleStateHandler);
-                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeoutMillis(), metrics, connectionId));
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeoutMillis(), metrics));
                             }
 
                             if (sslContext != null) {
@@ -465,6 +474,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 Map.of(),
                 computeExecutors::remove,
                 handshakeEventLoopSwitcher,
+                eventLog,
                 ddlBatchingSuggestionEnabled.get()
                         ? new DdlBatchingSuggester()
                         : ignore -> {}

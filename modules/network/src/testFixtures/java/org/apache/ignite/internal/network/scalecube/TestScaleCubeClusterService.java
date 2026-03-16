@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.scalecube;
 
 import io.scalecube.cluster.ClusterConfig;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -44,7 +45,8 @@ public class TestScaleCubeClusterService extends ScaleCubeClusterService {
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor,
             ChannelTypeRegistry channelTypeRegistry,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            MetricManager metricManager
     ) {
         super(
                 consistentId,
@@ -56,7 +58,8 @@ public class TestScaleCubeClusterService extends ScaleCubeClusterService {
                 criticalWorkerRegistry,
                 failureProcessor,
                 channelTypeRegistry,
-                productVersionSource
+                productVersionSource,
+                metricManager
         );
     }
 

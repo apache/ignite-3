@@ -83,7 +83,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
             return nullCompletedFuture();
         }
 
-        return transaction.rollbackAsync();
+        return transaction.rollbackWithExceptionAsync(error);
     }
 
     @Override

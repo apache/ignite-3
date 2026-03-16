@@ -145,6 +145,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Send streamer batch with receiver. */
         StreamerWithReceiverBatchSend = 66,
 
+        /** Check if all tuples with the given keys collection exist. */
+        TupleContainsAllKeys = 67,
+
         /** Cancel an operation. */
         OperationCancel = 70,
 

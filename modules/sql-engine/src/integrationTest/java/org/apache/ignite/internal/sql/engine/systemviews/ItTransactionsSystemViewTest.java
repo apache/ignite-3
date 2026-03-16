@@ -34,14 +34,12 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -133,27 +131,12 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void testTransactionLabel() {
-        // TODO: IGNITE-27005 - Replace test-only IgniteImpl#txManager() with regular API usage
-        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+        String customLabel = "TEST-CUSTOM-LABEL";
+        Transaction tx = CLUSTER.aliveNode().transactions().begin(new TransactionOptions().label(customLabel));
         InternalTransaction internalTx = (InternalTransaction) tx;
 
         try {
-            String customLabel = "TEST-CUSTOM-LABEL";
             UUID txId = internalTx.id();
-
-            // Get txManager using test-only method
-            TxManager txManager = unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
-
-            // Update transaction state to set a custom label
-            txManager.updateTxMeta(txId, oldMeta -> {
-                if (oldMeta != null) {
-                    // Preserve all existing fields and only update the label
-                    return oldMeta.mutate().txLabel(customLabel).build();
-                } else {
-                    // Create new meta with PENDING state and custom label
-                    return TxStateMeta.builder(TxState.PENDING).txLabel(customLabel).build();
-                }
-            });
 
             // Verify the label appears in the system view
             assertQuery("SELECT TRANSACTION_LABEL FROM SYSTEM.TRANSACTIONS WHERE TRANSACTION_ID = '" + txId + "'")

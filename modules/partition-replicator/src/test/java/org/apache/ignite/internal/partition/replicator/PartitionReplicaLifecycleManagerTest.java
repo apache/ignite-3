@@ -66,7 +66,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -101,7 +101,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -123,6 +123,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,7 +181,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterManagementGroupManager cmgManager,
             @Mock FailureManager failureManager,
             @Mock TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            @Mock LogStorageFactoryCreator logStorageFactoryCreator,
+            @Mock LogStorageManagerCreator logStorageManagerCreator,
             @Mock PartitionSnapshotStorage partitionSnapshotStorage,
             @Mock TxStateRocksDbSharedStorage sharedTxStateStorage,
             @Mock ZonePartitionRaftListener raftGroupListener,
@@ -229,7 +230,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 clockService,
                 failureManager,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         replicaManager = spy(new ReplicaManager(
@@ -244,10 +245,11 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 () -> Long.MAX_VALUE,
                 failureManager,
                 null,
+                new PermissiveSafeTimeValidator(),
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
-                logStorageFactoryCreator,
+                logStorageManagerCreator,
                 executorService,
                 groupId -> nullCompletedFuture(),
                 executorService
@@ -293,6 +295,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 executorService,
                 scheduledExecutorService,
                 executorService,
+                Runnable::run,
                 clockService,
                 placementDriver,
                 schemaSyncService,

@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Sql
     using Buffers;
     using Common;
     using Ignite.Sql;
+    using Ignite.Table;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -61,21 +62,22 @@ namespace Apache.Ignite.Internal.Sql
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet{T}"/> class.
         /// </summary>
-        /// <param name="socket">Socket.</param>
-        /// <param name="buf">Buffer to read initial data from.</param>
+        /// <param name="response">Response.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="rowReaderArg">Row reader argument.</param>
+        /// <param name="partitionMetadataExpected">Whether partition metadata is expected from the server.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public ResultSet(
-            ClientSocket socket,
-            PooledBuffer buf,
+            ClientResponse response,
             RowReaderFactory<T> rowReaderFactory,
             object? rowReaderArg,
+            bool partitionMetadataExpected,
             CancellationToken cancellationToken)
         {
-            _socket = socket;
+            _socket = response.Socket;
             _cancellationToken = cancellationToken;
 
+            var buf = response.Buffer;
             var reader = buf.GetReader();
 
             // ReSharper disable once RedundantCast (required on .NET Core 3.1).
@@ -85,8 +87,10 @@ namespace Apache.Ignite.Internal.Sql
             _hasMorePages = reader.ReadBoolean();
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
+            _metadata = ReadMeta(ref reader);
+            PartitionAwarenessMetadata = ReadPartitionAwarenessMetadata(
+                response.Socket.ConnectionContext, ref reader, partitionMetadataExpected);
 
-            _metadata = HasRowSet ? ReadMeta(ref reader) : null;
             _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
             _rowReaderArg = rowReaderArg;
 
@@ -133,6 +137,11 @@ namespace Apache.Ignite.Internal.Sql
         /// Gets a value indicating whether this result set has any rows in it.
         /// </summary>
         internal bool HasRows { get; }
+
+        /// <summary>
+        /// Gets the partition awareness metadata, if available.
+        /// </summary>
+        internal SqlPartitionAwarenessMetadata? PartitionAwarenessMetadata { get; }
 
         /// <inheritdoc/>
         public async ValueTask<List<T>> ToListAsync() =>
@@ -296,9 +305,13 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
-        private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
+        private static ResultSetMetadata? ReadMeta(ref MsgPackReader reader)
         {
             var size = reader.ReadInt32();
+            if (size == 0)
+            {
+                return null;
+            }
 
             var columns = new ColumnMetadata[size];
 
@@ -326,6 +339,47 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             return new ResultSetMetadata(columns);
+        }
+
+        private static SqlPartitionAwarenessMetadata? ReadPartitionAwarenessMetadata(
+            ConnectionContext ctx, ref MsgPackReader reader, bool partitionMetadataExpected)
+        {
+            if (!ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness) || !partitionMetadataExpected)
+            {
+                return null;
+            }
+
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            var tableId = reader.ReadInt32();
+
+            var tableName = ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
+                ? QualifiedName.FromNormalizedInternal(reader.ReadStringNullable(), reader.ReadString())
+                : null;
+
+            var indexes = ReadIntArray(ref reader);
+            var hash = ReadIntArray(ref reader);
+
+            // Table name is required for caching. Return null if not available.
+            return tableName == null
+                ? null
+                : new SqlPartitionAwarenessMetadata(tableId, tableName, indexes, hash);
+
+            static int[] ReadIntArray(ref MsgPackReader reader)
+            {
+                var size = reader.ReadInt32();
+                var res = new int[size];
+
+                for (var i = 0; i < size; i++)
+                {
+                    res[i] = reader.ReadInt32();
+                }
+
+                return res;
+            }
         }
 
         private T ReadRow(ref MsgPackReader reader)

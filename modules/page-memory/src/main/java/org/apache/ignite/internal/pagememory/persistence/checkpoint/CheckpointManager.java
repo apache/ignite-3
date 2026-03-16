@@ -35,9 +35,11 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -112,7 +114,7 @@ public class CheckpointManager {
             PageIoRegistry ioRegistry,
             LogSyncer logSyncer,
             ExecutorService commonExecutorService,
-            CheckpointMetricSource checkpointMetricSource,
+            CollectionMetricSource checkpointMetricSource,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -311,9 +313,10 @@ public class CheckpointManager {
      * @param pageMemory Page memory.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
+     * @return Target file where the page was written.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    public void writePageToFilePageStore(
+    public PageWriteTarget writePageToFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer pageBuf
@@ -322,13 +325,13 @@ public class CheckpointManager {
 
         // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
         if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
-            return;
+            return PageWriteTarget.NONE;
         }
 
         if (pageId.pageIdx() >= filePageStore.checkpointedPageCount()) {
             filePageStore.write(pageId.pageId(), pageBuf);
 
-            return;
+            return PageWriteTarget.MAIN_FILE;
         }
 
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
@@ -362,6 +365,8 @@ public class CheckpointManager {
         );
 
         deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf);
+
+        return PageWriteTarget.DELTA_FILE;
     }
 
     /**

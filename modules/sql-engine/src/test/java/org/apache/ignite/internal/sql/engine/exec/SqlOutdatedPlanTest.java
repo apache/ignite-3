@@ -21,17 +21,18 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -52,8 +53,10 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,6 +108,11 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @AfterEach
+    void stopCluster() throws Exception {
+        cluster.stop();
+    }
+
     @ParameterizedTest
     @EnumSource(TxType.class)
     void planningIsRepeatedUsingTheSameTransaction(TxType type) {
@@ -112,12 +120,12 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
         PrepareServiceSpy prepareServiceSpy = new PrepareServiceSpy(gatewayNode);
 
-        CompletableFuture<Lock> lockFut1 = prepareServiceSpy.resetLockAndBlockNextCall();
+        CompletableFuture<Semaphore> semaphoreFut1 = prepareServiceSpy.resetAndBlockNextCall();
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
                 gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
 
-        await(lockFut1);
+        await(semaphoreFut1);
         assertThat(prepareServiceSpy.callsCounter.get(), is(1));
         assertThat(txContext.startedTxCounter.get(), is(0));
 
@@ -125,8 +133,8 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         await(cluster.catalogManager().execute(
                 makeAddColumnCommand("VAL1")));
 
-        CompletableFuture<Lock> lockFut2 = prepareServiceSpy.resetLockAndBlockNextCall();
-        Lock lock2 = await(lockFut2);
+        CompletableFuture<Semaphore> semaphoreFut2 = prepareServiceSpy.resetAndBlockNextCall();
+        Semaphore semaphore2 = await(semaphoreFut2);
         assertThat(prepareServiceSpy.callsCounter.get(), is(2));
         assertThat(txContext.startedTxCounter.get(), is(1));
 
@@ -134,15 +142,17 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         await(cluster.catalogManager().execute(
                 makeAddColumnCommand("VAL2")));
 
-        lock2.unlock();
+        semaphore2.release();
 
-        await(await(fut).closeAsync());
+        AsyncSqlCursor<InternalSqlRow> cursor = await(fut);
 
         // Planning must be repeated, but only once.
         assertThat(prepareServiceSpy.callsCounter.get(), is(2));
 
         // Transaction should be started only once.
         assertThat(txContext.startedTxCounter.get(), is(1));
+
+        drainAndCloseCursor(cursor);
     }
 
     @Test
@@ -151,12 +161,12 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
         PrepareServiceSpy prepareServiceSpy = new PrepareServiceSpy(gatewayNode);
 
-        CompletableFuture<Lock> lockFut = prepareServiceSpy.resetLockAndBlockNextCall();
+        CompletableFuture<Semaphore> semaphoreFut = prepareServiceSpy.resetAndBlockNextCall();
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut =
                 gatewayNode.executeQueryAsync(new SqlProperties(), txContext, "SELECT id FROM t1");
 
-        Lock lock = await(lockFut);
+        Semaphore semaphore = await(semaphoreFut);
         assertThat(prepareServiceSpy.callsCounter.get(), is(1));
         assertThat(txContext.startedTxCounter.get(), is(0));
 
@@ -167,62 +177,68 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         // And node disconnection.
         cluster.node(DATA_NODES.get(0)).disconnect();
 
-        lock.unlock();
+        semaphore.release();
 
-        await(await(fut).closeAsync());
+        AsyncSqlCursor<InternalSqlRow> cursor = await(fut);
 
         // Planning must be repeated, but only once.
         assertThat(prepareServiceSpy.callsCounter.get(), is(2));
 
         // The plan execution must be repeated using a new transaction.
         assertThat(txContext.startedTxCounter.get(), is(2));
+
+        drainAndCloseCursor(cursor);
+    }
+
+    private static void drainAndCloseCursor(AsyncSqlCursor<InternalSqlRow> cursor) {
+        BatchedResult<InternalSqlRow> result = await(cursor.requestNextAsync(1024));
+        assertThat(result.items(), is(not(empty())));
+        assertThat(result.hasMore(), is(false));
+        await(cursor.closeAsync());
     }
 
     private static CatalogCommand makeAddColumnCommand(String columnName) {
         return AlterTableAddColumnCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName("T1")
-                .columns(List.of(columnParams(columnName, INT32)))
+                .columns(List.of(columnParams(columnName, INT32, true)))
                 .build();
     }
 
     private static class PrepareServiceSpy {
         private final AtomicInteger callsCounter = new AtomicInteger();
-        private final AtomicReference<ReentrantLock> prepareBlockHolder = new AtomicReference<>();
+        private final AtomicReference<Semaphore> prepareBlockHolder = new AtomicReference<>();
 
         PrepareServiceSpy(TestNode gatewayNode) {
             ((PrepareServiceWithPrepareCallback) gatewayNode.prepareService())
                     .setPrepareCallback(() -> {
                         callsCounter.incrementAndGet();
 
-                        Lock lock = prepareBlockHolder.get();
+                        Semaphore semaphore = prepareBlockHolder.get();
 
                         try {
-                            lock.tryLock(10, TimeUnit.SECONDS);
+                            semaphore.tryAcquire(10, TimeUnit.SECONDS);
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         } finally {
-                            lock.unlock();
+                            semaphore.release();
                         }
                     });
         }
 
-        CompletableFuture<Lock> resetLockAndBlockNextCall() {
-            ReentrantLock nextLock = new ReentrantLock();
+        CompletableFuture<Semaphore> resetAndBlockNextCall() {
+            Semaphore nextSemaphore = new Semaphore(0);
 
-            //noinspection LockAcquiredButNotSafelyReleased
-            nextLock.lock();
+            Semaphore prevSemaphore = prepareBlockHolder.getAndSet(nextSemaphore);
 
-            ReentrantLock prevLock = prepareBlockHolder.getAndSet(nextLock);
-
-            if (prevLock != null) {
-                prevLock.unlock();
+            if (prevSemaphore != null) {
+                prevSemaphore.release();
             }
 
             return CompletableFuture.supplyAsync(() -> {
-                Awaitility.await().until(nextLock::getQueueLength, is(1));
+                Awaitility.await().until(nextSemaphore::hasQueuedThreads);
 
-                return nextLock;
+                return nextSemaphore;
             });
         }
     }
