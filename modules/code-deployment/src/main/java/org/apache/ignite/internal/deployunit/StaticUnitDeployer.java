@@ -138,9 +138,9 @@ public class StaticUnitDeployer {
         return allOf(futures).handle((unused, throwable) -> {
             if (!futures.isEmpty()) {
                 if (throwable == null) {
-                    LOG.info(onFinishMessage, infoSupplier);
+                    LOG.info(onFinishMessage, infoSupplier.get());
                 } else {
-                    LOG.error(onErrorMessage, throwable, infoSupplier);
+                    LOG.error(onErrorMessage, throwable, infoSupplier.get());
                 }
             }
             return null;
@@ -174,6 +174,10 @@ public class StaticUnitDeployer {
                                 .thenCompose(clusterStatus -> {
                                     if (clusterStatus == null) {
                                         LOG.warn("Cluster status not found for {}:{}, skipping recovery", id, version);
+                                        return falseCompletedFuture();
+                                    }
+                                    if (clusterStatus.status() != DEPLOYED && clusterStatus.status() != UPLOADING) {
+                                        LOG.warn("Cluster status is {} for {}:{}, skipping recovery", clusterStatus.status(), id, version);
                                         return falseCompletedFuture();
                                     }
                                     return deploymentUnitStore.createNodeStatus(nodeName, id, version, clusterStatus.opId(),
