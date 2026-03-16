@@ -56,14 +56,8 @@ public class DisruptorMetricSourceTest extends BaseIgniteAbstractTest {
         assertThat(set, is(notNullValue()));
 
         Set<String> expectedMetrics = Set.of(
-                "BatchSize",
-                "Stripe",
-                "StripeRemainingCapacity_0",
-                "StripeBufferSize_0",
-                "StripeRemainingCapacity_1",
-                "StripeBufferSize_1",
-                "StripeRemainingCapacity_2",
-                "StripeBufferSize_2"
+                "Batch",
+                "Stripes"
         );
 
         var actualMetrics = new HashSet<String>();

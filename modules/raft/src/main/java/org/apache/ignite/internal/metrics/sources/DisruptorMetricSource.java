@@ -77,41 +77,18 @@ public class DisruptorMetricSource extends AbstractMetricSource<DisruptorMetricS
     /** Metric holder for disruptor metrics. */
     protected class Holder implements AbstractMetricSource.Holder<DisruptorMetricSource.Holder> {
         private final DistributionMetric batchSizeHistogramMetric = new DistributionMetric(
-                "BatchSize",
-                "The histogram of batch size in disruptor",
+                "Batch",
+                "The histogram of the batch size to handle in the disruptor",
                 new long[] {10L, 20L, 30L, 40L, 50L}
         );
 
         private final DistributionMetric stripeHistogramMetric = new DistributionMetric(
-                "Stripe",
-                "The histogram of stripes in disruptor",
+                "Stripes",
+                "The histogram of distribution data by stripes in disruptor",
                 LongStream.range(0, ringBuffers.length).toArray()
         );
 
-        private final ArrayList<Metric> metrics;
-
-        Holder() {
-            metrics = new ArrayList<>();
-
-            metrics.add(batchSizeHistogramMetric);
-            metrics.add(stripeHistogramMetric);
-
-            for (int i = 0; i < ringBuffers.length; i++) {
-                RingBuffer<?> ringBuffer = ringBuffers[i];
-
-                metrics.add(new LongGauge(
-                        "StripeRemainingCapacity_" + i,
-                        "The remaining capacity of stripe " + i,
-                        ringBuffer::remainingCapacity
-                ));
-
-                metrics.add(new LongGauge(
-                        "StripeBufferSize_" + i,
-                        "The buffer size of stripe " + i,
-                        ringBuffer::getBufferSize
-                ));
-            }
-        }
+        private final List<Metric> metrics = List.of(batchSizeHistogramMetric, stripeHistogramMetric);
 
         @Override
         public Iterable<Metric> metrics() {
