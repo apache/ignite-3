@@ -25,8 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
+import org.apache.ignite.internal.tx.impl.TimeoutDeadlockPreventionPolicy;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +35,12 @@ import org.junit.jupiter.api.Test;
 public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicyImpl(TxIdComparators.NONE, 200);
+        return new TimeoutDeadlockPreventionPolicy() {
+            @Override
+            public long waitTimeout() {
+                return 500;
+            }
+        };
     }
 
     @Override

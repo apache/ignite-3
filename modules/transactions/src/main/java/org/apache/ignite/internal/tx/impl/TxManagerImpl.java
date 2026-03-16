@@ -112,7 +112,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.TxKillMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -147,8 +146,6 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
     public static final String RESOURCE_TTL_PROP = "txnResourceTtl";
 
     private static final int RESOURCE_TTL_PROP_DEFAULT_VALUE = 30 * 1000;
-
-    private static final TxIdComparators DEFAULT_TX_ID_COMPARATOR = TxIdComparators.NATURAL;
 
     private static final long DEFAULT_LOCK_TIMEOUT = 0;
 

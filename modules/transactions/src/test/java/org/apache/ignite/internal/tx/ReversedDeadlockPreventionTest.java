@@ -23,10 +23,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.tx.test.LockConflictMatcher.conflictsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
+import org.apache.ignite.internal.tx.impl.ReversedWaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -63,7 +64,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
 
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicyImpl(TxIdComparators.REVERSED, 0);
+        return new ReversedWaitDieDeadlockPreventionPolicy();
     }
 
     // TODO refactor to other tests

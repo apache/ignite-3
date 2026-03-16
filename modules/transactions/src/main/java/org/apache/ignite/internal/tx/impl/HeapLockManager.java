@@ -33,7 +33,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -70,12 +69,12 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
  *
- * <p>Lock waiters are placed in the queue, ordered according to comparator provided by {@link HeapLockManager#deadlockPreventionPolicy}.
- * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher priority (as
- * defined by comparator) lock request is denied.
+ * <p>Lock waiters are placed in the queue, ordered according to transaction priority: older transactions are first.
+ * When a new waiter is placed in the queue, it's validated against current lock owners: if a waiter is not allowed to wait,
+ * according to the {@link HeapLockManager#deadlockPreventionPolicy}, lock request is denied.
  *
- * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
- * the queue).
+ * When an owner is removed from the queue (on lock release), first we try to lock anything possible in the first pass, in the second pass
+ * fail conflicting waiters.
  *
  * <p>Additionally limits the lock map size.
  */
@@ -814,9 +813,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Key lock.
      */
     public class LockState implements Releasable {
-        /** Waiters sorted by priority. Older (higher priority) goes first. */
         private final Map<UUID, WaiterImpl> waiters;
-        private final NavigableMap<UUID, WaiterImpl> conflictsView;
+        private final Map<UUID, WaiterImpl> conflictsView;
 
         /** Lock key. */
         private volatile LockKey key;
@@ -825,6 +823,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             Comparator<UUID> txComparator =
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
 
+            // Keep ordered event store for non-priority based policies to avoid starvation.
             var waitersStore = new TreeMap<UUID, WaiterImpl>(txComparator);
             this.waiters = waitersStore;
             this.conflictsView = deadlockPreventionPolicy.reverse() ? waitersStore.descendingMap() : waitersStore;
