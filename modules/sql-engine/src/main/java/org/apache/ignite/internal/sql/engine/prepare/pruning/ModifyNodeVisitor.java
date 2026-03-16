@@ -394,13 +394,23 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
             requiredColumns = ImmutableIntList.copyOf(ImmutableIntList.range(0, table.descriptor().columnsCount()));
         }
 
-        // Use the same path for all DML operation to ensure that
-        // if anything changes partition metadata won't be extracted at all. 
-        boolean projectionWasNull = nullOrEmpty(projects);
-        List<RexNode> projectionFromScan;
+        IntList colocationKeys = PartitionPruningMetadataExtractor.distributionKeys(table);
 
-        if (projectionWasNull) {
-            // If there is no projection, use identity projection.
+        if (operation == DELETE) {
+            // Since DELETE only requires columns used by its WHERE clause and do not have projections,
+            // check that all colocation keys columns are required.
+            for (int c : colocationKeys) {
+                if (!requiredColumns.contains(c)) {
+                    return null;
+                }
+            }
+
+            return metadataToValues(table, metadata);
+        }
+
+        List<RexNode> projectionFromScan;
+        if (nullOrEmpty(projects)) {
+            // If there is no projection, use a projection formed from required columns.
             List<RexNode> columnProjection = new ArrayList<>(requiredColumns.size());
 
             RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
@@ -421,9 +431,6 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
                     rel.getCluster().getRexBuilder()
             );
         }
-
-        // There are more colocation keys than projection elements.
-        IntList colocationKeys = PartitionPruningMetadataExtractor.distributionKeys(table);
 
         // colocation keys: k1, k2
         // INSERT INTO t
@@ -460,8 +467,8 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
             RexBuilder rexBuilder
     ) {
         List<RexNode> result;
-        if (operation == INSERT || operation == DELETE) {
-            // Projections for INSERTs and DELETEs do not include any extra columns.
+        if (operation == INSERT) {
+            // Projections for INSERTs do not include any extra columns.
             result = projects;
         } else if (operation == UPDATE) {
             // UPDATEs have the following projection: [<columns in definition order>, <expressions as specified in UPDATE clause].

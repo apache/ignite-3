@@ -487,6 +487,36 @@ public class PartitionPruningTest extends AbstractPlannerTest {
     }
 
     @Test
+    public void testDeleteShortKey() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1), 1, 2))
+                .build();
+
+        {
+            String query = "DELETE FROM t WHERE c1 = 42 and c2=?";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?0]]", 2L, "[[1=?0]]"), actual);
+        }
+
+        // Colocation key is not specified.
+        {
+            String query = "DELETE FROM t WHERE c1 = 42";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(), actual);
+        }
+    }
+
+    @Test
     public void testUpdate() throws Exception {
         IgniteTable table = TestBuilders.table()
                 .name("T")
