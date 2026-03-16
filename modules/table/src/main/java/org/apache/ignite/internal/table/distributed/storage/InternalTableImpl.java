@@ -43,6 +43,8 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
@@ -61,8 +63,6 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -91,7 +91,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
@@ -106,9 +105,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
@@ -137,6 +134,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -639,7 +637,7 @@ public class InternalTableImpl implements InternalTable {
                 assert hasError || r instanceof TimestampAware;
 
                 // Timestamp is set to commit timestamp for full transactions.
-                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
+                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, hasError ? e : null);
 
                 if (e != null) {
                     sneakyThrow(e);
@@ -653,19 +651,32 @@ public class InternalTableImpl implements InternalTable {
             if (req.isWrite()) {
                 // Track only write requests from explicit transactions.
                 if (!tx.remote() && !transactionInflights.addInflight(tx.id())) {
-                    int code = TX_ALREADY_FINISHED_ERR;
-                    if (tx.isRolledBackWithTimeoutExceeded()) {
-                        code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-                    }
+                    TxStateMeta txStateMeta = txManager.stateMeta(tx.id());
+                    Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
+                    boolean isFinishedDueToTimeout = txStateMeta == null
+                            ? tx.isRolledBackWithTimeoutExceeded()
+                            : txStateMeta.isFinishedDueToTimeoutOrFalse();
+                    boolean isFinishedDueToError = !isFinishedDueToTimeout
+                            && txStateMeta != null
+                            && txStateMeta.lastExceptionErrorCode() != null;
+                    Throwable publicCause = isFinishedDueToError ? cause : null;
+                    Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
+                    int code = finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError);
 
                     return failedFuture(
                             new TransactionException(code, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
+                                    finishedTransactionErrorMessage(
+                                            isFinishedDueToTimeout,
+                                            isFinishedDueToError,
+                                            causeErrorCode,
+                                            publicCause != null
+                                    )
+                                            + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
                                     tx.state(),
-                                    tx.isRolledBackWithTimeoutExceeded()
-                            )));
+                                    isFinishedDueToTimeout
+                            ), publicCause));
                 }
 
                 return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).thenApply(res -> {
@@ -749,12 +760,7 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
-                CompletableFuture<Void> rollbackFuture;
-                if (isFinishedDueToTimeout(e)) {
-                    rollbackFuture = tx0.rollbackTimeoutExceededAsync();
-                } else {
-                    rollbackFuture = tx0.rollbackAsync();
-                }
+                CompletableFuture<Void> rollbackFuture = tx0.rollbackWithExceptionAsync(e);
 
                 return rollbackFuture.handle((ignored, err) -> {
                     if (err != null) {
@@ -875,7 +881,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
         return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
             if (e != null) {
-                return tx.finish(false, clockService.current(), false, false)
+                return tx.finish(false, clockService.current(), false, e)
                         .handle((ignored, err) -> {
                             if (err != null) {
                                 // Preserve failed state.
@@ -887,7 +893,7 @@ public class InternalTableImpl implements InternalTable {
                         });
             }
 
-            return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
+            return tx.finish(true, clockService.current(), false, null).thenApply(ignored -> r);
         }).thenCompose(identity());
     }
 
@@ -2109,17 +2115,6 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    private static boolean isFinishedDueToTimeout(Throwable e) {
-        Throwable unwrapped = unwrapCause(e);
-        if (!(unwrapped instanceof TransactionException)) {
-            return false;
-        }
-
-        TransactionException ex = (TransactionException) unwrapped;
-
-        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-    }
-
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
         private final TransactionInflights transactionInflights;
 
@@ -2137,10 +2132,28 @@ public class InternalTableImpl implements InternalTable {
         public void onRequestBegin() {
             // Track read only requests which are able to create cursors.
             if (!transactionInflights.addScanInflight(txId)) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                        "Transaction is already finished [{}, readOnly=true].",
-                        formatTxInfo(txId, txManager, false)
-                ));
+                TxStateMeta txStateMeta = txManager.stateMeta(txId);
+                Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
+                boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
+                boolean isFinishedDueToError = !isFinishedDueToTimeout
+                        && txStateMeta != null
+                        && txStateMeta.lastExceptionErrorCode() != null;
+                Throwable publicCause = isFinishedDueToError ? cause : null;
+                Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
+
+                throw new TransactionException(
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format(
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        causeErrorCode,
+                                        publicCause != null
+                                ) + " [{}, readOnly=true].",
+                                formatTxInfo(txId, txManager, false)
+                        ),
+                        publicCause
+                );
             }
         }
 
@@ -2263,13 +2276,8 @@ public class InternalTableImpl implements InternalTable {
                                     e = e.getCause();
                                 }
 
-                                // We do a retry for the following conditions:
-                                // 1. Primary Replica has changed between the "awaitPrimaryReplica" and "invoke" calls;
-                                // 2. Primary Replica has died and is no longer available.
-                                // In both cases, we need to wait for the lease to expire and to get a new Primary Replica.
-                                if (e instanceof PrimaryReplicaMissException
-                                        || e instanceof UnresolvableConsistentIdException
-                                        || e instanceof ReplicationTimeoutException) {
+                                // We can do a retry for the any condition listed in javadoc for RetriableReplicaRequestException.
+                                if (e instanceof RetriableReplicaRequestException) {
                                     if (numRetries == 0) {
                                         throw new IgniteException(REPLICA_MISS_ERR, e);
                                     }
@@ -2345,13 +2353,30 @@ public class InternalTableImpl implements InternalTable {
 
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
-            boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
+            TxStateMeta txStateMeta = txManager.stateMeta(transaction.id());
+            boolean isFinishedDueToTimeout = txStateMeta == null
+                    ? transaction.isRolledBackWithTimeoutExceeded()
+                    : txStateMeta.isFinishedDueToTimeoutOrFalse();
+            Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
+            boolean isFinishedDueToError = !isFinishedDueToTimeout
+                    && txStateMeta != null
+                    && txStateMeta.lastExceptionErrorCode() != null;
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
             throw new TransactionException(
-                    isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, readOnly={}].",
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format(finishedTransactionErrorMessage(
+                            isFinishedDueToTimeout,
+                            isFinishedDueToError,
+                            causeErrorCode,
+                            publicCause != null
+                    )
+                            + " [{}, readOnly={}].",
                             formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()
-                    ));
+                    ),
+                    publicCause
+            );
         }
     }
 

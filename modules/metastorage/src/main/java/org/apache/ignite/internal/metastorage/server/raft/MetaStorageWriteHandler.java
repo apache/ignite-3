@@ -73,6 +73,7 @@ import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.util.Cursor;
@@ -114,6 +115,18 @@ public class MetaStorageWriteHandler {
      * Processes a given {@link WriteCommand}.
      */
     void handleWriteCommand(CommandClosure<WriteCommand> clo) {
+        handleWriteCommandInternal(clo);
+
+        assert lastAppliedIndex() == clo.index() : String.format(
+                "Last applied index after command application is not equal to the command index "
+                        + "[lastAppliedIndex=%d, commandIndex=%d, command=%s]",
+                lastAppliedIndex(),
+                clo.index(),
+                clo.command().toStringForLightLogging()
+        );
+    }
+
+    private void handleWriteCommandInternal(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
         CommandClosure<WriteCommand> resultClosure;
@@ -143,6 +156,8 @@ public class MetaStorageWriteHandler {
                 } else {
                     clo.result(commandResult);
                 }
+
+                storage.setIndexAndTerm(clo.index(), clo.term());
 
                 return;
             } else {
@@ -380,6 +395,11 @@ public class MetaStorageWriteHandler {
         }
     }
 
+    private long lastAppliedIndex() {
+        IndexWithTerm indexWithTerm = storage.getIndexWithTerm();
+        return indexWithTerm == null ? -1 : indexWithTerm.index();
+    }
+
     Command beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
@@ -446,6 +466,8 @@ public class MetaStorageWriteHandler {
         List<CommandId> evictedCommandIds = evictCommandsFromCache(evictionTimestamp);
 
         if (evictedCommandIds.isEmpty()) {
+            storage.setIndexAndTerm(context.index, context.term);
+
             return;
         }
 

@@ -22,6 +22,11 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
 
+/**
+ * This example demonstrates the usage of the {@link Mapper} API with a custom {@link TypeConverter}.
+ *
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
+ */
 public class MapperExample {
     static class CityIdConverter implements TypeConverter<String, Integer> {
 
@@ -36,48 +41,60 @@ public class MapperExample {
         }
     }
 
+    /**
+     * Runs the MapperExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception If failed.
+     */
     public static void main(String[] args) throws Exception {
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            try {
-                client.sql().executeScript(
-                        "CREATE TABLE Person ("
-                                + "id int primary key, "
-                                + "city varchar, "
-                                + "name varchar, "
-                                + "age int, "
-                                + "company varchar, "
-                                + "city_id int)"
-                );
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating 'Person' table.
+            //
+            //--------------------------------------------------------------------------------------
 
-                client.sql().executeScript(
-                        "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
-                client.sql().executeScript(
-                        "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
+            client.sql().execute(
+                    "CREATE TABLE Person ("
+                            + "id int primary key, "
+                            + "city varchar, "
+                            + "name varchar, "
+                            + "age int, "
+                            + "company varchar, "
+                            + "city_id int)"
+            );
 
-                var mapper = Mapper.builder(Person.class)
-                        .automap()
-                        .map("cityId", "city_id", new CityIdConverter())
-                        .build();
+            client.sql().execute(
+                    "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
+            client.sql().execute(
+                    "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
 
-                RecordView<Person> view = client.tables()
-                        .table("person")
-                        .recordView(mapper);
+            //--------------------------------------------------------------------------------------
+            //
+            // Demonstrating Mapper API with custom TypeConverter.
+            //
+            //--------------------------------------------------------------------------------------
 
-                Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
+            var mapper = Mapper.builder(Person.class)
+                    .automap()
+                    .map("cityId", "city_id", new CityIdConverter())
+                    .build();
 
-                view.upsert(null, myPerson);
-            } finally {
+            RecordView<Person> view = client.tables()
+                    .table("person")
+                    .recordView(mapper);
 
-                System.out.println("Dropping the table...");
+            Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
 
-                client.sql().executeScript(
-                        "DROP TABLE Person;");
+            view.upsert(null, myPerson);
 
-            }
+            System.out.println("Dropping the table...");
+
+            client.sql().execute("DROP TABLE IF EXISTS Person");
         }
     }
 }
