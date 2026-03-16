@@ -104,6 +104,11 @@ import org.mockito.Mockito;
 public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     private static final String INFLIGHTS_FIELD_NAME = "inflights";
 
+    @Override
+    protected int nodes() {
+        return 4;
+    }
+
     @Test
     void testBigGetAll() {
         KeyValueView<Integer, String> kvView = kvView();
@@ -111,7 +116,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Map<Integer, String> map = Stream.iterate(0, i -> i + 1).limit(10_000).collect(Collectors.toMap(i -> i, String::valueOf));
         kvView.putAll(map);
 
-        kvView.getAll(map.keySet());
+        Map<Integer, String> all = kvView.getAll(map.keySet());
+        assertEquals(all.size(), map.size());
     }
 
     @Test
