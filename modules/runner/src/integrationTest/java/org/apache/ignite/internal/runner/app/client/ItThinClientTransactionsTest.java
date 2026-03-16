@@ -105,6 +105,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     private static final String INFLIGHTS_FIELD_NAME = "inflights";
 
     @Test
+    void testBigGetAll() {
+        KeyValueView<Integer, String> kvView = kvView();
+
+        Map<Integer, String> map = Stream.iterate(0, i -> i + 1).limit(10_000).collect(Collectors.toMap(i -> i, String::valueOf));
+        kvView.putAll(map);
+
+        kvView.getAll(map.keySet());
+    }
+
+    @Test
     void testKvViewOperations() {
         KeyValueView<Integer, String> kvView = kvView();
 
