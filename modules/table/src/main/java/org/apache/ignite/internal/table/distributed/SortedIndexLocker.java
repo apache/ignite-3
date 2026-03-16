@@ -191,27 +191,28 @@ public class SortedIndexLocker implements IndexLocker {
 
         return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
             if (!sameNextKeyBoundary(nextRow, nextRow(prefix))) {
-                release(shortLock);
+                lockManager.release(txId, nextLockKey, LockMode.IX);
 
                 return acquireLocksForInsert(txId, keyBuffer, prefix);
             }
 
-            LockMode modeToLock = currentKeyLockMode(shortLock.lockMode());
+            LockMode modeToLock = currentKeyLockMode(LockMode.IX);
+            LockKey currentLockKey = new LockKey(indexId, keyBuffer);
 
-            return lockManager.acquire(txId, new LockKey(indexId, keyBuffer), modeToLock)
-                    .thenCompose(currentLock -> {
+            return lockManager.acquire(txId, currentLockKey, modeToLock)
+                    .thenCompose(ignored -> {
                         if (!sameNextKeyBoundary(nextRow, nextRow(prefix))) {
-                            release(currentLock);
-                            release(shortLock);
+                            lockManager.release(txId, currentLockKey, modeToLock);
+                            lockManager.release(txId, nextLockKey, LockMode.IX);
 
                             return acquireLocksForInsert(txId, keyBuffer, prefix);
                         }
 
-                        return CompletableFuture.completedFuture(shortLock);
+                        return CompletableFuture.completedFuture(new Lock(nextLockKey, LockMode.IX, txId));
                     })
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            release(shortLock);
+                            lockManager.release(txId, nextLockKey, LockMode.IX);
                         }
                     });
         });
@@ -223,10 +224,6 @@ public class SortedIndexLocker implements IndexLocker {
         } catch (StorageDestroyedException ignored) {
             return null;
         }
-    }
-
-    private void release(Lock lock) {
-        lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode());
     }
 
     private LockMode currentKeyLockMode(LockMode nextKeyLockMode) {
