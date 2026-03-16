@@ -56,7 +56,7 @@ public class Ignite3ConfigurationUtils {
     public static CombinedConfigRegistry loadCombinedRegistry(Path nodeCfgPath, Path clusterCfgPath, boolean includeDefaults) {
         List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(null);
 
-        var locReg = loadConfigurations(nodeCfgPath, CompoundModule.local(allModules), includeDefaults);
+        var locReg = loadNodeConfiguration(nodeCfgPath, allModules, includeDefaults);
         var distReg = loadClusterConfiguration(clusterCfgPath, allModules, includeDefaults);
         return new CombinedConfigRegistry(locReg, distReg);
     }
@@ -65,23 +65,25 @@ public class Ignite3ConfigurationUtils {
      * Loads a Configuration Registry with only Node modules.
      *
      * @param cfgPath Configuration path.
+     * @param allModules All modules.
      * @param includeDefaults Include defaults.
      */
-    public static ConfigurationRegistry loadNodeConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadConfigurations(cfgPath, CompoundModule.local(CompoundModule.loadAllConfigurationModules(null)), includeDefaults);
+    public static ConfigurationRegistry loadNodeConfiguration(
+            Path cfgPath,
+            List<ConfigurationModule> allModules,
+            boolean includeDefaults
+    ) {
+        return loadConfigurations(cfgPath, CompoundModule.local(allModules), includeDefaults);
     }
 
     /**
      * Loads a Configuration Registry with only Cluster modules.
      *
      * @param cfgPath Config path.
+     * @param allModules All modules.
      * @param includeDefaults Include defaults.
      */
-    public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadClusterConfiguration(cfgPath, CompoundModule.loadAllConfigurationModules(null), includeDefaults);
-    }
-
-    private static ConfigurationRegistry loadClusterConfiguration(
+    public static ConfigurationRegistry loadClusterConfiguration(
             Path cfgPath,
             List<ConfigurationModule> allModules,
             boolean includeDefaults
