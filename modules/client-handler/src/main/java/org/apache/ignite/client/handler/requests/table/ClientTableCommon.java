@@ -385,6 +385,8 @@ public class ClientTableCommon {
             out.packLong(tx.getTimeout());
         } else if (tx.remote()) {
             PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            assert token.primaryNodeConsistentId() != null : "Primary node consistent ID must not be null for remote transactions";
+
             out.packString(token.primaryNodeConsistentId());
             out.packLong(token.consistencyToken());
             out.packBoolean(TxState.ABORTED == tx.state()); // No-op enlistment.

@@ -31,6 +31,8 @@ public class PartitionEnlistment {
     protected final Set<Integer> tableIds;
 
     public PartitionEnlistment(String primaryNodeConsistentId, Set<Integer> tableIds) {
+        assert primaryNodeConsistentId != null : "Primary node consistent ID cannot be null";
+
         this.primaryNodeConsistentId = primaryNodeConsistentId;
         this.tableIds = tableIds;
     }
