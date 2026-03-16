@@ -129,6 +129,8 @@ public class ClientResourceRegistry {
      * @param txId Transaction ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
+     * @param txManager Transaction manager responsible for coordinating and cleaning up the transaction.
+     * @param tables Tables facade used to resolve table information for enlisted partitions.
      */
     public void addTxCleaner(UUID txId, int tableId, int partitionId, TxManager txManager, IgniteTablesInternal tables)
             throws IgniteInternalCheckedException {
