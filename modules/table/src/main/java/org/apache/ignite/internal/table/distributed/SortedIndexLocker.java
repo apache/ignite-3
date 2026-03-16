@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -137,7 +138,7 @@ public class SortedIndexLocker implements IndexLocker {
                 .thenCompose(ignore -> {
                     IndexRow peekedRowAfterLock = peekCursor.peek();
 
-                    if (!rowIdMatches(peekedRow, peekedRowAfterLock)) {
+                    if (!sameNextKeyBoundary(peekedRow, peekedRowAfterLock)) {
                         lockManager.release(txId, lockKey, LockMode.S);
 
                         return acquireLockNextKey(txId, peekCursor);
@@ -147,12 +148,14 @@ public class SortedIndexLocker implements IndexLocker {
                 });
     }
 
-    private static boolean rowIdMatches(@Nullable IndexRow row0, @Nullable IndexRow row1) {
+    private static boolean sameNextKeyBoundary(@Nullable IndexRow row0, @Nullable IndexRow row1) {
         if (row0 == null ^ row1 == null) {
             return false;
         }
 
-        return row0 == row1 || row0.rowId().equals(row1.rowId());
+        return row0 == row1
+                || row0 == null
+                || row0.indexColumns().byteBuffer().equals(row1.indexColumns().byteBuffer());
     }
 
     private Object indexKey(@Nullable IndexRow indexRow) {
@@ -166,12 +169,17 @@ public class SortedIndexLocker implements IndexLocker {
 
         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        IndexRow nextRow = null;
+        return acquireLocksForInsert(txId, key.byteBuffer(), prefix);
+    }
 
-        // Find next key.
+    private CompletableFuture<@Nullable Lock> acquireLocksForInsert(UUID txId, ByteBuffer keyBuffer, BinaryTuplePrefix prefix) {
+        IndexRow nextRow;
+
         try (Cursor<IndexRow> cursor = storage.tolerantScan(prefix, null, SortedIndexStorage.GREATER)) {
             if (cursor.hasNext()) {
                 nextRow = cursor.next();
+            } else {
+                nextRow = null;
             }
         } catch (StorageDestroyedException ignored) {
             // The index storage is already destroyed, so no one can scan it. This means we can just omit taking insertion locks
@@ -182,11 +190,43 @@ public class SortedIndexLocker implements IndexLocker {
         var nextLockKey = new LockKey(indexId, indexKey(nextRow));
 
         return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
+            if (!sameNextKeyBoundary(nextRow, nextRow(prefix))) {
+                release(shortLock);
+
+                return acquireLocksForInsert(txId, keyBuffer, prefix);
+            }
+
             LockMode modeToLock = currentKeyLockMode(shortLock.lockMode());
 
-            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modeToLock)
-                    .thenApply(lock -> new Lock(nextLockKey, LockMode.IX, txId));
+            return lockManager.acquire(txId, new LockKey(indexId, keyBuffer), modeToLock)
+                    .thenCompose(currentLock -> {
+                        if (!sameNextKeyBoundary(nextRow, nextRow(prefix))) {
+                            release(currentLock);
+                            release(shortLock);
+
+                            return acquireLocksForInsert(txId, keyBuffer, prefix);
+                        }
+
+                        return CompletableFuture.completedFuture(shortLock);
+                    })
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            release(shortLock);
+                        }
+                    });
         });
+    }
+
+    private @Nullable IndexRow nextRow(BinaryTuplePrefix prefix) {
+        try (Cursor<IndexRow> cursor = storage.tolerantScan(prefix, null, SortedIndexStorage.GREATER)) {
+            return cursor.hasNext() ? cursor.next() : null;
+        } catch (StorageDestroyedException ignored) {
+            return null;
+        }
+    }
+
+    private void release(Lock lock) {
+        lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode());
     }
 
     private LockMode currentKeyLockMode(LockMode nextKeyLockMode) {
