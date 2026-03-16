@@ -330,7 +330,7 @@ public class IgniteImpl implements Ignite {
 
     private final Path workDir;
 
-    private Executor asyncContinuationExecutor;
+    private final Executor asyncContinuationExecutor;
 
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
