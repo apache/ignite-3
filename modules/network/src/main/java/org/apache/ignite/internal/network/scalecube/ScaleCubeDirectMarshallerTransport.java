@@ -19,7 +19,6 @@ package org.apache.ignite.internal.network.scalecube;
 
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.cluster.transport.api.Transport;
-import io.scalecube.net.Address;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -72,7 +71,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     private final NetworkMessagesFactory messageFactory;
 
     /** Node address. */
-    private final Address address;
+    private final String address;
 
     /**
      * Constructor.
@@ -82,11 +81,11 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      * @param messageFactory  Message factory.
      */
     ScaleCubeDirectMarshallerTransport(
-            Address localAddress,
+            NetworkAddress localAddress,
             MessagingService messagingService,
             NetworkMessagesFactory messageFactory
     ) {
-        this.address = localAddress;
+        this.address = localAddress.toString();
         this.messagingService = messagingService;
         this.messageFactory = messageFactory;
 
@@ -116,19 +115,16 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Address address() {
+    public String address() {
         return address;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Mono<Transport> start() {
         return Mono.just(this);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Mono<Void> stop() {
         return Mono.defer(() -> {
@@ -137,20 +133,14 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isStopped() {
         return onStop.isDisposed();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Mono<Void> send(Address address, Message message) {
-        var addr = new NetworkAddress(address.host(), address.port());
-
-        return Mono.fromFuture(() -> {
-            return messagingService.send(addr, SCALE_CUBE_CHANNEL_TYPE, fromMessage(message));
-        });
+    public Mono<Void> send(String address, Message message) {
+        return Mono.fromFuture(() -> messagingService.send(NetworkAddress.from(address), SCALE_CUBE_CHANNEL_TYPE, fromMessage(message)));
     }
 
     /**
@@ -216,9 +206,8 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         return null;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Mono<Message> requestResponse(Address address, Message request) {
+    public Mono<Message> requestResponse(String address, Message request) {
         return Mono.create(sink -> {
             Objects.requireNonNull(request, "request must be not null");
             Objects.requireNonNull(request.correlationId(), "correlationId must be not null");
@@ -243,7 +232,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public final Flux<Message> listen() {
         return subject.onBackpressureBuffer();
