@@ -42,6 +42,7 @@ object PlatformCppTestsWindows : BuildType({
 
         powerShell {
             name = "Build C++"
+            workingDir = "%PATH__WORKING_DIR%"
             platform = PowerShellStep.Platform.x64
             scriptMode = script {
                 content = """
@@ -81,7 +82,7 @@ object PlatformCppTestsWindows : BuildType({
             formatStderrAsError = true
         }
         customGradle {
-            name = "Verify runner is builded"
+            name = "Verify runner is built"
             tasks = ":ignite-runner:integrationTestClasses"
         }
         script {
@@ -104,6 +105,7 @@ object PlatformCppTestsWindows : BuildType({
         }
         powerShell {
             name = "Collect PDBs for crash dumps"
+            workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
             platform = PowerShellStep.Platform.x64
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             scriptMode = script {
@@ -123,12 +125,7 @@ object PlatformCppTestsWindows : BuildType({
     
                     Write-Host "Found ${'$'}(${'$'}dumps.Count) dump file(s), collecting binaries from CMake build directory."
     
-                    ${'$'}cmakeBuildDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
-                    if (-not (Test-Path ${'$'}cmakeBuildDir)) {
-                        Write-Error "CMake build directory '${'$'}cmakeBuildDir' does not exist."
-                        exit 1
-                    }
-    
+                    ${'$'}cmakeBuildDir = "%PATH__CMAKE_BUILD_DIRECTORY%\bin"    
                     Get-ChildItem -Path "${'$'}cmakeBuildDir\*" -File -Include "*.exe", "*.dll", "*.pdb" | ForEach-Object {
                         Copy-Item -Path ${'$'}_.FullName -Destination ${'$'}dumpsDir -Force
                         Write-Host "Copied: ${'$'}(${'$'}_.Name)"
