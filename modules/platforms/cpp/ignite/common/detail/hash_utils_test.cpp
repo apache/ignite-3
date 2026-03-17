@@ -429,7 +429,7 @@ std::vector<std::byte> from_ints(std::vector<int> ints) {
     std::transform(
         ints.begin(),
         ints.end(),
-        std::back_insert_iterator(res),
+        std::back_inserter(res),
         [](int src) {
             return static_cast<std::byte>(src);
         }
