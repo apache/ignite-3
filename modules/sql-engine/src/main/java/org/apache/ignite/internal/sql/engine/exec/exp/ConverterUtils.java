@@ -27,6 +27,7 @@ import org.apache.calcite.adapter.enumerable.RexImpTable;
 import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.linq4j.tree.MethodCallExpression;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.rel.type.RelDataType;
@@ -221,20 +222,23 @@ public class ConverterUtils {
             methodName = "toTimestampLtzExact";
         }
 
-        // Box primitive operand to ensure the null-safe Object overload is selected,
-        // and RexImpTable builds a correct condition in genValueStatement() method
-        // if type is long then the condition: is input_isNull ? 0 : <toTimestampExact>
-        // Otherwise, when type is Long, the condition is is input_isNull ? null : <toTimestampExact>
-        Expression safeOperand = Primitive.is(operand.getType())
-                ? Expressions.convert_(operand, Long.class)
-                : operand;
-
-        return Expressions.call(
+        MethodCallExpression call = Expressions.call(
                 IgniteSqlFunctions.class,
                 methodName,
-                safeOperand,
+                operand,
                 Expressions.constant(targetType.getPrecision())
         );
+
+        // Result is nullable, check the operand for null and only if it is not call the conversion function:
+        // input_value ? null : <...>
+        if (targetType.isNullable()) {
+            return Expressions.condition(
+                    Expressions.equal(operand, RexImpTable.NULL_EXPR),
+                    RexImpTable.NULL_EXPR,
+                    call);
+        } else {
+            return call;
+        }
     }
 
     /**
