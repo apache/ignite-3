@@ -26,31 +26,31 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client transaction inflights tracker.
  */
 public class PartitionInflights {
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionInflights.class);
-
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS_HINT = 1024;
 
     /** Txn contexts. */
-    private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
+    private final ConcurrentHashMap<UUID, CleanupContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
 
     /**
      * Registers the inflight update for a transaction.
      *
      * @param txId The transaction id.
      */
-    public boolean addInflight(UUID txId, Predicate<UUID> testPred) {
+    public boolean addInflight(UUID txId, Predicate<UUID> testPred, RequestType requestType) {
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
-                ctx = new TxContext();
+                ctx = new CleanupContext();
             }
 
             //ctx.opFuts.add(new IgniteBiTuple<>(new Exception(), fut));
@@ -59,6 +59,7 @@ public class PartitionInflights {
                 res[0] = false;
             } else {
                 ctx.addInflight();
+                ctx.hasWrites = true;
             }
 
             return ctx;
@@ -95,11 +96,11 @@ public class PartitionInflights {
      * @param txId Transaction id.
      * @return The future.
      */
-    public CompletableFuture<Void> finishFuture(UUID txId) {
+    public @Nullable CleanupContext finishFuture(UUID txId) {
         // No new operations can be enlisted an this point, so concurrent inflights counter can only go down.
-        TxContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
+        return txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
-                ctx = new TxContext();
+                return null;
             }
 
             // LOG.info("DBG: finishFuture " + txId + " " + ctx.inflights);
@@ -110,12 +111,6 @@ public class PartitionInflights {
 
             return ctx;
         });
-
-//        if (ctx0 == null) {
-//            return nullCompletedFuture();
-//        }
-
-        return ctx0.finishFut;
     }
 
     /**
@@ -138,11 +133,12 @@ public class PartitionInflights {
     }
 
     /**
-     * Transaction inflights context.
+     * Shared Cleanup context.
      */
-    public static class TxContext {
-        public CompletableFuture<Void> finishFut;
-        public volatile long inflights = 0;
+    public static class CleanupContext {
+        CompletableFuture<Void> finishFut;
+        volatile long inflights = 0;
+        volatile boolean hasWrites = false;
 
         void addInflight() {
             inflights++;
@@ -156,7 +152,7 @@ public class PartitionInflights {
     }
 
     @TestOnly
-    public ConcurrentHashMap<UUID, TxContext> map() {
+    public ConcurrentHashMap<UUID, CleanupContext> map() {
         return txCtxMap;
     }
 }
