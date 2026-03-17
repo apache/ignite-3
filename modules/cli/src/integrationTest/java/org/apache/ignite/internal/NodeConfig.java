@@ -46,6 +46,7 @@ public class NodeConfig {
     public static String restSslBootstrapConfig(@Nullable String ciphers) {
         return "ignite {\n"
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"
@@ -84,6 +85,7 @@ public class NodeConfig {
     public static String clientConnectorSslBootstrapConfig(@Nullable String ciphers) {
         return "ignite {\n"
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"
