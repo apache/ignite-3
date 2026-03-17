@@ -579,31 +579,32 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNullValueThrows() {
-        testNullValueThrows(view -> view.get(null, DEFAULT_ID), "getNullable");
+        testNullValueThrows(view -> view.get(null, DEFAULT_ID), "getNullable", 12);
     }
 
     @Test
     public void testGetAndPutNullValueThrows() {
-        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndPut");
+        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndPut", 16);
     }
 
     @Test
     public void testGetAndRemoveNullValueThrows() {
-        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID), "getNullableAndRemove");
+        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID), "getNullableAndRemove", 32);
     }
 
     @Test
     public void testGetAndReplaceNullValueThrows() {
-        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndReplace");
+        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndReplace", 26);
     }
 
-    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run, String methodName) {
+    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run, String methodName, int op) {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
         primitiveView.put(null, DEFAULT_ID, null);
 
         var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
         assertEquals(
-                format("Failed to deserialize server response: Got unexpected null value: use `{}` sibling method instead.", methodName),
+                format("Failed to deserialize server response for op {}: Got unexpected null value: use `{}` sibling method instead.",
+                        op, methodName),
                 ex.getMessage());
     }
 
