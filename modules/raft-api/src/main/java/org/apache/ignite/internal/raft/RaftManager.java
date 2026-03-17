@@ -105,7 +105,7 @@ public interface RaftManager extends IgniteComponent {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            TimeAwareRaftServiceFactory factory,
+            TimeAwareRaftGroupServiceFactory factory,
             RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException;
 
@@ -184,7 +184,7 @@ public interface RaftManager extends IgniteComponent {
     TimeAwareRaftGroupService startTimeAwareRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
-            TimeAwareRaftServiceFactory factory,
+            TimeAwareRaftGroupServiceFactory factory,
             ExceptionFactory stoppingExceptionFactory,
             boolean isSystemGroup
     ) throws NodeStoppingException;

@@ -30,7 +30,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
  * {@link org.apache.ignite.internal.raft.service.RaftGroupService}.
  */
 @FunctionalInterface
-public interface TimeAwareRaftServiceFactory {
+public interface TimeAwareRaftGroupServiceFactory {
     /**
      * Creates a time-aware Raft group service.
      *

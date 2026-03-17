@@ -23,7 +23,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.TimeAwareRaftServiceFactory;
+import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -32,7 +32,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 /**
  * Factory for creating {@link PhysicalTopologyAwareRaftGroupService} instances for CMG.
  */
-public class PhysicalTopologyAwareRaftGroupServiceFactory implements TimeAwareRaftServiceFactory {
+public class PhysicalTopologyAwareRaftGroupServiceFactory implements TimeAwareRaftGroupServiceFactory {
 
     private final ClusterService clusterService;
 

@@ -372,7 +372,7 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            TimeAwareRaftServiceFactory factory,
+            TimeAwareRaftGroupServiceFactory factory,
             RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -471,7 +471,7 @@ public class Loza implements RaftManager {
     public TimeAwareRaftGroupService startTimeAwareRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
-            TimeAwareRaftServiceFactory factory,
+            TimeAwareRaftGroupServiceFactory factory,
             ExceptionFactory stoppingExceptionFactory,
             boolean isSystemGroup
     ) throws NodeStoppingException {
