@@ -104,6 +104,7 @@ object PlatformCppTestsWindows : BuildType({
         powerShell {
             name = "Collect PDBs for crash dumps"
             platform = PowerShellStep.Platform.x64
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             scriptMode = script {
                 content = """ 
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
