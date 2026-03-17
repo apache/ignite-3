@@ -27,6 +27,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
 import java.util.logging.Logger;
 import org.junit.jupiter.api.AfterAll;
@@ -79,6 +80,7 @@ public class ItDockerConfigTest {
                 .waitingFor(new WaitAllStrategy()
                         .withStrategy(Wait.forListeningPorts(10300, 10800))
                         .withStrategy(Wait.forLogMessage(".*Joining the cluster.*", 1))
+                        .withStartupTimeout(Duration.ofSeconds(120))
                 );
     }
 
