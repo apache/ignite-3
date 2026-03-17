@@ -1573,12 +1573,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         // It's important to test partition state under txn cleanup lock to avoid a data race.
-        boolean locked = !partitionInflights.addInflight(txId, uuid -> {
+        @Nullable CleanupContext ctx = partitionInflights.addInflight(txId, uuid -> {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
             return txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING;
         }, requestType);
 
-        if (locked) {
+        if (ctx == null) {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
@@ -1610,20 +1610,20 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         fut.whenComplete((v, th) -> {
             if (th != null) {
-                partitionInflights.removeInflight(txId);
+                partitionInflights.removeInflight(ctx);
             } else {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
 
                     if (res.applyResult().replicationFuture() != null) {
                         res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-                            partitionInflights.removeInflight(txId);
+                            partitionInflights.removeInflight(ctx);
                         });
                     } else {
-                        partitionInflights.removeInflight(txId);
+                        partitionInflights.removeInflight(ctx);
                     }
                 } else {
-                    partitionInflights.removeInflight(txId);
+                    partitionInflights.removeInflight(ctx);
                 }
             }
         });
