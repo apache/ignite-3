@@ -88,7 +88,7 @@ object PlatformCppTestsWindows : BuildType({
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
             scriptContent = """
                 mkdir %PATH__CRASH_DUMPS% 2>nul
-                procdump -ma -e -t -x %PATH__CRASH_DUMPS% Debug\bin\ignite-client-test --gtest_output=xml:%PATH__CLIENT_TEST_RESULTS%
+                procdump -accepteula -ma -e -t -x %PATH__CRASH_DUMPS% Debug\bin\ignite-client-test --gtest_output=xml:%PATH__CLIENT_TEST_RESULTS%
             """.trimIndent()
             formatStderrAsError = true
         }
@@ -97,7 +97,7 @@ object PlatformCppTestsWindows : BuildType({
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
             scriptContent = """
                 mkdir %PATH__CRASH_DUMPS% 2>nul
-                procdump -ma -e -t -x %PATH__CRASH_DUMPS% Debug\bin\ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+                procdump -accepteula -ma -e -t -x %PATH__CRASH_DUMPS% Debug\bin\ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
             """.trimIndent()
             formatStderrAsError = true
         }
