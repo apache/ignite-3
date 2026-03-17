@@ -52,7 +52,7 @@ set(SOURCES
     uuid.cpp
     detail/hash_calculator.cpp
     detail/hash_utils.cpp
-    detail/Murmur3Hash.cpp
+        detail/murmur3_hash.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})

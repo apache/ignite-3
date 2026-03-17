@@ -14,10 +14,6 @@
 // limitations under the License.
 //
 
-//
-// Created by erixon on 2026-03-09.
-//
-
 #pragma once
 #include <cstdint>
 #include <cstddef>

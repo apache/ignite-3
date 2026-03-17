@@ -22,18 +22,38 @@
 
 namespace ignite::detail {
 
+/**
+ * Calculator of hashes for all basic types.
+ */
 class hash_calculator {
 public:
+    /**
+     * Calculates hash.
+     * @param val Value of basic type.
+     * @param scale Scale applies to some types (e.g. big_decimal), value ignored by other types.
+     * @param precision Precision applies to some type (e.g. ignite_time) value ignored by other types.
+     * @return Hash value.
+     */
     static std::int32_t calc_hash(const primitive& val, std::int32_t scale, std::int32_t precision);
 
+    /**
+     * Appends hash of provided value into internal state.
+     * @param val Value of basic type.
+     * @param scale Scale applies to some types (e.g. big_decimal), value ignored by other types.
+     * @param precision Precision applies to some type (e.g. ignite_time) value ignored by other types.
+     */
     void append(const primitive& val, std::int32_t scale, std::int32_t precision);
 
+    /**
+     * Retrieves accumulated hash from internal state.
+     * @return hash from internal state.
+     */
     [[nodiscard]] std::int32_t result_hash() const {
         return m_state;
     }
 
 private:
-
+    /** Internal state. */
     std::int32_t m_state{0};
 };
 

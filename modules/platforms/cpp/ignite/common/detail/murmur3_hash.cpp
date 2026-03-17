@@ -14,11 +14,8 @@
 // limitations under the License.
 //
 
-//
-// Created by erixon on 2026-03-09.
-//
-
-#include "Murmur3Hash.h"
+#include "bytes.h"
+#include "murmur3_hash.h"
 
 //-----------------------------------------------------------------------------
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
@@ -28,12 +25,6 @@
 // algorithms are optimized for their respective platforms. You can still
 // compile and run any of them on any platform, but your performance with the
 // non-native version will be less than optimal.
-
-
-//-----------------------------------------------------------------------------
-// Platform-specific functions and macros
-
-// Microsoft Visual Studio
 
 #if defined(_MSC_VER)
 
@@ -73,14 +64,9 @@ inline uint64_t rotl64 ( uint64_t x, int8_t r )
 // Block read - if your platform needs to do endian-swapping or can only
 // handle aligned reads, do the conversion here
 
-FORCE_INLINE uint32_t getblock32 ( const uint32_t * p, int i )
-{
-  return p[i];
-}
-
 FORCE_INLINE uint64_t getblock64 ( const uint64_t * p, int i )
 {
-  return p[i];
+    return ignite::detail::bytes::htol<std::uint64_t>(p[i]);
 }
 
 //-----------------------------------------------------------------------------

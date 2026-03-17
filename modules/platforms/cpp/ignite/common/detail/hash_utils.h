@@ -23,7 +23,7 @@
 #include "ignite_timestamp.h"
 #include "uuid.h"
 
-#include "Murmur3Hash.h"
+#include "murmur3_hash.h"
 
 #include <cstdint>
 #include <cstring>
@@ -32,6 +32,13 @@
 
 namespace ignite::detail {
 
+/**
+ * Adapter to original murmur3 hash function
+ * @param key Pointer to begin of data.
+ * @param len Data length
+ * @param seed Seed.
+ * @return Hash value.
+ */
 inline std::uint64_t murmur_original( const void * key, std::size_t len, std::uint64_t seed) {
     std::uint64_t res[2];
     MurmurHash3_x64_128(key, len, seed, res);
@@ -39,74 +46,189 @@ inline std::uint64_t murmur_original( const void * key, std::size_t len, std::ui
     return res[0];
 }
 
-inline std::uint64_t hash64(std::int8_t data, std::uint64_t seed) {
-
+/**
+ * Calculates hash.
+ * @param data Data.
+ * @param seed Seed.
+ * @return Hash value.
+ */
+template<typename T>
+std::uint64_t hash64(T data, std::uint64_t seed) {
     return murmur_original(&data, sizeof(data), seed);
 }
 
-inline std::uint64_t hash64(std::uint8_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
+/**
+ * Calculates hash.
+ * @param data Pointer to begin of data.
+ * @param len Data length.
+ * @param seed Seed.
+ * @return Hash value.
+ */
+inline std::uint64_t hash64(const void *data, size_t len, std::uint64_t seed) {
+    return murmur_original(data, len, seed);
 }
 
-inline std::uint64_t hash64(std::int16_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
-}
-
-inline std::uint64_t hash64(std::uint16_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
-}
-
-inline std::uint64_t hash64(std::int32_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
-}
-
-inline std::uint64_t hash64(std::uint32_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
-}
-
-inline std::uint64_t hash64(std::int64_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
-}
-
-inline std::uint64_t hash64(std::uint64_t data, std::uint64_t seed) {
-    return murmur_original(&data, sizeof(data), seed);
-}
-
-inline std::uint64_t hash64(const std::uint8_t *data, size_t off, size_t len, std::uint64_t seed) {
-    return murmur_original(data + off, len, seed);
-}
-
+/**
+ * Calculates hash.
+ * @param data Data.
+ * @param seed Seed.
+ * @return Hash value.
+ */
 template<typename T>
 std::int32_t hash32(T data, std::uint64_t seed = 0) {
-    auto hash = hash64(data, seed);
+    auto hash = hash64<T>(data, seed);
 
     return static_cast<std::int32_t>(hash ^ hash >> 32);
 }
 
-inline std::int32_t hash32(const std::uint8_t *data, size_t off, size_t len, std::uint64_t seed) {
-    auto hash = hash64(data, off, len, seed);
+/**
+ * Calculates hash.
+ * @param data Pointer to begin of data.
+ * @param len Data length.
+ * @param seed Seed.
+ * @return Hash value.
+ */
+inline std::int32_t hash32(const void *data, size_t len, std::uint64_t seed) {
+    auto hash = hash64(data, len, seed);
 
     return static_cast<std::int32_t>(hash ^ hash >> 32);
 }
 
+/**
+ * Calculation hash of @code bool value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(bool val);
+
+/**
+ * Calculation hash of @code int8_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::int8_t val);
+
+/**
+ * Calculation hash of @code uint8_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::uint8_t val);
+
+/**
+ * Calculation hash of @code int16_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::int16_t val);
+
+/**
+ * Calculation hash of @code uint16_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::uint16_t val);
+
+/**
+ * Calculation hash of @code int32_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::int32_t val);
+
+/**
+ * Calculation hash of @code uint32_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::uint32_t val);
+
+/**
+ * Calculation hash of @code int64_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::int64_t val);
+
+/**
+ * Calculation hash of @code uint64_t value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(std::uint64_t val);
+
+/**
+ * Calculation hash of @code float value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(float val);
+
+/**
+ * Calculation hash of @code double value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(double val);
+
+/**
+ * Calculation hash of @code ignite::big_decimal value.
+ * @param val Value
+ * @param scale Required scale.
+ * @return Hash.
+ */
 std::int32_t hash(const big_decimal &val, std::int16_t scale);
+
+/**
+ * Calculation hash of @code ignite::uuid value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(const uuid &val);
+
+/**
+ * Calculation hash of @code ignite_date value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(const ignite_date &val);
+
+/**
+ * Calculation hash of @code ignite_date_time value.
+ * @param val Value
+ * @param precision Required precision.
+ * @return Hash.
+ */
 std::int32_t hash(const ignite_date_time &val, std::int32_t precision);
+
+/**
+ * Calculation hash of @code ignite_time value.
+ * @param val Value
+ * @param precision Required precision.
+ * @return Hash.
+ */
 std::int32_t hash(const ignite_time &val, std::int32_t precision);
+
+/**
+ * Calculation hash of @code ignite_timestamp value.
+ * @param val Value
+ * @param precision Required precision.
+ * @return Hash.
+ */
 std::int32_t hash(const ignite_timestamp &val, std::int32_t precision);
+
+/**
+ * Calculation hash of @code std::string value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(const std::string &val);
+
+/**
+ * Calculation hash of @code std::vector<std::byte> value.
+ * @param val Value
+ * @return Hash.
+ */
 std::int32_t hash(const std::vector<std::byte> &val);
 
 } // namespace ignite::detail

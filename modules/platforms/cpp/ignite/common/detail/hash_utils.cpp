@@ -83,7 +83,7 @@ std::int32_t hash(const big_decimal &val, std::int16_t scale) {
 
     auto bytes = copy.get_unscaled_value().to_bytes();
 
-    return hash32(reinterpret_cast<const uint8_t*>(bytes.data()), 0, bytes.size(), 0);
+    return hash32(bytes.data(), bytes.size(), 0);
 }
 
 std::int32_t hash(const uuid &val) {
@@ -121,10 +121,10 @@ std::int32_t hash(const ignite_timestamp &val, std::int32_t precision) {
 }
 
 std::int32_t hash(const std::string &val) {
-    return hash32(reinterpret_cast<const std::uint8_t*>(val.data()), 0, val.length(), 0);
+    return hash32(val.data(), val.length(), 0);
 }
 
 std::int32_t hash(const std::vector<std::byte> &val) {
-    return hash32(reinterpret_cast<const std::uint8_t *>(val.data()), 0, val.size(), 0);
+    return hash32(val.data(),val.size(), 0);
 }
 } // namespace ignite::detail
