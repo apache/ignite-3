@@ -58,6 +58,28 @@ struct configuration {
         , m_out_listener(std::move(out_listener)) {}
 };
 
+struct proxy_entry {
+    tcp::acceptor m_in_acceptor;
+    std::string m_out_host;
+    std::string m_out_port;
+    std::shared_ptr<message_listener> m_in_listener;
+    std::shared_ptr<message_listener> m_out_listener;
+
+    proxy_entry(asio::io_context& io_context,const configuration& cfg)
+        : m_in_acceptor(io_context, tcp::endpoint(tcp::v4(), cfg.m_in_port))
+        , m_in_listener(std::move(cfg.m_in_listener))
+        , m_out_listener(std::move(cfg.m_out_listener))
+    {
+        auto colon_pos = cfg.m_out_host_and_port.find(':');
+
+        if (colon_pos == std::string::npos) {
+            throw std::runtime_error("Incorrect host and part format. Expected 'hostname:port' but got " + cfg.m_out_host_and_port);
+        }
+
+        m_out_host = cfg.m_out_host_and_port.substr(0, colon_pos);
+        m_out_port = cfg.m_out_host_and_port.substr(colon_pos + 1);
+    }
+};
 
 class session_part: public std::enable_shared_from_this<session_part> {
 public:
@@ -137,7 +159,26 @@ public:
         m_reverse_part = std::make_shared<session_part>(m_out_sock, m_in_sock, out_listener, failed, logger);
     }
 
-    void start() { do_serve(); }
+    void connect(tcp::resolver& resolver, proxy_entry& entry) {
+        resolver.async_resolve(entry.m_out_host, entry.m_out_port,
+            [self=shared_from_this()](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
+                if (ec) {
+                    throw std::runtime_error("Error resolving server's address " + ec.message());
+                }
+
+                asio::async_connect(
+                    self->get_out_sock(), endpoints, [self](const asio::error_code &ec, const tcp::endpoint &e) {
+                        if (ec) {
+                            throw std::runtime_error(
+                                "Error connecting to server " + ec.message()
+                                + " port=" + std::to_string(e.port())
+                            );
+                        }
+
+                        self->do_serve();
+                    });
+            });
+    }
 
     tcp::socket &get_out_sock() { return *m_out_sock; }
 
@@ -186,29 +227,6 @@ public:
     }
 
 private:
-    struct proxy_entry {
-        tcp::acceptor m_in_acceptor;
-        std::string m_out_host;
-        std::string m_out_port;
-        std::shared_ptr<message_listener> m_in_listener;
-        std::shared_ptr<message_listener> m_out_listener;
-
-        proxy_entry(asio::io_context& io_context,const configuration& cfg)
-            : m_in_acceptor(io_context, tcp::endpoint(tcp::v4(), cfg.m_in_port))
-            , m_in_listener(std::move(cfg.m_in_listener))
-            , m_out_listener(std::move(cfg.m_out_listener))
-        {
-            auto colon_pos = cfg.m_out_host_and_port.find(':');
-
-            if (colon_pos == std::string::npos) {
-                throw std::runtime_error("Incorrect host and part format. Expected 'hostname:port' but got " + cfg.m_out_host_and_port);
-            }
-
-            m_out_host = cfg.m_out_host_and_port.substr(0, colon_pos);
-            m_out_port = cfg.m_out_host_and_port.substr(colon_pos + 1);
-        }
-    };
-
     void do_serve() {
         for (auto& [_, entry]: m_conn_map) {
             do_accept(entry);
@@ -236,24 +254,7 @@ private:
                 m_logger
             );
 
-            m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
-                [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
-                    if (ec) {
-                        throw std::runtime_error("Error resolving server's address " + ec.message());
-                    }
-
-                    asio::async_connect(
-                        ses->get_out_sock(), endpoints, [ses](const asio::error_code &ec, const tcp::endpoint &e) {
-                            if (ec) {
-                                throw std::runtime_error(
-                                    "Error connecting to server " + ec.message()
-                                    + " port=" + std::to_string(e.port())
-                                );
-                            }
-
-                            ses->start();
-                        });
-                });
+            ses->connect(m_resolver, entry);
 
             do_accept(entry);
         });
