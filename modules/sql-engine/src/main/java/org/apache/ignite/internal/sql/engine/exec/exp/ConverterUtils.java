@@ -222,23 +222,16 @@ public class ConverterUtils {
             methodName = "toTimestampLtzExact";
         }
 
-        MethodCallExpression call = Expressions.call(
-                IgniteSqlFunctions.class,
-                methodName,
-                operand,
-                Expressions.constant(targetType.getPrecision())
+        // Returns either (long) <call> or (Long) <call> depending on nullability of a target type.
+        return Expressions.convert_(
+                Expressions.call(
+                        IgniteSqlFunctions.class,
+                        methodName,
+                        operand,
+                        Expressions.constant(targetType.getPrecision())
+                ), 
+                Commons.typeFactory().getJavaClass(targetType)
         );
-
-        // Result is nullable, check the operand for null and only if it is not call the conversion function:
-        // input_value ? null : <...>
-        if (targetType.isNullable()) {
-            return Expressions.condition(
-                    Expressions.equal(operand, RexImpTable.NULL_EXPR),
-                    RexImpTable.NULL_EXPR,
-                    call);
-        } else {
-            return call;
-        }
     }
 
     /**

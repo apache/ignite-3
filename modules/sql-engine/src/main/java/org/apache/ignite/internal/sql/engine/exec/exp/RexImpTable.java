@@ -507,6 +507,7 @@ import org.apache.calcite.sql.validate.SqlUserDefinedTableMacro;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.jetbrains.annotations.Nullable;
 
