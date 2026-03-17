@@ -52,7 +52,7 @@ public class SqlApiExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -83,7 +83,7 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nStarting read-write transaction...");
+            System.out.println("Starting read-write transaction...");
 
             Transaction tx = client.transactions().begin(new TransactionOptions().readOnly(false));
 
@@ -94,7 +94,7 @@ public class SqlApiExample {
             //--------------------------------------------------------------------------------------
 
             try {
-                System.out.println("\nPopulating 'CITIES' table...");
+                System.out.println("Populating 'CITIES' table...");
 
                 Statement stmt = client.sql().createStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)");
                 long rowsAdded = 0;
@@ -109,7 +109,7 @@ public class SqlApiExample {
                     rowsAdded += rs.affectedRows();
                 }
 
-                System.out.println("\nAdded cities: " + rowsAdded);
+                System.out.println("Added cities: " + rowsAdded);
 
                 //--------------------------------------------------------------------------------------
                 //
@@ -117,7 +117,7 @@ public class SqlApiExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nPopulating 'ACCOUNTS' table...");
+                System.out.println("Populating 'ACCOUNTS' table...");
 
                 rowsAdded = Arrays.stream(client.sql().executeBatch(tx,
                                 "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)",
@@ -127,7 +127,7 @@ public class SqlApiExample {
                                         .add(4, 3, "Richard", "Miles", 1450.0d)))
                         .sum();
 
-                System.out.println("\nAdded accounts: " + rowsAdded);
+                System.out.println("Added accounts: " + rowsAdded);
 
                 //--------------------------------------------------------------------------------------
                 //
@@ -135,7 +135,7 @@ public class SqlApiExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nCommitting transaction...");
+                System.out.println("Committing transaction...");
 
                 tx.commit();
             } catch (Exception e) {
@@ -150,7 +150,7 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nAll accounts:");
+            System.out.println("All accounts:");
 
             try (ResultSet<SqlRow> rs = client.sql().execute(
                     "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
@@ -171,7 +171,7 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nAccounts with balance lower than 1,500:");
+            System.out.println("Accounts with balance lower than 1,500:");
 
             Statement statement = client.sql().statementBuilder()
                     .query("SELECT a.FIRST_NAME as firstName, a.LAST_NAME as lastName, a.BALANCE FROM ACCOUNTS a "
@@ -209,7 +209,7 @@ public class SqlApiExample {
             CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
             cancelled.get(5, TimeUnit.SECONDS);
 
-            System.out.println("\nIs query cancelled: " + cancelled.isDone());
+            System.out.println("Is query cancelled: " + cancelled.isDone());
 
             //--------------------------------------------------------------------------------------
             //
@@ -217,10 +217,10 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nDeleting one of the accounts...");
+            System.out.println("Deleting one of the accounts...");
 
             try (ResultSet<SqlRow> rs = client.sql().execute( "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
-                System.out.println("\n Removed accounts: " + rs.affectedRows());
+                System.out.println(" Removed accounts: " + rs.affectedRows());
             }
 
             //--------------------------------------------------------------------------------------
@@ -230,7 +230,7 @@ public class SqlApiExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nAll accounts:");
+            System.out.println("All accounts:");
 
             // Async way.
             Statement stmt = client.sql().statementBuilder()
@@ -243,7 +243,7 @@ public class SqlApiExample {
                     .thenCompose(SqlApiExample::fetchAllRowsInto)
                     .get();
 
-            System.out.println("\nDropping the tables...");
+            System.out.println("Dropping the tables...");
 
             client.sql().executeScript(
                     "DROP TABLE ACCOUNTS;"

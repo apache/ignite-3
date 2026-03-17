@@ -76,8 +76,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Best raft manager ever since 1982.
  */
-// TODO: Encapsulate RaftGroupOptions and move other methods to the RaftManager interface,
-//  see https://issues.apache.org/jira/browse/IGNITE-18273
+// TODO https://issues.apache.org/jira/browse/IGNITE-18273 Encapsulate RaftGroupOptions and move other methods to the RaftManager interface.
 public class Loza implements RaftManager {
     /** Factory. */
     public static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();

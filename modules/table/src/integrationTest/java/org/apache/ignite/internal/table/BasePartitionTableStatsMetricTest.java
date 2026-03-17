@@ -18,8 +18,12 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.time.Duration;
 import java.util.Objects;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -86,18 +90,31 @@ abstract class BasePartitionTableStatsMetricTest extends BaseSqlIntegrationTest 
         for (int p = 0; p < table.partsCount; p++) {
             String metricName = PartitionTableStatsMetricSource.formatSourceName(table.id, p);
 
-            for (int i = 0; i < CLUSTER.nodes().size(); i++) {
-                enableMetricSource(metricName, i);
-            }
+            // Wait for at least one node to have the metric source enabled.
+            await().pollDelay(Duration.ZERO).untilAsserted(() -> {
+                boolean found = false;
+
+                for (int i = 0; i < CLUSTER.nodes().size(); i++) {
+                    if (tryEnableMetricSource(metricName, i)) {
+                        found = true;
+                    }
+                }
+
+                assertThat("Metric source not found on any node: " + metricName, found, is(true));
+            });
         }
     }
 
-    static void enableMetricSource(String sourceName, int nodeIdx) {
+    private static boolean tryEnableMetricSource(String sourceName, int nodeIdx) {
         IgniteImpl node = unwrapIgniteImpl(node(nodeIdx));
-        node.metricManager().metricSources().stream()
+        return node.metricManager().metricSources().stream()
                 .filter(ms -> sourceName.equals(ms.name()))
                 .findAny()
-                .ifPresent(ms -> node.metricManager().enable(ms));
+                .map(ms -> {
+                    node.metricManager().enable(ms);
+                    return true;
+                })
+                .orElse(false);
     }
 
     static final class TableTuple {

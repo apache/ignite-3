@@ -76,7 +76,7 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
                 .input(connectCallInput())
         );
         if (exitCode == 0) {
-            replManager.startReplMode();
+            replManager.startReplMode(spec.commandLine().getFactory());
         }
         return exitCode;
     }

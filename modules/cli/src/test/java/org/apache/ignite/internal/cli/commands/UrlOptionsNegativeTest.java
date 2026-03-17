@@ -45,10 +45,8 @@ import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusComma
 import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
@@ -169,9 +167,6 @@ public class UrlOptionsNegativeTest extends BaseIgniteAbstractTest {
                 arguments(NodeMetricSourceDisableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSetListReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterUnitDeployReplCommand.class, NODE_URL_OPTION,
-                        List.of("--path=" + TEMP_FILE_PATH, "id", "--version=1.0.0")),
-                arguments(ClusterUnitUndeployReplCommand.class, NODE_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(NodeUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, NODE_URL_OPTION, List.of("--name=cluster", "--metastorage-group=test")),
                 arguments(ConnectReplCommand.class, "", List.of())

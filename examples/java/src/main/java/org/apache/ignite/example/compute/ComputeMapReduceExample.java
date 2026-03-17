@@ -67,7 +67,7 @@ public class ComputeMapReduceExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
             //--------------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ public class ComputeMapReduceExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring map reduce task...");
+            System.out.println("Configuring map reduce task...");
 
             deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
@@ -90,7 +90,7 @@ public class ComputeMapReduceExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nExecuting map reduce task...");
+            System.out.println("Executing map reduce task...");
 
             String phrase = "Count characters using map reduce";
 
@@ -102,7 +102,7 @@ public class ComputeMapReduceExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nTotal number of characters in the words is '" + result + "'.");
+            System.out.println("Total number of characters in the words is '" + result + "'.");
         } finally {
 
             System.out.println("Cleaning up resources");
@@ -159,7 +159,7 @@ public class ComputeMapReduceExample {
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String arg) {
             assert arg != null;
 
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(arg.length());
         }

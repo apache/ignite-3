@@ -164,7 +164,7 @@ public class MigrationCacheProcessor extends GridCacheProcessor {
 
     @Override
     public DynamicCacheDescriptor cacheDescriptor(String name) {
-        // TODO: Check if this should be made thread-safe
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28181 Check if this should be made thread-safe
         return this.cacheDescriptors.computeIfAbsent(name, this::computeDescriptor);
     }
 

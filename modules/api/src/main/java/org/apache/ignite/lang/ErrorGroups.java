@@ -471,6 +471,9 @@ public class ErrorGroups {
 
         /** Transaction was internally killed. This is retriable state. */
         public static final int TX_KILLED_ERR = TX_ERR_GROUP.registerErrorCode((short) 18);
+
+        /** Operation failed because the transaction is already finished due to an error. */
+        public static final int TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR = TX_ERR_GROUP.registerErrorCode((short) 19);
     }
 
     /** Replicator error group. */
@@ -551,11 +554,8 @@ public class ErrorGroups {
         /** Address or port bind error. */
         public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** File transfer error. */
-        public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** File validation error. */
-        public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
+        // Error codes 3 (FILE_TRANSFER_ERR) and 4 (FILE_VALIDATION_ERR) were removed along with the file-transfer module.
+        // These codes are reserved forever and must not be reused.
 
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);

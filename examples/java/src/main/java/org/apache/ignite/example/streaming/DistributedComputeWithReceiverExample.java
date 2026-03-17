@@ -146,7 +146,7 @@ public class DistributedComputeWithReceiverExample {
             System.out.println("Cleaning up resources");
 
             /* Drop table */
-            System.out.println("\nDropping the table...");
+            System.out.println("Dropping the table...");
             client.sql().executeScript("DROP TABLE IF EXISTS tx_dummy");
         } finally {
             undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
