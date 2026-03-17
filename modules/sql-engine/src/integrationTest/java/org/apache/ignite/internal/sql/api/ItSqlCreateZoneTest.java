@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.ConfigTemplates.DEFAULT_PROFILES;
 import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -55,13 +52,8 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
     private static final String EXTRA_PROFILE_NAME = "extra-profile";
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_EXTRA_PROFILE = renderConfigTemplate(
-            "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + EXTRA_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
+            DEFAULT_PROFILES
+            + "storage.profiles." + EXTRA_PROFILE_NAME + ".engine: aipersist,\n"
     );
 
     @Override
