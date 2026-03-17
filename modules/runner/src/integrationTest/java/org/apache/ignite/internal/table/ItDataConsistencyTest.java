@@ -31,16 +31,18 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.RunInTransactionInternalImpl;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.awaitility.core.ConditionTimeoutException;
@@ -247,17 +249,21 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
                     ops.increment();
                 } catch (TransactionException e) {
-                    boolean retriable = RunInTransactionInternalImpl.isRetriable(e);
-                    if (retriable) {
+                    if (isRetriable(e)) {
                         restarts.increment();
                     } else {
                         fails.increment();
                     }
-
-                    // tx.rollback();
                 }
             }
         };
+    }
+
+    private static boolean isRetriable(Throwable e) {
+        return ExceptionUtils.hasCause(e,
+                TimeoutException.class,
+                RetriableTransactionException.class
+        );
     }
 
     private Runnable createReader(int workerId) {

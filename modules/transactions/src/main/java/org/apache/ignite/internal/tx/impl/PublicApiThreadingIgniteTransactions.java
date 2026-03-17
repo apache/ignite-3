@@ -22,12 +22,10 @@ import static org.apache.ignite.internal.thread.PublicApiThreading.preventThread
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,17 +63,5 @@ public class PublicApiThreadingIgniteTransactions implements IgniteTransactions,
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transactions);
-    }
-
-    @Override
-    public <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
-        // TODO ???
-        return transactions.runInTransaction(clo, options);
-    }
-
-    @Override
-    public <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo,
-            @Nullable TransactionOptions options) {
-        return transactions.runInTransactionAsync(clo, options);
     }
 }
