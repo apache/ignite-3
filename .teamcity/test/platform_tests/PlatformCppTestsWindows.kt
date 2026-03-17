@@ -23,6 +23,7 @@ object PlatformCppTestsWindows : BuildType({
     artifactRules = """
         %PATH__UNIT_TESTS_RESULT% => test_logs
         %PATH__CLIENT_TEST_RESULTS% => test_logs
+        %PATH__CRASH_DUMPS% => crash_dumps
     """.trimIndent()
 
     params {
@@ -30,6 +31,7 @@ object PlatformCppTestsWindows : BuildType({
         hiddenText("PATH__CMAKE_BUILD_DIRECTORY", """%PATH__WORKING_DIR%\cmake-build-debug""")
         hiddenText("PATH__CLIENT_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_client_tests_results.xml""")
         hiddenText("PATH__ODBC_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\odbc_tests_results.xml""")
+        hiddenText("PATH__CRASH_DUMPS", """%PATH__CMAKE_BUILD_DIRECTORY%\dumps""")
         hiddenText("PATH__UNIT_TESTS_RESULT", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_unit_test_results.xml""")
         hiddenText("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\cpp""")
         hiddenText("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
@@ -89,14 +91,20 @@ object PlatformCppTestsWindows : BuildType({
         script {
             name = "C++ Client integration tests"
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
-            scriptContent = """Debug\bin\ignite-client-test --gtest_output=xml:%PATH__CLIENT_TEST_RESULTS%"""
+            scriptContent = """
+                mkdir %PATH__CRASH_DUMPS% 2>nul
+                procdump -ma -e -t -x %PATH__CRASH_DUMPS% Debug\bin\ignite-client-test --gtest_output=xml:%PATH__CLIENT_TEST_RESULTS%
+            """.trimIndent()
             formatStderrAsError = true
         }
         script {
             name = "ODBC integration tests"
             enabled = false
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
-            scriptContent = """Debug\bin\ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%"""
+            scriptContent = """
+                mkdir %PATH__CRASH_DUMPS% 2>nul
+                procdump -ma -e -t -x %PATH__CRASH_DUMPS% Debug\bin\ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+            """.trimIndent()
             formatStderrAsError = true
         }
     }
