@@ -42,11 +42,14 @@ object PlatformCppTestsWindows : BuildType({
 
         powerShell {
             name = "Build C++"
-            workingDir = "%PATH__WORKING_DIR%"
             platform = PowerShellStep.Platform.x64
             scriptMode = script {
                 content = """
                     ${'$'}ErrorActionPreference = "Stop"
+                    
+                    Get-Location
+                    Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
+                    Write-Host "Working dir: %PATH__WORKING_DIR%"
     
                     New-Item -ItemType Directory -Force -Path "%PATH__CMAKE_BUILD_DIRECTORY%" | Out-Null
                     Set-Location "%PATH__CMAKE_BUILD_DIRECTORY%"
@@ -112,6 +115,7 @@ object PlatformCppTestsWindows : BuildType({
                 content = """ 
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
 
+                    Get-Location
                     Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
                     Write-Host "Working dir: %PATH__WORKING_DIR%"
     
