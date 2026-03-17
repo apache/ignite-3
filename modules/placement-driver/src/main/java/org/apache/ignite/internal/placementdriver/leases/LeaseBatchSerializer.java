@@ -356,7 +356,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static boolean holderIdAndProposedCandidateFitIn1Byte(NodesDictionary dictionary) {
         // Up to 8 names means that for name index it's enough to have 3 bits, same for node index, so, in sum, they
         // require up to 6 bits, and we have 7 bits in a varint byte.
-        return dictionary.nameCount() <= MAX_NODES_FOR_COMPACT_MODE;
+        return dictionary.nameCount() <= MAX_NODES_FOR_COMPACT_MODE && dictionary.nodeCount() <= MAX_NODES_FOR_COMPACT_MODE;
     }
 
     private static int flags(

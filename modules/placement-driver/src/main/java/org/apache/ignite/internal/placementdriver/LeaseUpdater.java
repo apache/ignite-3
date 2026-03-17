@@ -486,32 +486,9 @@ public class LeaseUpdater {
                         : lease.proposedCandidate();
 
                 InternalClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
-                boolean leaseholderIdIsInLogicalTopology = lease.getLeaseholderId() != null
-                        && topologyTracker.containsNodeId(lease.getLeaseholderId());
-                boolean hasStaleLeaseholderId = lease.isAccepted() && !leaseholderIdIsInLogicalTopology;
-
                 boolean canBeProlonged = lease.isAccepted()
                         && lease.isProlongable()
-                        && !hasStaleLeaseholderId
                         && candidate != null && candidate.id().equals(lease.getLeaseholderId());
-
-                if (hasStaleLeaseholderId) {
-                    LOG.info("Leaseholder has left the logical topology, creating a new lease [groupId={}, lease={}, candidate={}]",
-                            grpId, lease, candidate);
-
-                    if (candidate == null) {
-                        logGroupWithoutCandidateOnce(grpId, true, stableAssignments, pendingAssignments);
-                        continue;
-                    }
-
-                    Lease newLease = writeNewLease(grpId, candidate, renewedLeases);
-
-                    boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
-
-                    toBeNegotiated.put(grpId, new LeaseAgreement(newLease, force));
-
-                    continue;
-                }
 
                 // The lease is expired or close to this, trying to prolong if possible or create a new one.
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {

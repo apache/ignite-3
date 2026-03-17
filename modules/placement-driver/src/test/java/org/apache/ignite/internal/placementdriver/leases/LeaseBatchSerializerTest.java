@@ -203,6 +203,22 @@ class LeaseBatchSerializerTest {
     }
 
     @Test
+    void batchWithExactly8NodeNamesAndMoreThan8NodeIds() {
+        List<Lease> originalLeases = IntStream.range(0, 8)
+                .mapToObj(n -> {
+                    String nodeName = "node" + n;
+                    return tableLease(nodeName, randomUUID(), nodeName, n);
+                })
+                .collect(toList());
+
+        originalLeases.add(tableLease("node0", randomUUID(), "node0", 8));
+
+        LeaseBatch originalBatch = new LeaseBatch(originalLeases);
+
+        verifySerializationAndDeserializationGivesSameResult(originalBatch);
+    }
+
+    @Test
     void batchWithMoreThan8NodeNames() {
         List<Lease> originalLeases = IntStream.range(0, 9)
                 .mapToObj(n -> tableLease("node" + n, randomUUID(), "candidate" + n, n))

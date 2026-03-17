@@ -38,8 +38,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -157,7 +157,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         mockStableAssignments(Set.of(Assignment.forPeer(stableNode.name())));
         mockPendingAssignments(Set.of(Assignment.forPeer(pendingNode.name())));
 
-        when(messagingService.invoke(anyString(), any(), anyLong()))
+        lenient().when(messagingService.invoke(anyString(), any(), anyLong()))
                 .then(i -> completedFuture(PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse().accepted(true).build()));
 
         when(clusterService.messagingService()).thenReturn(messagingService);
@@ -357,7 +357,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     }
     
     @Test
-    public void testStaleLeaseholderIdDoesNotMixOldAndCurrentNodeIdsInBatch() throws Exception {
+    public void testStaleLeaseholderIdCanCoexistWithCurrentNodeIdsInBatch() throws Exception {
         List<LogicalNode> currentTopologyNodes = IntStream.range(0, 8)
                 .mapToObj(i -> new LogicalNode(
                         randomUUID(),
@@ -420,14 +420,105 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         assertEquals(leaseholdersByGroup.size(), renewedBatch.leases().size());
         assertEquals(8, renewedBatch.leases().stream().map(Lease::getLeaseholder).distinct().count());
-        assertEquals(8, renewedBatch.leases().stream().map(Lease::getLeaseholderId).distinct().count());
+        assertEquals(9, renewedBatch.leases().stream().map(Lease::getLeaseholderId).distinct().count());
 
-        Map<String, UUID> currentNodeIdsByName = currentTopologyNodes.stream()
-                .collect(Collectors.toMap(LogicalNode::name, LogicalNode::id));
+        Map<ReplicationGroupId, Lease> renewedLeaseByGroup = renewedBatch.leases().stream()
+                .collect(Collectors.toMap(Lease::replicationGroupId, lease -> lease));
 
-        for (Lease lease : renewedBatch.leases()) {
-            assertEquals(currentNodeIdsByName.get(lease.getLeaseholder()), lease.getLeaseholderId());
-        }
+        Lease expiredLeaseWithCurrentId = renewedLeaseByGroup.get(replicationGroupId(1, 0));
+        assertEquals(leaseholdersByGroup.get(0).id(), expiredLeaseWithCurrentId.getLeaseholderId());
+
+        Lease nonExpiredLeaseWithStaleId = renewedLeaseByGroup.get(replicationGroupId(1, 1));
+        assertEquals(staleNode0Id, nonExpiredLeaseWithStaleId.getLeaseholderId());
+    }
+
+    @Test
+    public void testNonExpiredAcceptedLeasesKeepLeaseholderIdentity() throws Exception {
+        List<LogicalNode> currentTopologyNodes = IntStream.range(0, 3)
+                .mapToObj(i -> new LogicalNode(
+                        randomUUID(),
+                        "node-" + i,
+                        NetworkAddress.from("127.0.0.1:" + (11_000 + i))
+                ))
+                .collect(Collectors.toList());
+
+        when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, currentTopologyNodes)));
+
+        long now = System.currentTimeMillis();
+        UUID staleNode1Id = randomUUID();
+
+        ZonePartitionId expiredGrpId = replicationGroupId(1, 0);
+        ZonePartitionId nonExpiredStaleIdGrpId = replicationGroupId(1, 1);
+        ZonePartitionId nonExpiredCurrentIdGrpId = replicationGroupId(1, 2);
+
+        Map<ZonePartitionId, Set<Assignment>> stableAssignmentsByGroup = Map.of(
+                expiredGrpId, Set.of(Assignment.forPeer(currentTopologyNodes.get(0).name())),
+                nonExpiredStaleIdGrpId, Set.of(Assignment.forPeer(currentTopologyNodes.get(1).name())),
+                nonExpiredCurrentIdGrpId, Set.of(Assignment.forPeer(currentTopologyNodes.get(2).name()))
+        );
+
+        mockStableAssignments(stableAssignmentsByGroup);
+        mockPendingAssignments(Map.of());
+
+        Lease expiredLease = new Lease(
+                currentTopologyNodes.get(0).name(),
+                currentTopologyNodes.get(0).id(),
+                new HybridTimestamp(now - 10_000, 0),
+                new HybridTimestamp(now - 1_000, 0),
+                true,
+                true,
+                null,
+                expiredGrpId
+        );
+
+        Lease nonExpiredLeaseWithStaleId = new Lease(
+                currentTopologyNodes.get(1).name(),
+                staleNode1Id,
+                new HybridTimestamp(now - 10_000, 0),
+                new HybridTimestamp(now + 60_000, 0),
+                true,
+                true,
+                null,
+                nonExpiredStaleIdGrpId
+        );
+
+        Lease nonExpiredLeaseWithCurrentId = new Lease(
+                currentTopologyNodes.get(2).name(),
+                currentTopologyNodes.get(2).id(),
+                new HybridTimestamp(now - 10_000, 0),
+                new HybridTimestamp(now + 60_000, 0),
+                true,
+                true,
+                null,
+                nonExpiredCurrentIdGrpId
+        );
+
+        Map<ReplicationGroupId, Lease> leasesByGroup = Map.of(
+                expiredGrpId, expiredLease,
+                nonExpiredStaleIdGrpId, nonExpiredLeaseWithStaleId,
+                nonExpiredCurrentIdGrpId, nonExpiredLeaseWithCurrentId
+        );
+
+        Leases currentLeases = new Leases(leasesByGroup, BYTE_EMPTY_ARRAY);
+
+        lenient().when(leaseTracker.leasesLatest()).thenReturn(currentLeases);
+        lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenAnswer(invocation ->
+                currentLeases.leaseByGroupId().getOrDefault(invocation.getArgument(0), Lease.emptyLease(invocation.getArgument(0))));
+
+        initAndActivateLeaseUpdater();
+
+        LeaseBatch renewedBatch = awaitForLeaseBatch(5_000);
+
+        Map<ReplicationGroupId, Lease> renewedLeaseByGroup = renewedBatch.leases().stream()
+                .collect(Collectors.toMap(Lease::replicationGroupId, lease -> lease));
+
+        Lease renewedNonExpiredWithStaleId = renewedLeaseByGroup.get(nonExpiredStaleIdGrpId);
+        assertEquals(nonExpiredLeaseWithStaleId.getLeaseholder(), renewedNonExpiredWithStaleId.getLeaseholder());
+        assertEquals(nonExpiredLeaseWithStaleId.getLeaseholderId(), renewedNonExpiredWithStaleId.getLeaseholderId());
+
+        Lease renewedNonExpiredWithCurrentId = renewedLeaseByGroup.get(nonExpiredCurrentIdGrpId);
+        assertEquals(nonExpiredLeaseWithCurrentId.getLeaseholder(), renewedNonExpiredWithCurrentId.getLeaseholder());
+        assertEquals(nonExpiredLeaseWithCurrentId.getLeaseholderId(), renewedNonExpiredWithCurrentId.getLeaseholderId());
     }
 
     @Test

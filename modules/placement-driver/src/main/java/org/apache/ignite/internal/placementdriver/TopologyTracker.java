@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -93,19 +91,6 @@ public class TopologyTracker {
      * @return Cluster node or {@code null} if topology has no a node with the consistent id.
      */
     public @Nullable InternalClusterNode nodeByConsistentId(String consistentId) {
-        return findNode(node -> node.name().equals(consistentId));
-    }
-
-    /**
-     * Returns {@code true} if the logical topology snapshot contains a node with the given transient node id.
-     *
-     * @param nodeId Node id.
-     */
-    public boolean containsNodeId(UUID nodeId) {
-        return findNode(node -> node.id().equals(nodeId)) != null;
-    }
-
-    private @Nullable InternalClusterNode findNode(Predicate<LogicalNode> predicate) {
         LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
 
         if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {
@@ -113,7 +98,7 @@ public class TopologyTracker {
         }
 
         for (LogicalNode node : logicalTopologySnap0.nodes()) {
-            if (predicate.test(node)) {
+            if (node.name().equals(consistentId)) {
                 return node;
             }
         }
