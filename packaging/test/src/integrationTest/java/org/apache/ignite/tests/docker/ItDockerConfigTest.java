@@ -19,6 +19,7 @@ package org.apache.ignite.tests.docker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testcontainers.containers.output.OutputFrame.OutputType.STDERR;
 
 import java.io.IOException;
 import java.net.URI;
@@ -26,51 +27,63 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.MountableFile;
 
 /**
  * Basic tests for Docker configuration.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-27471")
+@Testcontainers
 public class ItDockerConfigTest {
+    private static final Logger LOG = Logger.getLogger(ItDockerConfigTest.class.getName());
     private static final String DOCKER_IMAGE = "apacheignite/ignite:latest";
-    private static final int CLUSTER_SIZE = 3;
-    private static final List<GenericContainer<?>> igniteNodes = new ArrayList<>();
-    private static Network network;
+    private static final Network network = Network.newNetwork();
 
-    @BeforeAll
-    public static void setUpCluster() {
-        network = Network.newNetwork();
+    @Container
+    private static final GenericContainer<?> node1 = createNode(1);
 
-        for (int i = 1; i <= CLUSTER_SIZE; i++) {
-            igniteNodes.add(new GenericContainer<>(DOCKER_IMAGE)
-                    .withNetwork(network)
-                    .withNetworkAliases("node" + i)
-                    .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                    .withCopyToContainer(MountableFile.forClasspathResource("/org/apache/ignite/tests/docker/ignite-config.conf"),
-                            "/opt/ignite/etc/ignite-config.conf")
-                    .withCommand("--node-name node" + i)
-                    .withExposedPorts(10300, 10800)
-                    .waitingFor(Wait.forListeningPorts(10300, 10800))
-                    .waitingFor(Wait.forLogMessage(".*Joining the cluster.*", 1))
-            );
-        }
-        igniteNodes.forEach(GenericContainer::start);
+    @Container
+    private static final GenericContainer<?> node2 = createNode(2);
+
+    @Container
+    private static final GenericContainer<?> node3 = createNode(3);
+
+    private static final List<GenericContainer<?>> igniteNodes = List.of(node1, node2, node3);
+
+    private static GenericContainer<?> createNode(int index) {
+        return new GenericContainer<>(DOCKER_IMAGE)
+                .withNetwork(network)
+                .withNetworkAliases("node" + index)
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .withCopyToContainer(MountableFile.forClasspathResource("/org/apache/ignite/tests/docker/ignite-config.conf"),
+                        "/opt/ignite/etc/ignite-config.conf")
+                .withCommand("--node-name node" + index)
+                .withLogConsumer(frame -> {
+                    if (frame.getType() == STDERR) {
+                        LOG.severe(frame.getUtf8String());
+                    } else {
+                        LOG.info(frame.getUtf8String());
+                    }
+                })
+                .withExposedPorts(10300, 10800)
+                .waitingFor(new WaitAllStrategy()
+                        .withStrategy(Wait.forListeningPorts(10300, 10800))
+                        .withStrategy(Wait.forLogMessage(".*Joining the cluster.*", 1))
+                );
     }
 
     @AfterAll
-    public static void tearDownCluster() {
-        igniteNodes.forEach(GenericContainer::stop);
+    public static void tearDownNetwork() {
         if (network != null) {
             network.close();
         }
