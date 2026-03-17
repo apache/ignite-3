@@ -46,7 +46,7 @@ import org.testcontainers.utility.MountableFile;
 @Testcontainers
 public class ItDockerConfigTest {
     private static final Logger LOG = Logger.getLogger(ItDockerConfigTest.class.getName());
-    private static final String DOCKER_IMAGE = "apacheignite/ignite:latest";
+    private static final String DOCKER_IMAGE = System.getProperty("ignite.docker.image", "apacheignite/ignite:latest");
     private static final Network network = Network.newNetwork();
 
     @Container
