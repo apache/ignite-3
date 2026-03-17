@@ -225,11 +225,11 @@ public class DirectTxUtils {
                             "Encountered no-op on first direct enlistment, server version upgrade is required"));
                 }
             } else {
-                String consistentId = payloadChannel.in().unpackString();
-                long token = payloadChannel.in().unpackLong();
+                String consistentId = in.unpackString();
+                long token = in.unpackLong();
 
                 // Test if no-op enlistment.
-                if (payloadChannel.in().unpackBoolean()) {
+                if (in.unpackBoolean()) {
                     payloadChannel.clientChannel().inflights().removeInflight(tx.txId(), null);
                 }
 
