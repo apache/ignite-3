@@ -34,7 +34,7 @@ object PlatformCppTestsWindows : BuildType({
         hiddenText("PATH__ODBC_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\odbc_tests_results.xml""")
         hiddenText("PATH__CRASH_DUMPS", """%PATH__CMAKE_BUILD_DIRECTORY%\dumps""")
         hiddenText("PATH__UNIT_TESTS_RESULT", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_unit_test_results.xml""")
-        hiddenText("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\cpp""")
+        hiddenText("PATH__WORKING_DIR", """%teamcity.build.checkoutDir%\%VCSROOT__IGNITE3%\modules\platforms\cpp""")
         hiddenText("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
     }
 
@@ -111,7 +111,6 @@ object PlatformCppTestsWindows : BuildType({
                 content = """ 
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
 
-                    Set-Location "%PATH__CMAKE_BUILD_DIRECTORY%"
                     Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
                     Write-Host "Working dir: %PATH__WORKING_DIR%"
                     Write-Host "Dumps dir: %PATH__CRASH_DUMPS%"
