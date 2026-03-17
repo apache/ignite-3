@@ -41,6 +41,7 @@ object PlatformCppTestsWindows : BuildType({
 
         powerShell {
             name = "Build C++"
+            platform = PowerShellStep.Platform.x64
             scriptMode = script {
                 content = """
                     ${'$'}ErrorActionPreference = "Stop"
@@ -102,6 +103,7 @@ object PlatformCppTestsWindows : BuildType({
         }
         powerShell {
             name = "Collect PDBs for crash dumps"
+            platform = PowerShellStep.Platform.x64
             scriptMode = script {
                 content = """ 
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
@@ -125,7 +127,7 @@ object PlatformCppTestsWindows : BuildType({
                         exit 1
                     }
     
-                    Get-ChildItem -Path ${'$'}cmakeBuildDir -File -Include "*.exe", "*.dll", "*.pdb" | ForEach-Object {
+                    Get-ChildItem -Path "${'$'}cmakeBuildDir\*" -File -Include "*.exe", "*.dll", "*.pdb" | ForEach-Object {
                         Copy-Item -Path ${'$'}_.FullName -Destination ${'$'}dumpsDir -Force
                         Write-Host "Copied: ${'$'}(${'$'}_.Name)"
                     }
