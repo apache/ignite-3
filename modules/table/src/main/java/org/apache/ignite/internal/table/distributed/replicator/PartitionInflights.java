@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -45,10 +43,10 @@ public class PartitionInflights {
      *
      * @param txId The transaction id.
      */
-    public boolean addInflight(UUID txId, Predicate<UUID> testPred, RequestType requestType) {
+    public @Nullable CleanupContext addInflight(UUID txId, Predicate<UUID> testPred, RequestType requestType) {
         boolean[] res = {true};
 
-        txCtxMap.compute(txId, (uuid, ctx) -> {
+        CleanupContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
                 ctx = new CleanupContext();
             }
@@ -58,35 +56,27 @@ public class PartitionInflights {
             if (ctx.finishFut != null || testPred.test(txId)) {
                 res[0] = false;
             } else {
-                ctx.addInflight();
+                //ctx.addInflight();
+                ctx.inflights.incrementAndGet();
                 ctx.hasWrites = true;
             }
 
             return ctx;
         });
 
-        return res[0];
+        return res[0] ? ctx0 : null;
     }
 
     /**
      * Unregisters the inflight for a transaction.
      *
-     * @param txId The transaction id.
+     * @param ctx Cleanup context.
      */
-    public void removeInflight(UUID txId) {
-        var ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) {
-                throw new AssertionError("Illegal call for removeInflight: " + txId);
-            }
+    public static void removeInflight(CleanupContext ctx) {
+        long val = ctx.inflights.decrementAndGet();
 
-            ctx.removeInflight(txId);
-
-            return ctx;
-        });
-
-        // Avoid completion under lock.
-        if (ctx0.finishFut != null && ctx0.inflights == 0) {
-            ctx0.finishFut.complete(null);
+        if (ctx.finishFut != null && val == 0) {
+            ctx.finishFut.complete(null);
         }
     }
 
@@ -97,7 +87,6 @@ public class PartitionInflights {
      * @return The future.
      */
     public @Nullable CleanupContext finishFuture(UUID txId) {
-        // No new operations can be enlisted an this point, so concurrent inflights counter can only go down.
         return txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
                 return null;
@@ -106,7 +95,12 @@ public class PartitionInflights {
             // LOG.info("DBG: finishFuture " + txId + " " + ctx.inflights);
 
             if (ctx.finishFut == null) {
-                ctx.finishFut = ctx.inflights == 0 ? nullCompletedFuture() : new CompletableFuture<>();
+                ctx.finishFut = ctx.inflights.get() == 0 ? nullCompletedFuture() : new CompletableFuture<>();
+            }
+
+            // Avoiding a data race with a concurrent decrementing thread, which might not see finishFut publication.
+            if (ctx.inflights.get() == 0 && !ctx.finishFut.isDone()) {
+                ctx.finishFut = nullCompletedFuture();
             }
 
             return ctx;
@@ -136,19 +130,19 @@ public class PartitionInflights {
      * Shared Cleanup context.
      */
     public static class CleanupContext {
-        CompletableFuture<Void> finishFut;
-        volatile long inflights = 0;
+        volatile CompletableFuture<Void> finishFut;
+        AtomicLong inflights = new AtomicLong(0); // TODO atomic updater
         volatile boolean hasWrites = false;
 
-        void addInflight() {
-            inflights++;
-        }
-
-        void removeInflight(UUID txId) {
-            assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
-
-            inflights--;
-        }
+//        void addInflight() {
+//            inflights.incrementAndGet();
+//        }
+//
+//        void removeInflight(UUID txId) {
+//            //assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
+//
+//            inflights.decrementAndGet();
+//        }
     }
 
     @TestOnly
