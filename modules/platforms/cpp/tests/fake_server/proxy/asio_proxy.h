@@ -15,6 +15,8 @@
 //
 
 #pragma once
+#include "gtest_logger.h"
+
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -30,6 +32,7 @@
 
 #include "message_listener.h"
 
+#include <complex>
 #include <list>
 
 namespace ignite::proxy {
@@ -62,12 +65,13 @@ public:
         std::shared_ptr<tcp::socket> src,
         std::shared_ptr<tcp::socket> dst,
         std::shared_ptr<message_listener> listener,
-        std::atomic_bool& failed
-        )
+        std::atomic_bool& failed,
+        std::shared_ptr<gtest_logger> logger)
         : m_src(std::move(src))
         , m_dst(std::move(dst))
         , m_listener(std::move(listener))
-        , m_failed(failed) {}
+        , m_failed(failed)
+        , m_logger(std::move(logger)) {}
 
     void do_read() {
         m_src->async_read_some(asio::buffer(m_buf, BUFF_SIZE),
@@ -76,7 +80,7 @@ public:
                 if (ec == asio::error::eof) {
                     return;
                 }
-                std::cerr << "Error while reading from socket " << ec.message() << std::endl;
+                self->m_logger->log_error("Error while reading from socket " + ec.message());
 
                 self->m_failed.store(true);
             }
@@ -99,7 +103,7 @@ public:
                     if (ec == asio::error::eof) {
                         return;
                     }
-                    std::cerr << "Error while writing to socket " <<  ec.message() << std::endl;
+                    self->m_logger->log_error("Error while writing to socket " + ec.message());
 
                     self->m_failed.store(true);
                 }
@@ -114,6 +118,7 @@ private:
     std::array<char, BUFF_SIZE> m_buf{};
     std::shared_ptr<message_listener> m_listener{nullptr};
     std::atomic_bool& m_failed;
+    std::shared_ptr<gtest_logger> m_logger;
 };
 
 class session : public std::enable_shared_from_this<session> {
@@ -123,12 +128,13 @@ public:
         std::shared_ptr<tcp::socket> out_sock,
         std::shared_ptr<message_listener> in_listener,
         std::shared_ptr<message_listener> out_listener,
-        std::atomic_bool& failed)
+        std::atomic_bool& failed,
+        std::shared_ptr<gtest_logger> logger)
         : m_in_sock(std::move(in_sock))
         , m_out_sock(std::move(out_sock))
     {
-        m_forward_part = std::make_shared<session_part>(m_in_sock, m_out_sock, in_listener, failed);
-        m_reverse_part = std::make_shared<session_part>(m_out_sock, m_in_sock, out_listener, failed);
+        m_forward_part = std::make_shared<session_part>(m_in_sock, m_out_sock, in_listener, failed, logger);
+        m_reverse_part = std::make_shared<session_part>(m_out_sock, m_in_sock, out_listener, failed, logger);
     }
 
     void start() { do_serve(); }
@@ -150,8 +156,9 @@ private:
 
 class asio_proxy {
 public:
-    asio_proxy(std::vector<configuration> configurations)
+    asio_proxy(std::vector<configuration> configurations, std::shared_ptr<gtest_logger> logger)
         : m_resolver(m_io_context)
+        , m_logger(std::move(std::move(logger)))
     {
         for (auto &cfg : configurations) {
             m_conn_map.emplace(
@@ -225,7 +232,8 @@ private:
                 p_out_sock,
                 entry.m_in_listener,
                 entry.m_out_listener,
-                this->m_failed
+                this->m_failed,
+                m_logger
             );
 
             m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
@@ -257,6 +265,8 @@ private:
     std::unique_ptr<std::thread> m_executor{};
 
     tcp::resolver m_resolver;
+
+    std::shared_ptr<gtest_logger> m_logger;
 
     std::atomic_bool m_stopped{false};
 

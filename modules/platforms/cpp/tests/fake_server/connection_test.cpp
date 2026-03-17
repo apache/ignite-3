@@ -89,7 +89,8 @@ TEST_F(connection_test, using_asio) {
     proxy::asio_proxy proxy{
         {
             proxy::configuration(50800, "127.0.0.1:50900", in_listener, out_listener)
-        }
+        },
+        get_logger()
     };
 
 
