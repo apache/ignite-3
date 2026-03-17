@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.ConfigTemplates.DEFAULT_PROFILES;
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -92,26 +92,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  },\n"
-                + "  storage.profiles: {"
-                + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-                + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-                + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-                + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-                + "  },\n"
-                + "  storage.engines: { "
-                + "    aipersist: { checkpoint: { "
-                + "      intervalMillis: " + CHECK_POINT_INTERVAL_MS
-                + "    } } "
-                + "  },\n"
-                + "  clientConnector.port: {},\n"
-                + "  rest.port: {},\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
-                + "}";
+        return renderConfigTemplate(
+                DEFAULT_PROFILES
+                + "  storage.engines.aipersist.checkpoint.intervalMillis: " + CHECK_POINT_INTERVAL_MS + ",\n"
+        );
     }
 
     @Override
