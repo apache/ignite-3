@@ -71,13 +71,17 @@ class IndexFileMeta {
      * Returns the offset of the payload for the Raft Group in the index file.
      */
     int indexFilePayloadOffset() {
-        assert indexFilePayloadOffset != NO_PAYLOAD_OFFSET : "Must not be called for empty metas.";
+        assert !isEmpty() : "Must not be called for empty metas.";
 
         return indexFilePayloadOffset;
     }
 
     FileProperties indexFileProperties() {
         return indexFileProperties;
+    }
+
+    boolean isEmpty() {
+        return indexFilePayloadOffset == NO_PAYLOAD_OFFSET;
     }
 
     @Override

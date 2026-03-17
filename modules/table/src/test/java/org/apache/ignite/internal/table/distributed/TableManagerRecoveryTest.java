@@ -155,6 +155,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -567,7 +568,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                null,
+                mock(LockManager.class),
                 null,
                 txManager,
                 dsm,

@@ -93,6 +93,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
@@ -266,6 +267,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
+        when(clusterService.topologyService()).thenReturn(mock(TopologyService.class));
 
         when(tm.transactionMetricsSource()).thenReturn(mock(TransactionMetricsSource.class));
 
