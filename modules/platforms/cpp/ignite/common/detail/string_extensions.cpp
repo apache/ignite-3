@@ -65,7 +65,7 @@ std::string to_string(const ignite_time &time) {
 std::string to_string(const ignite_date_time &dt) {
     std::stringstream ss;
 
-    ss << to_string(dt.date()) << 'Z' << to_string(dt.time());
+    ss << to_string(dt.date()) << 'T' << to_string(dt.time());
 
     return ss.str();
 }
