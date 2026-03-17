@@ -81,6 +81,7 @@ std::int32_t hash(const big_decimal &val, std::int16_t scale) {
     big_decimal copy;
     val.set_scale(scale, copy, big_decimal::rounding_mode::HALF_UP);
 
+    // TODO IGNITE-28278 optimize unnecessary allocation
     auto bytes = copy.get_unscaled_value().to_bytes();
 
     return hash32(bytes.data(), bytes.size(), 0);
