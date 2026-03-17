@@ -76,35 +76,22 @@ public class FSMCallerImpl implements FSMCaller {
      * Task type
      */
     public enum TaskType {
-        IDLE, //
-        COMMITTED, //
-        SNAPSHOT_SAVE, //
-        SNAPSHOT_LOAD, //
-        LEADER_STOP, //
-        LEADER_START, //
-        START_FOLLOWING, //
-        STOP_FOLLOWING, //
-        SHUTDOWN, //
-        FLUSH, //
-        ERROR;
+        IDLE ("IdleDuration"),
+        COMMITTED ("CommittedDuration"),
+        SNAPSHOT_SAVE ("SnapshotSaveDuration"),
+        SNAPSHOT_LOAD ("SnapshotLoadDuration"),
+        LEADER_STOP ("LeaderLoadDuration"),
+        LEADER_START ("LeaderStartDuration"),
+        START_FOLLOWING ("StartFollowingDuration"),
+        STOP_FOLLOWING ("StopFollowingDuration"),
+        SHUTDOWN ("ShutdownDuration"),
+        FLUSH ("FlushDuration"),
+        ERROR ("ErrorDuration");
 
-        private String metricName;
+        public final String metricName;
 
-        private final AtomicLong applyDuration = new AtomicLong();
-
-        public String metricName() {
-            if (this.metricName == null) {
-                this.metricName = name().toLowerCase() + ".Duration";
-            }
-            return this.metricName;
-        }
-
-        public void onApply(long duration) {
-            this.applyDuration.set(duration);
-        }
-
-        public long getApplyDuration(){
-            return applyDuration.get();
+        TaskType(String metricName) {
+            this.metricName = metricName;
         }
     }
 
@@ -468,7 +455,7 @@ public class FSMCallerImpl implements FSMCaller {
                 }
             }
             finally {
-                task.type.onApply(Utils.monotonicMs() - startMs);
+                metrics.onApplyTask(task.type, Utils.monotonicMs() - startMs);
                 task.reset();
             }
         }

@@ -55,7 +55,7 @@ public class FsmCallerMetricSourceTest extends BaseIgniteAbstractTest {
         expectedMetrics.add("CommitTime");
 
         for (FSMCallerImpl.TaskType type : FSMCallerImpl.TaskType.values()) {
-            expectedMetrics.add(type.metricName());
+            expectedMetrics.add(type.metricName);
         }
 
         var actualMetrics = new HashSet<String>();

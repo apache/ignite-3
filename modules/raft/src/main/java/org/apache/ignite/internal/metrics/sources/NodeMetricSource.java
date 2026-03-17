@@ -73,7 +73,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastHandleAppendEntriesDuration.value(duration);
+            holder.handleAppendEntriesDuration.add(duration);
             if (success) {
                 holder.appendEntriesBatchSize.add(entriesCount);
             }
@@ -89,7 +89,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastHeartBeatRequestTime.value(duration);
+            holder.heartBeatRequestTime.add(duration);
         }
     }
 
@@ -102,7 +102,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastRequestVoteDuration.value(duration);
+            holder.requestVoteDuration.add(duration);
         }
     }
 
@@ -116,7 +116,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastHandleReadRequestDuration.value(duration);
+            holder.handleReadRequestDuration.add(duration);
             holder.readRequestBatchSize.add(entriesCount);
         }
     }
@@ -130,7 +130,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastHandleGetLeaderDuration.value(duration);
+            holder.handleGetLeaderDuration.add(duration);
         }
     }
 
@@ -143,7 +143,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastPreVoteDuration.value(duration);
+            holder.preVoteDuration.add(duration);
         }
     }
 
@@ -156,7 +156,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastInstallSnapshotDuration.value(duration);
+            holder.installSnapshotDuration.add(duration);
         }
     }
 
@@ -170,25 +170,30 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
 
         if (holder != null) {
             holder.lockBlockedCount.increment();
-            holder.lastLockBlockedDuration.value(blockedMs);
+            holder.lockBlockedDuration.add(blockedMs);
         }
     }
 
     /** Metric holder for node metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private static final long[] HISTOGRAM_BUCKETS =
+                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+
         private final AtomicLongMetric overloadCount = new AtomicLongMetric(
                 "OverloadCount",
                 "The number of times when node impl was overloaded."
         );
 
-        private final AtomicLongMetric lastHandleAppendEntriesDuration = new AtomicLongMetric(
+        private final DistributionMetric handleAppendEntriesDuration = new DistributionMetric(
                 "HandleAppendEntriesDuration",
-                "The last duration to handle append entries request in node impl."
+                "Duration of handling append entries request in node impl in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
-        private final AtomicLongMetric lastHeartBeatRequestTime = new AtomicLongMetric(
+        private final DistributionMetric heartBeatRequestTime = new DistributionMetric(
                 "HeartbeatRequestTime",
-                "The last duration of receiving heartbeat request"
+                "Duration of receiving heartbeat request in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
         private final DistributionMetric appendEntriesBatchSize = new DistributionMetric(
@@ -197,14 +202,16 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
                 new long[]{10L, 20L, 30L, 40L, 50L}
         );
 
-        private final AtomicLongMetric lastRequestVoteDuration = new AtomicLongMetric(
+        private final DistributionMetric requestVoteDuration = new DistributionMetric(
                 "RequestVoteDuration",
-                "The last duration of handling request vote request"
+                "Duration of handling request vote request in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
-        private final AtomicLongMetric lastHandleReadRequestDuration = new AtomicLongMetric(
+        private final DistributionMetric handleReadRequestDuration = new DistributionMetric(
                 "ReadRequestDuration",
-                "The last duration of handling read request"
+                "Duration of handling read request in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
         private final DistributionMetric readRequestBatchSize = new DistributionMetric(
@@ -213,19 +220,22 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
                 new long[]{10L, 20L, 30L, 40L, 50L}
         );
 
-        private final AtomicLongMetric lastHandleGetLeaderDuration = new AtomicLongMetric(
+        private final DistributionMetric handleGetLeaderDuration = new DistributionMetric(
                 "GetLeaderDuration",
-                "The last duration of handling get leader request"
+                "Duration of handling get leader request in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
-        private final AtomicLongMetric lastPreVoteDuration = new AtomicLongMetric(
+        private final DistributionMetric preVoteDuration = new DistributionMetric(
                 "PreVoteDuration",
-                "The last duration of handling pre-vote request"
+                "Duration of handling pre-vote request in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
-        private final AtomicLongMetric lastInstallSnapshotDuration = new AtomicLongMetric(
+        private final DistributionMetric installSnapshotDuration = new DistributionMetric(
                 "InstallSnapshotDuration",
-                "The last duration of handling install snapshot request"
+                "Duration of handling install snapshot request in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
         private final AtomicLongMetric lockBlockedCount = new AtomicLongMetric(
@@ -233,24 +243,25 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
                 "The number of times when node lock was blocked"
         );
 
-        private final AtomicLongMetric lastLockBlockedDuration = new AtomicLongMetric(
+        private final DistributionMetric lockBlockedDuration = new DistributionMetric(
                 "LockBlockedDuration",
-                "The last duration of lock being blocked"
+                "Duration of lock being blocked in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
         private final List<Metric> metrics = List.of(
                 overloadCount,
-                lastHandleAppendEntriesDuration,
-                lastHeartBeatRequestTime,
+                handleAppendEntriesDuration,
+                heartBeatRequestTime,
                 appendEntriesBatchSize,
-                lastRequestVoteDuration,
-                lastHandleReadRequestDuration,
+                requestVoteDuration,
+                handleReadRequestDuration,
                 readRequestBatchSize,
-                lastHandleGetLeaderDuration,
-                lastPreVoteDuration,
-                lastInstallSnapshotDuration,
+                handleGetLeaderDuration,
+                preVoteDuration,
+                installSnapshotDuration,
                 lockBlockedCount,
-                lastLockBlockedDuration
+                lockBlockedDuration
         );
 
         @Override

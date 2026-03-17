@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.metrics.sources;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
-import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
@@ -52,54 +51,87 @@ public class FsmCallerMetricSource extends AbstractMetricSource<FsmCallerMetricS
     /**
      * Called on FSM commit.
      *
-     * @param time Duration of the commit operation.
+     * @param duration Duration of the commit operation.
      */
-    public void onFsmCommit(long time) {
+    public void onFsmCommit(long duration) {
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastCommitTime.value(time);
+            holder.commitTime.add(duration);
         }
     }
 
     /**
      * Called on applying tasks.
      *
-     * @param time Duration of the apply operation.
+     * @param duration Duration of the apply operation.
      * @param size Number of tasks applied.
      */
-    public void onApplyTasks(long time, long size) {
+    public void onApplyTasks(long duration, long size) {
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastApplyTasksTime.value(time);
+            holder.applyTasksTime.add(duration);
             holder.applyTasksSize.add(size);
+        }
+    }
+
+    /**
+     * Called on applying task.
+     *
+     * @param type Type of the applied task.
+     * @param duration Duration of the apply operation.
+     * */
+    public void onApplyTask(TaskType type, long duration) {
+        Holder holder = holder();
+
+        if (holder != null) {
+            holder.taskDurations.get(type).add(duration);
         }
     }
 
     /** Metric holder for FSM caller metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private static final long[] HISTOGRAM_BUCKETS =
+                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+
         private final DistributionMetric applyTasksSize = new DistributionMetric(
                 "ApplyTasksSize",
                 "Sizes of applied tasks batches",
                 new long[] {10, 20, 30, 40, 50}
         );
 
-        private final AtomicLongMetric lastApplyTasksTime = new AtomicLongMetric("ApplyTasksTime", "Time to apply tasks");
+        private final DistributionMetric applyTasksTime = new DistributionMetric(
+                "ApplyTasksTime",
+                "Duration of applying tasks in milliseconds",
+                HISTOGRAM_BUCKETS
+        );
 
-        private final AtomicLongMetric lastCommitTime = new AtomicLongMetric("CommitTime", "Time to apply tasks");
+        private final DistributionMetric commitTime = new DistributionMetric(
+                "CommitTime",
+                "Duration of committing in milliseconds",
+                HISTOGRAM_BUCKETS
+        );
 
         private final List<Metric> metrics;
+
+        private final HashMap<TaskType, DistributionMetric> taskDurations = new HashMap<>();
 
         Holder() {
             metrics = new ArrayList<>();
 
             metrics.add(applyTasksSize);
-            metrics.add(lastApplyTasksTime);
-            metrics.add(lastCommitTime);
+            metrics.add(applyTasksTime);
+            metrics.add(commitTime);
 
             for (TaskType type : FSMCallerImpl.TaskType.values()) {
-                metrics.add(new LongGauge(type.metricName(), "Time to execute " + type.name() + " task", type::getApplyDuration));
+                DistributionMetric metric = new DistributionMetric(
+                        type.metricName,
+                        "Time to execute " + type.name() + " task in milliseconds",
+                        HISTOGRAM_BUCKETS
+                );
+
+                taskDurations.put(type, metric);
             }
         }
 

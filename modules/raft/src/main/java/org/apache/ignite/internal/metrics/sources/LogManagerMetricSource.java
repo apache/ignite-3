@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics.sources;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 
 /** Metrics of log manager. */
@@ -51,7 +52,7 @@ public class LogManagerMetricSource extends AbstractMetricSource<LogManagerMetri
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastTruncateLogSuffixTime.value(duration);
+            holder.truncateLogSuffixTime.add(duration);
         }
     }
 
@@ -64,7 +65,7 @@ public class LogManagerMetricSource extends AbstractMetricSource<LogManagerMetri
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastTruncateLogPrefixTime.value(duration);
+            holder.truncateLogPrefixTime.add(duration);
         }
     }
 
@@ -81,20 +82,25 @@ public class LogManagerMetricSource extends AbstractMetricSource<LogManagerMetri
         if (holder != null) {
             holder.appendLogsCount.add(entriesCount);
             holder.appendLogsSize.add(writtenSize);
-            holder.lastAppendLogsDuration.value(duration);
+            holder.appendLogsDuration.add(duration);
         }
     }
 
     /** Metric holder for log manager metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final AtomicLongMetric lastTruncateLogSuffixTime = new AtomicLongMetric(
+        private static final long[] HISTOGRAM_BUCKETS =
+                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+
+        private final DistributionMetric truncateLogSuffixTime = new DistributionMetric(
                 "TruncateLogSuffixDuration",
-                "The last duration of truncating log suffix"
+                "Duration of truncating log suffix in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
-        private final AtomicLongMetric lastTruncateLogPrefixTime = new AtomicLongMetric(
+        private final DistributionMetric truncateLogPrefixTime = new DistributionMetric(
                 "TruncateLogPrefixDuration",
-                "The last duration of truncating log prefix"
+                "Duration of truncating log prefix in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
         private final AtomicLongMetric appendLogsCount = new AtomicLongMetric(
@@ -107,17 +113,18 @@ public class LogManagerMetricSource extends AbstractMetricSource<LogManagerMetri
                 "Total size of entries appended to logs"
         );
 
-        private final AtomicLongMetric lastAppendLogsDuration = new AtomicLongMetric(
+        private final DistributionMetric appendLogsDuration = new DistributionMetric(
                 "AppendLogsDuration",
-                "The last duration of appending logs"
+                "The last duration of appending logs",
+                HISTOGRAM_BUCKETS
         );
 
         private final List<Metric> metrics = List.of(
-                lastTruncateLogSuffixTime,
-                lastTruncateLogPrefixTime,
+                truncateLogSuffixTime,
+                truncateLogPrefixTime,
                 appendLogsCount,
                 appendLogsSize,
-                lastAppendLogsDuration
+                appendLogsDuration
         );
 
         @Override

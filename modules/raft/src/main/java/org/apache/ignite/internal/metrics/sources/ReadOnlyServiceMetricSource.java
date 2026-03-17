@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics.sources;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 
 /**
@@ -64,23 +65,27 @@ public class ReadOnlyServiceMetricSource extends AbstractMetricSource<ReadOnlySe
         Holder holder = holder();
 
         if (holder != null) {
-            holder.lastIndexReadDuration.value(duration);
+            holder.indexReadDuration.add(duration);
         }
     }
 
     /** Metric holder for read only service metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private static final long[] HISTOGRAM_BUCKETS =
+                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+
         AtomicLongMetric overloadTimes = new AtomicLongMetric(
                 "OverloadTimes",
                 "The times of read only service overload."
         );
 
-        AtomicLongMetric lastIndexReadDuration = new AtomicLongMetric(
+        DistributionMetric indexReadDuration = new DistributionMetric(
                 "IndexReadDuration",
-                "The last duration of read index in read only service."
+                "Duration of read index in read only service in milliseconds",
+                HISTOGRAM_BUCKETS
         );
 
-        private final List<Metric> metrics = List.of(overloadTimes, lastIndexReadDuration);
+        private final List<Metric> metrics = List.of(overloadTimes, indexReadDuration);
 
         @Override
         public Iterable<Metric> metrics() {

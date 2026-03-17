@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
-import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -61,11 +60,15 @@ public class RaftMetricSource implements MetricSource {
     /** Metric set. */
     private final Map<String, Metric> metrics;
 
+    private static final long[] HISTOGRAM_BUCKETS =
+            {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+
     private final AtomicIntMetric leadersCount = new AtomicIntMetric(RAFT_GROUP_LEADERS, "Number of raft leaders on this node");
 
-    private final AtomicLongMetric lastSaveMetaDuration = new AtomicLongMetric(
+    private final DistributionMetric saveMetaDuration = new DistributionMetric(
             SAVE_META_DURATION,
-            "The last duration of saving raft meta"
+            "Duration of saving raft meta in milliseconds",
+            HISTOGRAM_BUCKETS
     );
 
     /**
@@ -166,7 +169,7 @@ public class RaftMetricSource implements MetricSource {
                 ));
 
         metrics.put(RAFT_GROUP_LEADERS, leadersCount);
-        metrics.put(SAVE_META_DURATION, lastSaveMetaDuration);
+        metrics.put(SAVE_META_DURATION, saveMetaDuration);
 
         return metrics;
     }
@@ -195,7 +198,7 @@ public class RaftMetricSource implements MetricSource {
     }
 
     public void onSaveMeta(long duration) {
-        lastSaveMetaDuration.value(duration);
+        saveMetaDuration.add(duration);
     }
 
     /**
