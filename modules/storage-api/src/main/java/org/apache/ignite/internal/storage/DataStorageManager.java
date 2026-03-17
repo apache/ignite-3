@@ -21,13 +21,30 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import io.micronaut.core.annotation.Creator;
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
@@ -36,6 +53,9 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Data storage manager. */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1800)
 public class DataStorageManager implements IgniteComponent {
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
@@ -57,6 +77,41 @@ public class DataStorageManager implements IgniteComponent {
 
         this.engines = engines;
         this.storageConfiguration = storageConfiguration;
+    }
+
+    /** Creates the data storage manager via Micronaut DI. */
+    @Creator
+    public static DataStorageManager create(
+            NodeIdentity nodeIdentity,
+            MetricManager metricManager,
+            @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry,
+            @Named("partitions") ComponentWorkingDir partitionsWorkDir,
+            @Named("longJvmPauseDetector") LongJvmPauseDetector longJvmPauseDetector,
+            FailureManager failureManager,
+            @Named("partitions") LogSyncer partitionsLogSyncer,
+            HybridClock clock,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
+            StorageConfiguration storageConfiguration
+    ) {
+        DataStorageModules dataStorageModules = new DataStorageModules(
+                ServiceLoader.load(DataStorageModule.class, null)
+        );
+
+        Path storagePath = partitionsWorkDir.dbPath();
+
+        Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
+                nodeIdentity.nodeName(),
+                metricManager,
+                nodeConfigRegistry,
+                storagePath,
+                longJvmPauseDetector,
+                failureManager,
+                partitionsLogSyncer,
+                clock,
+                commonScheduler
+        );
+
+        return new DataStorageManager(storageEngines, storageConfiguration);
     }
 
     @Override

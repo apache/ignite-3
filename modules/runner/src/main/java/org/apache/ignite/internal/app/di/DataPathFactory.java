@@ -23,28 +23,19 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
-import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
-import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
@@ -52,18 +43,12 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.DataStorageModule;
-import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -134,42 +119,4 @@ public class DataPathFactory {
                 commonScheduler
         );
     }
-
-    /** Creates the data storage manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1800)
-    public DataStorageManager dataStorageManager(
-            NodeIdentity nodeIdentity,
-            MetricManager metricManager,
-            @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry,
-            @Named("partitions") ComponentWorkingDir partitionsWorkDir,
-            @Named("longJvmPauseDetector") Provider<LongJvmPauseDetector> longJvmPauseDetector,
-            FailureManager failureManager,
-            @Named("partitions") LogStorageManager partitionsLogStorageManager,
-            HybridClock clock,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
-            StorageConfiguration storageConfiguration
-    ) {
-        DataStorageModules dataStorageModules = new DataStorageModules(
-                ServiceLoader.load(DataStorageModule.class, nodeIdentity.serviceProviderClassLoader())
-        );
-
-        Path storagePath = partitionsWorkDir.dbPath();
-
-        Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
-                nodeIdentity.nodeName(),
-                metricManager,
-                nodeConfigRegistry,
-                storagePath,
-                longJvmPauseDetector.get(),
-                failureManager,
-                partitionsLogStorageManager.logSyncer(),
-                clock,
-                commonScheduler
-        );
-
-        return new DataStorageManager(storageEngines, storageConfiguration);
-    }
-
 }
