@@ -15,28 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.example.jobs.standalone;
 
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-/**
- * Partition update handler container.
- */
-class PartitionUpdateHandlers {
-    final StorageUpdateHandler storageUpdateHandler;
-
-    final IndexUpdateHandler indexUpdateHandler;
-
-    final GcUpdateHandler gcUpdateHandler;
-
-    PartitionUpdateHandlers(
-            StorageUpdateHandler storageUpdateHandler,
-            IndexUpdateHandler indexUpdateHandler,
-            GcUpdateHandler gcUpdateHandler
-    ) {
-        this.storageUpdateHandler = storageUpdateHandler;
-        this.indexUpdateHandler = indexUpdateHandler;
-        this.gcUpdateHandler = gcUpdateHandler;
+/** Compute job that sleeps for a number of seconds and throws {@link CancellationException} if interrupted. */
+public class CancelAwareSleepJob implements ComputeJob<Long, Void> {
+    @Override
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
+        try {
+            TimeUnit.SECONDS.sleep(timeout);
+        } catch (InterruptedException e) {
+            throw new CancellationException();
+        }
+        return null;
     }
 }

@@ -220,6 +220,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurer,
                     metricManager

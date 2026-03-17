@@ -50,8 +50,8 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
-        assert indexFileMeta.firstLogIndexInclusive() == array[size - 1].lastLogIndexExclusive() :
-                String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+        assert indexFileMeta.firstLogIndexInclusive() >= array[size - 1].lastLogIndexExclusive() :
+                String.format("Index File Metas must be increasing. Expected log index: %d, actual log index: %d",
                         array[size - 1].lastLogIndexExclusive(),
                         indexFileMeta.firstLogIndexInclusive()
                 );
@@ -181,8 +181,8 @@ class IndexFileMetaArray {
         if (updateIndex > 0) {
             IndexFileMeta prevOldMeta = array[updateIndex - 1];
 
-            assert newMeta.firstLogIndexInclusive() == prevOldMeta.lastLogIndexExclusive() :
-                    String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+            assert newMeta.firstLogIndexInclusive() >= prevOldMeta.lastLogIndexExclusive() :
+                    String.format("Index File Metas must be increasing. Expected log index: %d, actual log index: %d",
                             prevOldMeta.lastLogIndexExclusive(),
                             newMeta.firstLogIndexInclusive()
                     );
@@ -191,8 +191,8 @@ class IndexFileMetaArray {
         if (updateIndex < size - 1) {
             IndexFileMeta nextOldMeta = array[updateIndex + 1];
 
-            assert newMeta.lastLogIndexExclusive() == nextOldMeta.firstLogIndexInclusive() :
-                    String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+            assert newMeta.lastLogIndexExclusive() <= nextOldMeta.firstLogIndexInclusive() :
+                    String.format("Index File Metas must be increasing. Expected log index: %d, actual log index: %d",
                             nextOldMeta.firstLogIndexInclusive(),
                             newMeta.lastLogIndexExclusive()
                     );
@@ -201,6 +201,28 @@ class IndexFileMetaArray {
         IndexFileMeta[] newArray = array.clone();
 
         newArray[updateIndex] = newMeta;
+
+        return new IndexFileMetaArray(newArray, size);
+    }
+
+    /**
+     * Replaces the meta for the given file with an empty meta when an index file gets removed to preserve contiguous file ordinals.
+     */
+    IndexFileMetaArray onIndexRemoved(FileProperties oldProperties) {
+        int updateIndex = arrayIndexByFileOrdinal(oldProperties.ordinal());
+
+        if (updateIndex == MISSING_ARRAY_INDEX) {
+            return this;
+        }
+
+        IndexFileMeta oldMeta = array[updateIndex];
+
+        assert oldMeta.indexFileProperties().equals(oldProperties)
+                : String.format("File properties mismatch [expected=%s, actual=%s].", oldMeta.indexFileProperties(), oldProperties);
+
+        IndexFileMeta[] newArray = array.clone();
+
+        newArray[updateIndex] = IndexFileMeta.empty(oldMeta.lastLogIndexExclusive(), oldMeta.indexFileProperties());
 
         return new IndexFileMetaArray(newArray, size);
     }

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine.IFactory;
 
 /** Tests for {@link SqlReplCommand}. */
 class ItSqlReplCommandTest extends CliIntegrationTest {
@@ -161,6 +162,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
     @Bean
     @Replaces(ReplExecutorProvider.class)
     public ReplExecutorProvider replExecutorProvider() {
-        return () -> repl -> {};
+        return (IFactory factory) -> repl -> {};
     }
 }

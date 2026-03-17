@@ -222,15 +222,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     result.completeExceptionally(throwable);
                 }
             } else {
-                if (queueEntry.isInterrupted()) {
-                    stateMachine.cancelJob(jobId);
-                    logJobCanceledEvent(eventLog, eventMetadata);
-                    result.completeExceptionally(new CancellationException());
-                } else {
-                    stateMachine.completeJob(jobId);
-                    logJobCompletedEvent(eventLog, eventMetadata);
-                    result.complete(r);
-                }
+                // Job completed normally. Even if cancellation was requested, the job chose to ignore it
+                // (cooperative cancellation). Honor the result.
+                stateMachine.completeJob(jobId);
+                logJobCompletedEvent(eventLog, eventMetadata);
+                result.complete(r);
             }
         });
     }

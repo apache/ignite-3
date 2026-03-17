@@ -24,32 +24,23 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
-import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link ClusterConfigRegistry}. */
 @Singleton
-public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, ConnectionEventListener {
+public class ClusterConfigRegistryImpl extends RegistryImplBase<Config> implements ClusterConfigRegistry {
 
     private final ClusterConfigShowCall clusterConfigShowCall;
-
-    @Nullable
-    private LazyObjectRef<Config> configRef;
 
     public ClusterConfigRegistryImpl(ClusterConfigShowCall clusterConfigShowCall) {
         this.clusterConfigShowCall = clusterConfigShowCall;
     }
 
-    @Override
-    public void onConnect(SessionInfo sessionInfo) {
-        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
-    }
-
     @Nullable
-    private Config fetchConfig(SessionInfo sessionInfo) {
-        ClusterConfigShowCallInput input = ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build();
+    @Override
+    protected Config doGetState(String url) {
+        ClusterConfigShowCallInput input = ClusterConfigShowCallInput.builder().clusterUrl(url).build();
         DefaultCallOutput<JsonString> output = clusterConfigShowCall.execute(input);
         if (output.hasError()) {
             return null;
@@ -57,14 +48,9 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, Connect
         return ConfigFactory.parseString(output.body().getValue());
     }
 
-    @Override
-    public void onDisconnect() {
-        configRef = null;
-    }
-
     @Nullable
     @Override
     public Config config() {
-        return configRef == null ? null : configRef.get();
+        return getResult();
     }
 }
