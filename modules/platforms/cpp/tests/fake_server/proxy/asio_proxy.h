@@ -159,29 +159,19 @@ public:
         m_reverse_part = std::make_shared<session_part>(m_out_sock, m_in_sock, out_listener, failed, logger);
     }
 
-    void connect(tcp::resolver& resolver, proxy_entry& entry) {
-        resolver.async_resolve(entry.m_out_host, entry.m_out_port,
-            [self=shared_from_this()](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
+    void connect(const tcp::resolver::results_type& endpoints) {
+        asio::async_connect(*m_out_sock, endpoints,
+            [self=shared_from_this()](const asio::error_code &ec, const tcp::endpoint &e) {
                 if (ec) {
-                    throw std::runtime_error("Error resolving server's address " + ec.message());
+                    throw std::runtime_error(
+                        "Error connecting to server " + ec.message()
+                        + " port=" + std::to_string(e.port())
+                    );
                 }
 
-                asio::async_connect(
-                    self->get_out_sock(), endpoints, [self](const asio::error_code &ec, const tcp::endpoint &e) {
-                        if (ec) {
-                            throw std::runtime_error(
-                                "Error connecting to server " + ec.message()
-                                + " port=" + std::to_string(e.port())
-                            );
-                        }
-
-                        self->do_serve();
-                    });
+                self->do_serve();
             });
     }
-
-    tcp::socket &get_out_sock() { return *m_out_sock; }
-
 private:
     void do_serve() {
         m_forward_part->do_read();
@@ -254,7 +244,16 @@ private:
                 m_logger
             );
 
-            ses->connect(m_resolver, entry);
+            tcp::resolver &resolver = m_resolver;
+            resolver.async_resolve(entry.m_out_host, entry.m_out_port,
+                [ses](
+                    asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
+                    if (ec) {
+                        throw std::runtime_error("Error resolving server's address " + ec.message());
+                    }
+
+                    ses->connect(endpoints);
+                });
 
             do_accept(entry);
         });
