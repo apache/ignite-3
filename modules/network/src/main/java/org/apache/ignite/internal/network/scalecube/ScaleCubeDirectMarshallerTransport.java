@@ -71,7 +71,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     private final NetworkMessagesFactory messageFactory;
 
     /** Node address. */
-    private final String address;
+    private final String localAddress;
 
     /**
      * Constructor.
@@ -85,7 +85,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
             MessagingService messagingService,
             NetworkMessagesFactory messageFactory
     ) {
-        this.address = localAddress.toString();
+        this.localAddress = localAddress.toString();
         this.messagingService = messagingService;
         this.messageFactory = messageFactory;
 
@@ -95,7 +95,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
                 .doFinally(s -> onStop.onComplete())
                 .subscribe(
                         null,
-                        ex -> LOG.warn("Failed to stop [address={}, reason={}]", address, ex.toString())
+                        ex -> LOG.warn("Failed to stop [address={}, reason={}]", this.localAddress, ex.toString())
                 );
     }
 
@@ -106,18 +106,18 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOG.info("Stopping [address={}]", address);
+            LOG.info("Stopping [address={}]", localAddress);
 
             sink.complete();
 
-            LOG.info("Stopped [address={}]", address);
+            LOG.info("Stopped [address={}]", localAddress);
             return Mono.empty();
         });
     }
 
     @Override
     public String address() {
-        return address;
+        return localAddress;
     }
 
     @Override
