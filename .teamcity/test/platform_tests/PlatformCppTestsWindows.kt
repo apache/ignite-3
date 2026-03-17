@@ -112,6 +112,8 @@ object PlatformCppTestsWindows : BuildType({
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
 
                     Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
+                    Get-ChildItem -Path %PATH__CMAKE_BUILD_DIRECTORY%
+
                     Write-Host "Working dir: %PATH__WORKING_DIR%"
                     Write-Host "Dumps dir: %PATH__CRASH_DUMPS%"
     
@@ -128,7 +130,7 @@ object PlatformCppTestsWindows : BuildType({
     
                     Write-Host "Found ${'$'}(${'$'}dumps.Count) dump file(s), collecting binaries from CMake build directory."
     
-                    ${'$'}cmakeBuildDir = "%PATH__CMAKE_BUILD_DIRECTORY%\bin"    
+                    ${'$'}cmakeBuildDir = "%PATH__CMAKE_BUILD_DIRECTORY%"    
                     Get-ChildItem -Path "${'$'}cmakeBuildDir\*" -File -Include "*.exe", "*.dll", "*.pdb" | ForEach-Object {
                         Copy-Item -Path ${'$'}_.FullName -Destination ${'$'}dumpsDir -Force
                         Write-Host "Copied: ${'$'}(${'$'}_.Name)"
