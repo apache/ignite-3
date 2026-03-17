@@ -215,6 +215,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurer,
                     metricManager
