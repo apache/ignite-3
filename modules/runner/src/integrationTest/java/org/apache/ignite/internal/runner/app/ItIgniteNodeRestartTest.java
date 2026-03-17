@@ -468,6 +468,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopology,
                 new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                 failureProcessor,
+                raftGroupEventsClientListener,
                 clusterIdService,
                 cmgRaftConfigurer,
                 metricManager
