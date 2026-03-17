@@ -975,7 +975,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNullDateToTimestamp() {
-        sql("CREATE TABLE test(id INT PRIMARY KEY, t1 DATE)");
+        sql("CREATE TABLE test(id INT PRIMARY KEY, t1 DATE, t2 TIMESTAMP)");
         sql("INSERT INTO test (id, t1) VALUES (1, null)");
 
         assertQuery("SELECT id, t1::TIMESTAMP FROM test")
@@ -986,13 +986,45 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .returns(1, null)
                 .check();
 
-        // TimestampLtz
+        // Update
+        sql("UPDATE test SET t2=t1::TIMESTAMP WHERE id=1");
+        assertQuery("SELECT id, t2 FROM test")
+                .returns(1, null)
+                .check();
+
+        // Insert
+        sql("CREATE TABLE test2(id INT PRIMARY KEY, t1 TIMESTAMP)");
+        sql("INSERT INTO test2 SELECT id, t1::TIMESTAMP FROM test");
+
+        assertQuery("SELECT id, t1 FROM test2")
+                .returns(1, null)
+                .check();
+    }
+
+    @Test
+    public void testNullDateToTimestampLtz() {
+        sql("CREATE TABLE test(id INT PRIMARY KEY, t1 DATE, t2 TIMESTAMP WITH LOCAL TIME ZONE)");
+        sql("INSERT INTO test (id, t1) VALUES (1, null)");
 
         assertQuery("SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM test")
                 .returns(1, null)
                 .check();
 
         assertQuery("SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM (VALUES (1, null::DATE)) test(id, t1) ")
+                .returns(1, null)
+                .check();
+
+        // Update
+        sql("UPDATE test SET t2=t1::TIMESTAMP WITH LOCAL TIME ZONE WHERE id=1");
+        assertQuery("SELECT id, t2 FROM test")
+                .returns(1, null)
+                .check();
+
+        // Insert
+        sql("CREATE TABLE test2(id INT PRIMARY KEY, t1 TIMESTAMP WITH LOCAL TIME ZONE)");
+        sql("INSERT INTO test2 SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM test");
+
+        assertQuery("SELECT id, t1 FROM test2")
                 .returns(1, null)
                 .check();
     }
