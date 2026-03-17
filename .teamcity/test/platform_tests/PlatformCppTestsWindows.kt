@@ -111,15 +111,18 @@ object PlatformCppTestsWindows : BuildType({
             scriptMode = script {
                 content = """ 
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
+
+                    Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
+                    Write-Host "Working dir: %PATH__WORKING_DIR%"
     
                     if (-not (Test-Path ${'$'}dumpsDir)) {
-                        Write-Host "Dumps directory does not exist, skipping."
+                        Write-Host "Dumps directory '${'$'}dumpsDir' does not exist, skipping."
                         exit 0
                     }
     
                     ${'$'}dumps = Get-ChildItem -Path ${'$'}dumpsDir -File
                     if (${'$'}dumps.Count -eq 0) {
-                        Write-Host "Dumps directory is empty, skipping."
+                        Write-Host "Dumps directory '${'$'}dumpsDir' is empty, skipping."
                         exit 0
                     }
     
