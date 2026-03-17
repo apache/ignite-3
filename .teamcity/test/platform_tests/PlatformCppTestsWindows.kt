@@ -130,7 +130,7 @@ object PlatformCppTestsWindows : BuildType({
                         exit 1
                     }
 
-                    ${'$'}dumpNames = ${'$'}dumps | ForEach-Object { ${'$'}_.BaseName.Split(".exe")[0] }
+                    ${'$'}dumpNames = ${'$'}dumps | ForEach-Object { (${'$'}_.BaseName -split "\.exe")[0] }
 
                     ${'$'}exes = Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.exe" |
                         Where-Object { ${'$'}dumpNames -contains ${'$'}_.BaseName }
