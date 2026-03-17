@@ -355,7 +355,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         assertTrue(lease.getExpirationTime().compareTo(renewedLease.getExpirationTime()) < 0);
         assertEquals(lease.getLeaseholder(), renewedLease.getLeaseholder());
     }
-    
+
     @Test
     public void testStaleLeaseholderIdCanCoexistWithCurrentNodeIdsInBatch() throws Exception {
         List<LogicalNode> currentTopologyNodes = IntStream.range(0, 8)
@@ -650,8 +650,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
      * Waits for lease write to Meta storage.
      *
      * @param needAccepted Whether to wait only for accepted lease.
-     * @param previousLease Previous lease. If not null, then wait for any lease having expiration time other than the previous has (i.e.
-     *      either another lease or prolonged lease).
+     * @param previousLease Previous lease. If not null, then wait for any lease having expiration time other than the previous has
+     *         (i.e. either another lease or prolonged lease).
      * @param timeoutMillis Timeout in milliseconds to wait for lease.
      * @return A lease.
      * @throws InterruptedException if the wait is interrupted.
