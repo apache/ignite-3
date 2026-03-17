@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
@@ -27,12 +28,10 @@ import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
-import io.scalecube.net.Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +39,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -291,13 +289,15 @@ public class ScaleCubeClusterService implements ClusterService {
     }
 
     private ClusterImpl createCluster() {
-        var transport = new ScaleCubeDirectMarshallerTransport(parseAddress(localNode.address()), messagingService, messageFactory);
+        var transport = new ScaleCubeDirectMarshallerTransport(localNode.address(), messagingService, messageFactory);
+
+        List<String> seedMembers = nodeFinder.findNodes().stream().map(NetworkAddress::toString).collect(toList());
 
         ClusterConfig clusterConfig = clusterConfig(config.membership().value())
                 .memberId(localNode.id().toString())
                 .memberAlias(localNode.name())
                 .transport(opts -> opts.transportFactory(transportConfig -> transport))
-                .membership(opts -> opts.seedMembers(parseAddresses(nodeFinder.findNodes())))
+                .membership(opts -> opts.seedMembers(seedMembers))
                 .metadataCodec(METADATA_CODEC);
 
         return new ClusterImpl(clusterConfig)
@@ -349,16 +349,6 @@ public class ScaleCubeClusterService implements ClusterService {
         var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
 
         return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory, userObjectMarshaller);
-    }
-
-    private static List<Address> parseAddresses(Collection<NetworkAddress> addresses) {
-        return addresses.stream()
-                .map(ScaleCubeClusterService::parseAddress)
-                .collect(Collectors.toList());
-    }
-
-    private static Address parseAddress(NetworkAddress address) {
-        return Address.create(address.host(), address.port());
     }
 
     private void shutdownCluster() {
