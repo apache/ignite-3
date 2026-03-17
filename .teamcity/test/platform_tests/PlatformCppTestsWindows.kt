@@ -46,10 +46,6 @@ object PlatformCppTestsWindows : BuildType({
             scriptMode = script {
                 content = """
                     ${'$'}ErrorActionPreference = "Stop"
-                    
-                    Get-Location
-                    Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
-                    Write-Host "Working dir: %PATH__WORKING_DIR%"
     
                     New-Item -ItemType Directory -Force -Path "%PATH__CMAKE_BUILD_DIRECTORY%" | Out-Null
                     Set-Location "%PATH__CMAKE_BUILD_DIRECTORY%"
@@ -115,9 +111,10 @@ object PlatformCppTestsWindows : BuildType({
                 content = """ 
                     ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
 
-                    Get-Location
+                    Set-Location "%PATH__CMAKE_BUILD_DIRECTORY%"
                     Write-Host "CMake build dir: %PATH__CMAKE_BUILD_DIRECTORY%"
                     Write-Host "Working dir: %PATH__WORKING_DIR%"
+                    Write-Host "Dumps dir: %PATH__CRASH_DUMPS%"
     
                     if (-not (Test-Path ${'$'}dumpsDir)) {
                         Write-Host "Dumps directory '${'$'}dumpsDir' does not exist, skipping."
