@@ -17,8 +17,13 @@
 
 package org.apache.ignite.tx;
 
+import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_RW_TX_TIMEOUT_SECONDS;
+import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionAsyncInternal;
+import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionInternal;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.table.Table;
@@ -273,7 +278,13 @@ public interface IgniteTransactions {
      *
      * @throws TransactionException If a transaction can't be finished successfully.
      */
-    <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException;
+    default <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
+        // This start timestamp is not related to transaction's begin timestamp and only serves as local time for counting the timeout of
+        // possible retries.
+        long startTimestamp = System.currentTimeMillis();
+        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
+        return runInTransactionInternal(this, clo, options, startTimestamp, initialTimeout);
+    }
 
     /**
      * Executes a closure within a transaction asynchronously.
@@ -331,8 +342,14 @@ public interface IgniteTransactions {
      * @param <T> Closure result type.
      * @return The result.
      */
-    <T> CompletableFuture<T> runInTransactionAsync(
+    default <T> CompletableFuture<T> runInTransactionAsync(
             Function<Transaction, CompletableFuture<T>> clo,
             @Nullable TransactionOptions options
-    );
+    ) {
+        // This start timestamp is not related to transaction's begin timestamp and only serves as local time for counting the timeout of
+        // possible retries.
+        long startTimestamp = System.currentTimeMillis();
+        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
+        return runInTransactionAsyncInternal(this, clo, options, startTimestamp, initialTimeout, null);
+    }
 }

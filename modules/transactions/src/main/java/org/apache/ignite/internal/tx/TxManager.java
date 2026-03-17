@@ -292,9 +292,6 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId);
 
-    <T> T runInTransaction(Function<Transaction, T> clo, HybridTimestampTracker observableTimestampTracker,
-            @Nullable TransactionOptions options);
-
     /**
      * Returns lock retry count.
      *
