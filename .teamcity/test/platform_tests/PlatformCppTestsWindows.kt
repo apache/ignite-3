@@ -41,30 +41,32 @@ object PlatformCppTestsWindows : BuildType({
 
         powerShell {
             name = "Build C++"
-            scriptContent = """
-                ${'$'}ErrorActionPreference = "Stop"
-
-                New-Item -ItemType Directory -Force -Path "%PATH__CMAKE_BUILD_DIRECTORY%" | Out-Null
-                Set-Location "%PATH__CMAKE_BUILD_DIRECTORY%"
-
-                cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX="%env.CPP_STAGING%" -DCMAKE_CONFIGURATION_TYPES="Debug" -G "Visual Studio 15 2017" -A x64
-                if (${'$'}LASTEXITCODE -ne 0) {
-                    Write-Error "CMake configuration failed"
-                    exit 1
+            scriptMode = script {
+                content = """
+                    ${'$'}ErrorActionPreference = "Stop"
+    
+                    New-Item -ItemType Directory -Force -Path "%PATH__CMAKE_BUILD_DIRECTORY%" | Out-Null
+                    Set-Location "%PATH__CMAKE_BUILD_DIRECTORY%"
+    
+                    cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX="%env.CPP_STAGING%" -DCMAKE_CONFIGURATION_TYPES="Debug" -G "Visual Studio 15 2017" -A x64
+                    if (${'$'}LASTEXITCODE -ne 0) {
+                        Write-Error "CMake configuration failed"
+                        exit 1
+                    }
+    
+                    cmake --build . -j8
+                    if (${'$'}LASTEXITCODE -ne 0) {
+                        Write-Error "CMake build failed"
+                        exit 2
+                    }
+    
+                    cmake --install .
+                    if (${'$'}LASTEXITCODE -ne 0) {
+                        Write-Error "CMake install failed"
+                        exit 3
+                    }
+                """.trimIndent()
                 }
-
-                cmake --build . -j8
-                if (${'$'}LASTEXITCODE -ne 0) {
-                    Write-Error "CMake build failed"
-                    exit 2
-                }
-
-                cmake --install .
-                if (${'$'}LASTEXITCODE -ne 0) {
-                    Write-Error "CMake install failed"
-                    exit 3
-                }
-            """.trimIndent()
             }
         script {
             name = "Unit tests"
@@ -100,33 +102,35 @@ object PlatformCppTestsWindows : BuildType({
         }
         powerShell {
             name = "Collect PDBs for crash dumps"
-            scriptContent = """
-                ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
-
-                if (-not (Test-Path ${'$'}dumpsDir)) {
-                    Write-Host "Dumps directory does not exist, skipping."
-                    exit 0
-                }
-
-                ${'$'}dumps = Get-ChildItem -Path ${'$'}dumpsDir -File
-                if (${'$'}dumps.Count -eq 0) {
-                    Write-Host "Dumps directory is empty, skipping."
-                    exit 0
-                }
-
-                Write-Host "Found ${'$'}(${'$'}dumps.Count) dump file(s), collecting binaries from CMake build directory."
-
-                ${'$'}cmakeBuildDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
-                if (-not (Test-Path ${'$'}cmakeBuildDir)) {
-                    Write-Error "CMake build directory '${'$'}cmakeBuildDir' does not exist."
-                    exit 1
-                }
-
-                Get-ChildItem -Path ${'$'}cmakeBuildDir -File -Include "*.exe", "*.dll", "*.pdb" | ForEach-Object {
-                    Copy-Item -Path ${'$'}_.FullName -Destination ${'$'}dumpsDir -Force
-                    Write-Host "Copied: ${'$'}(${'$'}_.Name)"
-                }
-            """.trimIndent()
+            scriptMode = script {
+                content = """ 
+                    ${'$'}dumpsDir = "%PATH__CRASH_DUMPS%"
+    
+                    if (-not (Test-Path ${'$'}dumpsDir)) {
+                        Write-Host "Dumps directory does not exist, skipping."
+                        exit 0
+                    }
+    
+                    ${'$'}dumps = Get-ChildItem -Path ${'$'}dumpsDir -File
+                    if (${'$'}dumps.Count -eq 0) {
+                        Write-Host "Dumps directory is empty, skipping."
+                        exit 0
+                    }
+    
+                    Write-Host "Found ${'$'}(${'$'}dumps.Count) dump file(s), collecting binaries from CMake build directory."
+    
+                    ${'$'}cmakeBuildDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
+                    if (-not (Test-Path ${'$'}cmakeBuildDir)) {
+                        Write-Error "CMake build directory '${'$'}cmakeBuildDir' does not exist."
+                        exit 1
+                    }
+    
+                    Get-ChildItem -Path ${'$'}cmakeBuildDir -File -Include "*.exe", "*.dll", "*.pdb" | ForEach-Object {
+                        Copy-Item -Path ${'$'}_.FullName -Destination ${'$'}dumpsDir -Force
+                        Write-Host "Copied: ${'$'}(${'$'}_.Name)"
+                    }
+                """.trimIndent()
+            }
         }
     }
 
