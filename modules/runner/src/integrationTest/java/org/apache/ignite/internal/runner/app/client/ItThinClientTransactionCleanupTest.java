@@ -29,11 +29,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
@@ -86,18 +88,16 @@ public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest
         int count = 0;
 
         for (int i = 0; i < nodes(); i++) {
-            IgniteImpl ignite = unwrapIgniteImpl(server(i));
-            LockManager lockManager = ignite.txManager().lockManager();
-
-            var iter = lockManager.locks();
-
-            while (iter.hasNext()) {
-                iter.next();
-                count++;
-            }
+            count += txLockCount(server(i));
         }
 
         return count;
+    }
+
+    private static int txLockCount(Ignite server) {
+        IgniteImpl ignite = unwrapIgniteImpl(server);
+        LockManager lockManager = ignite.txManager().lockManager();
+        return CollectionUtils.count(lockManager.locks());
     }
 
     private static Tuple val(String v) {
