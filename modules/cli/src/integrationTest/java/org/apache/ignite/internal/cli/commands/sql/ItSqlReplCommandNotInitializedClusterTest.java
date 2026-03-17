@@ -30,6 +30,7 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine.IFactory;
 
 /** Tests for {@link SqlReplCommand} with not initialized cluster. */
 public class ItSqlReplCommandNotInitializedClusterTest extends CliIntegrationTest {
@@ -38,7 +39,7 @@ public class ItSqlReplCommandNotInitializedClusterTest extends CliIntegrationTes
     @Bean
     @Replaces(ReplExecutorProvider.class)
     public ReplExecutorProvider replExecutorProvider() {
-        return () -> repl -> {};
+        return (IFactory factory) -> repl -> {};
     }
 
     @Bean

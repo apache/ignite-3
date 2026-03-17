@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster.unit;
+package org.example.jobs.embedded;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-/** Manages deployment units in REPL mode. */
-@Command(name = "unit", subcommands = {
-        ClusterUnitDeployReplCommand.class,
-        ClusterUnitUndeployReplCommand.class,
-        ClusterUnitListCommand.class
-}, description = "Manages deployment units")
-public class ClusterUnitReplCommand extends BaseCommand {
+/** Compute job that sleeps for a number of seconds and throws {@link CancellationException} if interrupted. */
+public class CancelAwareSleepJob implements ComputeJob<Long, Void> {
+    @Override
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
+        try {
+            TimeUnit.SECONDS.sleep(timeout);
+        } catch (InterruptedException e) {
+            throw new CancellationException();
+        }
+        return null;
+    }
 }

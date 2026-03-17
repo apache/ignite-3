@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.example.jobs.standalone;
 
-import com.google.auto.service.AutoService;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-/**
- * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.
- */
-@AutoService(ConfigurationModule.class)
-public class TestConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
+/** Compute job that sleeps for a number of seconds and throws {@link CancellationException} if interrupted. */
+public class CancelAwareSleepJob implements ComputeJob<Long, Void> {
     @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
+        try {
+            TimeUnit.SECONDS.sleep(timeout);
+        } catch (InterruptedException e) {
+            throw new CancellationException();
+        }
+        return null;
     }
 }

@@ -65,6 +65,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
@@ -104,8 +105,8 @@ import org.apache.ignite.internal.compute.configuration.ComputeExtensionConfigur
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
@@ -567,26 +568,28 @@ public class IgniteImpl implements Ignite {
 
         CpuInformationProvider cpuInformationProvider = new JvmCpuInformationProvider();
 
-        ConfigurationModules modules = ConfigurationModules.create(serviceProviderClassLoader);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(serviceProviderClassLoader);
+        ConfigurationModule localModule = CompoundModule.local(allModules);
+        ConfigurationModule distributedModule = CompoundModule.distributed(allModules);
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                localModule.rootKeys(),
+                localModule.schemaExtensions(),
+                localModule.polymorphicSchemaExtensions()
         );
 
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
                 name,
                 configPath,
                 localConfigurationGenerator,
-                modules.local()
+                localModule
         );
 
         ConfigurationValidator localConfigurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, localModule.validators());
 
         nodeConfigRegistry = ConfigurationRegistry.create(
-                modules.local(),
+                localModule,
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
                 localConfigurationValidator
@@ -722,18 +725,18 @@ public class IgniteImpl implements Ignite {
         logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.distributed().rootKeys(),
-                modules.distributed().schemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                distributedModule.rootKeys(),
+                distributedModule.schemaExtensions(),
+                distributedModule.polymorphicSchemaExtensions()
         );
 
         ConfigurationValidator distributedCfgValidator = ConfigurationValidatorImpl.withDefaultValidators(
                 distributedConfigurationGenerator,
-                modules.distributed().validators()
+                distributedModule.validators()
         );
 
         ConfigurationDynamicDefaultsPatcher clusterCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
-                modules.distributed(),
+                distributedModule,
                 distributedConfigurationGenerator
         );
 
@@ -810,7 +813,7 @@ public class IgniteImpl implements Ignite {
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
         clusterConfigRegistry = ConfigurationRegistry.create(
-                modules.distributed(),
+                distributedModule,
                 cfgStorage,
                 distributedConfigurationGenerator,
                 distributedCfgValidator
