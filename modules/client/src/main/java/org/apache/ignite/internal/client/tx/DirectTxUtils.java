@@ -296,6 +296,11 @@ public class DirectTxUtils {
                     || !tx.hasCommitPartition()
                     || opNode == null
                     || tx.channel().protocolContext().clusterNode().name().equals(opNode)) {
+                if (tx.channel().closed()) {
+                    // Do not throw IgniteClientConnectionException to avoid retry kicking in.
+                    throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                }
+
                 return completedFuture(tx.channel());
             }
         }
