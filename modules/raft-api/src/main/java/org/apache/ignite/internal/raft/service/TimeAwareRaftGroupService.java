@@ -52,6 +52,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>All async operations provided by the service are not cancellable.
  */
 public interface TimeAwareRaftGroupService {
+    /** Constant meaning that an operation will never timeout. */
+    long NO_TIMEOUT = Long.MAX_VALUE;
 
     /**
      * Runs a command on a replication group leader with the given timeout.

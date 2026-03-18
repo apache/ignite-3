@@ -45,13 +45,14 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -96,6 +97,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     @Language("HOCON")
     protected static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
+            + "  network.listenAddresses: [127.0.0.1],\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
             + "  network.membership: {\n"
@@ -225,21 +227,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Load configuration modules.
+     * Load configuration modules from the classpath.
      *
      * @param log Log.
      * @param classLoader Class loader.
-     * @return Configuration modules.
+     * @return All configuration modules loaded from the classpath.
      */
-    public static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        ConfigurationModules configModules = ConfigurationModules.create(classLoader);
+    public static List<ConfigurationModule> loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(classLoader);
 
         if (log.isInfoEnabled()) {
-            log.info("Local root keys: {}", configModules.local().rootKeys());
-            log.info("Distributed root keys: {}", configModules.distributed().rootKeys());
+            log.info("Local root keys: {}", CompoundModule.local(allModules).rootKeys());
+            log.info("Distributed root keys: {}", CompoundModule.distributed(allModules).rootKeys());
         }
 
-        return configModules;
+        return allModules;
     }
 
     /**

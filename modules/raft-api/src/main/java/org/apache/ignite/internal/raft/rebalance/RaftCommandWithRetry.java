@@ -102,8 +102,8 @@ public class RaftCommandWithRetry {
             LOG.debug("Recoverable error received during raft command invocation, retrying.", err);
         } else {
             // TODO: IGNITE-19087 Ideally, rebalance, which has initiated this invocation should be canceled,
-            // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
-            // TODO: At the moment, there is only one type of unrecoverable error - stale configuration update.
+            //  Also it might be reasonable to delegate such exceptional case to a general failure handler.
+            //  At the moment, there is only one type of unrecoverable error - stale configuration update.
             LOG.debug(
                     "Unrecoverable error received during raft command invocation. Stop retrying.",
                     err

@@ -2353,7 +2353,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         int minCnt = (int) (minFill * cap);
 
         if (cnt <= minCnt) {
-            assert cnt == 0; // TODO remove
+            assert cnt == 0; // TODO: IGNITE-16350 remove.
 
             return true;
         }
@@ -2366,7 +2366,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return false;
         }
 
-        assert false; // TODO remove
+        assert false; // TODO: IGNITE-16350 remove.
 
         // Randomization is for smoothing worst case scenarios. Probability of merge attempt
         // is proportional to free space in our page (discounted on fill factor).

@@ -210,7 +210,7 @@ public class IgniteIndex {
         }
     }
 
-    // TODO: cache rowType as it can't be changed.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28154 cache rowType as it can't be changed.
 
     /**
      * Returns index row type.

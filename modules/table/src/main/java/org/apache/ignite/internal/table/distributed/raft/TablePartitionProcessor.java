@@ -200,6 +200,14 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
         }
 
+        assert storage.lastAppliedIndex() >= commandIndex : String.format(
+                "Last applied index after command application is less than the command index "
+                        + "[lastAppliedIndex=%d, commandIndex=%d, command=%s]",
+                storage.lastAppliedIndex(),
+                commandIndex,
+                command.toStringForLightLogging()
+        );
+
         return result;
     }
 
@@ -271,6 +279,10 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long leaseStartTime = cmd.leaseStartTime();
 
             if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                // We MUST bump information about last updated index+term.
+                // See a comment in TablePartitionProcessor#processCommand() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+
                 var updateCommandResult = new UpdateCommandResult(
                         false,
                         storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
@@ -301,7 +313,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             );
         } else {
             // We MUST bump information about last updated index+term.
-            // See a comment in #onWrite() for explanation.
+            // See a comment in TablePartitionProcessor#processCommand() for explanation.
             // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
             // to update information about index and term.
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
@@ -343,6 +355,10 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long leaseStartTime = cmd.leaseStartTime();
 
             if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                // We MUST bump information about last updated index+term.
+                // See a comment in TablePartitionProcessor#processCommand() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+
                 var updateCommandResult = new UpdateCommandResult(
                         false,
                         storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
@@ -368,7 +384,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             );
         } else {
             // We MUST bump information about last updated index+term.
-            // See a comment in #onWrite() for explanation.
+            // See a comment in TablePartitionProcessor#processCommand() for explanation.
             // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
             // to update information about index and term.
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);

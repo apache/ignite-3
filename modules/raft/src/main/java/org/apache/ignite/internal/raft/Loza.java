@@ -54,6 +54,7 @@ import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.NoopGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
@@ -76,8 +77,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Best raft manager ever since 1982.
  */
-// TODO: Encapsulate RaftGroupOptions and move other methods to the RaftManager interface,
-//  see https://issues.apache.org/jira/browse/IGNITE-18273
+// TODO https://issues.apache.org/jira/browse/IGNITE-18273 Encapsulate RaftGroupOptions and move other methods to the RaftManager interface.
 public class Loza implements RaftManager {
     /** Factory. */
     public static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -367,6 +367,50 @@ public class Loza implements RaftManager {
     }
 
     @Override
+    public TimeAwareRaftGroupService startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            TimeAwareRaftGroupServiceFactory factory,
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            RaftGroupOptions raftGroupOptions = RaftGroupOptions.defaults()
+                    .setSystemGroup(true);
+
+            groupOptionsConfigurer.configure(raftGroupOptions);
+
+            // Start the raft node first (server side).
+            startRaftGroupNodeInternal(
+                    nodeId,
+                    configuration,
+                    lsnr,
+                    eventsLsnr,
+                    raftGroupOptions,
+                    null,
+                    StoppingExceptionFactories.indicateNodeStop()
+            );
+
+            // Create the time-aware service using the provided factory.
+            return factory.startRaftGroupService(
+                    nodeId.groupId(),
+                    configuration,
+                    raftConfiguration,
+                    executor,
+                    opts.getCommandsMarshaller(),
+                    StoppingExceptionFactories.indicateNodeStop()
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
     public RaftGroupService startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration, boolean isSystemGroup)
             throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -417,6 +461,32 @@ public class Loza implements RaftManager {
                     commandsMarshaller,
                     stoppingExceptionFactory,
                     throttlingContextHolder
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public TimeAwareRaftGroupService startTimeAwareRaftGroupService(
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration,
+            TimeAwareRaftGroupServiceFactory factory,
+            ExceptionFactory stoppingExceptionFactory,
+            boolean isSystemGroup
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return factory.startRaftGroupService(
+                    groupId,
+                    configuration,
+                    raftConfiguration,
+                    executor,
+                    opts.getCommandsMarshaller(),
+                    stoppingExceptionFactory
             );
         } finally {
             busyLock.leaveBusy();

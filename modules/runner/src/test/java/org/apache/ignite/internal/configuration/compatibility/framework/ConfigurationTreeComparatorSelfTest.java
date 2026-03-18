@@ -437,8 +437,9 @@ public class ConfigurationTreeComparatorSelfTest {
 
         assertCompatible(root1, root2);
 
-        // TODO: need to have a possibility to check compatibility between outdated (officially no more supported) version and current one.
-        // I.e. previous tree with filled deletedPrefixes and current without - need to be compatible too, decided to make it later.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28132 need to have a possibility to check compatibility between outdated
+        //  (officially no more supported) version and current one.
+        //  I.e. previous tree with filled deletedPrefixes and current without - need to be compatible too, decided to make it later.
     }
 
     @Test

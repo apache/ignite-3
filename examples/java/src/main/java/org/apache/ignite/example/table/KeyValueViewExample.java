@@ -17,21 +17,18 @@
 
 package org.apache.ignite.example.table;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the { @link KeyValueView} API.
+ * This example demonstrates the usage of the {@link KeyValueView} API.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class KeyValueViewExample {
     /**
-     * Main method of the example.
+     * Runs the KeyValueViewExample.
      *
      * @param args The command line arguments.
      * @throws Exception If failed.
@@ -39,35 +36,30 @@ public class KeyValueViewExample {
     public static void main(String[] args) throws Exception {
         //--------------------------------------------------------------------------------------
         //
-        // Creating 'accounts' table.
+        // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
+        System.out.println("Connecting to server...");
+
+        try (IgniteClient client = IgniteClient.builder()
+                .addresses("127.0.0.1:10800")
+                .build()
         ) {
-            stmt.executeUpdate(
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating 'accounts' table.
+            //
+            //--------------------------------------------------------------------------------------
+
+            client.sql().execute(
                     "CREATE TABLE accounts ("
                             + "accountNumber INT PRIMARY KEY,"
                             + "firstName     VARCHAR,"
                             + "lastName      VARCHAR,"
                             + "balance       DOUBLE)"
             );
-        }
 
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
-        //
-        //--------------------------------------------------------------------------------------
-
-        System.out.println("\nConnecting to server...");
-
-        try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build()
-        ) {
             //--------------------------------------------------------------------------------------
             //
             // Creating a key-value view for the 'accounts' table.
@@ -82,7 +74,7 @@ public class KeyValueViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nInserting a key-value pair into the 'accounts' table...");
+            System.out.println("Inserting a key-value pair into the 'accounts' table...");
 
             Tuple key = Tuple.create()
                     .set("accountNumber", 123456);
@@ -100,7 +92,7 @@ public class KeyValueViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nRetrieving a value using KeyValueView API...");
+            System.out.println("Retrieving a value using KeyValueView API...");
 
             value = kvView.get(null, key);
 
@@ -109,15 +101,10 @@ public class KeyValueViewExample {
                             + "    Account Number: " + key.intValue("accountNumber") + '\n'
                             + "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n'
                             + "    Balance: $" + value.doubleValue("balance"));
-        } finally {
-            System.out.println("\nDropping the table...");
 
-            try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE accounts");
-            }
+            System.out.println("Dropping the table...");
+
+            client.sql().execute("DROP TABLE IF EXISTS accounts");
         }
     }
 }
