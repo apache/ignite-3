@@ -285,11 +285,12 @@ public class DirectTxUtils {
             return completedFuture(ctx.channel);
         }
 
-        String opNode = mapping == null ? null : mapping.nodeConsistentId();
-
-        if (tx != null && (tx.isReadOnly() || !tx.hasCommitPartition() || opNode == null)) {
+        if (tx != null) {
+            // writeTx requires matching channel.
             return completedFuture(tx.channel());
         }
+
+        String opNode = mapping == null ? null : mapping.nodeConsistentId();
 
         return ch.getChannelAsync(opNode);
     }
