@@ -87,7 +87,6 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                groupId -> null,
                 raftConfiguration,
                 storageConfiguration
         );

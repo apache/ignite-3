@@ -154,7 +154,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 SqlCompleter sqlCompleter = new SqlCompleter(schemaProvider);
                 IgniteSqlCommandCompleter sqlCommandCompleter = new IgniteSqlCommandCompleter();
 
-                replExecutorProvider.get().execute(Repl.builder()
+                replExecutorProvider.get(spec.commandLine().getFactory()).execute(Repl.builder()
                         .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))
                         .withCompleter(new AggregateCompleter(sqlCommandCompleter, sqlCompleter))
                         .withCommandClass(SqlReplTopLevelCliCommand.class)

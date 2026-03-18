@@ -17,10 +17,18 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
+import picocli.CommandLine.IFactory;
+
 /**
  * Provider of {@link ReplExecutor}.
  */
 @FunctionalInterface
 public interface ReplExecutorProvider {
-    ReplExecutor get();
+    /**
+     * Creates REPL executor.
+     *
+     * @param factory Commands factory.
+     * @return New instance of {@link ReplExecutor}.
+     */
+    ReplExecutor get(IFactory factory);
 }

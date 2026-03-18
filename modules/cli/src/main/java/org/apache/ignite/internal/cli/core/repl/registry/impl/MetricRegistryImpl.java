@@ -25,41 +25,21 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
-import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton
-public class MetricRegistryImpl implements MetricRegistry, ConnectionEventListener {
+public class MetricRegistryImpl extends RegistryImplBase<Set<String>> implements MetricRegistry {
 
     @Inject
     private NodeMetricSourceListCall metricSourceListCall;
 
     @Nullable
-    private LazyObjectRef<Set<String>> metricSourcesRef;
-
     @Override
-    public Set<String> metricSources() {
-        Set<String> sources = metricSourcesRef == null ? null : metricSourcesRef.get();
-        return sources == null ? Set.of() : sources;
-    }
-
-    /**
-     * Gets list of metric sources from the node.
-     *
-     * @param sessionInfo sessionInfo.
-     */
-    @Override
-    public void onConnect(SessionInfo sessionInfo) {
-        metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionInfo));
-    }
-
-    @Nullable
-    private Set<String> fetchMetricSources(SessionInfo sessionInfo) {
-        CallOutput<List<MetricSource>> output = metricSourceListCall.execute(new UrlCallInput(sessionInfo.nodeUrl()));
+    protected Set<String> doGetState(String url) {
+        CallOutput<List<MetricSource>> output = metricSourceListCall.execute(new UrlCallInput(url));
         if (output.hasError()) {
             return null;
         }
@@ -69,7 +49,8 @@ public class MetricRegistryImpl implements MetricRegistry, ConnectionEventListen
     }
 
     @Override
-    public void onDisconnect() {
-        metricSourcesRef = null;
+    public Set<String> metricSources() {
+        Set<String> result = getResult();
+        return result == null ? Set.of() : result;
     }
 }
