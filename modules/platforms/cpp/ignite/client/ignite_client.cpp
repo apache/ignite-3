@@ -49,6 +49,11 @@ ignite_client ignite_client::start(ignite_client_configuration configuration, st
         throw ignite_error(error::code::CONNECTION, "Can not establish connection within timeout");
     }
 
+    std::cout << "Status: " << int(status) << std::endl;
+    std::cout << "std::future_status::ready: " << int(std::future_status::ready) << std::endl;
+    std::cout << "std::future_status::deferred: " << int(std::future_status::deferred) << std::endl;
+    std::cout << "std::future_status::timeout: " << int(std::future_status::timeout) << std::endl;
+
     assert(status == std::future_status::ready);
     auto res = future.get();
     if (res.has_error()) {
