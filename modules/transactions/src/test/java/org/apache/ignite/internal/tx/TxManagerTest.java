@@ -107,6 +107,7 @@ import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
@@ -203,7 +204,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 transactionInflights,
                 lowWatermark,
                 commonScheduler,
-                new TestMetricManager()
+                new TestMetricManager(),
+                new NoopTimeoutStrategy()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
