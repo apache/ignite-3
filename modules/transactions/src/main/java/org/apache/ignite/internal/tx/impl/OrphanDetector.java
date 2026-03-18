@@ -196,9 +196,10 @@ public class OrphanDetector {
      *
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
+     * @return Future.
      */
-    void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
-        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
+    CompletableFuture<Object> sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
+        return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
                     InternalClusterNode commitPartPrimaryNode =
                             replicaMeta != null ? topologyService.getByConsistentId(replicaMeta.getLeaseholder()) : null;
