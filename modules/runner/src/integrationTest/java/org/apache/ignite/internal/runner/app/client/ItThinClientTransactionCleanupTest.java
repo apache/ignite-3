@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for client transaction cleanup on disconnect.
  */
-@SuppressWarnings({"resource", "DataFlowIssue"})
+@SuppressWarnings({"DataFlowIssue"})
 public class ItThinClientTransactionCleanupTest extends ItAbstractThinClientTest {
     /**
      * Tests that locks are released when client disconnects with a transaction having direct enlistments.
