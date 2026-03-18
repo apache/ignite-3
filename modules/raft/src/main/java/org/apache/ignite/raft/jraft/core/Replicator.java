@@ -1744,7 +1744,6 @@ public class Replicator implements ThreadId.OnError {
                 waitMoreEntries(nextSendingIndex);
                 return false;
             }
-            rb.timestamp(options.getNode().getOptions().getClock().now());
             if (byteBufList.getCapacity() > 0) {
                 dataBuf = allocateShared(byteBufList.getCapacity());
                 for (final ByteBuffer b : byteBufList) {
