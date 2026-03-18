@@ -49,6 +49,8 @@ import org.jetbrains.annotations.Nullable;
  * Collection of helper methods to unify handling of direct transactions and piggybacking of tx start request.
  */
 public class DirectTxUtils {
+    private static final String TRANSACTION_CONTEXT_LOST = "Transaction context has been lost due to connection errors.";
+
     /**
      * Ensures that a client-side transaction is started and ready to serve requests.
      *
@@ -171,7 +173,7 @@ public class DirectTxUtils {
                 //noinspection resource
                 if (tx0.channel() != out.clientChannel()) {
                     // Do not throw IgniteClientConnectionException to avoid retry kicking in.
-                    throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                    throw new IgniteException(CONNECTION_ERR, TRANSACTION_CONTEXT_LOST);
                 }
 
                 out.out().packLong(tx0.id());
@@ -298,7 +300,7 @@ public class DirectTxUtils {
                     || tx.channel().protocolContext().clusterNode().name().equals(opNode)) {
                 if (tx.channel().closed()) {
                     // Do not throw IgniteClientConnectionException to avoid retry kicking in.
-                    throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                    throw new IgniteException(CONNECTION_ERR, TRANSACTION_CONTEXT_LOST);
                 }
 
                 return completedFuture(tx.channel());
