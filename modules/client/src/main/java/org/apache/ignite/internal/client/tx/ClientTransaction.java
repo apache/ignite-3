@@ -717,7 +717,7 @@ public class ClientTransaction implements Transaction {
      *
      * @param clientCh Client channel.
      */
-    void validateOwnership(ReliableChannel clientCh) {
+    public void validateOwnership(ReliableChannel clientCh) {
         if (clientCh != reliableChannel) {
             throw new IllegalArgumentException("Transaction belongs to a different client instance");
         }
