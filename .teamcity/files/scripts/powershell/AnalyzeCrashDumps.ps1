@@ -15,9 +15,10 @@ if ($dumps.Count -eq 0) {
 }
 
 foreach ($dump in $dumps) {
+    Write-Host "##teamcity[buildProblem description='Crash dump detected: $($dump.Name)']"
     Write-Host "##teamcity[blockOpened name='Crash analysis: $($dump.Name)']"
 
-    & $cdb -z $dump.FullName -y $symPath -c "!analyze -v; q"
+    & $cdb -z $dump.FullName -y $symPath -c ".symfix; .reload; !analyze -v; q"
 
     Write-Host "##teamcity[blockClosed name='Crash analysis: $($dump.Name)']"
 }
