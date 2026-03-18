@@ -199,7 +199,6 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -946,7 +945,20 @@ public class IgniteImpl implements Ignite {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
-        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
+        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
+
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureManager,
+                clusterSvc.messagingService()
+        );
+
+        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
+        var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         replicaMgr = new ReplicaManager(
                 name,
@@ -977,8 +989,6 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = partitionsWorkDir.dbPath();
 
-        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
-
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
                 metricManager,
@@ -1004,17 +1014,6 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureManager,
-                clusterSvc.messagingService()
-        );
-
-        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -1133,7 +1132,8 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager,
                 metricManager,
                 messagingServiceReturningToStorageOperationsPool,
-                replicaSvc
+                replicaSvc,
+                indexMetaStorage
         );
 
         systemViewManager.register(txManager);

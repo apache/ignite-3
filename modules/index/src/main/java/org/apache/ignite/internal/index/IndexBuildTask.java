@@ -49,7 +49,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -93,8 +92,6 @@ class IndexBuildTask {
     private final MvPartitionStorage partitionStorage;
 
     private final ReplicaService replicaService;
-
-    private final TableTxRwOperationTracker txRwOperationTracker;
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
@@ -147,7 +144,6 @@ class IndexBuildTask {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
-            TableTxRwOperationTracker txRwOperationTracker,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             FailureProcessor failureProcessor,
             FinalTransactionStateResolver finalTransactionStateResolver,
@@ -167,7 +163,6 @@ class IndexBuildTask {
         this.indexStorage = indexStorage;
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
-        this.txRwOperationTracker = txRwOperationTracker;
         this.safeTime = safeTime;
         this.failureProcessor = failureProcessor;
         this.finalTransactionStateResolver = finalTransactionStateResolver;
@@ -204,14 +199,9 @@ class IndexBuildTask {
         nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         try {
-            // Before starting to build the index, we are waiting for all operations of RW transactions that started before index creation
-            // to make sure that, even if some coordinator has gone while we were waiting for its pre-index RW transactions to finish,
-            // we still allow operations of those transactions from that coordinator which are still in-flight to finish, so that we
-            // index the row versions they could create. Otherwise, we might miss some row versions in the index.
-            txRwOperationTracker.awaitCompleteTxRwOperations(indexCreationInfo.catalogVersion())
-                    // This wait is necessary to make sure that all writes made before the index has switched to the BUILDING state
-                    // are visible to the index build process.
-                    .thenCompose(unused -> safeTime.waitFor(indexBuildingStateActivationTimestamp))
+            // This wait is necessary to make sure that all writes made before the index has switched to the BUILDING state
+            // are visible to the index build process.
+            safeTime.waitFor(indexBuildingStateActivationTimestamp)
                     .thenRun(statisticsLoggingListener::onIndexBuildStarted)
                     .thenApplyAsync(unused -> partitionStorage.highestRowId(), executor)
                     .thenApplyAsync(this::handleNextBatch, executor)

@@ -92,6 +92,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -219,7 +220,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -1663,7 +1663,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns, Int2IntMaps.EMPTY_MAP);
     }
 
     private AtomicReference<Boolean> interceptFinishTxCommand() {
@@ -2626,39 +2626,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @FunctionalInterface
     private interface RwListenerInvocation {
         CompletableFuture<?> invoke(UUID targetTxId, TestKey key);
-    }
-
-    @ParameterizedTest(name = "readOnly = {0}")
-    @ValueSource(booleans = {true, false})
-    void testStaleTxOperationAfterIndexStartBuilding(boolean readOnly) {
-        int indexId = hashIndexStorage.id();
-        int indexCreationCatalogVersion = 1;
-        int startBuildingIndexCatalogVersion = 2;
-        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
-        long startBuildingIndexActivationTs = clock.nowLong();
-
-        setIndexMetaInBuildingStatus(
-                indexId,
-                indexCreationCatalogVersion,
-                indexCreationActivationTs,
-                startBuildingIndexCatalogVersion,
-                startBuildingIndexActivationTs
-        );
-
-        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
-
-        UUID txId = newTxId();
-        long beginTs = beginTimestamp(txId).longValue();
-
-        when(catalogService.activeCatalogVersion(eq(beginTs))).thenReturn(0);
-
-        BinaryRow row = binaryRow(0);
-
-        if (readOnly) {
-            assertThat(roGetAsync(row, clock.now()), willCompleteSuccessfully());
-        } else {
-            assertThat(upsertAsync(txId, row), willThrow(StaleTransactionOperationException.class));
-        }
     }
 
     @Test

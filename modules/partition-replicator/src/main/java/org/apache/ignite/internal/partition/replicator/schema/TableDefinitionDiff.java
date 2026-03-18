@@ -19,6 +19,9 @@ package org.apache.ignite.internal.partition.replicator.schema;
 
 import static java.util.Collections.emptyList;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
@@ -27,7 +30,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  */
 public class TableDefinitionDiff {
     private static final TableDefinitionDiff EMPTY = new TableDefinitionDiff(
-            -1, -1, "name", "name", emptyList(), emptyList(), emptyList()
+            -1, -1, "name", "name", emptyList(), emptyList(), emptyList(),
+            Int2IntMaps.EMPTY_MAP
     );
 
     private final int oldSchemaVersion;
@@ -37,6 +41,8 @@ public class TableDefinitionDiff {
     private final List<CatalogTableColumnDescriptor> addedColumns;
     private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
+
+    private final Int2IntMap indexesJustStartedBeingBuilt;
 
     /**
      * Returns an empty diff (meaning there is no difference).
@@ -57,7 +63,8 @@ public class TableDefinitionDiff {
             String newName,
             List<CatalogTableColumnDescriptor> addedColumns,
             List<CatalogTableColumnDescriptor> removedColumns,
-            List<ColumnDefinitionDiff> changedColumns
+            List<ColumnDefinitionDiff> changedColumns,
+            Int2IntMap indexesJustStartedBeingBuilt
     ) {
         this.oldSchemaVersion = oldSchemaVersion;
         this.newSchemaVersion = newSchemaVersion;
@@ -66,6 +73,9 @@ public class TableDefinitionDiff {
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
         this.changedColumns = List.copyOf(changedColumns);
+
+        this.indexesJustStartedBeingBuilt = indexesJustStartedBeingBuilt.isEmpty()
+                ? Int2IntMaps.EMPTY_MAP : new Int2IntOpenHashMap(indexesJustStartedBeingBuilt);
     }
 
     /**
@@ -108,5 +118,9 @@ public class TableDefinitionDiff {
      */
     public List<ColumnDefinitionDiff> changedColumns() {
         return changedColumns;
+    }
+
+    public Int2IntMap indexesJustStartedBeingBuilt() {
+        return indexesJustStartedBeingBuilt;
     }
 }

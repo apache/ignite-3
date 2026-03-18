@@ -114,6 +114,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -558,7 +559,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 outgoingSnapshotManager,
                 metricManager,
                 clusterService.messagingService(),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(IndexMetasAccess.class)
         ));
 
         tableManager = new TableManager(

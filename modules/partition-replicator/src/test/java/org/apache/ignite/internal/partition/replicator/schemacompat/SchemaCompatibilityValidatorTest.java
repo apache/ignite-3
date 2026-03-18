@@ -45,6 +45,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -69,6 +71,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -159,7 +162,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat(result.isTableDropped(), is(false));
 
         assertThat(result.failedTableName(), is(TABLE_NAME));
-        assertThat(result.fromSchemaVersion(), is(1));
+        assertThat(result.fromSchemaVersion(), is(changeSource.fromSchemaVersion()));
         assertThat(result.toSchemaVersion(), is(2));
         assertThat(result.details(), is(changeSource.expectedDetails()));
     }
@@ -418,22 +421,41 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static List<CatalogTableColumnDescriptor> someColumns() {
-        return List.of(intColumn("col1"));
-    }
-
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
         return tableSchema(schemaVersion, TABLE_NAME, columns);
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, String name, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(1, schemaVersion, TABLE_ID, name, columns);
+        return tableSchema(1, schemaVersion, name, columns);
+    }
+
+    private static FullTableSchema tableSchema(
+            int catalogVersion,
+            int schemaVersion,
+            String name,
+            List<CatalogTableColumnDescriptor> columns
+    ) {
+        return tableSchema(catalogVersion, schemaVersion, name, columns, Int2IntMaps.EMPTY_MAP);
+    }
+
+    private static FullTableSchema tableSchema(
+            int catalogVersion,
+            int schemaVersion,
+            String name,
+            List<CatalogTableColumnDescriptor> columns,
+            Int2IntMap indexesJustStartedBeingBuilt
+    ) {
+        return new FullTableSchema(catalogVersion, schemaVersion, TABLE_ID, name, columns, indexesJustStartedBeingBuilt);
     }
 
     private interface SchemaChangeSource {
         List<FullTableSchema> schemaVersions();
 
         String expectedDetails();
+
+        default int fromSchemaVersion() {
+            return 1;
+        }
     }
 
     @FunctionalInterface
@@ -479,6 +501,23 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 tableSchema(2, List.of(
                         nullableIntColumn("col1")
                 ))
+        )),
+        PRE_EXISTING_INDEX_STARTED_BUILDING(List.of(
+                // In catalog version 1, the index was created.
+                tableSchema(1, 1, TABLE_NAME, someColumns()),
+                // On this schema, transaction is started (so it sees the index).
+                tableSchema(2, 2, TABLE_NAME, someOtherColumns()),
+                // On this schema, index was started being built; and exactly on this schema the transaction is tried
+                // to be committed.
+                tableSchema(3, 2, TABLE_NAME, someOtherColumns(), Int2IntMaps.singleton(10, 1))
+        )),
+        JUST_REGISTERED_INDEX_STARTED_BUILDING(List.of(
+                // On this schema, transaction is started, and the index was created on this schema as well
+                // (so the transaction sees the index).
+                tableSchema(1, 1, TABLE_NAME, someColumns(), Int2IntMaps.EMPTY_MAP),
+                // On this schema, index was started being built; and exactly on this schema the transaction is tried
+                // to be committed.
+                tableSchema(2, 1, TABLE_NAME, someColumns(), Int2IntMaps.singleton(10, 1))
         ));
 
         private final List<FullTableSchema> schemaVersions;
@@ -491,6 +530,10 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         public List<FullTableSchema> schemaVersions() {
             return schemaVersions;
         }
+    }
+
+    private static @NonNull List<CatalogTableColumnDescriptor> someOtherColumns() {
+        return List.of(intColumn("col1"), nullableIntColumn("col2"));
     }
 
     private enum ForwardIncompatibleChange implements SchemaChangeSource {
@@ -576,14 +619,33 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         ))
                 ),
                 "Column type changed incompatibly"
+        ),
+        INDEX_REGISTERED_AND_STARTED_BUILDING(
+                List.of(
+                        // On this schema, transaction was started, but the index did not exist yet.
+                        tableSchema(1, 1, TABLE_NAME, someColumns(), Int2IntMaps.EMPTY_MAP),
+                        // On this schema, index was created.
+                        tableSchema(2, 2, TABLE_NAME, someOtherColumns(), Int2IntMaps.EMPTY_MAP),
+                        // On this schema, index was started being built; and exactly on this schema the transaction is tried
+                        // to be committed.
+                        tableSchema(3, 2, TABLE_NAME, someOtherColumns(), Int2IntMaps.singleton(10, 2))
+                ),
+                "Index was both created and started being built",
+                2
         );
 
         private final List<FullTableSchema> schemaVersions;
         private final String expectedDetails;
+        private final int fromSchemaVersion;
 
         ForwardIncompatibleChange(List<FullTableSchema> schemaVersions, String expectedDetails) {
+            this(schemaVersions, expectedDetails, 1);
+        }
+
+        ForwardIncompatibleChange(List<FullTableSchema> schemaVersions, String expectedDetails, int fromSchemaVersion) {
             this.schemaVersions = schemaVersions;
             this.expectedDetails = expectedDetails;
+            this.fromSchemaVersion = fromSchemaVersion;
         }
 
         @Override
@@ -595,6 +657,15 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         public String expectedDetails() {
             return expectedDetails;
         }
+
+        @Override
+        public int fromSchemaVersion() {
+            return fromSchemaVersion;
+        }
+    }
+
+    private static @NonNull List<CatalogTableColumnDescriptor> someColumns() {
+        return List.of(intColumn("col1"));
     }
 
     private static class Type {

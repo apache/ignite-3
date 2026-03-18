@@ -17,49 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
-
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.jetbrains.annotations.Nullable;
 
 /** Auxiliary class. */
 class ReplicatorUtils {
-    /**
-     * Looks for the latest index with {@link CatalogIndexStatus#BUILDING} for the table, {@code null} if missing.
-     *
-     * <p>NOTE: It is expected that the method will be executed in the metastore thread so that the catalog does not change
-     * concurrently.</p>
-     *
-     * @param catalogService Catalog service.
-     * @param indexMetaStorage Storage of index meta.
-     * @param tableId Table ID.
-     */
-    static @Nullable IndexMeta latestIndexMetaInBuildingStatus(CatalogService catalogService,
-            IndexMetaStorage indexMetaStorage, int tableId) {
-        // Expected to be executed on the metastore notification chain or on node start (when Catalog does not change).
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
-        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
-
-        for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            for (CatalogIndexDescriptor indexDescriptor : catalogService.catalog(catalogVersion).indexes(tableId)) {
-                if (indexDescriptor.status() == BUILDING) {
-                    IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
-                    if (indexMeta != null) {
-                        return indexMeta;
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
 
     /**
      * Extracts begin timestamp of a read-write transaction from a request.

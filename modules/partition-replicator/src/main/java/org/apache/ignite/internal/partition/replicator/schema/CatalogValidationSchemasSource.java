@@ -19,6 +19,8 @@ package org.apache.ignite.internal.partition.replicator.schema;
 
 import static java.util.stream.Collectors.toList;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.List;
 import java.util.Objects;
@@ -30,8 +32,14 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.schema.SchemaManager;
 
 /**
@@ -42,6 +50,8 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
 
     private final SchemaManager schemaManager;
 
+    private final IndexMetasAccess indexMetasAccess;
+
     private final ConcurrentMap<CatalogVersionsSpan, List<FullTableSchema>> catalogVersionSpansCache = new ConcurrentHashMap<>();
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
@@ -49,9 +59,10 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
             = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    public CatalogValidationSchemasSource(CatalogService catalogService, SchemaManager schemaManager) {
+    public CatalogValidationSchemasSource(CatalogService catalogService, SchemaManager schemaManager, IndexMetasAccess indexMetasAccess) {
         this.catalogService = catalogService;
         this.schemaManager = schemaManager;
+        this.indexMetasAccess = indexMetasAccess;
     }
 
     @Override
@@ -155,16 +166,48 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
                 .takeWhile(Objects::nonNull);
     }
 
-    private static FullTableSchema fullSchemaFromCatalog(Catalog catalog, CatalogTableDescriptor tableDescriptor) {
+    private FullTableSchema fullSchemaFromCatalog(Catalog catalog, CatalogTableDescriptor tableDescriptor) {
         assert tableDescriptor != null;
+
+        Int2IntMap indexesJustStartedBeingBuilt = indexesJustStartedBeingBuilt(tableDescriptor, catalog);
 
         return new FullTableSchema(
                 catalog.version(),
                 tableDescriptor.latestSchemaVersion(),
                 tableDescriptor.id(),
                 tableDescriptor.name(),
-                tableDescriptor.columns()
+                tableDescriptor.columns(),
+                indexesJustStartedBeingBuilt
         );
+    }
+
+    private Int2IntMap indexesJustStartedBeingBuilt(CatalogTableDescriptor tableDescriptor, Catalog catalog) {
+        Int2IntMap indexesJustStartedBeingBuilt = new Int2IntOpenHashMap();
+
+        for (CatalogIndexDescriptor index : catalog.indexes(tableDescriptor.id())) {
+            if (index.status() == CatalogIndexStatus.BUILDING) {
+                IndexMeta indexMeta = indexMetasAccess.indexMeta(index.id());
+                if (indexMeta == null) {
+                    throw new IllegalStateException(
+                            "Index " + index.id() + " is not in the index metastore even though it's being built, according to the catalog"
+                    );
+                }
+
+                MetaIndexStatusChange changeToBuilding = indexMeta.statusChange(MetaIndexStatus.BUILDING);
+                if (changeToBuilding == null) {
+                    throw new IllegalStateException(
+                            "Index " + index.id() + " is being built, but its status was never changed to BUILDING"
+                    );
+                }
+
+                if (catalog.version() == changeToBuilding.catalogVersion()) {
+                    // The index has just become being built.
+                    indexesJustStartedBeingBuilt.put(index.id(), indexMeta.statusChange(MetaIndexStatus.REGISTERED).catalogVersion());
+                }
+            }
+        }
+
+        return indexesJustStartedBeingBuilt;
     }
 
     private static class CatalogVersionsSpan {

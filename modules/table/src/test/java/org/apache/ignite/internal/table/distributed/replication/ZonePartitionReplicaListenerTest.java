@@ -71,6 +71,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1739,7 +1740,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns, Int2IntMaps.EMPTY_MAP);
     }
 
     private CompletableFuture<?> beginAndCommitTx() {

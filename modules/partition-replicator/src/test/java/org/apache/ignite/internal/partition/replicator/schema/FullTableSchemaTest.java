@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -81,6 +82,6 @@ class FullTableSchemaTest {
 
     private static FullTableSchema tableSchema(int schemaVersion, int tableId, String tableName,
             List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(-1, schemaVersion, tableId, tableName, columns);
+        return new FullTableSchema(-1, schemaVersion, tableId, tableName, columns, Int2IntMaps.EMPTY_MAP);
     }
 }
