@@ -453,11 +453,9 @@ class TableZoneCoordinator {
         PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
 
         List<CompletableFuture<?>> storageCreationFutures = zoneTables.stream()
-                .map(tbl -> inBusyLockAsync(busyLock, () -> {
-                    return createPartitionStoragesIfAbsent(tbl, singlePartitionIdSet)
-                            // If the table is already closed, it's not a problem (probably the node is stopping).
-                            .exceptionally(ignoreTableClosedException());
-                }))
+                .map(tbl -> inBusyLockAsync(busyLock, () -> createPartitionStoragesIfAbsent(tbl, singlePartitionIdSet)
+                        // If the table is already closed, it's not a problem (probably the node is stopping).
+                        .exceptionally(ignoreTableClosedException())))
                 .collect(toList());
 
         return CompletableFutures.allOf(storageCreationFutures)
@@ -740,7 +738,7 @@ class TableZoneCoordinator {
         }
     }
 
-    private CompletableFuture<Void> destroyPartitionStorages(
+    private static CompletableFuture<Void> destroyPartitionStorages(
             TablePartitionId tablePartitionId,
             TableViewInternal table
     ) {
@@ -765,7 +763,7 @@ class TableZoneCoordinator {
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
-    private CompletableFuture<Void> createPartitionStoragesIfAbsent(TableViewInternal table, PartitionSet partitions) {
+    private static CompletableFuture<Void> createPartitionStoragesIfAbsent(TableViewInternal table, PartitionSet partitions) {
         InternalTable internalTable = table.internalTable();
 
         List<CompletableFuture<MvPartitionStorage>> storageFuts = partitions.stream().mapToObj(partitionId -> {
