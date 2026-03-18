@@ -39,7 +39,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -206,11 +206,11 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
         Long term = thisNodeTerm;
         if (term == null) {
-            // We seized to be a leader, do nothing.
+            // We ceased to be a leader, do nothing.
             return nullCompletedFuture();
         }
 
-        return service.syncTime(safeTime, term);
+        return service.syncTime(safeTime, term, TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     private class MetaStorageLogicalTopologyEventListener implements LogicalTopologyEventListener {
@@ -238,7 +238,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     @FunctionalInterface
     private interface Action {
-        CompletableFuture<Void> apply(RaftGroupService raftService, long term);
+        CompletableFuture<Void> apply(TimeAwareRaftGroupService raftService, long term);
     }
 
     /**

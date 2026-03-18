@@ -57,9 +57,8 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NodeMetadata;
 import org.junit.jupiter.api.Test;
@@ -99,7 +98,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 raftManager,
                 kvs,
                 clock,
-                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(TimeAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 systemConfiguration,
                 RaftGroupOptionsConfigurer.EMPTY,
@@ -110,12 +109,12 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static RaftManager raftManager(long remoteRevision) throws Exception {
         RaftManager raft = mock(RaftManager.class);
 
-        RaftGroupService service = mock(TopologyAwareRaftGroupService.class);
+        PhysicalTopologyAwareRaftGroupService service = mock(PhysicalTopologyAwareRaftGroupService.class);
 
         when(service.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(remoteRevision, -1)));
 
-        when(raft.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+        when(raft.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> service);
 
         return raft;

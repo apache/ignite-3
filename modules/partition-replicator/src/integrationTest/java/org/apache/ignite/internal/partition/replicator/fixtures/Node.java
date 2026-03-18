@@ -65,6 +65,7 @@ import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -474,6 +475,12 @@ public class Node {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
+        var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                clusterService,
+                raftGroupEventsClientListener,
+                failureManager
+        );
+
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
                 cmgManager,
@@ -481,7 +488,7 @@ public class Node {
                 raftManager,
                 keyValueStorage,
                 hybridClock,
-                topologyAwareRaftGroupServiceFactory,
+                msRaftServiceFactory,
                 new NoOpMetricManager(),
                 systemConfiguration,
                 msRaftConfigurer,
