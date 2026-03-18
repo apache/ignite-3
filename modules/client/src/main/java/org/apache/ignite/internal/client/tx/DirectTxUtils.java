@@ -262,9 +262,7 @@ public class DirectTxUtils {
             @Nullable ClientTransaction tx,
             @Nullable PartitionMapping mapping
     ) {
-        CompletableFuture<ClientChannel> chFuture = ctx.firstReqFut != null
-                ? completedFuture(ctx.channel)
-                : ch.getChannelAsync(resolvePreferredNode(tx, mapping));
+        CompletableFuture<ClientChannel> chFuture = resolveChannelInner(ctx, ch, tx, mapping);
 
         return chFuture.thenCompose(opCh -> {
             if (tx != null && tx.hasCommitPartition()
@@ -278,14 +276,22 @@ public class DirectTxUtils {
         });
     }
 
-    private static @Nullable String resolvePreferredNode(@Nullable ClientTransaction tx, @Nullable PartitionMapping pm) {
-        String opNode = pm == null ? null : pm.nodeConsistentId();
-
-        if (tx != null) {
-            return !tx.isReadOnly() && tx.hasCommitPartition() && opNode != null ? opNode : tx.nodeName();
-        } else {
-            return opNode;
+    private static CompletableFuture<ClientChannel> resolveChannelInner(
+            WriteContext ctx,
+            ReliableChannel ch,
+            @Nullable ClientTransaction tx,
+            @Nullable PartitionMapping mapping) {
+        if (ctx.firstReqFut != null) {
+            return completedFuture(ctx.channel);
         }
+
+        String opNode = mapping == null ? null : mapping.nodeConsistentId();
+
+        if (tx != null && (tx.isReadOnly() || !tx.hasCommitPartition() || opNode == null)) {
+            return completedFuture(tx.channel());
+        }
+
+        return ch.getChannelAsync(opNode);
     }
 
     private static CompletableFuture<Void> enlistDirect(
