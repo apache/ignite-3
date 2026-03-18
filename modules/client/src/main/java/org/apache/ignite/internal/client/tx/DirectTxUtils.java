@@ -262,6 +262,10 @@ public class DirectTxUtils {
             @Nullable ClientTransaction tx,
             @Nullable PartitionMapping mapping
     ) {
+        if (tx != null) {
+            tx.validateOwnership(ch);
+        }
+
         CompletableFuture<ClientChannel> chFuture = resolveChannelInner(ctx, ch, tx, mapping);
 
         return chFuture.thenCompose(opCh -> {
