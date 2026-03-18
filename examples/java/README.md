@@ -145,11 +145,13 @@ before execution via the `deploymentUnitJar` Gradle task and deployed to the clu
 
 **From Command Line (java):**
 
-Build the project first (the deployment unit JAR is embedded as a classpath resource), then run:
+Build the project first (compiles classes and embeds the deployment unit JAR as a classpath resource), then run:
 ```shell
-./gradlew :ignite-examples:processResources
-java -cp "<classpath>" <ExampleMainClass>
+./gradlew :ignite-examples:build
+java -cp "examples/java/build/classes/java/main:examples/java/build/resources/main:<runtime-jars>" <ExampleMainClass>
 ```
+
+Where `<runtime-jars>` is a colon-separated (semicolon on Windows) list of all runtime dependency JARs. These are available in the Gradle cache after the build and can be obtained by inspecting the `runtimeClasspath` configuration.
 
 ### Manual Mode
 
