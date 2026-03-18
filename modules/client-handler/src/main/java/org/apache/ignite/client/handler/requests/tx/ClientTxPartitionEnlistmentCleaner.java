@@ -67,7 +67,7 @@ public class ClientTxPartitionEnlistmentCleaner {
 
         if (table != null) {
             ZonePartitionId replicationGroupId = table.internalTable().targetReplicationGroupId(partId);
-            enlistedPartitions.computeIfAbsent(replicationGroupId, k -> new PendingTxPartitionEnlistment(null, 0))
+            enlistedPartitions.computeIfAbsent(replicationGroupId, k -> new PendingTxPartitionEnlistment("UNUSED", 0))
                     .addTableId(tableId);
         }
     }
