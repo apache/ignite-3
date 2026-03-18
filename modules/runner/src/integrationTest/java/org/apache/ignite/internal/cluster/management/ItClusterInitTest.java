@@ -105,6 +105,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         for (int port : ports) {
             String config = "ignite {"
+                    + " network.listenAddresses: [127.0.0.1],"
                     + " network.port: " + port + ","
                     + " clientConnector.port: " + (port + 8000) + ","
                     + " network.nodeFinder.netClusterNodes: " + nodeFinderConfig + ","
