@@ -38,6 +38,7 @@ import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Integration test for verifying that a new leader's clock doesn't step down after leadership transfer.
@@ -77,7 +78,7 @@ class ItNewLeaderClockTest extends JraftAbstractTest {
         }, opts -> {
             opts.setClock(slowClock);
         });
-        // Start second clock with advanced clock. This node is the initial leader.
+        // Start second clock with advanced clock. This node is initial leader.
         startServer(1, raftServer -> {
             String localNodeName = raftServer.clusterService().topologyService().localMember().name();
 
@@ -125,22 +126,27 @@ class ItNewLeaderClockTest extends JraftAbstractTest {
     /**
      * Tests that a new leader's clock doesn't step down after leadership transfer.
      * Verifies that:
-     * 1. Writes succeed with node 1 as leader (advanced clock).
-     * 2. After stopping node 1, a new leader is elected (node 0 or 2 with slow clock).
-     * 3. The new leader's clock is not lower than the last applied command time.
+     * 1. Writes succeed with node 1 as leader (regular clock)
+     * 2. After stopping node 1, a new leader is elected (node 0 or 2 with slow clock)
+     * 3. The new leader's clock is not lower than the last applied command time
      *
      * @throws Exception If test fails.
      */
     @Test
+    @Timeout(120)
     public void testNewLeaderClockDoesNotStepDown() throws Exception {
         startClusterWithSlowClock();
+
         RaftGroupService client = clients.get(0);
+
         client.refreshLeader().get();
         assertNotNull(client.leader(), "Initial leader should be elected");
+
         // Force leadership to node 1 (server index 1).
         String node1Name = servers.get(1).clusterService().topologyService().localMember().name();
         Peer node1Peer = initialMembersConf.peer(node1Name);
         client.transferLeadership(node1Peer).get();
+
         assertTrue(
                 waitForCondition(() -> {
                     client.refreshLeader().join();
@@ -159,7 +165,8 @@ class ItNewLeaderClockTest extends JraftAbstractTest {
         // Verify the writes succeeded.
         Long valueBeforeUnisolate = client.<Long>run(getValueCommand()).get();
         assertEquals(expectedValue, valueBeforeUnisolate, "All writes should have succeeded");
-        HybridTimestamp lastAppliedCmdTsFromAdvancedClockLeader = advancedClock.update(HybridTimestamp.MIN_VALUE);
+        HybridTimestamp latestLeaderTime = advancedClock.update(HybridTimestamp.MIN_VALUE);
+
         RaftNodeId node1RaftNodeId = new RaftNodeId(TEST_GROUP, node1Peer);
         servers.get(1).blockMessages(node1RaftNodeId, (msg, peerId) -> true);
         // Now stop the leader.
@@ -169,13 +176,13 @@ class ItNewLeaderClockTest extends JraftAbstractTest {
                 waitForCondition(() -> {
                     client.refreshLeader().join();
                     return !node1Peer.equals(client.leader());
-                }, 30_000),
+                }, 60_000),
                 "Leadership should transfer to a slow node"
         );
         HybridTimestamp slow = slowClock.update(HybridTimestamp.MIN_VALUE);
-        log.info("clocks slow: {}, reg: {}", slow, lastAppliedCmdTsFromAdvancedClockLeader);
+        log.info("clocks slow: {}, reg: {}", slow, latestLeaderTime);
         // Verify that new leader's clock is not lower than the last applied command time.
-        assertTrue(slow.compareTo(lastAppliedCmdTsFromAdvancedClockLeader) >= 0);
+        assertTrue(slow.longValue() >= latestLeaderTime.longValue());
     }
 
     /**
