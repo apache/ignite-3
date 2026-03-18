@@ -408,12 +408,34 @@ public class IgniteSqlFunctions {
     }
 
     /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static @Nullable Long toTimestampExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
     public static long toTimestampExact(long ts, int precision) {
         assert precision >= 0 : "Invalid precision: " + precision;
 
         long verified = toTimestampExact(ts);
 
         return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static @Nullable Long toTimestampExact(@Nullable Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object);
     }
 
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
@@ -426,12 +448,34 @@ public class IgniteSqlFunctions {
     }
 
     /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
     public static long toTimestampLtzExact(long ts, int precision) {
         assert precision >= 0 : "Invalid precision: " + precision;
 
         long verified = toTimestampLtzExact(ts);
 
         return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object);
     }
 
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
