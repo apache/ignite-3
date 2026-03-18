@@ -11,10 +11,12 @@ echo $SOURCE
 EXCLUDE="%ISSUES_EXCLUDE_LIST%"
 EXCLUDE_LIST=( $EXCLUDE )
 
-MATCHES=$(grep -iIER --exclude-dir={.git,.idea} '.' -e ".*${SOURCE}.*" | \
-    grep -v '@see' | \
-    grep -v '<MUTED>' | \
-    grep -v -f <(printf "%s\n" "${EXCLUDE_LIST[@]:-__no_excludes__}"))
+MATCHES=$(grep -iIER --exclude-dir={.git,.idea} '.' -e ".*${SOURCE}.*" || true)
+if [ -n "$MATCHES" ]; then
+    MATCHES=$(echo "$MATCHES" | grep -v '@see'    || true)
+    MATCHES=$(echo "$MATCHES" | grep -v '<MUTED>' || true)
+    MATCHES=$(echo "$MATCHES" | grep -v -f <(printf "%s\n" "${EXCLUDE_LIST[@]:-__no_excludes__}") || true)
+fi
 
 if [ -n "$MATCHES" ]; then
     echo
