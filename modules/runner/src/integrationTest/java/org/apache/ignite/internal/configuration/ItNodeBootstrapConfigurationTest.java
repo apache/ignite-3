@@ -119,7 +119,6 @@ public class ItNodeBootstrapConfigurationTest {
                 + "    }\n"
                 + "  }\n"
                 + "  network: {\n"
-                + "    listenAddresses: [127.0.0.1]\n"
                 + "    port: 3344\n"
                 + "    nodeFinder {\n"
                 + "      netClusterNodes: [ \"localhost:3344\" ]\n"

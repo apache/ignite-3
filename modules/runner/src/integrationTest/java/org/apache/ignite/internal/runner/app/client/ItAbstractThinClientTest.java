@@ -107,7 +107,6 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
             nodesBootstrapCfg.put(
                     nodeName,
                     "ignite {\n"
-                            + "  network.listenAddresses: [127.0.0.1],\n"
                             + "  network.port: " + (3344 + i) + ",\n"
                             + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
                             + (enableTracesPredicate(i) ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"

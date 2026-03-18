@@ -56,7 +56,6 @@ public class IgniteServerStartTest extends BaseIgniteAbstractTest {
 
     private static final String IGNITE_SERVER_CONFIGURATION = "ignite {\n"
             + "  network: {\n"
-            + "    listenAddresses: [127.0.0.1],\n"
             + "    port: " + IGNITE_SERVER_PORT + ",\n"
             + "    nodeFinder.netClusterNodes: [ \"localhost:" + IGNITE_SERVER_PORT + "\" ]\n"
             + "  },\n"
