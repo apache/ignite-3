@@ -145,15 +145,11 @@ before execution via the `deploymentUnitJar` Gradle task and deployed to the clu
 
 **From Command Line (java):**
 
-Build the deployment unit JAR first, then run:
+Build the project first (the deployment unit JAR is embedded as a classpath resource), then run:
 ```shell
-./gradlew :ignite-examples:deploymentUnitJar
-java -cp "<classpath>" <ExampleMainClass> runFromIDE=false jarPath="/path/to/deploymentunit-example-1.0.0.jar"
+./gradlew :ignite-examples:processResources
+java -cp "<classpath>" <ExampleMainClass>
 ```
-
-Where:
-- `runFromIDE=false` - indicates command-line execution
-- `jarPath` - path to the deployment unit JAR (default: `examples/java/build/libs/deploymentunit-example-1.0.0.jar`)
 
 ### Manual Mode
 

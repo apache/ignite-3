@@ -145,7 +145,7 @@ public class DeployComputeUnit {
             if (jarStream == null) {
                 throw new IllegalStateException(
                         "Deployment unit JAR not found in classpath at: " + DEPLOYMENT_UNIT_JAR_RESOURCE + "\n"
-                                + "Please build the project first: ./gradlew :ignite-examples:build"
+                                + "Please run: ./gradlew :ignite-examples:processResources"
                 );
             }
             jarBytes = jarStream.readAllBytes();
