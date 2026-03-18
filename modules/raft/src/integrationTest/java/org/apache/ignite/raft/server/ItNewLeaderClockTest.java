@@ -165,7 +165,7 @@ class ItNewLeaderClockTest extends JraftAbstractTest {
         // Verify the writes succeeded.
         Long valueBeforeUnisolate = client.<Long>run(getValueCommand()).get();
         assertEquals(expectedValue, valueBeforeUnisolate, "All writes should have succeeded");
-        HybridTimestamp latestLeaderTime = advancedClock.update(HybridTimestamp.MIN_VALUE);
+        HybridTimestamp latestLeaderTime = advancedClock.update(HybridTimestamp.MIN_VALUE);;
 
         RaftNodeId node1RaftNodeId = new RaftNodeId(TEST_GROUP, node1Peer);
         servers.get(1).blockMessages(node1RaftNodeId, (msg, peerId) -> true);
