@@ -107,6 +107,11 @@ object PlatformCppTestsWindows : BuildType({
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
         }
+        customPowerShell {
+            name = "Analyze crash dumps"
+            workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+        }
     }
 
     failureConditions {

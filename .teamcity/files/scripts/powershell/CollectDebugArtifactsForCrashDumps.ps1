@@ -1,4 +1,5 @@
 $dumpsDir = "%PATH__CRASH_DUMPS%"
+$binDir = "%PATH__CMAKE_BUILD_DIRECTORY%\Debug\bin"
 
 if (-not (Test-Path $dumpsDir)) {
     Write-Host "Dumps directory '$dumpsDir' does not exist, skipping."
@@ -13,7 +14,6 @@ if ($dumps.Count -eq 0) {
 
 Write-Host "Found $($dumps.Count) dump file(s), collecting binaries from CMake build directory."
 
-$binDir = "%PATH__CMAKE_BUILD_DIRECTORY%\Debug\bin"
 if (-not (Test-Path $binDir)) {
     Write-Error "Bin directory '$binDir' does not exist."
     exit 1
