@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -29,6 +33,21 @@ import org.junit.jupiter.api.TestInfo;
  */
 @SuppressWarnings("CallToSystemGetenv")
 public class PlatformCompatibilityTestNodeRunner {
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  },\n"
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "}";
 
     /**
      * Entry point.
@@ -47,7 +66,7 @@ public class PlatformCompatibilityTestNodeRunner {
         System.out.println(">>> Ports: node=" + port + ", http=" + httpPort + ", client=" + clientPort);
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
-                .defaultNodeBootstrapConfigTemplate(CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
                 .basePort(port)
                 .baseHttpPort(httpPort)
                 .baseClientPort(clientPort)

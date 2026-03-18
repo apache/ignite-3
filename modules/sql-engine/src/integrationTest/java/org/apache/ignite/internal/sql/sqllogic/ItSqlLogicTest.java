@@ -176,7 +176,6 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
-            + "    \"listenAddresses\": [\"127.0.0.1\"],\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
             + "      \"netClusterNodes\": [ {} ]\n"
