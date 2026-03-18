@@ -132,10 +132,12 @@ before execution via the `deploymentUnitJar` Gradle task and deployed to the clu
 
 > **Note:** The automatic pre-build of the deployment unit JAR relies on the IDEA Gradle runner, which dynamically creates
 > `JavaExec` tasks. If your IDE uses a different run configuration (e.g., Micronaut plugin, or runs `java` directly),
-> the deployment unit JAR may not be built automatically. In that case, build it manually first:
+> the deployment unit JAR resource may not be built automatically. In that case, generate it manually first:
 > ```shell
-> ./gradlew :ignite-examples:deploymentUnitJar
+> ./gradlew :ignite-examples:processResources
 > ```
+> and ensure your run configuration includes the Gradle output resources directory (for example,
+> `examples/java/build/resources/main`) on the classpath.
 
 **From Command Line (Gradle):**
 
