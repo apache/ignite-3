@@ -32,24 +32,23 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
 import org.apache.ignite.internal.client.PartitionMapping;
-import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /**
  * Tests for {@link DirectTxUtils}.
  */
+@SuppressWarnings("resource")
 public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void resolveChannelReturnsTxChannelForReadOnlyTx() {
         ReliableChannel ch = mock(ReliableChannel.class);
         ClientChannel txChannel = mockClientChannel("node1");
-
-        ClientTransaction tx = createTx(txChannel, ch, false, null);
 
         WriteContext ctx = new WriteContext(emptyTracker(), ClientOp.TUPLE_GET);
 
@@ -134,6 +133,7 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
         assertThrows(IllegalArgumentException.class, () -> DirectTxUtils.resolveChannel(ctx, ch2, true, tx, null));
     }
 
+    @SuppressWarnings("DataFlowIssue")
     private static ClientChannel mockClientChannel(String nodeName) {
         ClientChannel channel = mock(ClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
         when(channel.protocolContext().clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), nodeName, null));
@@ -144,7 +144,7 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
             ClientChannel channel,
             ReliableChannel reliableChannel,
             boolean readOnly,
-            PartitionMapping commitPartitionMapping
+            @Nullable PartitionMapping commitPartitionMapping
     ) {
         return new ClientTransaction(
                 channel, reliableChannel, 1, readOnly, randomUUID(),
