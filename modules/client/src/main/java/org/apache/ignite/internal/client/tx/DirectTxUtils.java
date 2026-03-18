@@ -291,8 +291,13 @@ public class DirectTxUtils {
 
         String opNode = mapping == null ? null : mapping.nodeConsistentId();
 
-        if (tx != null && (tx.isReadOnly() || !tx.hasCommitPartition() || opNode == null)) {
-            return completedFuture(tx.channel());
+        if (tx != null) {
+            if (tx.isReadOnly()
+                    || !tx.hasCommitPartition()
+                    || opNode == null
+                    || tx.channel().protocolContext().clusterNode().name().equals(opNode)) {
+                return completedFuture(tx.channel());
+            }
         }
 
         return ch.getChannelAsync(opNode);
