@@ -530,13 +530,13 @@ class TableZoneCoordinator {
         CompletableFuture<Long> readLockAcquisitionFuture = zoneLock.readLock();
 
         try {
-            return readLockAcquisitionFuture.thenCompose(stamp -> {
+            return readLockAcquisitionFuture.thenCompose(stamp -> inBusyLockAsync(busyLock, () -> {
                 CompletableFuture<?>[] futures = zoneTablesRawSet(zonePartitionId.zoneId()).stream()
                         .map(this::stopTablePartitions)
                         .toArray(CompletableFuture[]::new);
 
                 return allOf(futures);
-            }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
+            })).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
         } catch (Throwable t) {
             readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
@@ -560,7 +560,7 @@ class TableZoneCoordinator {
                             .map(table -> supplyAsync(
                                     () -> inBusyLockAsync(
                                             busyLock,
-                                            () -> stopAndDestroyTablePartitionByToken(
+                                            () -> stopAndDestroyTablePartition(
                                                     new TablePartitionId(table.tableId(), zonePartitionId.partitionId()),
                                                     parameters.causalityToken()
                                             )
@@ -662,7 +662,7 @@ class TableZoneCoordinator {
         }, ioExecutor).thenCompose(identity());
     }
 
-    private CompletableFuture<Void> stopAndDestroyTablePartitionByToken(TablePartitionId tablePartitionId, long causalityToken) {
+    private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
         CompletableFuture<?> tokenFuture;
 
         try {
