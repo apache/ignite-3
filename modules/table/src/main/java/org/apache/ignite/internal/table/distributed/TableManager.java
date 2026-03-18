@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -191,18 +190,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
-    /** Registered tables. */
-    private final Map<Integer, TableViewInternal> tables = new ConcurrentHashMap<>();
-
-    /** Started tables. */
-    private final Map<Integer, TableViewInternal> startedTables = new ConcurrentHashMap<>();
+    private final TableRegistry tableRegistry = new TableRegistry();
 
     /** A queue for deferred table destruction events. */
     private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue =
             new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
-
-    /** Local partitions. */
-    private final Map<Integer, PartitionSet> localPartsByTableId = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -428,9 +420,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 lowWatermark,
                 ioExecutor,
                 busyLock,
-                tables,
-                startedTables,
-                localPartsByTableId,
+                tableRegistry,
                 tablesVv,
                 localPartitionsVv,
                 assignmentsUpdatedVv,
@@ -493,11 +483,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 schemaRegistry
                         );
 
-                        tables.put(tableId, table);
+                        tableRegistry.tables().put(tableId, table);
 
                         zoneCoordinator.addTableToZone(zoneDescriptor.id(), table);
 
-                        startedTables.put(tableId, table);
+                        tableRegistry.startedTables().put(tableId, table);
                     }));
         });
     }
@@ -528,7 +518,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(schemaRegistry -> {
                 TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor, schemaRegistry);
 
-                tables.put(tableId, table);
+                tableRegistry.tables().put(tableId, table);
             });
         }));
 
@@ -553,7 +543,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            unregisterMetricsSource(startedTables.get(parameters.tableId()));
+            unregisterMetricsSource(tableRegistry.startedTables().get(parameters.tableId()));
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
@@ -598,7 +588,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return failedFuture(e);
                     }
 
-                    TableViewInternal table = tables.get(parameters.tableId());
+                    TableViewInternal table = tableRegistry.tables().get(parameters.tableId());
 
                     table.updateStalenessConfiguration(parameters.staleRowsFraction(), parameters.minStaleRowsCount());
 
@@ -615,7 +605,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return failedFuture(e);
                     }
 
-                    TableViewInternal table = tables.get(parameters.tableId());
+                    TableViewInternal table = tableRegistry.tables().get(parameters.tableId());
 
                     // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
                     ((TableImpl) table).name(parameters.newTableName());
@@ -661,7 +651,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             closeAllManually(
                     zoneCoordinator::stop,
-                    () -> closeAllManually(tables.values().stream().map(table -> () -> closeTable(table))),
+                    () -> closeAllManually(tableRegistry.tables().values().stream().map(table -> () -> closeTable(table))),
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> {
                         ScheduledExecutorService streamerFlushExecutor;
@@ -773,9 +763,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableId Table id to destroy.
      */
     private CompletableFuture<Void> destroyTableLocally(int tableId) {
-        TableViewInternal table = startedTables.remove(tableId);
+        TableViewInternal table = tableRegistry.startedTables().remove(tableId);
 
-        localPartsByTableId.remove(tableId);
+        tableRegistry.localPartsByTableId().remove(tableId);
 
         assert table != null : tableId;
 
@@ -784,7 +774,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return zoneCoordinator.stopAndDestroyTableProcessors(table)
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> internalTable.storage().destroy()), ioExecutor)
                 .thenAccept(unused -> inBusyLock(busyLock, () -> {
-                    tables.remove(tableId);
+                    tableRegistry.tables().remove(tableId);
                     schemaManager.dropRegistry(tableId);
                 }))
                 .whenComplete((v, e) -> {
@@ -836,14 +826,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableViewInternal>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenApply(v -> unmodifiableMap(startedTables));
+        return assignmentsUpdatedVv.get(causalityToken).thenApply(v -> unmodifiableMap(tableRegistry.startedTables()));
     }
 
     /**
      * Returns an internal map, which contains all managed tables by their ID.
      */
     private Map<Integer, TableViewInternal> tablesById() {
-        return unmodifiableMap(tables);
+        return unmodifiableMap(tableRegistry.tables());
     }
 
     /**
@@ -851,7 +841,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     @TestOnly
     public Map<Integer, TableViewInternal> startedTables() {
-        return unmodifiableMap(startedTables);
+        return unmodifiableMap(tableRegistry.startedTables());
     }
 
     @Override
@@ -913,7 +903,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         try {
             return localPartitionsVv.get(causalityToken)
-                    .thenApply(unused -> localPartsByTableId.getOrDefault(tableId, PartitionSet.EMPTY_SET));
+                    .thenApply(unused -> tableRegistry.localPartsByTableId().getOrDefault(tableId, PartitionSet.EMPTY_SET));
         } finally {
             busyLock.leaveBusy();
         }
@@ -955,7 +945,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<TableViewInternal> tableAsyncInternalBusy(int tableId) {
-        TableViewInternal tableImpl = startedTables.get(tableId);
+        TableViewInternal tableImpl = tableRegistry.startedTables().get(tableId);
 
         if (tableImpl != null) {
             return completedFuture(tableImpl);
@@ -967,11 +957,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             if (th == null) {
                 CompletableFuture<?> tablesFuture = tablesVv.get(token);
 
-                tablesFuture.whenComplete((tables, e) -> {
+                tablesFuture.whenComplete((tbls, e) -> {
                     if (e != null) {
                         getLatestTableFuture.completeExceptionally(e);
                     } else {
-                        getLatestTableFuture.complete(startedTables.get(tableId));
+                        getLatestTableFuture.complete(tableRegistry.startedTables().get(tableId));
                     }
                 });
             } else {
@@ -985,7 +975,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // This check is needed for the case when we have registered tablesListener,
         // but tablesVv has already been completed, so listener would be triggered only for the next versioned value update.
-        tableImpl = startedTables.get(tableId);
+        tableImpl = tableRegistry.startedTables().get(tableId);
 
         if (tableImpl != null) {
             assignmentsUpdatedVv.removeWhenComplete(tablesListener);
@@ -1008,7 +998,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     @Override
     public @Nullable TableViewInternal cachedTable(int tableId) {
-        return tables.get(tableId);
+        return tableRegistry.tables().get(tableId);
     }
 
     /**
@@ -1018,7 +1008,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     @TestOnly
     public @Nullable TableViewInternal cachedTable(String name) {
-        return findTableImplByName(tables.values(), name);
+        return findTableImplByName(tableRegistry.tables().values(), name);
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {

@@ -113,10 +113,7 @@ class TableZoneCoordinator {
     private final ExecutorService ioExecutor;
     private final IgniteSpinBusyLock busyLock;
 
-    // Shared mutable state from TableManager.
-    private final Map<Integer, TableViewInternal> tables;
-    private final Map<Integer, TableViewInternal> startedTables;
-    private final Map<Integer, PartitionSet> localPartsByTableId;
+    private final TableRegistry tableRegistry;
     private final IncrementalVersionedValue<Void> tablesVv;
     private final IncrementalVersionedValue<Void> localPartitionsVv;
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
@@ -142,9 +139,7 @@ class TableZoneCoordinator {
      * @param lowWatermark Low watermark.
      * @param ioExecutor Executor for IO operations.
      * @param busyLock Busy lock shared with TableManager.
-     * @param tables Registered tables map shared with TableManager.
-     * @param startedTables Started tables map shared with TableManager.
-     * @param localPartsByTableId Local partitions map shared with TableManager.
+     * @param tableRegistry Shared table registry.
      * @param tablesVv Versioned value for linearizing table changing events.
      * @param localPartitionsVv Versioned value for linearizing table partitions changing events.
      * @param assignmentsUpdatedVv Versioned value for tracking assignments updates.
@@ -161,9 +156,7 @@ class TableZoneCoordinator {
             LowWatermark lowWatermark,
             ExecutorService ioExecutor,
             IgniteSpinBusyLock busyLock,
-            Map<Integer, TableViewInternal> tables,
-            Map<Integer, TableViewInternal> startedTables,
-            Map<Integer, PartitionSet> localPartsByTableId,
+            TableRegistry tableRegistry,
             IncrementalVersionedValue<Void> tablesVv,
             IncrementalVersionedValue<Void> localPartitionsVv,
             IncrementalVersionedValue<Void> assignmentsUpdatedVv,
@@ -179,9 +172,7 @@ class TableZoneCoordinator {
         this.lowWatermark = lowWatermark;
         this.ioExecutor = ioExecutor;
         this.busyLock = busyLock;
-        this.tables = tables;
-        this.startedTables = startedTables;
-        this.localPartsByTableId = localPartsByTableId;
+        this.tableRegistry = tableRegistry;
         this.tablesVv = tablesVv;
         this.localPartitionsVv = localPartitionsVv;
         this.assignmentsUpdatedVv = assignmentsUpdatedVv;
@@ -325,9 +316,10 @@ class TableZoneCoordinator {
                         }
                     }
 
-                    var table = (TableImpl) tables.get(tableId);
+                    var table = (TableImpl) tableRegistry.tables().get(tableId);
 
-                    return createPartitionStoragesIfAbsent(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
+                    return createPartitionStoragesIfAbsent(table, parts)
+                            .thenRun(() -> tableRegistry.localPartsByTableId().put(tableId, parts));
                 }, ioExecutor))
                 // If the table is already closed, it's not a problem (probably the node is stopping).
                 .exceptionally(ignoreTableClosedException())
@@ -339,7 +331,7 @@ class TableZoneCoordinator {
             }
 
             return localPartsUpdateFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                var table = (TableImpl) tables.get(tableId);
+                var table = (TableImpl) tableRegistry.tables().get(tableId);
 
                 for (int i = 0; i < zoneDescriptor.partitions(); i++) {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
@@ -358,9 +350,9 @@ class TableZoneCoordinator {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> {
-            var table = (TableImpl) tables.get(tableId);
+            var table = (TableImpl) tableRegistry.tables().get(tableId);
 
-            startedTables.put(tableId, table);
+            tableRegistry.startedTables().put(tableId, table);
 
             addTableToZone(zoneDescriptor.id(), table);
         });
@@ -466,7 +458,7 @@ class TableZoneCoordinator {
                     CompletableFuture<?>[] futures = zoneTables.stream()
                             .map(tbl -> inBusyLockAsync(busyLock, () -> {
                                 return runAsync(() -> inBusyLock(busyLock, () -> {
-                                    localPartsByTableId.compute(
+                                    tableRegistry.localPartsByTableId().compute(
                                             tbl.tableId(),
                                             (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
                                     );
@@ -675,7 +667,7 @@ class TableZoneCoordinator {
 
         return tokenFuture
                 .thenCompose(ignore -> {
-                    TableViewInternal table = tables.get(tablePartitionId.tableId());
+                    TableViewInternal table = tableRegistry.tables().get(tablePartitionId.tableId());
                     assert table != null : tablePartitionId;
 
                     return stopAndDestroyTablePartition(tablePartitionId, table);
