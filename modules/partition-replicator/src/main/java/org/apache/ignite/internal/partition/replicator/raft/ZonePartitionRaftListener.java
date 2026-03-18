@@ -266,7 +266,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     // Adjust safe time before completing update to reduce waiting.
                     if (safeTimestamp != null) {
                         try {
-                            clockService.updateClock(safeTimestamp);
+                            clockService.getClock().update(safeTimestamp);
                             safeTimeTracker.update(safeTimestamp, commandIndex, commandTerm, command);
                         } catch (TrackerClosedException ignored) {
                             // Ignored.

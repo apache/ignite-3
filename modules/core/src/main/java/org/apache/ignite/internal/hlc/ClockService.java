@@ -79,6 +79,13 @@ public interface ClockService {
     long maxClockSkewMillis();
 
     /**
+     * Returns the underlying hybrid clock instance.
+     *
+     * @return The hybrid clock.
+     */
+    HybridClock getClock();
+
+    /**
      * Defines whether the first timestamp is strictly before the another one, taking the clock skew into account.
      *
      * @param firstTimestamp First timestamp.

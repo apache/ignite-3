@@ -380,6 +380,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             ClockService clockService = mock(ClockService.class);
             when(clockService.current()).thenReturn(clock.current());
+            when(clockService.getClock()).thenReturn(clock);
 
             OutgoingSnapshotsManager outgoingSnapshotsManager = new OutgoingSnapshotsManager(
                     clusterService.nodeName(),

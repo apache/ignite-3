@@ -83,4 +83,9 @@ public class TestClockService implements ClockService {
     public long maxClockSkewMillis() {
         return TEST_MAX_CLOCK_SKEW_MILLIS;
     }
+
+    @Override
+    public HybridClock getClock() {
+        return clock;
+    }
 }

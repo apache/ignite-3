@@ -103,4 +103,9 @@ public class ClockServiceImpl implements ClockService {
 
         return maxClockSkewMillis;
     }
+
+    @Override
+    public HybridClock getClock() {
+        return clock;
+    }
 }
