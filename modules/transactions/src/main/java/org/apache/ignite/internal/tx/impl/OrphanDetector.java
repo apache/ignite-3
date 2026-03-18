@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
@@ -194,11 +195,27 @@ public class OrphanDetector {
     /**
      * Sends transaction recovery message to commit partition for particular transaction.
      *
+     * @param txId Transaction id.
+     * @return Future.
+     */
+    CompletableFuture<Object> sendTxRecoveryMessage(UUID txId) {
+        TxStateMeta txState = txLocalStateStorage.state(txId);
+
+        if (txState == null || isFinalState(txState.txState())) {
+            return completedFuture(null);
+        }
+
+        return sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+    }
+
+    /**
+     * Sends transaction recovery message to commit partition for particular transaction.
+     *
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      * @return Future.
      */
-    CompletableFuture<Object> sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
+    private CompletableFuture<Object> sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
                     InternalClusterNode commitPartPrimaryNode =

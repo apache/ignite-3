@@ -1199,17 +1199,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx) {
+        CompletableFuture<Object> f = nullCompletedFuture();
+
         if (abortTx) {
-            for (EnlistedPartitionGroup group : groups) {
-                orphanDetector.sendTxRecoveryMessage(group.groupId(), txId);
-            }
+            f = orphanDetector.sendTxRecoveryMessage(txId);
         }
 
-        return txCleanupRequestHandler.discardLocalWriteIntents(groups, txId).handle((r, e) -> {
-            // We don't need tx state any more.
-            updateTxMeta(txId, old -> null);
-            return null;
-        });
+        return f.thenCompose(unused -> txCleanupRequestHandler.discardLocalWriteIntents(groups, txId))
+                .handle((r, e) -> {
+                    // We don't need tx state any more.
+                    updateTxMeta(txId, old -> null);
+                    return null;
+                });
     }
 
     @Override
