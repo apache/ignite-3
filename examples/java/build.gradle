@@ -25,7 +25,7 @@ description = 'ignite-examples'
 // Create deployment unit JAR from compiled classes (no file movement needed)
 // This JAR includes all Job classes and resources needed for deployment
 tasks.register('deploymentUnitJar', Jar) {
-    dependsOn classes, processResources
+    dependsOn compileJava
     group = 'build'
     archiveBaseName = 'deploymentunit-example'
     archiveVersion = '1.0.0'
@@ -57,14 +57,12 @@ tasks.register('deploymentUnitJar', Jar) {
     }
 }
 
-// Make build task depend on deploymentUnitJar
-build.dependsOn deploymentUnitJar
-
-// Ensure deploymentUnitJar is built before any example class is run directly.
-// This is primarily for the IDEA Gradle runner, which dynamically creates JavaExec tasks
-// (e.g., org.apache.ignite.example.compute.ComputeExample.main()) when running examples.
-tasks.withType(JavaExec).configureEach {
-    dependsOn deploymentUnitJar
+// Embed the deployment unit JAR as a classpath resource so examples can load it
+// via getResourceAsStream regardless of the runner (Gradle, IntelliJ, etc.).
+processResources {
+    into('units') {
+        from deploymentUnitJar
+    }
 }
 
 dependencies {

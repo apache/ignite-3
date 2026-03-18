@@ -33,7 +33,6 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
@@ -63,13 +62,11 @@ public class DistributedComputeWithReceiverExample {
      */
     public static void main(String[] arg) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(arg);
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             /* Source data is a list of financial transactions */
             /* We distribute this processing across the cluster, then gather and return results */

@@ -24,103 +24,33 @@ import static org.awaitility.Awaitility.await;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Utility class for deploying Ignite compute units.
- * <p>
- * Note: The deployment unit JAR is now built at compile time via the deploymentUnitJar Gradle task,
- * not at runtime. This eliminates the need for runtime JAR building.
- * </p>
+ *
+ * <p>The deployment unit JAR is embedded as a classpath resource at {@code units/deploymentunit-example-1.0.0.jar}
+ * by the Gradle {@code processResources} task (which depends on {@code deploymentUnitJar}).
+ * This means the JAR is always available on the classpath without requiring any file-system paths
+ * or runner-specific workarounds.</p>
  */
 public class DeployComputeUnit {
 
-    // Root path of the project.
-    private static final Path PROJECT_ROOT = Paths.get("").toAbsolutePath();
+    private static final String DEPLOYMENT_UNIT_JAR_RESOURCE = "units/deploymentunit-example-1.0.0.jar";
 
-    // Pre-built JAR from deploymentUnitJar task (built at compile time).
-    private static final Path DEFAULT_JAR_PATH =
-            PROJECT_ROOT.resolve("examples/java/build/libs/deploymentunit-example-1.0.0.jar");
-
-    private static String jarPathAsString = "";
-    private static Path jarPath = DEFAULT_JAR_PATH;
-    private static boolean runFromIDE = true;
-
-    /**
-     * Returns the JAR path as a string.
-     *
-     * @return JAR path as string.
-     */
-    public static String getJarPathAsString() {
-        return jarPathAsString;
-    }
-
-    /**
-     * Returns the path to the deployment unit JAR.
-     *
-     * @return Path to the JAR file.
-     */
-    public static Path getJarPath() {
-        return jarPath;
-    }
-
-    /**
-     * Returns whether the example is running from an IDE.
-     *
-     * @return True if running from IDE.
-     */
-    public static boolean isRunFromIDE() {
-        return runFromIDE;
-    }
-
-    /**
-     * Class containing deployment arguments parsed from command line.
-     */
-    public static final class DeploymentArgs {
-        private final boolean runFromIDE;
-        private final String jarPath;
-
-        /**
-         * Creates deployment arguments.
-         *
-         * @param runFromIDE Whether the example runs from an IDE.
-         * @param jarPath Path to external JAR when run outside IDE (may be null).
-         */
-        public DeploymentArgs(boolean runFromIDE, String jarPath) {
-            this.runFromIDE = runFromIDE;
-            this.jarPath = jarPath;
-        }
-
-        /**
-         * Returns whether the example runs from an IDE.
-         *
-         * @return True if running from IDE.
-         */
-        public boolean runFromIDE() {
-            return runFromIDE;
-        }
-
-        /**
-         * Returns the path to external JAR when run outside IDE.
-         *
-         * @return JAR path or null.
-         */
-        public String jarPath() {
-            return jarPath;
-        }
-    }
+    private static final String DEPLOYMENT_UNIT_JAR_FILENAME = "deploymentunit-example-1.0.0.jar";
 
     private static final String BASE_URL = "http://localhost:10300";
-    private static final HttpClient HTTP = HttpClient.newHttpClient();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final int DEPLOYMENT_TIMEOUT_SECONDS = 30;
 
+    private static final HttpClient HTTP = HttpClient.newHttpClient();
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private static final int DEPLOYMENT_TIMEOUT_SECONDS = 30;
 
     /**
      * Checks if a deployment unit already exists on the cluster with DEPLOYED status.
@@ -200,20 +130,33 @@ public class DeployComputeUnit {
     /**
      * Deploys a unit to the Ignite cluster and waits for it to reach DEPLOYED status.
      *
+     * <p>The deployment unit JAR is loaded from the classpath resource
+     * {@code units/deploymentunit-example-1.0.0.jar}, which is embedded during the Gradle build.</p>
+     *
      * @param unitId Deployment unit ID.
      * @param version Deployment version.
-     * @param jar Path to the JAR file to upload.
      * @throws Exception If deployment fails.
      */
-    private static void deployUnit(String unitId, String version, Path jar) throws Exception {
+    private static void deployUnit(String unitId, String version) throws Exception {
+        byte[] jarBytes;
+
+        try (InputStream jarStream = DeployComputeUnit.class.getClassLoader()
+                .getResourceAsStream(DEPLOYMENT_UNIT_JAR_RESOURCE)) {
+            if (jarStream == null) {
+                throw new IllegalStateException(
+                        "Deployment unit JAR not found in classpath at: " + DEPLOYMENT_UNIT_JAR_RESOURCE + "\n"
+                                + "Please build the project first: ./gradlew :ignite-examples:build"
+                );
+            }
+            jarBytes = jarStream.readAllBytes();
+        }
+
         String boundary = "igniteBoundary";
 
-        byte[] jarBytes = Files.readAllBytes(jar);
-
         String start =
-                "--" + boundary + "\r\n" +
-                        "Content-Disposition: form-data; name=\"unitContent\"; filename=\"" + jar.getFileName() + "\"\r\n" +
-                        "Content-Type: application/java-archive\r\n\r\n";
+                "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"unitContent\"; filename=\"" + DEPLOYMENT_UNIT_JAR_FILENAME + "\"\r\n"
+                        + "Content-Type: application/java-archive\r\n\r\n";
 
         String end = "\r\n--" + boundary + "--\r\n";
 
@@ -274,94 +217,23 @@ public class DeployComputeUnit {
     }
 
     /**
-     * Processes command-line arguments for:
-     * <ul>
-     *   <li><b>runFromIDE</b> – whether the example runs from source</li>
-     *   <li><b>jarPath</b> – path to external JAR when run outside IDE</li>
-     * </ul>
-     *
-     * @param args Command-line arguments (may be null).
-     * @return DeploymentArgs record with runFromIDE and jarPath fields.
-     */
-    public static DeploymentArgs processArguments(String[] args) {
-        boolean runFromIDE = true;
-        String jarPath = null;
-
-        if (args == null) {
-            return new DeploymentArgs(runFromIDE, jarPath);
-        }
-
-        for (String arg : args) {
-
-            if (arg.contains("runFromIDE")) {
-                String[] splitArgArr = arg.split("=");
-                if (splitArgArr.length == 2) {
-                    runFromIDE = Boolean.parseBoolean(splitArgArr[1]);
-                } else {
-                    throw new RuntimeException(" 'runFromIDE' argument not specified in the required format ");
-                }
-            }
-
-            if (arg.contains("jarPath")) {
-                String[] splitArgArr = arg.split("=");
-                if (splitArgArr.length == 2) {
-                    jarPath = splitArgArr[1];
-                } else {
-                    throw new RuntimeException(" 'jarPath' argument not specified in the required format ");
-                }
-            }
-        }
-
-        return new DeploymentArgs(runFromIDE, jarPath);
-    }
-
-    /**
      * Checks if a deployment unit exists with DEPLOYED status. If it does not exist or is not deployed,
-     * deploys the unit and waits for it to reach DEPLOYED status.
+     * deploys the unit from the embedded classpath JAR and waits for it to reach DEPLOYED status.
      *
      * <p>The method uses polling to check the deployment status periodically until it reaches DEPLOYED state.
      * If the unit is already deployed, it skips the deployment process.</p>
      *
      * @param deploymentUnitName The name of the deployment unit to check and deploy.
      * @param deploymentUnitVersion The version of the deployment unit to check and deploy.
-     * @param jarPath The file path to the JAR file that will be used for deployment, if necessary.
      * @throws Exception If an error occurs during the deployment process, such as a failure to deploy the unit.
      */
-    public static void deployIfNotExist(String deploymentUnitName, String deploymentUnitVersion, Path jarPath) throws Exception {
+    public static void deployIfNotExist(String deploymentUnitName, String deploymentUnitVersion) throws Exception {
         if (isDeployed(deploymentUnitName, deploymentUnitVersion)) {
             System.out.println("Deployment unit already deployed. Skip deploy.");
         } else {
             System.out.println("Deployment unit not found or not in DEPLOYED state. Deploying...");
-            deployUnit(deploymentUnitName, deploymentUnitVersion, jarPath);
+            deployUnit(deploymentUnitName, deploymentUnitVersion);
             System.out.println("Deployment completed: " + deploymentUnitName + " version " + deploymentUnitVersion + " is DEPLOYED.");
-        }
-    }
-
-    /**
-     * Processes the deployment unit by parsing command-line arguments and verifying the JAR exists.
-     *
-     * @param args Arguments passed to the deployment process.
-     * @throws IOException if JAR file is not found.
-     */
-    public static void processDeploymentUnit(String[] args) throws IOException {
-        DeploymentArgs deploymentArgs = processArguments(args);
-
-        runFromIDE = deploymentArgs.runFromIDE();
-        String newJarPathStr = deploymentArgs.jarPath();
-
-        // Use isBlank() instead of trim().isEmpty() to avoid creating a new String
-        if (newJarPathStr != null && !newJarPathStr.isBlank()) {
-            jarPathAsString = newJarPathStr;
-            jarPath = Path.of(newJarPathStr);
-        }
-
-        // JAR is pre-built at compile time via deploymentUnitJar task
-        // No runtime JAR building needed - just verify it exists
-        if (!Files.exists(jarPath)) {
-            throw new IllegalStateException(
-                "Deployment unit JAR not found at: " + jarPath + "\n"
-                + "Please build the project first: ./gradlew :ignite-examples:build"
-            );
         }
     }
 }

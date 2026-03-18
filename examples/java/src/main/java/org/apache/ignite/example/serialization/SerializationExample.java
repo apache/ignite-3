@@ -22,7 +22,6 @@ import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the {@link IgniteCompute#executeAsync} API with various serialization approaches.
@@ -43,18 +42,16 @@ public class SerializationExample {
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
-            DeployComputeUnit.processDeploymentUnit(args);
-
-            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION);
             NativeTypeSerializationExample.runNativeSerialization(client);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION);
             TupleSerializationExample.runTupleSerialization(client);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION);
             PojoAutoSerializationExample.runPojoAutoSerialization(client);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION);
             CustomPojoSerializationExample.runPojoCustomJsonSerialization(client);
 
         } finally {
