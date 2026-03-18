@@ -173,7 +173,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
             cost += rows * IgniteCost.ROW_COMPARISON_COST;
         }
 
-        return planner.getCostFactory().makeCost(rows, cost, 0);
+        int fieldsCount = getRowType().getFieldCount();
+
+        return planner.getCostFactory().makeCost(rows, Math.max(cost, 1.0d), rows * fieldsCount * IgniteCost.AVERAGE_FIELD_SIZE);
     }
 
     /** {@inheritDoc} */
