@@ -1,7 +1,7 @@
 $dumpsDir = "%PATH__CRASH_DUMPS%"
 $binDir = "%PATH__CMAKE_BUILD_DIRECTORY%\Debug\bin"
 $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
-$symPath = "srv*C:\symbols*https://msdl.microsoft.com/download/symbols;$binDir"
+$symPath = "srv*%PATH__DEBUG_SYMBOLS_DIR%*https://msdl.microsoft.com/download/symbols;$binDir"
 
 if (-not (Test-Path $dumpsDir)) {
     Write-Host "Dumps directory '$dumpsDir' does not exist, skipping."

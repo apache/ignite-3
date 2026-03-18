@@ -35,6 +35,7 @@ object PlatformCppTestsWindows : BuildType({
         hiddenText("PATH__CRASH_DUMPS", """%PATH__CMAKE_BUILD_DIRECTORY%\dumps""")
         hiddenText("PATH__UNIT_TESTS_RESULT", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_unit_test_results.xml""")
         hiddenText("PATH__WORKING_DIR", """%teamcity.build.checkoutDir%\%VCSROOT__IGNITE3%\modules\platforms\cpp""")
+        hiddenText("PATH__DEBUG_SYMBOLS_DIR", """%teamcity.agent.home.dir%\cpp_debug\symbols""")
         hiddenText("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
     }
 
