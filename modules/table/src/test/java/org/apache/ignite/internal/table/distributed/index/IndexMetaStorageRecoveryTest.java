@@ -81,11 +81,13 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
     private final TestUpdateHandlerInterceptor interceptor = new TestUpdateHandlerInterceptor();
 
+    private RocksDbKeyValueStorage keyValueStorage;
+
     @Override
     MetaStorageManager createMetastore() {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var keyValueStorage = new RocksDbKeyValueStorage(
+        keyValueStorage = new RocksDbKeyValueStorage(
                 NODE_NAME,
                 workDir,
                 new NoOpFailureManager(),
@@ -600,6 +602,8 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
     }
 
     private void restartComponents(boolean updateLwmToTriggerDestruction) throws Exception {
+        assertThat(keyValueStorage.flush(), willCompleteSuccessfully());
+
         var componentContext = new ComponentContext();
 
         IgniteUtils.closeAll(
