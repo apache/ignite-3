@@ -197,7 +197,7 @@ public class ClientResourceRegistry {
 
         for (var cleaner : txCleaners.values()) {
             // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
-            releaseSafe.accept(cleaner::clean);
+            releaseSafe.accept(() -> cleaner.clean(true));
         }
 
         if (ex.get() != null) {

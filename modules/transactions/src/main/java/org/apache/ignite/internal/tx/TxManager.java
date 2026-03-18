@@ -288,8 +288,9 @@ public interface TxManager extends IgniteComponent {
      *
      * @param groups Groups.
      * @param txId Transaction id.
+     * @param abortTx If {@code true}, the transaction will be aborted.
      */
-    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId);
+    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx);
 
     /**
      * Returns lock retry count.

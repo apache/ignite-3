@@ -52,6 +52,6 @@ public class ClientTransactionDiscardRequest {
             cleaner.addEnlistment(tableId, partId);
         }
 
-        return cleaner.clean().handle((res, err) -> null);
+        return cleaner.clean(false).handle((res, err) -> null);
     }
 }

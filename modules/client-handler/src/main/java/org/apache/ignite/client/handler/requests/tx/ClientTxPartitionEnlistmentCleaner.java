@@ -75,13 +75,14 @@ public class ClientTxPartitionEnlistmentCleaner {
     /**
      * Discards local write intents for all enlisted partitions.
      *
+     * @param abortTx Whether to abort the transaction as well.
      * @return Future that completes when cleanup is done.
      */
-    public CompletableFuture<Void> clean() {
+    public CompletableFuture<Void> clean(boolean abortTx) {
         List<EnlistedPartitionGroup> enlistedPartitionGroups = enlistedPartitions.entrySet().stream()
                 .map(entry -> new EnlistedPartitionGroup(entry.getKey(), entry.getValue().tableIds()))
                 .collect(toList());
 
-        return txManager.discardLocalWriteIntents(enlistedPartitionGroups, txId);
+        return txManager.discardLocalWriteIntents(enlistedPartitionGroups, txId, abortTx);
     }
 }

@@ -197,7 +197,7 @@ public class OrphanDetector {
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      */
-    private void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
+    void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
                     InternalClusterNode commitPartPrimaryNode =
