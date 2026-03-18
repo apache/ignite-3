@@ -12,6 +12,10 @@ object MentionTicket : BuildType({
     id(getId(this::class))
     name = "Mention ticket"
 
+    params {
+        param("ISSUES_EXCLUDE_LIST", "")
+    }
+
     steps {
         customScript(type = "bash") {
             name = "Check code base"

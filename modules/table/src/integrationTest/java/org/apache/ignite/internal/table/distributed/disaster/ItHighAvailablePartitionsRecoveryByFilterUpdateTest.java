@@ -76,7 +76,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
                 + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
-                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"
@@ -537,7 +536,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  nodeAttributes.nodeAttributes: " + nodeAtrributes + ",\n"
                 + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
-                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"
