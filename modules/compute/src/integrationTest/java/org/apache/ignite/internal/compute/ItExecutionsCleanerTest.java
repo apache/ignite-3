@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrap;
@@ -72,12 +71,19 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return renderConfigTemplate(
-                "  compute: {\n"
+        return "ignite {\n"
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder.netClusterNodes: [ {} ]\n"
+                + "  },\n"
+                + "  clientConnector.port: {},\n"
+                + "  rest.port: {},\n"
+                + "  compute: {"
                 + "    threadPoolSize: 1,\n"
                 + "    statesLifetimeMillis: 1000\n"
                 + "  },\n"
-        );
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "}";
     }
 
     @BeforeEach
