@@ -132,17 +132,17 @@ object PlatformCppTestsWindows : BuildType({
 
                     ${'$'}dumpNames = ${'$'}dumps | ForEach-Object { (${'$'}_.BaseName -split "\.exe")[0] }
 
-                    ${'$'}exes = Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.exe" |
-                        Where-Object { ${'$'}dumpNames -contains ${'$'}_.BaseName }
+                    ${'$'}exes = @(Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.exe" |
+                        Where-Object { ${'$'}dumpNames -contains ${'$'}_.BaseName })
 
-                    ${'$'}dlls = Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.dll"
+                    ${'$'}dlls = @(Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.dll")
 
-                    ${'$'}binaryNames = (${'$'}exes + ${'$'}dlls) | ForEach-Object { ${'$'}_.BaseName }
+                    ${'$'}binaryNames = @((${'$'}exes + ${'$'}dlls) | ForEach-Object { ${'$'}_.BaseName })
 
-                    ${'$'}pdbs = Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.pdb" |
-                        Where-Object { ${'$'}binaryNames -contains ${'$'}_.BaseName }
+                    ${'$'}pdbs = @(Get-ChildItem -Path "${'$'}binDir\*" -File -Include "*.pdb" |
+                        Where-Object { ${'$'}binaryNames -contains ${'$'}_.BaseName })
 
-                    ${'$'}filesToCopy = ${'$'}exes + ${'$'}dlls + ${'$'}pdbs
+                    ${'$'}filesToCopy = @(${'$'}exes + ${'$'}dlls + ${'$'}pdbs)
                     if (${'$'}filesToCopy.Count -eq 0) {
                         Write-Host "Warning: no matching binaries found in '${'$'}binDir'."
                         exit 0
