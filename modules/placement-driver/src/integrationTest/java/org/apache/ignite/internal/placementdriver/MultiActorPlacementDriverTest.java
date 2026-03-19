@@ -420,6 +420,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         waitForProlong(grpPart0, lease);
 
+        assertThat(msRaftClient.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
+
         assertEquals(newLeader, msRaftClient.leader());
     }
 
