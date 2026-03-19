@@ -155,7 +155,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
             @Nullable List<NodeAttributesConfiguration> customAttributes
     ) throws Exception {
         List<NetworkAddress> addresses = IntStream.range(0, size)
-                .mapToObj(i -> new NetworkAddress("localhost", BASE_PORT + i))
+                .mapToObj(i -> new NetworkAddress("127.0.0.1", BASE_PORT + i))
                 .collect(toList());
 
         nodeFinder = new StaticNodeFinder(addresses);
@@ -198,7 +198,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     Node addNodeToCluster(int idx) {
-        Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
+        Node node = newNode(new NetworkAddress("127.0.0.1", BASE_PORT + idx), nodeFinder);
 
         cluster.add(node);
 

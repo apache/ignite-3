@@ -62,6 +62,7 @@ import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
@@ -543,6 +544,24 @@ public class ClientTableCommon {
                                 throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
                                         MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT + " [tx=" + remote + "].");
                             }
+
+                            // Track this remote enlistment for cleanup if client disconnects.
+                            try {
+                                resources.addTxCleaner(txId, tableId, commitPart, txManager, (IgniteTablesInternal) tables);
+                            } catch (IgniteInternalCheckedException e) {
+                                // Client disconnected (resource registry closed).
+                                try {
+                                    remote.rollback();
+                                } catch (Exception ex) {
+                                    e.addSuppressed(ex);
+                                }
+
+                                throw new IgniteException(e.traceId(), e.code(), "Client disconnected, tx rolled back: " + remote, e);
+                            }
+
+                            // Stop tracking on tx finish.
+                            txManager.resourceRegistry().register(
+                                    new FullyQualifiedResourceId(txId, txId), txId, () -> () -> resources.removeTxCleaner(txId));
 
                             return remote;
                         });

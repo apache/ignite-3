@@ -67,6 +67,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 class ItIgniteServerTest extends BaseIgniteAbstractTest {
     private static final String NODE_CONFIGURATION_TEMPLATE = "ignite {\n"
             + "  network: {\n"
+            + "    listenAddresses: [127.0.0.1],\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
             + "  },\n"

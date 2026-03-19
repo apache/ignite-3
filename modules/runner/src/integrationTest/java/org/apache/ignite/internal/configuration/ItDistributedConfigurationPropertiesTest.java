@@ -368,9 +368,9 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
      */
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
-        var firstNodeAddr = new NetworkAddress("localhost", 10000);
+        var firstNodeAddr = new NetworkAddress("127.0.0.1", 10000);
 
-        var secondNodeAddr = new NetworkAddress("localhost", 10001);
+        var secondNodeAddr = new NetworkAddress("127.0.0.1", 10001);
 
         List<NetworkAddress> allNodes = List.of(firstNodeAddr, secondNodeAddr);
 
