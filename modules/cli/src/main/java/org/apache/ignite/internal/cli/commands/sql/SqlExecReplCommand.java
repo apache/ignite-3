@@ -20,6 +20,10 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
@@ -27,6 +31,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_F
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.DEFAULT_SQL_DISPLAY_PAGE_SIZE;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
@@ -37,7 +42,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.regex.Pattern;
-import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommandCompleter;
 import org.apache.ignite.internal.cli.commands.treesitter.highlighter.SqlAttributedStringHighlighter;
@@ -50,18 +54,20 @@ import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
+import org.apache.ignite.internal.cli.decorators.TruncationConfig;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -74,6 +80,7 @@ import org.jline.reader.SyntaxError;
 import org.jline.reader.impl.DefaultHighlighter;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.AggregateCompleter;
+import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -85,6 +92,8 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlExecReplCommand extends BaseCommand implements Runnable {
+    private static final IgniteLogger LOG = CliLoggers.forClass(SqlExecReplCommand.class);
+
     @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
@@ -93,6 +102,12 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
     @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
     private boolean timed;
+
+    @Option(names = MAX_COL_WIDTH_OPTION, description = MAX_COL_WIDTH_OPTION_DESC)
+    private Integer maxColWidth;
+
+    @Option(names = NO_TRUNCATE_OPTION, description = NO_TRUNCATE_OPTION_DESC)
+    private boolean noTruncate;
 
     @ArgGroup
     private ExecOptions execOptions;
@@ -117,6 +132,9 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     @Inject
     private ApiClientFactory clientFactory;
 
+    @Inject
+    private Terminal terminal;
+
     private static String extract(File file) {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
@@ -125,9 +143,6 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void run() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
@@ -139,7 +154,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 SqlCompleter sqlCompleter = new SqlCompleter(schemaProvider);
                 IgniteSqlCommandCompleter sqlCommandCompleter = new IgniteSqlCommandCompleter();
 
-                replExecutorProvider.get().execute(Repl.builder()
+                replExecutorProvider.get(spec.commandLine().getFactory()).execute(Repl.builder()
                         .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))
                         .withCompleter(new AggregateCompleter(sqlCommandCompleter, sqlCompleter))
                         .withCommandClass(SqlReplTopLevelCliCommand.class)
@@ -151,7 +166,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-                createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
+                createPagedSqlExecPipeline(sqlManager, executeCommand).runPipeline();
             }
         } catch (SQLException e) {
             String url = session.info() == null ? null : session.info().nodeUrl();
@@ -164,7 +179,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
                 SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
             } catch (ApiException apiE) {
-                new ClusterNotInitializedExceptionHandler("Failed to start sql repl mode", "cluster init")
+                createHandler("Failed to start sql repl mode")
                         .handle(exceptionWriter, new IgniteCliApiException(apiE, url));
             }
         }
@@ -216,28 +231,52 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     private CallExecutionPipelineProvider provider(SqlManager sqlManager) {
         return (executor, exceptionHandlers, line) -> executor.hasCommand(dropSemicolon(line))
                 ? createInternalCommandPipeline(executor, exceptionHandlers, line)
-                : createSqlExecPipeline(sqlManager, line);
+                : createPagedSqlExecPipeline(sqlManager, line);
     }
 
-    private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
-        // Use CommandLineContextProvider to get the current REPL's output writer,
-        // not the outer command's writer. This ensures SQL output goes through
-        // the nested REPL's output capture for proper pager support.
-        return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
-                .inputProvider(() -> new StringCallInput(line))
-                .output(CommandLineContextProvider.getContext().out())
-                .errOutput(CommandLineContextProvider.getContext().err())
-                .decorator(new SqlQueryResultDecorator(plain, timed))
-                .verbose(verbose)
-                .exceptionHandler(SqlExceptionHandler.INSTANCE)
-                .build();
+    private CallExecutionPipeline<?, ?> createPagedSqlExecPipeline(SqlManager sqlManager, String line) {
+        TruncationConfig truncationConfig = TruncationConfig.fromConfig(
+                configManagerProvider,
+                terminal::getWidth,
+                maxColWidth,
+                noTruncate,
+                plain
+        );
+
+        int pageSize = getPageSize();
+
+        PagerSupport pagerSupport = new PagerSupport(terminal, configManagerProvider);
+
+        return new PagedSqlExecutionPipeline(
+                sqlManager, line, pageSize, truncationConfig, pagerSupport,
+                terminal, plain, timed, verbose, spec.commandLine().getErr()
+        );
+    }
+
+    private int getPageSize() {
+        String configValue = configManagerProvider.get().getCurrentProperty(CliConfigKeys.SQL_DISPLAY_PAGE_SIZE.value());
+        if (configValue != null && !configValue.isEmpty()) {
+            try {
+                int pageSize = Integer.parseInt(configValue);
+                if (pageSize <= 0) {
+                    LOG.warn("SQL display page size must be positive, got: {}, using default: {}",
+                            pageSize, DEFAULT_SQL_DISPLAY_PAGE_SIZE);
+                    return DEFAULT_SQL_DISPLAY_PAGE_SIZE;
+                }
+                return pageSize;
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid SQL display page size in config '{}', using default: {}",
+                        configValue, DEFAULT_SQL_DISPLAY_PAGE_SIZE);
+            }
+        }
+        return DEFAULT_SQL_DISPLAY_PAGE_SIZE;
     }
 
     private CallExecutionPipeline<?, ?> createInternalCommandPipeline(RegistryCommandExecutor call,
             ExceptionHandlers exceptionHandlers,
             String line) {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(dropSemicolon(line)))
+                .input(new StringCallInput(dropSemicolon(line)))
                 .output(CommandLineContextProvider.getContext().out())
                 .errOutput(CommandLineContextProvider.getContext().err())
                 .exceptionHandlers(exceptionHandlers)

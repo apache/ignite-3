@@ -508,7 +508,7 @@ public class SqlDdlGenerator {
                 Entry entry = it.next();
                 InspectedField inspectedField = entry.inspectedField;
 
-                // TODO: May be refactored
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-28141 May be refactored.
                 @Nullable String fieldName = inspectedField.fieldName();
                 if (fieldName != null) {
                     String fieldNameUpperCase = fieldName.toUpperCase();
@@ -600,7 +600,7 @@ public class SqlDdlGenerator {
         }
 
         if (mapsPojo && allowExtraFields) {
-            // TODO: GG-40813 Use a default field value instead of nullable.
+            // TODO: IGNITE-27632 Use a default field value instead of nullable.
             qe.getFieldsPrecision().putIfAbsent(EXTRA_FIELDS_COLUMN_NAME, DEFAULT_BINARY_FIELD_LENGTH);
             qe.getFields().put(EXTRA_FIELDS_COLUMN_NAME, byte[].class.getName());
         }
@@ -706,7 +706,7 @@ public class SqlDdlGenerator {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @SuppressWarnings("PMD.UnnecessaryCast")
     private QueryEntityEvaluation getOrCreateQueryEntity(CacheConfiguration cacheCfg) throws FieldNameConflictException {
-        // TODO: Map the whole object and key instead of the query entities
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28142 Map the whole object and key instead of the query entities.
         QueryEntity qe;
 
         Map.Entry<Class<?>, Class<?>> typeHints = null;
@@ -724,13 +724,13 @@ public class SqlDdlGenerator {
             qe = new QueryEntity(typeHints.getKey(), typeHints.getValue());
         } else if (cacheCfg.getQueryEntities().isEmpty()) {
             // This should return a KeyValue Binary Cache
-            // TODO: Check if the value type should be null or not.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28143 Check if the value type should be null or not.
             qe = new QueryEntity();
             var binaryClsName = byte[].class.getName();
             qe.setKeyType(binaryClsName);
             qe.setValueType(binaryClsName);
 
-            // TODO: Check this default precision for binary caches
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28144 Check this default precision for binary caches.
             Map<String, Integer> precision = new HashMap<>();
             precision.put("ID", DEFAULT_BINARY_FIELD_LENGTH);
             precision.put("VAL", DEFAULT_BINARY_FIELD_LENGTH);
@@ -740,7 +740,7 @@ public class SqlDdlGenerator {
         } else {
             LOGGER.warn("Unexpected number of entities (Only 0, 1 QueryEntity is support ATM): {}:{}", cacheCfg.getName(),
                     cacheCfg.getQueryEntities().size());
-            // TODO: Throw a better checked exception
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28145 Throw a better checked exception.
             throw new RuntimeException("Unsupported number of queryEntities in cache configuration: " + cacheCfg.getQueryEntities().size());
         }
 

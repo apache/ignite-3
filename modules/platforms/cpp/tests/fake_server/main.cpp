@@ -22,6 +22,10 @@
 
 #include <gtest/gtest.h>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
 #include <chrono>
 #include <csignal>
 
@@ -55,10 +59,25 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGABRT, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGSEGV, signal_handler);
+
+#ifndef _WIN32
+    signal(SIGPIPE, signal_handler);
+#endif
 }
 
 int main(int argc, char **argv) {
     using namespace ignite;
+
+#ifdef _WIN32
+    static bool wsa_initialized = false;
+    if (!wsa_initialized) {
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            throw ignite_error("WSAStartup failed");
+        }
+        wsa_initialized = true;
+    }
+#endif
 
     set_process_abort_handler([&](int signal) {
         std::cout << "Caught signal " << signal << " during tests" << std::endl;
@@ -74,6 +93,10 @@ int main(int argc, char **argv) {
         std::cout << "Unknown uncaught error" << std::endl;
         return 2;
     }
+
+#ifdef _WIN32
+    WSACleanup();
+#endif
 
     return 0;
 }

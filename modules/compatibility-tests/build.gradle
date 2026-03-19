@@ -57,6 +57,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-table')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     integrationTestImplementation libs.awaitility
@@ -65,6 +66,7 @@ dependencies {
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
+    testFixturesImplementation platform(libs.jackson.bom)
     testFixturesImplementation libs.jackson.databind
     testFixturesImplementation libs.swagger.parser
     testFixturesImplementation(libs.jsonpath.assert) {
@@ -88,6 +90,11 @@ dependencies {
     testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation project(':ignite-cli')
     testFixturesImplementation project(':ignite-rest-api')
+}
+
+// Test fixtures reuse REST client from CLI which brings slf4j-jdk14 which conflicts with the slf4j-log4j used in tests.
+configurations {
+    testFixturesImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
 }
 
 private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {
@@ -138,11 +145,28 @@ private shouldTestAllVersions() {
 
 integrationTest.dependsOn resolveCompatibilityTestDependencies
 
+// Retrieves the full dependency notation from library names as listed in the libs.versions.toml
+private String[] getLibDependencies() {
+    if (project.hasProperty('libDependencies')) {
+        def prop = project.property('libDependencies').toString().trim()
+        if (!prop.isEmpty()) {
+            def libs = versionCatalogs.named("libs")
+            return prop.split(",").stream()
+                    .map { lib ->
+                        libs.findLibrary(lib)
+                                .orElseThrow { new RuntimeException("Can't find library " + lib) }
+                    }
+                    .collect { it.get() }
+        }
+    }
+    return []
+}
+
 tasks.register('constructArgFile') {
     doLast {
         String[] dependencies = ((String) project.property('dependencyNotation')).split(",")
         def transitive = project.property('argFileTransitive').toBoolean()
-        def jars = resolveAllDependencies(transitive, dependencies)
+        def jars = resolveAllDependencies(transitive, *(dependencies + getLibDependencies()))
         def jarFiles = files(jars)
         def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')

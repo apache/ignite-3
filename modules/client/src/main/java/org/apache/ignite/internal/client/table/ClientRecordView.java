@@ -309,8 +309,8 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
-        return sync(replaceAsync(tx, oldRec, newRec));
+    public boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec) {
+        return sync(replaceExactAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
@@ -328,7 +328,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, R oldRec, R newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 

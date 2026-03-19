@@ -68,13 +68,11 @@ public interface AssignmentsPlacementDriver {
      * {@link EmptyAssignmentsException} is thrown.
      *
      * @param replicationGroupIds List of replication group Ids.
-     * @param clusterTimeToAwait Cluster time to await.
      * @param timeoutMillis Timeout in milliseconds.
      * @return List of tokenized assignments.
      */
     CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
             List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait,
             long timeoutMillis
     );
 }

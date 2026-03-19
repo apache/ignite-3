@@ -19,6 +19,12 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllResultSet;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -29,6 +35,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -38,6 +45,8 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -78,8 +87,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
         cluster = new Cluster(clusterConfiguration.build());
 
-        if (initialNodes() > 0) {
-            cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+        if (!shouldStartAndInitializeCluster()) {
+            return;
+        }
+
+        cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+
+        if (shouldCreateDefaultZone()) {
+            createDefaultZone();
         }
     }
 
@@ -112,6 +127,21 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected void customizeInitParameters(InitParametersBuilder builder) {
         // No-op.
+    }
+
+    private boolean shouldStartAndInitializeCluster() {
+        return initialNodes() > 0;
+    }
+
+    protected boolean shouldCreateDefaultZone() {
+        return true;
+    }
+
+    private void createDefaultZone() {
+        assertThat(cluster, is(notNullValue()));
+        assertThat(cluster.nodes(), is(not(empty())));
+
+        DistributionZonesTestUtil.createDefaultZone(igniteImpl(0).catalogManager());
     }
 
     /**
@@ -181,6 +211,13 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     protected final Stream<Ignite> runningNodes() {
         return cluster.runningNodes();
+    }
+
+    /**
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
+     */
+    protected final Iterable<IgniteImpl> runningNodesIter() {
+        return cluster.runningNodes().map(node -> unwrapIgniteImpl(node))::iterator;
     }
 
     /**
@@ -257,7 +294,18 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
     }
 
-    protected static String aggressiveLowWatermarkIncreaseClusterConfig() {
+    protected final List<List<Object>> sql(String sql) {
+        return sql(null, sql);
+    }
+
+    protected final List<List<Object>> sql(Transaction tx, String sql) {
+        try (ResultSet<SqlRow> rs = anyNode().sql().execute(tx, sql)) {
+            return getAllResultSet(rs);
+        }
+    }
+
+    /** Cluster configuration that aggressively increases low watermark to speed up data cleanup in tests. */
+    public static String aggressiveLowWatermarkIncreaseClusterConfig() {
         return "{\n"
                 + "  ignite.gc.lowWatermark {\n"
                 + "    dataAvailabilityTimeMillis: 1000,\n"

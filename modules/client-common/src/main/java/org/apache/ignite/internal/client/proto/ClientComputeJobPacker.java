@@ -33,10 +33,15 @@ public final class ClientComputeJobPacker {
      * @param arg Argument.
      * @param marshaller Marshaller.
      * @param packer Packer.
+     * @param observableTs Observable timestamp. Not packed when null.
      * @param <T> Argument type.
      */
-    public static <T> void packJobArgument(@Nullable T arg, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
-        pack(arg, marshaller, packer);
+    public static <T> void packJobArgument(
+            @Nullable T arg,
+            @Nullable Marshaller<T, byte[]> marshaller,
+            ClientMessagePacker packer,
+            @Nullable Long observableTs) {
+        pack(arg, marshaller, packer, observableTs);
     }
 
     /**
@@ -49,7 +54,7 @@ public final class ClientComputeJobPacker {
      * @param <T> Result type.
      */
     public static <T> void packJobResult(@Nullable T res, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
-        pack(res, marshaller, packer);
+        pack(res, marshaller, packer, null);
     }
 
     /**
@@ -61,8 +66,14 @@ public final class ClientComputeJobPacker {
      * @param arg Job argument.
      * @param platformComputeSupported Whether platform compute is supported.
      * @param w Packer.
+     * @param observableTs Observable timestamp. Not packed when null.
      */
-    public static <T, R> void packJob(JobDescriptor<T, R> descriptor, T arg, boolean platformComputeSupported, ClientMessagePacker w) {
+    public static <T, R> void packJob(
+            JobDescriptor<T, R> descriptor,
+            T arg,
+            boolean platformComputeSupported,
+            ClientMessagePacker w,
+            @Nullable Long observableTs) {
         w.packDeploymentUnits(descriptor.units());
 
         w.packString(descriptor.jobClassName());
@@ -77,14 +88,22 @@ public final class ClientComputeJobPacker {
             throw new IllegalArgumentException("Custom job executors are not supported by the server: " + executorType);
         }
 
-        packJobArgument(arg, descriptor.argumentMarshaller(), w);
+        packJobArgument(arg, descriptor.argumentMarshaller(), w, observableTs);
     }
 
     /** Packs object in the format: | typeId | value |. */
-    private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
+    private static <T> void pack(
+            @Nullable T obj,
+            @Nullable Marshaller<T, byte[]> marshaller,
+            ClientMessagePacker packer,
+            @Nullable Long observableTs) {
         ComputeJobDataHolder holder = obj instanceof ComputeJobDataHolder
                 ? (ComputeJobDataHolder) obj
                 : SharedComputeUtils.marshalArgOrResult(obj, marshaller);
+
+        if (observableTs != null) {
+            packer.packLong(observableTs);
+        }
 
         if (holder.data() == null) {
             packer.packNil();

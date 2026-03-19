@@ -46,8 +46,8 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
     }
 
     private CompletableFuture<Table> initTable() {
-        // TODO: GG-39800 Add logs
-        // TODO: GG-39801 Add a private schema if AI3 when supports it.
+        // TODO: IGNITE-27633 Add logs
+        // TODO: IGNITE-27634 Add a private schema if AI3 when supports it.
         TableDefinition def = TableDefinition.builder(TABLE_NAME)
                 .ifNotExists()
                 .columns(
@@ -107,7 +107,7 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
 
             table.put(null, tableName, record);
         } catch (JsonProcessingException e) {
-            // TODO: Figure out what to do next.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28140 Figure out what to do next.
             throw new RuntimeException(e);
         }
     }

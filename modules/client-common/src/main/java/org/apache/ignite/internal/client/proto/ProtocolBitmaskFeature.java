@@ -92,7 +92,27 @@ public enum ProtocolBitmaskFeature {
     /**
      * Thin SQL client supports iteration over the results of script execution.
      */
-    SQL_MULTISTATEMENT_SUPPORT(13);
+    SQL_MULTISTATEMENT_SUPPORT(13),
+
+    /**
+     * Compute tasks and jobs accept observable timestamp from the client.
+     */
+    COMPUTE_OBSERVABLE_TS(14),
+
+    /**
+     * Send remote writes flag for directly mapped transactions.
+     */
+    TX_DIRECT_MAPPING_SEND_REMOTE_WRITES(15),
+
+    /**
+     * Client supports Partition Awareness for SQL queries with table name in the response metadata.
+     */
+    SQL_PARTITION_AWARENESS_TABLE_NAME(16),
+
+    /**
+     * Send discard requests to directly mapped partitions.
+     */
+    TX_DIRECT_MAPPING_SEND_DISCARD(17);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

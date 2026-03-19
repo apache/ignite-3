@@ -35,6 +35,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
@@ -105,9 +106,10 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
         assertThat(execution.cancel(), is(true));
+        // InterruptingJob catches interruption and completes normally — cooperative cancellation honors the result.
         await().until(
                 execution::state,
-                jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
+                jobStateWithStatusAndCreateTimeStartTime(COMPLETED, executingState.createTime(), executingState.startTime())
         );
     }
 
@@ -136,9 +138,10 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
         assertThat(execution.cancel(), is(true));
+        // CancellingJob checks isCancelled() and completes normally — cooperative cancellation honors the result.
         await().until(
                 execution::state,
-                jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
+                jobStateWithStatusAndCreateTimeStartTime(COMPLETED, executingState.createTime(), executingState.startTime())
         );
     }
 
@@ -153,6 +156,37 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
+    @Test
+    void cancelAwareCancellation() {
+        JobExecutionInternal<?> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                CancelAwareJob.class.getName(),
+                jobClassLoader,
+                ComputeEventMetadata.builder(),
+                null
+        );
+        JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
+        assertThat(execution.cancel(), is(true));
+        // CancelAwareJob catches interruption and throws CancellationException — job is canceled.
+        await().until(
+                execution::state,
+                jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
+        );
+    }
+
+    private static class CancelAwareJob implements ComputeJob<Object[], Integer> {
+        @Override
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
+            while (true) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new CancellationException();
                 }
             }
         }
@@ -236,7 +270,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
-        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalArgOrResult(h, null, null)), willBe(1));
+        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalResult(h, null, null)), willBe(1));
         assertThat(JobSuccess.runTimes.get(), is(1));
     }
 

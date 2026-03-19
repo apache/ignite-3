@@ -20,17 +20,17 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import org.apache.ignite.internal.tostring.S;
 
 class SegmentFilePointer {
-    private final int fileOrdinal;
+    private final FileProperties fileProperties;
 
     private final int payloadOffset;
 
-    SegmentFilePointer(int fileOrdinal, int payloadOffset) {
-        this.fileOrdinal = fileOrdinal;
+    SegmentFilePointer(FileProperties fileProperties, int payloadOffset) {
+        this.fileProperties = fileProperties;
         this.payloadOffset = payloadOffset;
     }
 
-    int fileOrdinal() {
-        return fileOrdinal;
+    FileProperties fileProperties() {
+        return fileProperties;
     }
 
     int payloadOffset() {
@@ -44,12 +44,12 @@ class SegmentFilePointer {
         }
 
         SegmentFilePointer that = (SegmentFilePointer) o;
-        return fileOrdinal == that.fileOrdinal && payloadOffset == that.payloadOffset;
+        return payloadOffset == that.payloadOffset && fileProperties.equals(that.fileProperties);
     }
 
     @Override
     public int hashCode() {
-        int result = fileOrdinal;
+        int result = fileProperties.hashCode();
         result = 31 * result + payloadOffset;
         return result;
     }

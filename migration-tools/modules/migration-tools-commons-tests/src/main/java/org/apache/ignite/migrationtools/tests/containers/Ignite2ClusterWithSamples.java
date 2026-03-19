@@ -42,7 +42,9 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
         this.targetPath = targetPath;
     }
 
-    /** TODO: Copied from IgniteTestUtils should reuse this. */
+    /** Waiting for condition. */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28149 Copied from IgniteTestUtils should reuse this.
+    @Deprecated
     public static boolean waitForCondition(BooleanSupplier cond, long sleepMillis, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 
@@ -61,7 +63,7 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
 
     private void recreateClusterFolder() throws InterruptedException, IOException {
         // Recreate the model cluster.
-        // TODO: This must be improved.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28150 This must be improved.
         System.out.println("Recreating the sample-cluster");
         System.out.println("Current Directory; " + Path.of(".").toAbsolutePath().toString());
 
@@ -92,7 +94,7 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
                     boolean success = waitForCondition(
                             () -> !seedDataContainer.isRunning(), pollingSeconds * 1_000, maxWaitSeconds * 1_000);
 
-                    // TODO: Status are not working. Should be a bug in test-containers??
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-28151 Status are not working. Should be a bug in test-containers?
                     var state = seedDataContainer.getContainerInfo().getState();
                     System.out.println("Seed data status: " + state);
 
@@ -109,7 +111,7 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
-        // TODO: Find a better way to produce the example cluster.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28156 Find a better way to produce the example cluster.
         // Currently we have to manually create a cluster and run the sample cluster generator in the tools folder.
         if (!Files.exists(targetPath)) {
             recreateClusterFolder();

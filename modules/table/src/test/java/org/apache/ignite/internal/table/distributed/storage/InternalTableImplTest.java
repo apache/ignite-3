@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.VALID_INDEX_ID;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.VALID_PARTITION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -30,8 +32,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -42,14 +47,17 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,10 +69,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -99,7 +109,9 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.IndexScanCriteria.Range;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -110,6 +122,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
@@ -153,8 +166,12 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     private final InternalClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
 
+    private VolatileTxStateMetaStorage txStateVolatileStorage;
+
     @BeforeEach
     void setupMocks() {
+        txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
         lenient().when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
                 .then(invocation -> {
                     ZonePartitionId groupId = invocation.getArgument(0);
@@ -164,7 +181,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), any(), any()))
                 .thenReturn(nullCompletedFuture());
 
         // Mock for creating implicit transactions when null is passed
@@ -176,8 +193,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     TestTransactionIds.newTransactionId(),
                     randomUUID(),
                     true, // implicit
-                    10_000
-            );
+                    10_000,
+                    null);
         });
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
@@ -239,11 +256,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
-                new TransactionInflights(placementDriver, clockService),
+                new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
     }
@@ -388,7 +403,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
         ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }
@@ -400,8 +415,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000
-        );
+                10_000,
+                null);
     }
 
     private InternalTransaction newReadOnlyTransaction() {
@@ -475,9 +490,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @Nested
     class ScanWithIndexAndRangeCriteriaTest {
-        private static final int VALID_INDEX_ID = 1;
-        private static final int VALID_PARTITION = 0;
-        private static final int PARTITION_COUNT = 3;
+        static final int VALID_INDEX_ID = 1;
+        static final int VALID_PARTITION = 0;
+        static final int PARTITION_COUNT = 3;
 
         private Supplier<CompletableFuture<Void>> buildAction(InternalTable table, int partition,
                 InternalTransaction tx, int index, Range range) {
@@ -830,6 +845,53 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         }
 
         @Test
+        void testScanAfterTimeoutDoesNotExposeCauseFromMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            InternalTransaction tx = new ReadWriteTransactionImpl(
+                    txManager,
+                    mock(HybridTimestampTracker.class),
+                    TestTransactionIds.newTransactionId(),
+                    randomUUID(),
+                    false,
+                    1,
+                    null
+            );
+
+            UUID txId = tx.id();
+            RuntimeException firstFailure = new RuntimeException("first");
+            IllegalStateException secondFailure = new IllegalStateException("second");
+
+            TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                    .finishedDueToTimeout(true)
+                    .lastException(firstFailure)
+                    .lastException(secondFailure)
+                    .build();
+
+            when(txManager.stateMeta(txId)).thenReturn(meta);
+            tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                    "Transaction is already finished")).join();
+
+            Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<Void> completed = new CompletableFuture<>();
+
+            publisher.subscribe(new BlackholeSubscriber(completed));
+
+            try {
+                completed.get(10, TimeUnit.SECONDS);
+                fail("Expected TransactionException but scan completed successfully");
+            } catch (Exception e) {
+                Throwable unwrapped = unwrapCause(e);
+                assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+                TransactionException txEx = (TransactionException) unwrapped;
+                assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR",
+                        txEx.code(), is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR));
+                assertThat("Timeout should not expose nested cause", txEx.getCause(), is(nullValue()));
+            }
+        }
+
+        @Test
         void testScanWithReadOnlyTransactionThrowsException() {
             InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
             InternalTransaction readOnlyTx = newReadOnlyTransaction();
@@ -841,6 +903,193 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Error code should be TX_FAILED_READ_WRITE_OPERATION_ERR",
                         e.code(), is(TX_FAILED_READ_WRITE_OPERATION_ERR));
             }
+        }
+    }
+
+    @Test
+    void testScanAfterExceptionalAbortThrowsFinishedWithErrCode() {
+        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+        InternalTransaction tx = new ReadWriteTransactionImpl(
+                txManager,
+                mock(HybridTimestampTracker.class),
+                TestTransactionIds.newTransactionId(),
+                randomUUID(),
+                false,
+                1,
+                null
+        );
+
+        UUID txId = tx.id();
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                .lastException(failure)
+                .lastExceptionErrorCode(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR)
+                .build();
+
+        when(txManager.stateMeta(txId)).thenReturn(meta);
+        tx.rollback();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+
+        publisher.subscribe(new BlackholeSubscriber(completed));
+
+        try {
+            completed.get(10, TimeUnit.SECONDS);
+            fail("Expected TransactionException but scan completed successfully");
+        } catch (Exception e) {
+            Throwable unwrapped = unwrapCause(e);
+            assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+            TransactionException txEx = (TransactionException) unwrapped;
+            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR",
+                    txEx.code(), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR));
+            assertThat("Cause should be the recorded exception", txEx.getCause(), is(failure));
+        }
+    }
+
+    /**
+     * Tests for label propagation from OperationContext to TxStateMeta.
+     */
+    @Nested
+    class LabelPropagationTest {
+        @Test
+        void testReadWriteScanSavesLabelToTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            ZonePartitionId commitPartition = new ZonePartitionId(ZONE_ID, 0);
+            long enlistmentConsistencyToken = 1L;
+            String label = "TEST-RW-LABEL";
+
+            TxContext.ReadWrite txContext = (TxContext.ReadWrite) TxContext.readWrite(
+                    txId,
+                    coordinatorId,
+                    commitPartition,
+                    enlistmentConsistencyToken,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+            assertThat(newMeta.txCoordinatorId(), is(coordinatorId));
+            assertThat(newMeta.commitPartitionId(), is(commitPartition));
+            assertThat(newMeta.txState(), is(TxState.PENDING));
+        }
+
+        @Test
+        void testReadWriteScanWithIndexSavesLabelToTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            ZonePartitionId commitPartition = new ZonePartitionId(ZONE_ID, 0);
+            long enlistmentConsistencyToken = 1L;
+            String label = "TEST-RW-INDEX-LABEL";
+            int indexId = 1;
+
+            TxContext.ReadWrite txContext = (TxContext.ReadWrite) TxContext.readWrite(
+                    txId,
+                    coordinatorId,
+                    commitPartition,
+                    enlistmentConsistencyToken,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+            IndexScanCriteria criteria = IndexScanCriteria.unbounded();
+
+            ArgumentCaptor<UUID> txIdCaptor = ArgumentCaptor.forClass(UUID.class);
+            ArgumentCaptor<Function<TxStateMeta, TxStateMeta>> updaterCaptor =
+                    ArgumentCaptor.forClass(Function.class);
+
+            internalTable.scan(0, clusterNode, indexId, criteria, opCtx);
+
+            verify(txManager).updateTxMeta(txIdCaptor.capture(), updaterCaptor.capture());
+
+            assertThat(txIdCaptor.getValue(), is(txId));
+
+            TxStateMeta newMeta = updaterCaptor.getValue().apply(null);
+            assertThat(newMeta.txLabel(), is(label));
+            assertThat(newMeta.commitPartitionId(), is(commitPartition));
+        }
+
+        @Test
+        void testScanWithoutLabelDoesNotUpdateTxStateMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            HybridTimestamp readTimestamp = clock.now();
+
+            TxContext.ReadOnly txContext = (TxContext.ReadOnly) TxContext.readOnly(
+                    txId,
+                    coordinatorId,
+                    readTimestamp,
+                    null
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            verify(txManager, never()).updateTxMeta(any(), any());
+        }
+
+        @Test
+        void testReadWriteScanSavesLabelToTxStateMetaWithStateMap() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            UUID txId = randomUUID();
+            UUID coordinatorId = randomUUID();
+            ZonePartitionId commitPartition = new ZonePartitionId(ZONE_ID, 0);
+            long enlistmentConsistencyToken = 1L;
+            String label = "TEST-RW-LABEL-MAP";
+
+            TxContext.ReadWrite txContext = (TxContext.ReadWrite) TxContext.readWrite(
+                    txId,
+                    coordinatorId,
+                    commitPartition,
+                    enlistmentConsistencyToken,
+                    label
+            );
+
+            OperationContext opCtx = OperationContext.create(txContext);
+
+            Map<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+
+            doAnswer(invocation -> txStateMap.get(invocation.getArgument(0)))
+                    .when(txManager).stateMeta(any());
+
+            doAnswer(invocation -> {
+                UUID txIdArg = invocation.getArgument(0);
+                Function<TxStateMeta, TxStateMeta> updater = invocation.getArgument(1);
+                txStateMap.compute(txIdArg, (k, oldMeta) -> updater.apply(oldMeta));
+                return null;
+            }).when(txManager).updateTxMeta(any(), any());
+
+            internalTable.scan(0, clusterNode, opCtx);
+
+            TxStateMeta txMeta = txManager.stateMeta(txId);
+            assertThat(txMeta, is(notNullValue()));
+            assertThat(txMeta.txLabel(), is(label));
+            assertThat(txMeta.txCoordinatorId(), is(coordinatorId));
+            assertThat(txMeta.commitPartitionId(), is(commitPartition));
         }
     }
 }

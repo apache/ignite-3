@@ -21,14 +21,14 @@
 #include <ignite/client/ignite_logger.h>
 #include <ignite/client/ssl_mode.h>
 
+#include <ignite/common/detail/config.h>
 #include <ignite/common/ignite_error.h>
 
+#include <chrono>
 #include <initializer_list>
 #include <memory>
-#include <chrono>
 #include <string>
 #include <vector>
-#include <detail/config.h>
 
 namespace ignite {
 

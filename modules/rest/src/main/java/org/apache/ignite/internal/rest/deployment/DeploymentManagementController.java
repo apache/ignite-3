@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.deployment;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
@@ -125,17 +127,24 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
 
-        return subscriber.result().thenCompose(deploymentUnit ->
-                deployment.deployAsync(unitId, version, deploymentUnit, nodesToDeploy)
-                        .whenComplete((unitStatus, throwable) -> {
-                            tempStorage.close();
-                            try {
-                                deploymentUnit.close();
-                            } catch (Exception e) {
-                                LOG.error("Failed to close subscriber", e);
-                            }
-                        })
-        );
+        return subscriber.result()
+                .handle((deploymentUnit, throwable) -> {
+                    if (throwable != null) {
+                        // Close temp storage in case deployment unit future fails.
+                        tempStorage.close();
+                        sneakyThrow(throwable);
+                    }
+                    return deployment.deployAsync(unitId, version, deploymentUnit, nodesToDeploy)
+                            .whenComplete((unitStatus, throwable1) -> {
+                                tempStorage.close();
+                                try {
+                                    deploymentUnit.close();
+                                } catch (Exception e) {
+                                    LOG.error("Failed to close subscriber", e);
+                                }
+                            });
+                })
+                .thenCompose(Function.identity());
     }
 
     @Override

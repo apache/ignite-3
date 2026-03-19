@@ -19,16 +19,26 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema.DEFAULT_PAGE_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -41,6 +51,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
@@ -55,8 +66,8 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -66,7 +77,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,
@@ -95,5 +106,54 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 table,
                 engine == null ? null : engine::stop
         );
+    }
+
+    /**
+     * Reproducer for a <a href="https://issues.apache.org/jira/browse/IGNITE-27638">corrupted Write Intent list</a>.
+     * During replace of the value found both in inner and leaf nodes of VersionChain tree, we tried to remove WI from the WI list twice.
+     * If neighboring WI in the WI double-linked list was invalidated between these removals, we would get an exception trying to access it
+     * to change its links.
+     *
+     * <p>Test builds a 3-level tree, and creates a race between aborting B and D write intents. WI are large, so they don't share the same
+     * page.
+     * <pre>
+     *              B
+     *             / \
+     *            A   C
+     *           / \ / \
+     *          A  B C  D
+     * </pre>
+     */
+    @Test
+    void testAbortWriteIntentsListRace() throws IgniteInternalCheckedException {
+        // Build a 3-level tree.
+        int rowsCount = 50_000;
+        UUID txId = newTransactionId();
+        RowId[] rowIds = new RowId[rowsCount];
+
+        for (int i = 0; i < rowsCount; i++) {
+            rowIds[i] = new RowId(PARTITION_ID, i, i);
+            addWriteCommitted(rowIds[i], TABLE_ROW, HybridTimestamp.MAX_VALUE);
+        }
+
+        VersionChainTree versionChainTree = ((PersistentPageMemoryMvPartitionStorage) storage).renewableState.versionChainTree();
+
+        // Assert that the tree has 3 levels, first level is 0.
+        assertThat(versionChainTree.rootLevel(), is(2));
+
+        // First index that will be in the inner node, "A" on the javadoc diagram.
+        int indexA = versionChainTree.latestLeafIo().getMaxCount(DEFAULT_PAGE_SIZE) / 2;
+
+        BinaryRow largeRow = binaryRow(KEY, new TestValue(20, "A".repeat(10_000)));
+
+        for (int i = 0; i < 1000; i++) {
+            addWrite(rowIds[indexA], largeRow, txId);
+            addWrite(rowIds[rowsCount - 1], largeRow, txId);
+
+            runRace(
+                    () -> abortWrite(rowIds[indexA], txId),
+                    () -> abortWrite(rowIds[rowsCount - 1], txId)
+            );
+        }
     }
 }

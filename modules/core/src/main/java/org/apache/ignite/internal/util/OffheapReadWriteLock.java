@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+import static org.apache.ignite.internal.util.StringUtils.hexInt;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
+
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,15 +76,36 @@ public class OffheapReadWriteLock {
     /** Mask to extract stripe index from the hash. */
     private final int monitorsMask;
 
+    /** Lock timeout in nanoseconds. {@code 0L} if unlimited. */
+    private final long timeoutNanos;
+
+    /** An exception that's thrown by {@code *Lock} methods if the lock has not been acquired within a configured timeout. */
+    public static class LockTimeoutException extends RuntimeException {
+        private static final long serialVersionUID = 0L;
+
+        /**
+         * Constructor.
+         *
+         * @param message Exception message.
+         */
+        LockTimeoutException(String message) {
+            super(message);
+        }
+    }
+
     /**
      * Constructor.
      *
      * @param concLvl Concurrency level, must be a power of two.
+     * @param timeout Lock acquisition timeout. {@code 0} means an unlimited timeout.
+     * @param timeUnit Timeout time unit.
      */
-    public OffheapReadWriteLock(int concLvl) {
-        if ((concLvl & concLvl - 1) != 0) {
+    public OffheapReadWriteLock(int concLvl, long timeout, TimeUnit timeUnit) {
+        if (!isPow2(concLvl)) {
             throw new IllegalArgumentException("Concurrency level must be a power of 2: " + concLvl);
         }
+
+        timeoutNanos = timeUnit.toNanos(timeout);
 
         monitorsMask = concLvl - 1;
 
@@ -93,6 +120,15 @@ public class OffheapReadWriteLock {
             readConditions[i] = lock.newCondition();
             writeConditions[i] = lock.newCondition();
         }
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param concLvl Concurrency level, must be a power of two.
+     */
+    public OffheapReadWriteLock(int concLvl) {
+        this(concLvl, 0, TimeUnit.NANOSECONDS);
     }
 
     /**
@@ -112,6 +148,7 @@ public class OffheapReadWriteLock {
      * Acquires a read lock.
      *
      * @param lock Lock address.
+     * @throws LockTimeoutException If lock acquisition timed out.
      */
     public boolean readLock(long lock, int tag) {
         long state = GridUnsafe.getLongVolatile(null, lock);
@@ -166,7 +203,7 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) <= 0) {
                 throw new IllegalMonitorStateException("Attempted to release a read lock while not holding it "
-                        + "[lock=" + StringUtils.hexLong(lock) + ", state=" + StringUtils.hexLong(state) + ']');
+                        + "[lock=" + hexLong(lock) + ", state=" + hexLong(state) + ']');
             }
 
             long updated = updateState(state, -1, 0, 0);
@@ -212,6 +249,7 @@ public class OffheapReadWriteLock {
      * Acquires a write lock.
      *
      * @param lock Lock address.
+     * @throws LockTimeoutException If lock acquisition timed out.
      */
     public boolean writeLock(long lock, int tag) {
         assert tag != 0;
@@ -285,7 +323,7 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) != -1) {
                 throw new IllegalMonitorStateException("Attempted to release write lock while not holding it "
-                        + "[lock=" + StringUtils.hexLong(lock) + ", state=" + StringUtils.hexLong(state) + ']');
+                        + "[lock=" + hexLong(lock) + ", state=" + hexLong(state) + ']');
             }
 
             updated = releaseWithTag(state, tag);
@@ -349,6 +387,7 @@ public class OffheapReadWriteLock {
      * @return {@code null} if tag validation failed, {@code true} if successfully traded the read lock to
      *      the write lock without leaving a gap. Returns {@code false} otherwise, in this case the resource
      *      state must be re-validated.
+     * @throws LockTimeoutException If lock acquisition timed out.
      */
     public @Nullable Boolean upgradeToWriteLock(long lock, int tag) {
         for (int i = 0; i < SPIN_CNT; i++) {
@@ -418,6 +457,7 @@ public class OffheapReadWriteLock {
         assert lockObj.isHeldByCurrentThread();
 
         boolean interrupted = false;
+        long startTimeNanos = System.nanoTime();
 
         try {
             while (true) {
@@ -426,13 +466,7 @@ public class OffheapReadWriteLock {
 
                     if (!checkTag(state, tag)) {
                         // We cannot lock with this tag, release waiter.
-                        long updated = updateState(state, 0, -1, 0);
-
-                        if (GridUnsafe.compareAndSwapLong(null, lock, state, updated)) {
-                            int writeWaitCnt = writersWaitCount(updated);
-
-                            signalNextWaiter(writeWaitCnt, lockIdx);
-
+                        if (tryReleaseWaiter(lock, lockIdx, state, true)) {
                             return false;
                         }
                     } else if (canReadLock(state)) {
@@ -442,7 +476,7 @@ public class OffheapReadWriteLock {
                             return true;
                         }
                     } else {
-                        waitCond.await();
+                        awaitCondition(lock, lockIdx, tag, startTimeNanos, waitCond, true);
                     }
                 } catch (InterruptedException ignore) {
                     interrupted = true;
@@ -470,6 +504,7 @@ public class OffheapReadWriteLock {
         assert lockObj.isHeldByCurrentThread();
 
         boolean interrupted = false;
+        long startTimeNanos = System.nanoTime();
 
         try {
             while (true) {
@@ -478,13 +513,7 @@ public class OffheapReadWriteLock {
 
                     if (!checkTag(state, tag)) {
                         // We cannot lock with this tag, release waiter.
-                        long updated = updateState(state, 0, 0, -1);
-
-                        if (GridUnsafe.compareAndSwapLong(null, lock, state, updated)) {
-                            int writeWaitCnt = writersWaitCount(updated);
-
-                            signalNextWaiter(writeWaitCnt, lockIdx);
-
+                        if (tryReleaseWaiter(lock, lockIdx, state, false)) {
                             return false;
                         }
                     } else if (canWriteLock(state)) {
@@ -494,7 +523,7 @@ public class OffheapReadWriteLock {
                             return true;
                         }
                     } else {
-                        waitCond.await();
+                        awaitCondition(lock, lockIdx, tag, startTimeNanos, waitCond, false);
                     }
                 } catch (InterruptedException ignore) {
                     interrupted = true;
@@ -507,6 +536,51 @@ public class OffheapReadWriteLock {
         }
     }
 
+    private boolean tryReleaseWaiter(long lock, int lockIdx, long state, boolean readLock) {
+        long updated = readLock ? updateState(state, 0, -1, 0) : updateState(state, 0, 0, -1);
+
+        if (GridUnsafe.compareAndSwapLong(null, lock, state, updated)) {
+            int writeWaitCnt = writersWaitCount(updated);
+
+            signalNextWaiter(writeWaitCnt, lockIdx);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    @SuppressWarnings("AwaitNotInLoop")
+    private void awaitCondition(
+            long lock, int lockIdx, int tag, long startTimeNanos, Condition waitCond, boolean readLock
+    ) throws InterruptedException {
+        if (timeoutNanos == 0) {
+            waitCond.await();
+        } else {
+            long passedNanos = System.nanoTime() - startTimeNanos;
+
+            if (passedNanos >= timeoutNanos) {
+                //noinspection InfiniteLoopStatement
+                while (true) {
+                    long state = GridUnsafe.getLongVolatile(null, lock);
+
+                    if (tryReleaseWaiter(lock, lockIdx, state, readLock)) {
+                        throw new LockTimeoutException(S.toString("Timeout waiting for lock acquisition",
+                                "lock", hexLong(lock), false,
+                                "state", hexLong(state), false,
+                                "tag", hexInt(tag), false,
+                                "idx", lockIdx, false,
+                                "cond", waitCond.toString(), false,
+                                "timeout", TimeUnit.NANOSECONDS.toMillis(timeoutNanos) + "ms", false
+                        ));
+                    }
+                }
+            }
+
+            waitCond.awaitNanos(timeoutNanos - passedNanos);
+        }
+    }
+
     /**
      * Returns index of lock object corresponding to the stripe of this lock address.
      *
@@ -514,7 +588,7 @@ public class OffheapReadWriteLock {
      * @return Lock monitor object that corresponds to the stripe for this lock address.
      */
     private int lockIndex(long lock) {
-        return IgniteUtils.safeAbs(IgniteUtils.hash(lock)) & monitorsMask;
+        return IgniteUtils.hash(lock) & monitorsMask;
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.FOOTER_HEADING;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 
@@ -37,7 +38,19 @@ import picocli.CommandLine.Parameters;
 /**
  * Connects to the Ignite 3 node.
  */
-@Command(name = "connect", description = "Connects to Ignite 3 node")
+@Command(name = "connect",
+        description = {
+                "Connects to an Ignite 3 node and enters interactive mode.",
+                "Once connected, you can run SQL queries and other commands without specifying the node URL."
+        },
+        footerHeading = FOOTER_HEADING,
+        footer = {
+                "  Connect to a node:",
+                "    ignite3 connect http://localhost:10300",
+                "",
+                "  Connect with authentication:",
+                "    ignite3 connect http://localhost:10300 --username admin --password secret",
+                ""})
 public class ConnectCommand extends BaseCommand implements Callable<Integer> {
 
     /** Node URL option. */
@@ -53,7 +66,6 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     @Inject
     private Provider<ReplManager> replManagerProvider;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         ReplManager replManager = replManagerProvider.get();
@@ -61,10 +73,10 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
         replManager.subscribe();
 
         int exitCode = runPipeline(CallExecutionPipeline.builder(connectCall)
-                .inputProvider(this::connectCallInput)
+                .input(connectCallInput())
         );
         if (exitCode == 0) {
-            replManager.startReplMode();
+            replManager.startReplMode(spec.commandLine().getFactory());
         }
         return exitCode;
     }

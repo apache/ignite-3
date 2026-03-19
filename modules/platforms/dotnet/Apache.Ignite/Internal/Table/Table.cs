@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -34,6 +35,7 @@ namespace Apache.Ignite.Internal.Table
     using Proto;
     using Proto.MsgPack;
     using Serialization;
+    using Serialization.Mappers;
     using Sql;
     using Transactions;
 
@@ -117,7 +119,7 @@ namespace Apache.Ignite.Internal.Table
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
                 new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer, _sql));
 
-            PartitionManager = new PartitionManager(this);
+            PartitionDistribution = new PartitionManager(this);
         }
 
         /// <inheritdoc/>
@@ -133,7 +135,7 @@ namespace Apache.Ignite.Internal.Table
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
 
         /// <inheritdoc/>
-        public IPartitionManager PartitionManager { get; }
+        public IPartitionDistribution PartitionDistribution { get; }
 
         /// <summary>
         /// Gets the associated socket.
@@ -148,7 +150,26 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
-            where T : notnull => GetRecordViewInternal<T>();
+            where T : notnull
+        {
+            var simpleMapper = OneColumnMappers.TryCreate<T>();
+
+            if (!RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (simpleMapper == null)
+                {
+                    throw new InvalidOperationException(
+                        "Dynamic code generation is not supported in the current environment. " +
+                        "Provide an explicit IMapper<T> implementation for type " + typeof(T).FullName);
+                }
+
+                return GetRecordView(simpleMapper);
+            }
+
+            return simpleMapper is not null
+                ? GetRecordView(simpleMapper)
+                : GetRecordViewInternal<T>();
+        }
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
@@ -158,8 +179,27 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
-            where TK : notnull =>
-            new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+            where TK : notnull
+        {
+            var simpleMapper = KeyValueMappers.TryCreate<TK, TV>();
+
+            if (!RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (simpleMapper == null)
+                {
+                    throw new InvalidOperationException(
+                        "Dynamic code generation is not supported in the current environment. " +
+                        "Provide an explicit IMapper<KeyValuePair<TK, TV>> implementation for types " +
+                        typeof(TK).FullName + " and " + typeof(TV).FullName);
+                }
+
+                return GetKeyValueView(simpleMapper);
+            }
+
+            return simpleMapper is not null
+                ? GetKeyValueView(simpleMapper)
+                : new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+        }
 
         /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)

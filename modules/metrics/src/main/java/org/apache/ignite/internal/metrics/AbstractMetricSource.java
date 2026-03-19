@@ -113,7 +113,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
     }
 
     /**
-     * Returns metric instances' holder. Use this on order to avoid metric lookup from map-like data structures.
+     * Returns metric instances' holder. Use this in order to avoid metric lookup from map-like data structures.
      * Returned value is {@code null} if metrics are disabled.
      *
      * @return Metrics holder instance if metrics are enabled, otherwise - {@code null}.

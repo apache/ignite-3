@@ -55,7 +55,8 @@ public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
             }
         }
 
-        throw new UnsupportedObjectTypeMarshallingException(object.getClass());
+        String msg = object.getClass() + " must be Serializable to be used with ByteArrayMarshaller.";
+        throw new UnsupportedObjectTypeMarshallingException(msg);
     }
 
     @Override

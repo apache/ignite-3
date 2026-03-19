@@ -135,13 +135,6 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
         );
     }
 
-    // TODO: Check if this is the actual AI2 table name.
-    private String getSqlTableName() {
-        // Get the tableName for the SQL Query. Why uppercase??
-        String tableName = (this.valueClass.isArray()) ? '"' + this.valueClass.getName() + '"' : this.valueClass.getSimpleName();
-        return "\"" + this.getTableName() + "\"." + tableName.toUpperCase();
-    }
-
     protected void assertValueFromIgnite2(V actualVal, V expected) {
         assertThat(actualVal).usingRecursiveComparison().isEqualTo(expected);
     }
@@ -150,18 +143,19 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
         assertThat(actualVal).usingRecursiveComparison().isEqualTo(expected);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void assertResultSet(ResultSet rs, V expectedObj) throws SQLException {
         // Intentionally left blank. Please override in the implementation.
     }
 
     protected Mapper<K> keyMapper() {
-        // TODO: Define a complementary test for Binary Caches
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28177 Define a complementary test for Binary Caches
         assumeThat(keyClass).as(MAPPER_ERROR_MSG).isNotNull();
         return Mapper.of(keyClass);
     }
 
     protected Mapper<V> valMapper() {
-        // TODO: Define a complementary test for Binary Caches
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28177 Define a complementary test for Binary Caches
         assumeThat(valueClass).as(MAPPER_ERROR_MSG).isNotNull();
         return Mapper.of(valueClass);
     }

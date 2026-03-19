@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.pagememory.configuration;
 
+import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingPolicyFactory;
+
 /** * Configuration for a persistent data region. */
 public class PersistentDataRegionConfiguration implements DataRegionConfiguration {
     private final String name;
     private final int pageSize;
     private final long size;
     private final ReplacementMode replacementMode;
+    private final ThrottlingPolicyFactory throttlingPolicyFactory;
 
     @Override
     public String name() {
@@ -43,11 +46,18 @@ public class PersistentDataRegionConfiguration implements DataRegionConfiguratio
         return replacementMode;
     }
 
-    private PersistentDataRegionConfiguration(String name, int pageSize, long size, ReplacementMode replacementMode) {
+    public ThrottlingPolicyFactory throttlingPolicyFactory() {
+        return throttlingPolicyFactory;
+    }
+
+    private PersistentDataRegionConfiguration(
+            String name, int pageSize, long size, ReplacementMode replacementMode, ThrottlingPolicyFactory throttlingPolicyFactory
+    ) {
         this.name = name;
         this.pageSize = pageSize;
         this.size = size;
         this.replacementMode = replacementMode;
+        this.throttlingPolicyFactory = throttlingPolicyFactory;
     }
 
     /** Creates a builder for {@link PersistentDataRegionConfiguration} instance. */
@@ -61,6 +71,7 @@ public class PersistentDataRegionConfiguration implements DataRegionConfiguratio
         private int pageSize;
         private long size;
         private ReplacementMode replacementMode = ReplacementMode.CLOCK;
+        private ThrottlingPolicyFactory throttlingPolicyFactory = pageMemory -> null;
 
         public PersistentDataRegionConfigurationBuilder name(String name) {
             this.name = name;
@@ -82,8 +93,13 @@ public class PersistentDataRegionConfiguration implements DataRegionConfiguratio
             return this;
         }
 
+        public PersistentDataRegionConfigurationBuilder throttlingPolicyFactory(ThrottlingPolicyFactory throttlingPolicyFactory) {
+            this.throttlingPolicyFactory = throttlingPolicyFactory;
+            return this;
+        }
+
         public PersistentDataRegionConfiguration build() {
-            return new PersistentDataRegionConfiguration(name, pageSize, size, replacementMode);
+            return new PersistentDataRegionConfiguration(name, pageSize, size, replacementMode, throttlingPolicyFactory);
         }
     }
 }

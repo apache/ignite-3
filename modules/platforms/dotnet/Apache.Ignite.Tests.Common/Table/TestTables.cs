@@ -39,8 +39,8 @@ public static class TestTables
     public const string TableDateTimeName = "TBL_DATETIME";
     public const string TableTimeName = "TBL_TIME";
     public const string TableTimestampName = "TBL_TIMESTAMP";
-    public const string TableNumberName = "TBL_NUMBER";
     public const string TableBytesName = "TBL_BYTE_ARRAY";
+    public const string TableUuidName = "TBL_UUID";
 
     public const string KeyCol = "key";
     public const string ValCol = "val";

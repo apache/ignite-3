@@ -151,11 +151,6 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public boolean isStopped() {
-                return false;
-            }
-
-            @Override
             public void updateMetadata(NodeMetadata metadata) {
             }
 

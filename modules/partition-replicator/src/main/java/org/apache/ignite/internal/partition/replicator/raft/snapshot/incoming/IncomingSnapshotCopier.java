@@ -725,14 +725,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         if (entryIndex == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
-            assert entry.commitTableOrZoneId() != null;
+            assert entry.commitZoneId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             partition.addWrite(
                     rowId,
                     binaryRow,
                     entry.txId(),
-                    entry.commitTableOrZoneId(),
+                    entry.commitZoneId(),
                     entry.commitPartitionId(),
                     snapshotCatalogVersion
             );

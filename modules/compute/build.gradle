@@ -52,6 +52,7 @@ dependencies {
     testImplementation libs.awaitility
 
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation platform(libs.jackson.bom)
     integrationTestImplementation libs.jackson.core
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation project(':ignite-api')

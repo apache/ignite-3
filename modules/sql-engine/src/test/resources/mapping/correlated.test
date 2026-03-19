@@ -324,6 +324,7 @@ Fragment#3
             predicate: true
             type: inner
             correlates: [$cor5]
+            correlationFieldNames: [C1, C2]
             est: (rows=50001)
           TableScan
               table: PUBLIC.CT_N1
@@ -370,6 +371,7 @@ Fragment#2 root
           predicate: true
           type: inner
           correlates: [$cor5]
+          correlationFieldNames: [C1, C2]
           est: (rows=1)
         Receiver
             fieldNames: [C1, C2]
@@ -428,6 +430,7 @@ Fragment#2 root
         predicate: true
         type: inner
         correlates: [$cor3]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]
@@ -514,6 +517,7 @@ Fragment#3 root
         predicate: true
         type: inner
         correlates: [$cor6]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]
@@ -535,6 +539,7 @@ Fragment#3 root
                 predicate: true
                 type: inner
                 correlates: [$cor7]
+                correlationFieldNames: [ID]
                 est: (rows=1)
               Receiver
                   fieldNames: [ID]
@@ -641,6 +646,7 @@ Fragment#3 root
         predicate: true
         type: inner
         correlates: [$cor8]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]
@@ -662,6 +668,7 @@ Fragment#3 root
                 predicate: true
                 type: inner
                 correlates: [$cor9]
+                correlationFieldNames: [ID]
                 est: (rows=1)
               Receiver
                   fieldNames: [ID]

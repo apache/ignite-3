@@ -135,6 +135,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      */
     public void startTrack(long recoveryRevision) {
         inBusyLock(busyLock, () -> {
+            LOG.info("Starting lease tracker recovery [revision={}].", recoveryRevision);
+
             msManager.registerExactWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
             loadLeasesBusyAsync(recoveryRevision);
@@ -148,6 +150,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         }
 
         busyLock.block();
+
+        LOG.info("Stopping lease tracker.");
 
         primaryReplicaWaiters.values().forEach(PendingComparableValuesTracker::close);
         primaryReplicaWaiters.clear();
@@ -176,8 +180,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return lease == null ? emptyLease(grpId) : lease;
     }
 
-    /** Returns collection of leases, ordered by replication group. */
-    public Leases leasesCurrent() {
+    /** Returns collection of latest leases, ordered by replication group. Shows all latest leases including expired ones. */
+    public Leases leasesLatest() {
         return leases;
     }
 
@@ -456,7 +460,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             leases = new Leases(leasesMap, leasesBytes);
         }
 
-        LOG.info("Leases cache recovered [leases={}]", leases);
+        LOG.info("Leases cache recovered [revision={}, leases={}]", recoveryRevision, leases);
     }
 
     /**

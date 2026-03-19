@@ -79,6 +79,7 @@ import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
@@ -174,7 +176,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             HybridClock clock = new HybridClockImpl();
             ClockService clockService = new TestClockService(clock);
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
@@ -182,6 +186,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),
+                    txStateVolatileStorage,
                     clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
@@ -224,7 +229,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             };
             ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partsWithConsistencyTokens);
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
+            IgniteTable schemaTable = mock(IgniteTable.class);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, schemaTable, scanableTable,
                     partitionProvider, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
@@ -278,7 +284,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));
-        TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scannableTable, c -> partitions, null, null, null);
+        IgniteTable schemaTable = mock(IgniteTable.class);
+        TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, schemaTable, scannableTable,
+                c -> partitions, null, null, null);
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
 
         rootNode.register(scanNode);
@@ -334,8 +342,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(TransactionInflights.class),
                     null,
                     mock(StreamerReceiverRunner.class),
-                    () -> 10_000L,
-                    () -> 10_000L,
                     new TableMetricSource(QualifiedName.fromSimple("test"))
             );
             this.dataAmount = dataAmount;

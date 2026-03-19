@@ -58,7 +58,7 @@ import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
@@ -284,7 +284,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        return booleanCompletedFuture(replaceImpl(key, row, tx) != null);
+        return booleanCompletedFuture(replaceImpl(key, row) != null);
     }
 
     @Override
@@ -304,7 +304,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         return trueCompletedFuture();
     }
 
-    private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row, @Nullable InternalTransaction tx) {
+    private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row) {
         BinaryRow old = getImpl(key.byteBuffer(), row);
 
         if (old == null) {
@@ -324,7 +324,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        BinaryRow replace = replaceImpl(key, row, tx);
+        BinaryRow replace = replaceImpl(key, row);
 
         onDataAccess("getAndReplace", row);
 
@@ -524,7 +524,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public TableMetricSource metrics() {
+    public ReadWriteMetricSource metrics() {
         return null;
     }
 }

@@ -18,11 +18,14 @@
 #pragma once
 
 #include "ignite/client/ignite_logger.h"
+#include "socket_adapter/socket_adapter.h"
 
 #include <atomic>
 #include <cstddef>
 #include <ignite/common/ignite_error.h>
 #include <ignite/protocol/utils.h>
+
+
 
 namespace ignite {
 
@@ -31,21 +34,22 @@ namespace ignite {
  */
 class tcp_client_channel {
 public:
-    explicit tcp_client_channel(int srv_socket_fd, std::shared_ptr<ignite_logger> logger)
-        : m_srv_fd(srv_socket_fd)
+    explicit tcp_client_channel(const server_socket_adapter& srv_sock, std::shared_ptr<ignite_logger> logger)
+        : m_srv_sock(srv_sock)
+        , m_buf{}
         , m_logger(std::move(logger)) {}
 
     void start();
     void stop();
     std::vector<std::byte> read_next_n_bytes(size_t n);
-    void send_message(std::vector<std::byte> msg);
+    void send_message(const std::vector<std::byte>& msg);
 
 private:
     void receive_next_packet();
-    /** Server FD. */
-    int m_srv_fd;
-    /** Client FD. */
-    int m_cl_fd = -1;
+    /** Server socket. */
+    const server_socket_adapter& m_srv_sock;
+    /** Client socket. */
+    client_socket_adapter m_cl_sock;
     /** Message buffer. */
     std::byte m_buf[1024];
     /** Pointer position. */

@@ -20,27 +20,18 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.calcite.linq4j.function.Function1;
-import org.apache.calcite.linq4j.tree.BlockBuilder;
 import org.apache.calcite.linq4j.tree.Expression;
-import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
-import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 class CorrelatesBuilder extends RexShuttle {
-    private final BlockBuilder builder;
-
     private final Expression ctx;
 
-    private final Expression hnd;
+    private Map<String, InputGetter> correlates;
 
-    private Map<String, FieldGetter> correlates;
-
-    CorrelatesBuilder(BlockBuilder builder, Expression ctx, Expression hnd) {
-        this.builder = builder;
-        this.hnd = hnd;
+    CorrelatesBuilder(Expression ctx) {
         this.ctx = ctx;
     }
 
@@ -61,15 +52,13 @@ class CorrelatesBuilder extends RexShuttle {
     /** {@inheritDoc} */
     @Override
     public RexNode visitCorrelVariable(RexCorrelVariable variable) {
-        Expression corr = builder.append("corr",
-                Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(),
-                        Expressions.constant(variable.id.getId())));
-
         if (correlates == null) {
             correlates = new HashMap<>();
         }
 
-        correlates.put(variable.getName(), new FieldGetter(hnd, corr, variable.getType()));
+        InputGetter inputGetter = new CorrelationValueGetter(ctx, variable);
+
+        correlates.put(variable.getName(), inputGetter);
 
         return variable;
     }

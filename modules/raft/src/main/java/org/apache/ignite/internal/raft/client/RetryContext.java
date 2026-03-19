@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import static java.util.Collections.unmodifiableSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.time.Instant;
@@ -45,6 +46,9 @@ import org.jetbrains.annotations.Nullable;
  */
 class RetryContext {
     private static final int MAX_RETRY_REASONS = 25;
+
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS").withZone(ZoneId.systemDefault());
 
     private final String groupId;
 
@@ -76,6 +80,13 @@ class RetryContext {
     private final Set<Peer> unavailablePeers = new HashSet<>();
 
     /**
+     * Set of peers that returned "no leader" response (EPERM with leaderId==null).
+     * Unlike {@link #unavailablePeers}, this set is NOT reset when all peers are exhausted.
+     * Instead, when all peers are in this set, we wait for leader notification.
+     */
+    private final Set<Peer> noLeaderPeers = new HashSet<>();
+
+    /**
      * List of last {@value MAX_RETRY_REASONS} retry reasons. {@link LinkedList} in order to allow fast head removal upon overflow.
      */
     private final List<RetryReason> retryReasons = new LinkedList<>();
@@ -95,6 +106,11 @@ class RetryContext {
     private long attemptStartTime;
 
     private final long responseTimeoutMillis;
+
+    /**
+     * If {@code true} then all peers will be retried only once.
+     */
+    private final boolean singleShotRequest;
 
     /**
      * Creates a context.
@@ -127,6 +143,7 @@ class RetryContext {
         this.attemptScheduleTime = this.startTime;
         this.attemptStartTime = this.startTime;
         this.responseTimeoutMillis = responseTimeoutMillis;
+        this.singleShotRequest = sendWithRetryTimeoutMillis == 0;
     }
 
     Peer targetPeer() {
@@ -146,7 +163,7 @@ class RetryContext {
     }
 
     Set<Peer> unavailablePeers() {
-        return unavailablePeers;
+        return unmodifiableSet(unavailablePeers);
     }
 
     UUID errorTraceId() {
@@ -157,8 +174,32 @@ class RetryContext {
         return errorTraceId;
     }
 
+    boolean singleShotRequest() {
+        return singleShotRequest;
+    }
+
     void resetUnavailablePeers() {
         unavailablePeers.clear();
+    }
+
+    void resetNoLeaderPeers() {
+        noLeaderPeers.clear();
+    }
+
+    Set<Peer> noLeaderPeers() {
+        return unmodifiableSet(noLeaderPeers);
+    }
+
+    /**
+     * Updates this context by changing the target peer and adding the previous target peer to the "no leader" set.
+     * Used when a peer returns EPERM with no leader information.
+     *
+     * @return {@code this}.
+     */
+    RetryContext nextAttemptForNoLeaderPeer(Peer newTargetPeer, String shortReasonMessage) {
+        noLeaderPeers.add(targetPeer);
+
+        return nextAttempt(newTargetPeer, shortReasonMessage);
     }
 
     /**
@@ -195,10 +236,7 @@ class RetryContext {
     }
 
     private static String timestampToString(long timestamp) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS")
-                .withZone(ZoneId.systemDefault());
-        Instant instant = Instant.ofEpochMilli(timestamp);
-        return formatter.format(instant);
+        return TIMESTAMP_FORMATTER.format(Instant.ofEpochMilli(timestamp));
     }
 
     /**

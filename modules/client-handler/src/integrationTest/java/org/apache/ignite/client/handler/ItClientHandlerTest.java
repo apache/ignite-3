@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_PROVIDER_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
@@ -158,7 +159,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(99, len);
+            assertEquals(100, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -559,6 +560,11 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(11);
             expected.set(12);
             expected.set(13);
+            expected.set(14);
+            expected.set(15);
+            expected.set(16);
+            expected.set(17);
+
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();
@@ -571,6 +577,60 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
             assertEquals("consistent-id", nodeName);
+        }
+    }
+
+    @Test
+    void testInvalidHandshakeStateDropsConnection() throws Exception {
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Send first handshake.
+            try (var packer1 = MessagePack.newDefaultBufferPacker()) {
+                packer1.packInt(0);
+                packer1.packInt(0);
+                packer1.packInt(0);
+                packer1.packInt(7); // Size.
+
+                packer1.packInt(3); // Major
+                packer1.packInt(0); // Minor
+                packer1.packInt(0); // Patch
+
+                packer1.packInt(2); // Client type: general purpose.
+
+                packer1.packBinaryHeader(0); // Features.
+                packer1.packInt(0); // Extensions.
+
+                out.write(packer1.toByteArray());
+            }
+
+            // Second message before handshake completes.
+            // This should trigger "Unexpected message received before handshake completion"
+            try (var packer2 = MessagePack.newDefaultBufferPacker()) {
+                packer2.packInt(0);
+                packer2.packInt(0);
+                packer2.packInt(0);
+                packer2.packInt(7); // Size.
+
+                packer2.packInt(3); // Major
+                packer2.packInt(0); // Minor
+                packer2.packInt(0); // Patch
+
+                packer2.packInt(2); // Client type: general purpose.
+
+                packer2.packBinaryHeader(0); // Features.
+                packer2.packInt(0); // Extensions.
+
+                out.write(packer2.toByteArray());
+            }
+
+            out.flush();
+
+            // Server drops the connection due to invalid message.
+            assertThrows(IOException.class, () -> writeAndFlushLoop(sock));
         }
     }
 
@@ -587,7 +647,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     private void setupAuthentication(String username, String password) {
         securityConfiguration.change(change -> {
             change.changeEnabled(true);
-            change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange -> {
+            change.changeAuthentication().changeProviders().update(DEFAULT_PROVIDER_NAME, authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                         .changeUsers(users -> users.create(username, user -> user.changePassword(password)));
             });

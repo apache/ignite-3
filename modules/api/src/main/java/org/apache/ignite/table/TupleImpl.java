@@ -196,73 +196,97 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        return valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
+
+        return castToByte(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
+
+        return castToByte(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        return valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
+
+        return castToShort(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
+
+        return castToShort(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        return valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
+
+        return castToInt(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
+
+        return castToInt(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        return valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
+
+        return castToLong(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
+
+        return castToLong(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        return valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
+
+        return castToFloat(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
+
+        return castToFloat(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        return valueNotNull(columnName);
+        Object number = valueNotNull(columnName);
+
+        return castToDouble(number);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return valueNotNull(columnIndex);
+        Object number = valueNotNull(columnIndex);
+
+        return castToDouble(number);
     }
 
     /** {@inheritDoc} */
@@ -419,25 +443,6 @@ class TupleImpl implements Tuple, Serializable {
         return (idx == null) ? def : (T) colValues.get(idx);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        // Keep the same as IgniteToStringBuilder.toString().
-        StringBuilder b = new StringBuilder();
-
-        b.append(getClass().getSimpleName()).append(" [");
-        for (int i = 0; i < columnCount(); i++) {
-            if (i > 0) {
-                b.append(", ");
-            }
-            Object value = value(i);
-            b.append(columnName(i)).append('=').append(value);
-        }
-        b.append(']');
-
-        return b.toString();
-    }
-
     private <T> T valueNotNull(int columnIndex) {
         T value = value(columnIndex);
 
@@ -458,5 +463,123 @@ class TupleImpl implements Tuple, Serializable {
         }
 
         return value;
+    }
+
+    /** Casts a {@link Number} to {@code byte}. */
+    private static byte castToByte(Object number) {
+        if (number instanceof Byte) {
+            return (byte) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Short) {
+            long longVal = ((Number) number).longValue();
+            byte byteVal = ((Number) number).byteValue();
+
+            if (longVal == byteVal) {
+                return byteVal;
+            }
+
+            throw new ArithmeticException("Byte value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + byte.class);
+    }
+
+    /** Casts a {@link Number} to {@code short}. */
+    private static short castToShort(Object number) {
+        if (number instanceof Short) {
+            return (short) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            short shortVal = ((Number) number).shortValue();
+
+            if (longVal == shortVal) {
+                return shortVal;
+            }
+
+            throw new ArithmeticException("Short value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + short.class);
+    }
+
+    /** Casts a {@link Number} to {@code int}. */
+    private static int castToInt(Object number) {
+        if (number instanceof Integer) {
+            return (int) number;
+        }
+
+        if (number instanceof Long || number instanceof Short || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            int intVal = ((Number) number).intValue();
+
+            if (longVal == intVal) {
+                return intVal;
+            }
+
+            throw new ArithmeticException("Int value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + int.class);
+    }
+
+    /** Casts a {@link Number} to {@code long}. */
+    private static long castToLong(Object number) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
+            return ((Number) number).longValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + long.class);
+    }
+
+    /** Casts a {@link Number} to {@code float}. */
+    private static float castToFloat(Object number) {
+        if (number instanceof Float) {
+            return (float) number;
+        }
+
+        if (number instanceof Double) {
+            double doubleVal = ((Number) number).doubleValue();
+            float floatVal = ((Number) number).floatValue();
+
+            //noinspection FloatingPointEquality
+            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
+                return floatVal;
+            }
+
+            throw new ArithmeticException("Float value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + float.class);
+    }
+
+    /** Casts a {@link Number} to {@code double}. */
+    private static double castToDouble(Object number) {
+        if (number instanceof Double || number instanceof Float) {
+            return ((Number) number).doubleValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + double.class);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        // Keep the same as IgniteToStringBuilder.toString().
+        StringBuilder b = new StringBuilder();
+
+        b.append(getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < columnCount(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            Object value = value(i);
+            b.append(columnName(i)).append('=').append(value);
+        }
+        b.append(']');
+
+        return b.toString();
     }
 }

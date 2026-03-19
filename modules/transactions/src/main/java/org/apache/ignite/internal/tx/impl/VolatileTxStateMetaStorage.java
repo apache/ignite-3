@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
@@ -32,6 +33,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -40,13 +44,32 @@ import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.Persistent
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.VacuumizableTx;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
+    private static final IgniteThrottledLogger THROTTLED_LOG = Loggers.toThrottledLogger(LOG);
+    private static final String ENRICH_REMOVE_THROTTLE_KEY = "volatile-tx-state-enrich-remove";
+    private static final String ENRICH_CREATE_THROTTLE_KEY = "volatile-tx-state-enrich-create";
+    private static final String ENRICH_STATE_CHANGE_THROTTLE_KEY = "volatile-tx-state-enrich-state-change";
+
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    /**
+     * Creates and starts the storage.
+     *
+     * <p>Intended for tests/benchmarks where the storage is used directly without a full component lifecycle.
+     */
+    @TestOnly
+    public static VolatileTxStateMetaStorage createStarted() {
+        VolatileTxStateMetaStorage storage = new VolatileTxStateMetaStorage();
+        storage.start();
+        return storage;
+    }
 
     /**
      * Starts the storage.
@@ -100,6 +123,72 @@ public class VolatileTxStateMetaStorage {
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
+    }
+
+    /**
+     * Atomically replaces metadata of an already existing transaction state, but only if the resulting state keeps the same
+     * {@link TxStateMeta#txState()} value.
+     *
+     * <p>If the transaction is absent, the update is skipped. If the updater returns {@code null}, the existing metadata is preserved and
+     * the removal is skipped. If the updater changes {@code txState}, the update is skipped as well. Otherwise, the returned metadata is
+     * stored as-is, so this method may be used for any non-state changes.
+     *
+     * @param txId Transaction id.
+     * @param updater Transaction meta updater.
+     * @return Stored transaction state after the operation.
+     */
+    public @Nullable <T extends TxStateMeta> T enrichMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return (T) txStateMap.compute(txId, (k, oldMeta) -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
+
+            if (!isEnrichAllowed(txId, oldMeta, newMeta)) {
+                return oldMeta;
+            }
+
+            return newMeta;
+        });
+    }
+
+    private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, @Nullable TxStateMeta newMeta) {
+        if (newMeta == null) {
+            if (oldMeta != null) {
+                THROTTLED_LOG.info(
+                        ENRICH_REMOVE_THROTTLE_KEY,
+                        "Skipped removing transaction state in enrichMeta [{}, oldMeta={}].",
+                        formatTxInfo(txId, oldMeta, false),
+                        oldMeta
+                );
+            }
+
+            return false;
+        }
+
+        if (oldMeta == null) {
+            THROTTLED_LOG.info(
+                    ENRICH_CREATE_THROTTLE_KEY,
+                    "Skipped creating transaction state in enrichMeta [{}, newMeta={}].",
+                    formatTxInfo(txId, newMeta, false),
+                    newMeta
+            );
+
+            return false;
+        }
+
+        if (oldMeta.txState() != newMeta.txState()) {
+            THROTTLED_LOG.info(
+                    ENRICH_STATE_CHANGE_THROTTLE_KEY,
+                    "Skipped changing transaction state in enrichMeta [{}, oldState={}, newState={}, newMeta={}].",
+                    formatTxInfo(txId, oldMeta, false),
+                    oldMeta.txState(),
+                    newMeta.txState(),
+                    newMeta
+            );
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -188,6 +277,7 @@ public class VolatileTxStateMetaStorage {
                             return meta0;
                         }
                     } else {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-27773
                         resourceVacuumMetrics.onMarkedForVacuum();
 
                         return meta0;

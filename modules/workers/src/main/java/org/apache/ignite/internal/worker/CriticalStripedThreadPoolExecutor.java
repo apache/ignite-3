@@ -26,15 +26,26 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricSource;
+import org.apache.ignite.internal.metrics.sources.StripedThreadPoolMetricSource;
 import org.apache.ignite.internal.thread.AbstractStripedThreadPoolExecutor;
 import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Same as {@link StripedThreadPoolExecutor}, but each stripe is a critical worker monitored for being blocked.
  */
 public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> implements StripedExecutor {
     private final List<CriticalWorker> workers;
+
+    @Nullable
+    private MetricManager metricManager;
+
+    @Nullable
+    private MetricSource metricSource;
 
     /**
      * Create a blockage-monitored striped thread pool.
@@ -92,5 +103,45 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
      */
     public Collection<CriticalWorker> workers() {
         return workers;
+    }
+
+    /**
+     * Initialize the metric source to track this thread pool's metrics.
+     *
+     * @param metricManager The metric manager used to register the source.
+     * @param name The name of the metric.
+     * @param description The metric description.
+     */
+    public void initMetricSource(MetricManager metricManager, String name, String description) {
+        if (this.metricManager == null) {
+            this.metricManager = metricManager;
+
+            metricSource = new StripedThreadPoolMetricSource<>(name, description, null, this);
+
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        if (metricManager != null) {
+            assert metricSource != null;
+
+            metricManager.unregisterSource(metricSource);
+        }
+
+        super.shutdown();
+    }
+
+    @Override
+    public @NotNull List<Runnable> shutdownNow() {
+        if (metricManager != null) {
+            assert metricSource != null;
+
+            metricManager.unregisterSource(metricSource);
+        }
+
+        return super.shutdownNow();
     }
 }

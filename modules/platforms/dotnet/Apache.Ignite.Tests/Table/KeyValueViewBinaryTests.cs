@@ -94,6 +94,54 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+    {
+        var result = await KvView.ContainsAllKeysAsync(null, []);
+
+        Assert.IsTrue(result);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
+    {
+        await KvView.PutAsync(null, GetTuple(1L), GetTuple("val1"));
+        await KvView.PutAsync(null, GetTuple(2L), GetTuple("val2"));
+        await KvView.PutAsync(null, GetTuple(3L), GetTuple("val3"));
+
+        var result = await KvView.ContainsAllKeysAsync(null, [GetTuple(1L), GetTuple(2L), GetTuple(3L)]);
+
+        Assert.IsTrue(result);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWithAllNonExistingKeysReturnsFalse()
+    {
+        var result = await KvView.ContainsAllKeysAsync(null, [GetTuple(1), GetTuple(2)]);
+
+        Assert.IsFalse(result);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWithNonExistingKeysReturnsFalse()
+    {
+        await KvView.PutAsync(null, GetTuple(1L), GetTuple("val1"));
+        await KvView.PutAsync(null, GetTuple(2L), GetTuple("val2"));
+
+        var result = await KvView.ContainsAllKeysAsync(null, [GetTuple(1L), GetTuple(2L), GetTuple(3L)]);
+
+        Assert.IsFalse(result);
+    }
+
+    [Test]
+    public void TestContainsAllKeysThrowsArgumentExceptionOnNullCollectionElement()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await KvView.ContainsAllKeysAsync(null, [GetTuple(1), null!]));
+
+        Assert.AreEqual("Value cannot be null. (Parameter 'key')", ex!.Message);
+    }
+
+    [Test]
     public async Task TestContains()
     {
         await KvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));

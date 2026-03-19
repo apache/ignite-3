@@ -63,7 +63,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register transactions in the cycle. */
     @Benchmark
     public static void register() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(transactions.get(i), i);
         }
@@ -72,7 +72,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register transactions in batches of 10, using the same expiration time for each batch. */
     @Benchmark
     public static void register10() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         int iterCnt = ITERATIONS_COUNT / 10;
         for (int i = 0; i < iterCnt; i++) {
             for (int j = 0; j < 10; j++) {
@@ -84,7 +84,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register and unregister transactions in the cycle. */
     @Benchmark
     public static void registerUnregister() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(transactions.get(i), i);
         }
@@ -97,7 +97,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register and expire transactions in the cycle. */
     @Benchmark
     public static void registerExpire() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(transactions.get(i), i);
         }
@@ -171,7 +171,10 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public CompletableFuture<Void> finish(
-                boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+                boolean commit,
+                @Nullable HybridTimestamp executionTimestamp,
+                boolean full,
+                @Nullable Throwable finishReason
         ) {
             return null;
         }
@@ -189,11 +192,6 @@ public class TransactionExpirationRegistryBenchmark {
         @Override
         public CompletableFuture<Void> kill() {
             return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-            return nullCompletedFuture();
         }
 
         @Override
@@ -219,6 +217,11 @@ public class TransactionExpirationRegistryBenchmark {
         @Override
         public CompletableFuture<Void> rollbackAsync() {
             return nullCompletedFuture();
+        }
+
+        @Override
+        public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+            return rollbackAsync();
         }
 
         @Override

@@ -1010,7 +1010,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .check();
 
         // Columns - not ambiguous.
-        // TODO https://issues.apache.org/jira/browse/CALCITE-4915
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28129
         // assertQuery("SELECT c1, c2, c3 FROM t1 NATURAL JOIN t2 ORDER BY c1, c2, c3")
         //    .returns(1, 1, 1)
         //    .returns(2, 2, 2)
@@ -1180,5 +1180,18 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 + " LEFT ASOF JOIN (VALUES (1, NULL)) AS t2(k, t)\n"
                 + " MATCH_CONDITION t2.t < t1.t\n"
                 + " ON t1.k = t2.k"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(mode = Mode.EXCLUDE, names = {"CORRELATED", "MERGE"})
+    void testLeftJoinWithDuplicatesAndAlwaysFalseNonEquiCondition(JoinType joinType) {
+        assertQuery("SELECT t1.id FROM t1 LEFT JOIN t1 AS t2 ON t1.c1 = t2.c1 AND t1.id < 0", joinType)
+                .returns(0)
+                .returns(1)
+                .returns(2)
+                .returns(3)
+                .returns(4)
+                .returns(5)
+                .check();
     }
 }

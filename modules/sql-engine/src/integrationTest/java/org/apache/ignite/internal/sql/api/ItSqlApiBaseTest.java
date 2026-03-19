@@ -127,6 +127,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // ADD COLUMN
         checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN (VAL2 VARCHAR, VAL3 VARCHAR)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
@@ -140,6 +141,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL1 INT, VAL4 INT)");
 
         // CREATE INDEX
         checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -200,6 +203,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
@@ -382,7 +386,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML cannot be started by using read only transactions.",
                     () -> execute(outerTx, sql, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, sql, queryRw);
@@ -569,7 +573,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         IgniteSql sql = igniteSql();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            sql.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            sql.execute("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         Statement statement = sql.statementBuilder()
@@ -701,9 +705,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished due to an error");
     }
 
     @ParameterizedTest
@@ -727,9 +731,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished due to an error");
     }
 
     @Test
@@ -749,8 +753,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             tx.rollback();
 
             assertThrowsSqlException(
-                    Transactions.TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished",
+                    Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
+                    "Transaction is already finished due to an error",
                     () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
         }
@@ -790,7 +794,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
             try {
                 assertThrowsSqlException(
-                        Sql.RUNTIME_ERR,
+                        Sql.STMT_VALIDATION_ERR,
                         "DDL doesn't support transactions.",
                         () -> execute(tx, sql, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
@@ -804,7 +808,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, result.affectedRows());
 
             assertThrowsSqlException(
-                    Sql.RUNTIME_ERR,
+                    Sql.STMT_VALIDATION_ERR,
                     "DDL doesn't support transactions.",
                     () -> sql.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );
@@ -905,7 +909,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         long momentBefore = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-        ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
+        ResultSet<SqlRow> resultSet = igniteSql().execute((Transaction) null, builder.build());
         SqlRow row = resultSet.next();
 
         long momentAfter = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -1047,7 +1051,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                     .build();
 
             CancelHandle cancelHandle = CancelHandle.create();
-            CompletableFuture<?> fut = sql.executeAsync(null, cancelHandle.token(), statement);
+            CompletableFuture<?> fut = sql.executeAsync((Transaction) null, cancelHandle.token(), statement);
 
             // Wait until the query starts executing.
             waitUntilRunningQueriesCount(greaterThan(0));
@@ -1143,7 +1147,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             String killQuery = "KILL QUERY '" + existingQuery + '\'';
 
             // Kill existing query.
-            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+            try (ResultSet<SqlRow> killResultset = sql.execute(killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(true));
             }
@@ -1161,7 +1165,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             );
 
             // Kill non-existing query.
-            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+            try (ResultSet<SqlRow> killResultset = sql.execute(killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(false));
             }

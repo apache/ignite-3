@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -298,7 +299,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                    assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
                 }
             };
 

@@ -87,7 +87,7 @@ public class Ignite2SeedDataTest {
                 client = Ignition.start(CONFIG_URI);
 
                 // Active the cluster if it is innactive.
-                // TODO: Control this with a flag.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-28169 Control this with a flag.
                 ClusterState state = client.cluster().state();
                 if (state == ClusterState.INACTIVE) {
                     System.out.println("The cluster was not active. Activating..");
@@ -106,7 +106,7 @@ public class Ignite2SeedDataTest {
 
     @AfterAll
     static void tearDownClient() {
-        // TODO: Should optitionally call the cluster shutdown
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28170 Should optitionally call the cluster shutdown.
         synchronized (Ignite2SeedDataTest.class) {
             if (client != null) {
                 client.close();

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine.IFactory;
 
 /** Tests for {@link SqlReplCommand}. */
 class ItSqlReplCommandTest extends CliIntegrationTest {
@@ -118,9 +119,49 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
         );
     }
 
+    @Test
+    @DisplayName("Verbose flag should produce JDBC and SQL diagnostic output on stderr")
+    void verboseBasic() {
+        execute("-v", "SELECT 1;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertOutputIsNotEmpty(),
+                () -> assertErrOutputContains("--> JDBC"),
+                () -> assertErrOutputContains("--> SQL"),
+                () -> assertErrOutputContains("<-- 1 row(s)")
+        );
+    }
+
+    @Test
+    @DisplayName("Double verbose flag should also produce column metadata")
+    void verboseColumns() {
+        execute("-v", "-v", "SELECT 1;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertOutputIsNotEmpty(),
+                () -> assertErrOutputContains("--> JDBC"),
+                () -> assertErrOutputContains("--> SQL"),
+                () -> assertErrOutputContains("<-- Columns:")
+        );
+    }
+
+    @Test
+    @DisplayName("Triple verbose flag should also produce driver info")
+    void verboseDriver() {
+        execute("-v", "-v", "-v", "SELECT 1;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertOutputIsNotEmpty(),
+                () -> assertErrOutputContains("--> JDBC"),
+                () -> assertErrOutputContains("--> Driver:"),
+                () -> assertErrOutputContains("--> SQL"),
+                () -> assertErrOutputContains("<-- Columns:")
+        );
+    }
+
     @Bean
     @Replaces(ReplExecutorProvider.class)
     public ReplExecutorProvider replExecutorProvider() {
-        return () -> repl -> {};
+        return (IFactory factory) -> repl -> {};
     }
 }

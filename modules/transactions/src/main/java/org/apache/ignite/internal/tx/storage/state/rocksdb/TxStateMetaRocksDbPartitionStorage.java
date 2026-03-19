@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage.BYTE_ORDER;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.ZONE_ID_SIZE_BYTES;
@@ -166,6 +167,10 @@ class TxStateMetaRocksDbPartitionStorage {
     }
 
     void updateLease(WriteBatch writeBatch, LeaseInfo leaseInfo) throws RocksDBException {
+        long currentLeaseStartTime = ofNullable(this.leaseInfo).map(LeaseInfo::leaseStartTime).orElse(Long.MIN_VALUE);
+        if (leaseInfo.leaseStartTime() <= currentLeaseStartTime) {
+            return;
+        }
         columnFamily.put(writeBatch, leaseInfoKey, VersionedSerialization.toBytes(leaseInfo, LeaseInfoSerializer.INSTANCE));
 
         this.leaseInfo = leaseInfo;

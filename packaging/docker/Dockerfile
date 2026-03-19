@@ -15,10 +15,12 @@
 # limitations under the License.
 #
 
-FROM --platform=$TARGETPLATFORM eclipse-temurin:11 AS jre-build
+FROM eclipse-temurin:25 AS jre-build
+
+ARG JRE_MODULES
 
 RUN $JAVA_HOME/bin/jlink \
-         --add-modules ALL-MODULE-PATH \
+         --add-modules ${JRE_MODULES} \
          --strip-debug \
          --no-man-pages \
          --no-header-files \
@@ -26,7 +28,7 @@ RUN $JAVA_HOME/bin/jlink \
          --output /javaruntime
 
 # Same base image as eclipse-temurin
-FROM --platform=$TARGETPLATFORM ubuntu:22.04
+FROM ubuntu:22.04
 
 ARG DOTNET_VERSION=8.0
 ARG DOTNET_PACKAGE_NAME=dotnet-runtime

@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-client-test)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-client-test)
 
 set(SOURCES
     basic_authenticator_test.cpp

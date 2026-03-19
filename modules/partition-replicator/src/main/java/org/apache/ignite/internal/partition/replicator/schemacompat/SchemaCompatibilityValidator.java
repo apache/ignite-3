@@ -24,6 +24,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -65,7 +68,7 @@ public class SchemaCompatibilityValidator {
     }
 
     /**
-     * Performs commit validation. That is, checks that each table enlisted in the tranasction still exists at the commit timestamp,
+     * Performs commit validation. That is, checks that each table enlisted in the transaction still exists at the commit timestamp,
      * and that the initial schema of the table (identified by the begin timestamp) is forward-compatible with the commit schema
      * (identified by the commit timestamp).
      *
@@ -84,7 +87,8 @@ public class SchemaCompatibilityValidator {
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account
         // which only makes sense when comparing 'unrelated' timestamps. beginTs and commitTs have a causal relationship,
         // so we don't need to account for clock skew.
-        assert commitTimestamp.compareTo(beginTimestamp) > 0;
+        assert commitTimestamp.compareTo(beginTimestamp) > 0
+                : "Commit timestamp " + commitTimestamp + " is not after begin timestamp " + beginTimestamp;
 
         return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
                 .thenApply(ignored -> validateCommit(enlistedTableIds, commitTimestamp, beginTimestamp));
@@ -132,7 +136,7 @@ public class SchemaCompatibilityValidator {
     ) {
         List<FullTableSchema> tableSchemas = validationSchemasSource.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
 
-        assert !tableSchemas.isEmpty();
+        assert !tableSchemas.isEmpty() : "No table schemas for table " + tableId + " between " + beginTimestamp + " and " + commitTimestamp;
 
         for (int i = 0; i < tableSchemas.size() - 1; i++) {
             FullTableSchema oldSchema = tableSchemas.get(i);
@@ -243,7 +247,7 @@ public class SchemaCompatibilityValidator {
         CatalogTableDescriptor tableAtBeginTs = catalogService.activeCatalog(beginTs.longValue()).table(tableId);
         CatalogTableDescriptor tableAtOpTs = catalogService.activeCatalog(operationTimestamp.longValue()).table(tableId);
 
-        assert tableAtBeginTs != null : "No table " + tableId + " at ts " + tableAtBeginTs;
+        assert tableAtBeginTs != null : "No table " + tableId + " at ts " + beginTs;
 
         if (tableAtOpTs == null) {
             throw IncompatibleSchemaVersionException.tableDropped(tableAtBeginTs.name());
@@ -354,8 +358,12 @@ public class SchemaCompatibilityValidator {
             }
 
             for (CatalogTableColumnDescriptor column : diff.addedColumns()) {
-                if (!column.nullable() && column.defaultValue() == null) {
-                    return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Not null column added without default value");
+                if (!column.nullable()) {
+                    DefaultValue defaultValue = column.defaultValue();
+
+                    if (defaultValue == null || (defaultValue.type() == Type.CONSTANT && ((ConstantValue) defaultValue).value() == null)) {
+                        return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Not null column added without default value");
+                    }
                 }
             }
 

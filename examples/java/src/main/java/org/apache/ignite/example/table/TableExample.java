@@ -26,7 +26,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the { @link KeyValueView} API.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
@@ -43,26 +43,8 @@ public class TableExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            // Create a table to work with later
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (" +
-                    "id int primary key," +
-                    "city_id int," +
-                    "name varchar," +
-                    "age int," +
-                    "company varchar)"
-            );
-
             // Get the tables API to interact with database tables
             IgniteTables tableApi = client.tables();
-
-            // Retrieve a list of all existing tables in the cluster
-            //List<Table> existingTables = tableApi.tables();
-
-            // Get the first table from the list (for demonstration purposes)
-            //Table firstTable = existingTables.get(0);
-
-            // Access a specific table by its simple name
-            //Table specificTable = tableApi.table("MY_TABLE");
 
             // Create a qualified table name by parsing a string (schema.table format)
             QualifiedName qualifiedTableName = QualifiedName.parse("PUBLIC.Person");
@@ -70,25 +52,49 @@ public class TableExample {
             // Alternative way to create qualified name using schema and table parts
             //QualifiedName qualifiedTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
 
-            // Access a table using the qualified name (includes schema)
-            Table myTable = tableApi.table(qualifiedTableName);
+            try {
+                // Create a table to work with later
+                client.sql().execute("CREATE TABLE Person (" +
+                        "id int primary key," +
+                        "city_id int," +
+                        "name varchar," +
+                        "age int," +
+                        "company varchar)"
+                );
 
-            RecordView<Tuple> personTableView = myTable.recordView();
+                // Retrieve a list of all existing tables in the cluster
+                //List<Table> existingTables = tableApi.tables();
 
-            Tuple personTuple = Tuple.create()
-                    .set("id", 1)
-                    .set("city_id", 3)
-                    .set("name", "John Doe")
-                    .set("age", 32)
-                    .set("company", "Apache");
+                // Get the first table from the list (for demonstration purposes)
+                //Table firstTable = existingTables.get(0);
 
-            personTableView.upsert(null, personTuple);
+                // Access a specific table by its simple name
+                //Table specificTable = tableApi.table("MY_TABLE");
 
-            Tuple personIdTuple = Tuple.create()
-                    .set("id", 1);
-            Tuple insertedPerson = personTableView.get(null, personIdTuple);
+                // Access a table using the qualified name (includes schema)
+                Table myTable = tableApi.table(qualifiedTableName);
 
-            System.out.println("Person name: " + insertedPerson.stringValue("name"));
+                RecordView<Tuple> personTableView = myTable.recordView();
+
+                Tuple personTuple = Tuple.create()
+                        .set("id", 1)
+                        .set("city_id", 3)
+                        .set("name", "John Doe")
+                        .set("age", 32)
+                        .set("company", "Apache");
+
+                personTableView.upsert(null, personTuple);
+
+                Tuple personIdTuple = Tuple.create()
+                        .set("id", 1);
+                Tuple insertedPerson = personTableView.get(null, personIdTuple);
+
+                System.out.println("Person name: " + insertedPerson.stringValue("name"));
+            } finally {
+                System.out.println("Dropping the table...");
+
+                client.sql().execute("DROP TABLE IF EXISTS Person");
+            }
         }
     }
 }

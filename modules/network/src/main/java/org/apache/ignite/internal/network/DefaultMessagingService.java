@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -34,6 +36,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -47,16 +50,18 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -100,8 +105,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private final FailureProcessor failureProcessor;
 
+    private final MetricManager metricManager;
+
+    private final MessagingServiceMetricSource metricSource = new MessagingServiceMetricSource();
+
+    private final MessagingServiceMetrics metrics = new MessagingServiceMetrics(metricSource);
+
     /** Connection manager that provides access to {@link NettySender}. */
-    private volatile ConnectionManager connectionManager;
+    private final ConnectionManager connectionManager;
 
     /** Collection that maps correlation id to the future for an invocation request. */
     private final ConcurrentMap<Long, TimeoutObjectImpl> requestsMap = new ConcurrentHashMap<>();
@@ -143,6 +154,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureProcessor Failure processor.
+     * @param metricManager The metrics manager.
      * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public DefaultMessagingService(
@@ -154,6 +166,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor,
+            ConnectionManager connectionManager,
+            MetricManager metricManager,
             ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
@@ -163,17 +177,26 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.failureProcessor = failureProcessor;
+        this.metricManager = metricManager;
+
+        this.connectionManager = connectionManager;
+        connectionManager.addListener(this::handleMessageFromNetwork);
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
+        outboundExecutor.initMetricSource(metricManager, THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound",
+                "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
                 nodeName,
                 "MessagingService-inbound",
                 criticalWorkerRegistry,
                 channelTypeRegistry,
-                LOG
+                LOG,
+                metricManager,
+                THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound",
+                "Inbound message executor metrics"
         );
 
         timeoutWorker = new TimeoutWorker(
@@ -183,16 +206,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 requestsMap,
                 failureProcessor
         );
-    }
-
-    /**
-     * Resolves cyclic dependency and sets up the connection manager.
-     *
-     * @param connectionManager Connection manager.
-     */
-    public void setConnectionManager(ConnectionManager connectionManager) {
-        this.connectionManager = connectionManager;
-        connectionManager.addListener(this::handleMessageFromNetwork);
     }
 
     @Override
@@ -210,6 +223,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementMessageRecipientNotFound();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -240,6 +255,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementMessageRecipientNotFound();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -259,6 +276,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementMessageRecipientNotFound();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -305,9 +324,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return nullCompletedFuture();
         }
 
+        if (strictIdCheck && staleIdDetector.isIdStale(recipient.id())) {
+            return recipientIsStaleFuture(recipient);
+        }
+
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
         return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck);
+    }
+
+    private <U> CompletableFuture<U> recipientIsStaleFuture(InternalClusterNode recipient) {
+        metrics.incrementMessageRecipientNotFound();
+
+        return failedFuture(
+                new RecipientLeftException("Recipient is stale [name=" + recipient.name() + ", id=" + recipient.id() + "]")
+        );
     }
 
     private boolean shouldDropMessage(InternalClusterNode recipient, NetworkMessage msg) {
@@ -356,6 +387,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return responseFuture;
         }
 
+        if (strictIdCheck && staleIdDetector.isIdStale(recipient.id())) {
+            return recipientIsStaleFuture(recipient);
+        }
+
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
         return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck)
@@ -382,7 +417,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     ) {
         if (isInNetworkThread()) {
             return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message, strictIdCheck), outboundExecutor)
-                    .thenCompose(Function.identity());
+                    .thenCompose(identity());
         }
 
         List<ClassDescriptorMessage> descriptors;
@@ -393,10 +428,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
-        return connectionManager.channel(nodeId, type, addr)
+        // TODO IGNITE-28225 Retry channel creation in case of network issues.
+        OrderingFuture<NettySender> channelFuture = connectionManager.channel(nodeId, type, addr);
+
+        channelFuture.whenComplete((sender, ex) -> maybeLogHandshakeError(ex, nodeId, type, addr));
+
+        return channelFuture
                 .thenComposeToCompletable(sender -> {
                     if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
                         // The destination node has been rebooted, so it's a different node instance.
+                        metrics.incrementMessageRecipientNotFound();
+
                         throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
                     }
 
@@ -404,18 +446,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             new OutNetworkObject(message, descriptors),
                             () -> triggerChannelCreation(nodeId, type, addr)
                     );
-                })
-                .whenComplete((res, ex) -> handleHandshakeError(ex, nodeId, type, addr));
+                });
     }
 
-    private void handleHandshakeError(Throwable ex, UUID nodeId, ChannelType type, InetSocketAddress addr) {
+    private void maybeLogHandshakeError(Throwable ex, UUID nodeId, ChannelType type, InetSocketAddress addr) {
         if (ex != null) {
             if (hasCause(ex, CriticalHandshakeException.class)) {
                 LOG.error(
                         "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
                         nodeId, type, addr, connectionManager.localBindAddress()
                 );
-            } else if (!ignorableHandshakeException(ex) && LOG.isInfoEnabled()) {
+            } else if (LOG.isInfoEnabled() && hasCause(ex, HandshakeException.class) && !hasCause(ex, IOException.class)) {
                 // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
                 LOG.info(
                         "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
@@ -423,10 +464,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 );
             }
         }
-    }
-
-    private static boolean ignorableHandshakeException(Throwable ex) {
-        return hasCause(ex, NodeStoppingException.class, RecipientLeftException.class);
     }
 
     private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {
@@ -451,6 +488,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
 
         // Specially made by a classic loop for optimization.
+        //noinspection ForLoopReplaceableByForEach
         for (int i = 0; i < handlerContexts.size(); i++) {
             HandlerContext handlerContext = handlerContexts.get(i);
 
@@ -501,17 +539,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
-            long startedNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
+            long startedNanos = System.nanoTime();
 
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
+                metrics.incrementMessageHandlingFailures();
+
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
-                if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
-                    long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                    if (tookMillis > 100) {
+                if (tookMillis > 100) {
+                    metrics.incrementSlowResponses();
+
+                    if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
                         LOG.warn(
                                 "Processing of {} from {} took {} ms",
                                 LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
@@ -651,7 +693,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
         TimeoutObjectImpl responseFuture = requestsMap.remove(correlationId);
 
         if (responseFuture != null) {
-            responseFuture.future().complete(response);
+            var fut = responseFuture.future();
+
+            fut.complete(response);
+
+            // Check if it was already completed exceptionally by the timeout worker.
+            if (fut.isCompletedExceptionally()) {
+                metrics.incrementInvokeTimeouts();
+            }
         }
     }
 
@@ -702,12 +751,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 recipientInetAddrByNodeId.remove(member.id());
             }
         });
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
     }
 
     /**
      * Stops the messaging service.
      */
     public void stop() throws Exception {
+        metricManager.unregisterSource(metricSource);
+
         var exception = new NodeStoppingException();
 
         requestsMap.values().forEach(fut -> fut.future().completeExceptionally(exception));
@@ -726,6 +780,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     // TODO: IGNITE-18493 - remove/move this
+
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
      * message will be dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods

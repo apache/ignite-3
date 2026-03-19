@@ -68,8 +68,6 @@ public class VolatilePageMemoryBenchmarkBase {
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
-        volatilePageMemory.start();
-
         freeList = new FreeListImpl(
                 "freeList",
                 GROUP_ID,

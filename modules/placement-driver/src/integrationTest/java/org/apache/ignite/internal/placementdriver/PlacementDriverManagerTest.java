@@ -103,8 +103,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.network.NetworkAddress;
@@ -140,9 +140,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     private Loza raftManager;
 
-    private LogStorageFactory partitionsLogStorageFactory;
+    private LogStorageManager partitionsLogStorageManager;
 
-    private LogStorageFactory msLogStorageFactory;
+    private LogStorageManager msLogStorageManager;
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -153,7 +153,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration(validate = false)
     private ReplicationConfiguration replicationConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
@@ -165,7 +165,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
-    private final AtomicInteger nextTableOrZoneId = new AtomicInteger();
+    private final AtomicInteger nextZoneId = new AtomicInteger();
 
     private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
@@ -216,7 +216,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("loza"));
 
-        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.nodeName(),
                 workingDir.raftLogPath()
         );
@@ -237,11 +237,11 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+        msLogStorageManager =
+                SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -280,8 +280,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 startAsync(componentContext,
                         clusterService,
                         anotherClusterService,
-                        partitionsLogStorageFactory,
-                        msLogStorageFactory,
+                        partitionsLogStorageManager,
+                        msLogStorageManager,
                         raftManager,
                         metaStorageManager
                 )
@@ -332,8 +332,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 placementDriverManager,
                 metaStorageManager,
                 raftManager,
-                partitionsLogStorageFactory,
-                msLogStorageFactory,
+                partitionsLogStorageManager,
+                msLogStorageManager,
                 clusterService,
                 anotherClusterService
         );
@@ -425,7 +425,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testPrimaryReplicaEvents() throws Exception {
         PartitionGroupId grpPart0 =
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp);
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp);
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
@@ -553,8 +553,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
         List<PartitionGroupId> groupIds = List.of(
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp),
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp)
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp),
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp)
         );
 
         Map<PartitionGroupId, AtomicBoolean> leaseExpirationMap =
@@ -738,7 +738,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private PartitionGroupId createAssignments() {
         return createAssignments(
                 metaStorageManager,
-                nextTableOrZoneId.incrementAndGet(),
+                nextZoneId.incrementAndGet(),
                 List.of(nodeName, anotherNodeName),
                 assignmentsTimestamp
         );

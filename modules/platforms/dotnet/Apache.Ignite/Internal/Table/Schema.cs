@@ -34,6 +34,7 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Columns">Columns in schema order.</param>
     /// <param name="KeyColumns">Key part columns.</param>
     /// <param name="ValColumns">Val part columns.</param>
+    /// <param name="ColocationColumns">Colocation columns.</param>
     /// <param name="ColumnsByName">Column name map.</param>
     /// <param name="HashedColumnIndexProvider">Hashed column index provider.</param>
     /// <param name="KeyOnlyHashedColumnIndexProvider">Hashed column index provider for key-only mode.</param>
@@ -45,6 +46,7 @@ namespace Apache.Ignite.Internal.Table
         Column[] Columns,
         Column[] KeyColumns,
         Column[] ValColumns,
+        Column[] ColocationColumns,
         IReadOnlyDictionary<string, Column> ColumnsByName,
         IHashedColumnIndexProvider HashedColumnIndexProvider,
         IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
@@ -108,9 +110,24 @@ namespace Apache.Ignite.Internal.Table
             Debug.Assert(columns.Length == 0 || colocationColumnCount > 0, "No hashed columns");
 
             var columnMap = new Dictionary<string, Column>(columns.Length);
+            var colocationColumns = colocationColumnCount > 0 ? new Column[colocationColumnCount] : keyColumns;
+
             foreach (var column in columns)
             {
                 columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
+
+                if (column.ColocationIndex >= 0)
+                {
+                    Debug.Assert(
+                        column.ColocationIndex < colocationColumnCount,
+                        $"Invalid colocation index: {column}, colocationColumnCount={colocationColumnCount}, schema={columns[column.ColocationIndex]}");
+
+                    Debug.Assert(
+                        colocationColumns[column.ColocationIndex] == null!,
+                        $"Duplicate colocation index: {column}, {colocationColumns[column.ColocationIndex]}");
+
+                    colocationColumns[column.ColocationIndex] = column;
+                }
             }
 
             return new Schema(
@@ -120,6 +137,7 @@ namespace Apache.Ignite.Internal.Table
                 columns,
                 keyColumns,
                 valColumns,
+                colocationColumns,
                 columnMap,
                 new HashedColumnIndexProvider(columns, colocationColumnCount),
                 new HashedColumnIndexProvider(keyColumns, colocationColumnCount));

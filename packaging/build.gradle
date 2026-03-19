@@ -83,6 +83,68 @@ def tokens = [
         ADD_OPENS           : project.addOpens.join(' ')
 ]
 
+def defaultJreModules = [
+        'java.base',
+        'java.compiler',
+        'java.datatransfer',
+        'java.desktop',
+        'java.instrument',
+        'java.logging',
+        'java.management',
+        'java.management.rmi',
+        'java.naming',
+        'java.net.http',
+        'java.prefs',
+        'java.rmi',
+        'java.scripting',
+        'java.se',
+        'java.security.jgss',
+        'java.security.sasl',
+        'java.smartcardio',
+        'java.sql',
+        'java.sql.rowset',
+        'java.transaction.xa',
+        'java.xml',
+        'java.xml.crypto',
+        'jdk.accessibility',
+        'jdk.charsets',
+        'jdk.crypto.cryptoki',
+        'jdk.dynalink',
+        'jdk.graal.compiler',
+        'jdk.graal.compiler.management',
+        'jdk.httpserver',
+        'jdk.incubator.vector',
+        'jdk.internal.vm.ci',
+        'jdk.jdwp.agent',
+        'jdk.jfr',
+        'jdk.jsobject',
+        'jdk.localedata',
+        'jdk.management',
+        'jdk.management.agent',
+        'jdk.management.jfr',
+        'jdk.naming.dns',
+        'jdk.naming.rmi',
+        'jdk.net',
+        'jdk.nio.mapmode',
+        'jdk.sctp',
+        'jdk.security.auth',
+        'jdk.security.jgss',
+        'jdk.unsupported',
+        'jdk.xml.dom',
+        'jdk.zipfs'
+]
+
+def jreModules = new HashSet<>(defaultJreModules)
+project.addOpens.each { openArg ->
+    def normalized = openArg.replaceFirst(/^--add-opens=/, '')
+    def moduleName = normalized.split('/')[0]
+    if (moduleName) {
+        jreModules.add(moduleName)
+    }
+}
+
+ext.docker_jre_modules = jreModules.toList()
+
 def replaceVars = tasks.register('replaceVars', Copy) {
     from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
     from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
@@ -155,6 +217,11 @@ def dockerCliPush = tasks.register('dockerCliPush', Exec) {
 docker {
     name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+    buildArgs(
+        [
+            JRE_MODULES: project.docker_jre_modules.join(',')
+        ]
+    )
 
     if (project.hasProperty('target_platform')) {
         platform project.properties["target_platform"]

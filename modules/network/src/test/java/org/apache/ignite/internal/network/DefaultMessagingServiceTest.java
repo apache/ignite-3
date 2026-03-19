@@ -32,15 +32,20 @@ import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.Assume.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
@@ -63,6 +68,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -73,6 +79,7 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -172,15 +179,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             assertTrue(messagesDeliveredLatch.await(1, SECONDS));
 
             assertThat(payloads, contains("one", "two"));
-        }
-    }
-
-    @Test
-    void respondingWhenSenderIsNotInTopologyResultsInFailingFuture() throws Exception {
-        try (Services services = createMessagingService(senderNode, senderNetworkConfig)) {
-            CompletableFuture<Void> resultFuture = services.messagingService.respond("no-such-node", mock(NetworkMessage.class), 123);
-
-            assertThat(resultFuture, willThrow(UnresolvableConsistentIdException.class));
         }
     }
 
@@ -518,6 +516,94 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * Tests a case where an explicit staleness check is expected, and the recipient gone stale already. In such a case staleness check
+     * should lead to {@link RecipientLeftException}.
+     */
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendByClusterNodeToStaleNode(SendByClusterNodeOperation operation) throws Exception {
+        UUID missingNodeId = randomUUID();
+
+        var missingNode = new ClusterNodeImpl(missingNodeId, "missing-node", new NetworkAddress("127.1.1.1", 2026), null);
+
+        var staleIdDetector = new InMemoryStaleIds();
+        staleIdDetector.markAsStale(missingNodeId);
+
+        try (Services senderServices = createMessagingService(
+                senderNode,
+                senderNetworkConfig,
+                () -> {},
+                messageSerializationRegistry,
+                staleIdDetector
+        )) {
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
+                    willThrow(RecipientLeftException.class)
+            );
+        }
+    }
+
+    /**
+     * Tests a case where an explicit staleness check is not expected, and the recipient gone stale already. In such a case there should be
+     * no staleness check and we should get a {@link UnresolvableConsistentIdException}.
+     */
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentIdToStaleNode(SendByConsistentCoordinateOperation operation) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        UUID missingNodeId = randomUUID();
+        String missingNodeName = "missing-node";
+
+        var missingNode = new ClusterNodeImpl(missingNodeId, missingNodeName, new NetworkAddress("127.1.1.1", 2026), null);
+
+        var staleIdDetector = new InMemoryStaleIds();
+        staleIdDetector.markAsStale(missingNodeId);
+
+        when(topologyService.getByConsistentId(missingNodeName)).thenReturn(null);
+
+        try (Services senderServices = createMessagingService(
+                senderNode,
+                senderNetworkConfig,
+                () -> {},
+                messageSerializationRegistry,
+                staleIdDetector
+        )) {
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
+                    willThrow(UnresolvableConsistentIdException.class)
+            );
+
+            verify(topologyService, atLeastOnce()).getByConsistentId(missingNodeName);
+        }
+    }
+
+    /**
+     * Tests a case where a node does not exist in topology, and we use the name to access it. This situation should lead to
+     * {@link UnresolvableConsistentIdException}.
+     */
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentIdToMissingNode(SendByConsistentCoordinateOperation operation) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        String missingNodeName = "missing-node";
+
+        var missingNode = new ClusterNodeImpl(randomUUID(), missingNodeName, new NetworkAddress("127.1.1.1", 2026), null);
+
+        when(topologyService.getByConsistentId(missingNodeName)).thenReturn(null);
+
+        try (Services senderServices = createMessagingService(senderNode, senderNetworkConfig)) {
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), missingNode),
+                    willThrow(UnresolvableConsistentIdException.class)
+            );
+
+            verify(topologyService, atLeastOnce()).getByConsistentId(missingNodeName);
+        }
+    }
+
     private ClusterNodeImpl copyWithDifferentId() {
         return new ClusterNodeImpl(
                 randomUUID(),
@@ -585,33 +671,21 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     }
 
     private Services createMessagingService(InternalClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
-        return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry);
+        return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry, new AllIdsAreFresh());
     }
 
     private Services createMessagingService(
             InternalClusterNode node,
             NetworkConfiguration networkConfig,
             Runnable beforeHandshake,
-            MessageSerializationRegistry registry
+            MessageSerializationRegistry registry,
+            StaleIdDetector staleIdDetector
     ) {
-        StaleIdDetector staleIdDetector = new AllIdsAreFresh();
         ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(clusterId);
 
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
-
-        DefaultMessagingService messagingService = new DefaultMessagingService(
-                node.name(),
-                networkMessagesFactory,
-                topologyService,
-                staleIdDetector,
-                classDescriptorRegistry,
-                marshaller,
-                criticalWorkerRegistry,
-                failureProcessor,
-                channelTypeRegistry
-        );
 
         SerializationService serializationService = new SerializationService(
                 registry,
@@ -621,6 +695,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
+
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConnectionManager connectionManager = new TestConnectionManager(
@@ -632,10 +707,22 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 beforeHandshake
         );
-        connectionManager.start();
-        connectionManager.setLocalNode(node);
 
-        messagingService.setConnectionManager(connectionManager);
+        DefaultMessagingService messagingService = new DefaultMessagingService(
+                node.name(),
+                networkMessagesFactory,
+                topologyService,
+                staleIdDetector,
+                classDescriptorRegistry,
+                marshaller,
+                criticalWorkerRegistry,
+                failureProcessor,
+                connectionManager,
+                new NoOpMetricManager(),
+                channelTypeRegistry
+        );
+
+        connectionManager.start();
 
         messagingService.start();
 
@@ -657,8 +744,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             super(
                     networkConfig.value(),
                     serializationService,
-                    node.name(),
-                    node.id(),
+                    new InetSocketAddress(node.address().host(), node.address().port()),
+                    node,
                     bootstrapFactory,
                     staleIdDetector,
                     clusterIdSupplier,

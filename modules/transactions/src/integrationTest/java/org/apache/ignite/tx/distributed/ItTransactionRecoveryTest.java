@@ -736,8 +736,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 HybridTimestampTracker.atomicTracker(null),
                 commitPartition,
                 false,
-                false,
+                null,
                 true,
+                false,
                 Map.of(commitPartition, new PendingTxPartitionEnlistment(txCrdNode2.node().name(), 0L)),
                 rwTx1Id
         );

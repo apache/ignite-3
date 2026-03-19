@@ -210,8 +210,8 @@ namespace Apache.Ignite.Tests
             else
             {
                 // Test that client skips those correctly.
-                handshakeWriter.WriteBinaryHeader(3); // Features.
-                handshakeWriter.Write([1, 2, 3]); // Random feature bits
+                handshakeWriter.WriteBinaryHeader(4); // Features.
+                handshakeWriter.Write([0, 0, 255, 255]); // Unknown feature bits
 
                 handshakeWriter.Write(5); // Extensions.
                 for (int i = 0; i < 5; i++)
@@ -312,6 +312,7 @@ namespace Apache.Ignite.Tests
                     case ClientOp.TupleDelete:
                     case ClientOp.TupleDeleteExact:
                     case ClientOp.TupleContainsKey:
+                    case ClientOp.TupleContainsAllKeys:
                         Send(handler, requestId, new byte[] { 1, MessagePackCode.True }.AsMemory());
                         continue;
 
@@ -402,7 +403,7 @@ namespace Apache.Ignite.Tests
                     case ClientOp.StreamerWithReceiverBatchSend:
                     {
                         reader.ReadInt32(); // table
-                        reader.ReadInt32(); // partition
+                        reader.ReadInt64(); // partition
                         var unitCount = reader.ReadInt32();
                         reader.Skip(unitCount);
                         reader.ReadBoolean(); // returnResults.
@@ -431,7 +432,7 @@ namespace Apache.Ignite.Tests
                         {
                             var nodeId = PartitionAssignment[index];
 
-                            writer.Write(index); // Partition id.
+                            writer.Write((long)index); // Partition id.
                             writer.Write(4); // Prop count.
                             writer.Write(Guid.NewGuid()); // Id.
                             writer.Write(nodeId); // Name.

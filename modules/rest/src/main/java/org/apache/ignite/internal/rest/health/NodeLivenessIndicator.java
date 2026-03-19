@@ -23,6 +23,8 @@ import io.micronaut.management.health.indicator.HealthIndicator;
 import io.micronaut.management.health.indicator.HealthResult;
 import io.micronaut.management.health.indicator.annotation.Liveness;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 
@@ -32,8 +34,11 @@ import reactor.core.publisher.Flux;
 @Singleton
 @Liveness
 public class NodeLivenessIndicator implements HealthIndicator {
+    private static final IgniteLogger LOG = Loggers.forClass(NodeLivenessIndicator.class);
+
     @Override
     public Publisher<HealthResult> getResult() {
+        LOG.debug("Liveness check is UP.");
         return Flux.just(HealthResult.builder("node", UP).build());
     }
 }

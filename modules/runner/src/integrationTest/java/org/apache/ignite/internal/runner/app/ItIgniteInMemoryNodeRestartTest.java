@@ -278,15 +278,14 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
         IgniteSql sql = ignite.sql();
 
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        sql.execute(String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                 name, replicas, partitions, DEFAULT_AIMEM_PROFILE_NAME));
-        sql.execute(null, "CREATE TABLE " + name
+        sql.execute("CREATE TABLE " + name
                 + " (id INT PRIMARY KEY, name VARCHAR)"
                 + " ZONE ZONE_" + name.toUpperCase() + ";");
 
         for (int i = 0; i < 100; i++) {
-            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-                    i, VALUE_PRODUCER.apply(i));
+            sql.execute("INSERT INTO " + name + "(id, name) VALUES (?, ?)", i, VALUE_PRODUCER.apply(i));
         }
 
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(name));

@@ -25,11 +25,18 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL
 
 import jakarta.inject.Inject;
 import java.net.URL;
+import org.apache.ignite.internal.cli.commands.ProfileMixin;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
@@ -39,6 +46,16 @@ public class NodeUrlMixin {
 
     @ArgGroup
     private Options options;
+
+    /** Profile to get default values from. */
+    @Mixin
+    private ProfileMixin profile;
+
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
+    @Inject
+    private Session session;
 
     @Inject
     private NodeNameRegistry nodeNameRegistry;
@@ -84,6 +101,15 @@ public class NodeUrlMixin {
                                 + " not found. Provide a valid name or use a URL"));
             }
         }
-        return null;
+        String profileName = profile.getProfileName();
+        if (profileName != null) {
+            ConfigManager configManager = configManagerProvider.get();
+            return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName);
+        }
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null) {
+            return sessionInfo.nodeUrl();
+        }
+        return configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
     }
 }

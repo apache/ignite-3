@@ -279,7 +279,7 @@ internal static class DataStreamerWithReceiver
         }
 
         async Task SendAndDisposeBufAsync(
-            int partitionId,
+            long partitionId,
             Task oldTask,
             TPayload[] items,
             TSource[] sourceItems,
@@ -382,7 +382,7 @@ internal static class DataStreamerWithReceiver
         void SerializeBatch(
             PooledArrayBuffer buf,
             ArraySegment<TPayload> items,
-            int partitionId)
+            long partitionId)
         {
             // T is one of the supported types (numbers, strings, etc).
             var w = buf.MessageWriter;
@@ -449,14 +449,14 @@ internal static class DataStreamerWithReceiver
 
     private sealed record Batch<TSource, TPayload>
     {
-        public Batch(int capacity, int partitionId)
+        public Batch(int capacity, long partitionId)
         {
             PartitionId = partitionId;
             Items = GetPool<TPayload>().Rent(capacity);
             SourceItems = GetPool<TSource>().Rent(capacity);
         }
 
-        public int PartitionId { get; }
+        public long PartitionId { get; }
 
         [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record")]
         public TSource[] SourceItems { get; set; }

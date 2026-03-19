@@ -32,6 +32,7 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -45,7 +46,7 @@ import org.junit.jupiter.api.Test;
 public class PersistentPageMemoryStorageMetricsTest extends BaseIgniteAbstractTest {
     private final MetricManager metricManager = new TestMetricManager();
 
-    private final PersistentPageMemoryStorageMetricSource metricSource = new PersistentPageMemoryStorageMetricSource("test");
+    private final CollectionMetricSource metricSource = new CollectionMetricSource("test", "storage", null);
 
     private final FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 

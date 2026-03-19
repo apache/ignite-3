@@ -317,7 +317,7 @@ public class ClientCompute implements IgniteCompute {
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
-                w -> packTask(w.out(), taskDescriptor, arg),
+                w -> packTask(w, taskDescriptor, arg),
                 ClientCompute::unpackSubmitTaskResult,
                 (String) null,
                 null,
@@ -362,7 +362,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private static <K, T, R> CompletableFuture<SubmitResult> executeColocatedObjectKey(
+    private <K, T, R> CompletableFuture<SubmitResult> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
@@ -379,7 +379,7 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private static <T, R> CompletableFuture<SubmitResult> executeColocatedTupleKey(
+    private <T, R> CompletableFuture<SubmitResult> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             JobDescriptor<T, R> descriptor,
@@ -395,7 +395,7 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private static <T, R> CompletableFuture<SubmitResult> executeColocatedInternal(
+    private <T, R> CompletableFuture<SubmitResult> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
@@ -438,7 +438,7 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(Function.identity()));
     }
 
-    private static <T, R> CompletableFuture<SubmitResult> executePartitioned(
+    private <T, R> CompletableFuture<SubmitResult> executePartitioned(
             ClientTable t,
             Partition partition,
             JobDescriptor<T, R> descriptor,
@@ -520,11 +520,11 @@ public class ClientCompute implements IgniteCompute {
         }
     }
 
-    private static <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
+    private <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
         boolean platformComputeSupported = out.clientChannel().protocolContext()
                 .isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB);
 
-        ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out());
+        ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out(), getJobObservableTs(out));
     }
 
     private static void packTaskId(PayloadOutputChannel out, @Nullable UUID taskId) {
@@ -533,10 +533,18 @@ public class ClientCompute implements IgniteCompute {
         }
     }
 
-    private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        w.packDeploymentUnits(taskDescriptor.units());
-        w.packString(taskDescriptor.taskClassName());
-        ClientComputeJobPacker.packJobArgument(arg, taskDescriptor.splitJobArgumentMarshaller(), w);
+    private <T, R> void packTask(PayloadOutputChannel w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        w.out().packDeploymentUnits(taskDescriptor.units());
+        w.out().packString(taskDescriptor.taskClassName());
+        ClientComputeJobPacker.packJobArgument(arg, taskDescriptor.splitJobArgumentMarshaller(), w.out(), getJobObservableTs(w));
+    }
+
+    private @Nullable Long getJobObservableTs(PayloadOutputChannel w) {
+        if (!w.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS)) {
+            return null;
+        }
+
+        return ch.observableTimestamp().getLong();
     }
 
     /**

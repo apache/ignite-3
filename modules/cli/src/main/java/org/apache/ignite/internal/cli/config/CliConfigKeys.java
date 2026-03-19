@@ -83,7 +83,19 @@ public enum CliConfigKeys {
     PAGER_ENABLED(Constants.PAGER_ENABLED),
 
     /** Pager command property name. */
-    PAGER_COMMAND(Constants.PAGER_COMMAND);
+    PAGER_COMMAND(Constants.PAGER_COMMAND),
+
+    /** Output truncation enabled property name. */
+    OUTPUT_TRUNCATE(Constants.OUTPUT_TRUNCATE),
+
+    /** Maximum column width property name. */
+    OUTPUT_MAX_COLUMN_WIDTH(Constants.OUTPUT_MAX_COLUMN_WIDTH),
+
+    /** Color scheme property name (dark, light). */
+    COLOR_SCHEME(Constants.COLOR_SCHEME),
+
+    /** SQL display page size property name. */
+    SQL_DISPLAY_PAGE_SIZE(Constants.SQL_DISPLAY_PAGE_SIZE);
 
     private final String value;
 
@@ -157,6 +169,17 @@ public enum CliConfigKeys {
         public static final String PAGER_ENABLED = "ignite.cli.pager.enabled";
 
         public static final String PAGER_COMMAND = "ignite.cli.pager.command";
+
+        public static final String OUTPUT_TRUNCATE = "ignite.cli.output.truncate";
+
+        public static final String OUTPUT_MAX_COLUMN_WIDTH = "ignite.cli.output.max-column-width";
+
+        public static final String COLOR_SCHEME = "ignite.cli.color-scheme";
+
+        public static final String SQL_DISPLAY_PAGE_SIZE = "ignite.cli.sql.display-page-size";
+
+        /** Default SQL display page size. */
+        public static final int DEFAULT_SQL_DISPLAY_PAGE_SIZE = 1000;
     }
 
     CliConfigKeys(String value) {

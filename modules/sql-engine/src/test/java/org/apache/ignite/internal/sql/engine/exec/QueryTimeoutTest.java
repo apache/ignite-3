@@ -134,14 +134,10 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTimeoutSelectCount() {
-        AsyncSqlCursor<?> cursor = gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT COUNT(*) FROM my_table");
-
-        assertThat(
-                cursor.requestNextAsync(1),
-                willThrowWithCauseOrSuppressed(
-                        QueryCancelledException.class,
-                        QueryCancelledException.TIMEOUT_MSG
-                )
+        assertThrows(
+                SqlException.class,
+                () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT COUNT(*) FROM my_table"),
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 

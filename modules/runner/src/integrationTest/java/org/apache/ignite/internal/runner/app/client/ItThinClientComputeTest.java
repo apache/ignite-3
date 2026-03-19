@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -166,7 +167,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  client().compute()
+        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() -> client().compute()
                 .execute(JobTarget.node(executeNode), job, null, cancelHandle.token()));
 
         cancelHandle.cancel();
@@ -825,7 +826,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteColocatedEscapedTableName() {
         var tableName = "\"TBL ABC\"";
-        client().sql().execute(null, "CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
+        client().sql().execute("CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
 
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
         TestPojo pojoKey = new TestPojo(1);
@@ -1118,7 +1119,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             try {
                 new CountDownLatch(1).await();
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                throw new CancellationException();
             }
             return null;
         }

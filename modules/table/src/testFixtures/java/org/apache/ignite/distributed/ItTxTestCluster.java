@@ -107,6 +107,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -120,9 +121,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -155,6 +156,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -177,6 +179,8 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
@@ -244,7 +248,7 @@ public class ItTxTestCluster {
 
     protected Map<String, RaftGroupOptionsConfigurer> raftConfigurers;
 
-    protected Map<String, LogStorageFactory> logStorageFactories;
+    protected Map<String, LogStorageManager> logStorageFactories;
 
     protected Map<String, ReplicaService> replicaServices;
 
@@ -281,6 +285,10 @@ public class ItTxTestCluster {
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
+
+    private SchemaSyncService schemaSyncService;
+
+    private final CompoundValidationSchemasSource validationSchemasSource = new CompoundValidationSchemasSource();
 
     private final Map<String, Map<ZonePartitionId, ZonePartitionRaftListener>> zonePartitionRaftGroupListeners = new HashMap<>();
 
@@ -443,19 +451,19 @@ public class ItTxTestCluster {
 
             Path partitionsWorkDir = workDir.resolve("node" + i);
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     "test",
                     clusterService.nodeName(),
                     partitionsWorkDir.resolve("log"),
                     raftConfig.fsync().value()
             );
 
-            logStorageFactories.put(nodeName, partitionsLogStorageFactory);
+            logStorageFactories.put(nodeName, partitionsLogStorageManager);
 
-            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             RaftGroupOptionsConfigurer partitionRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.resolve("meta"));
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.resolve("meta"));
 
             raftConfigurers.put(nodeName, partitionRaftConfigurer);
 
@@ -485,10 +493,13 @@ public class ItTxTestCluster {
                     new RaftGroupEventsClientListener()
             );
 
+            schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
             ReplicaManager replicaMgr = new ReplicaManager(
                     nodeName,
                     clusterService,
                     cmgManager,
+                    groupId -> completedFuture(Assignments.EMPTY),
                     clockService,
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
@@ -496,10 +507,11 @@ public class ItTxTestCluster {
                     this::getSafeTimePropagationTimeout,
                     new NoOpFailureManager(),
                     commandMarshaller,
+                    new PartitionSafeTimeValidator(validationSchemasSource, catalogService, schemaSyncService),
                     raftClientFactory,
                     raftSrv,
                     partitionRaftConfigurer,
-                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
+                    new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     executor,
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
@@ -523,7 +535,9 @@ public class ItTxTestCluster {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             txInflights.put(nodeName, transactionInflights);
 
@@ -537,6 +551,7 @@ public class ItTxTestCluster {
                     node,
                     placementDriver,
                     resourcesRegistry,
+                    txStateVolatileStorage,
                     transactionInflights,
                     lowWatermark
             );
@@ -598,6 +613,7 @@ public class ItTxTestCluster {
             InternalClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
+            VolatileTxStateMetaStorage txStateVolatileStorage,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark
     ) {
@@ -609,6 +625,7 @@ public class ItTxTestCluster {
                 clusterService.topologyService(),
                 replicaSvc,
                 HeapLockManager.smallInstance(),
+                txStateVolatileStorage,
                 clockService,
                 generator,
                 placementDriver,
@@ -684,8 +701,6 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -719,13 +734,21 @@ public class ItTxTestCluster {
                                 clockServices.get(assignment)
                         );
 
+                TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
+                        txManagers.get(assignment),
+                        clusterServices.get(assignment).topologyService()
+                );
+
                 var transactionStateResolver = new TransactionStateResolver(
                         txManagers.get(assignment),
                         clockServices.get(assignment),
                         nodeResolver,
                         clusterServices.get(assignment).messagingService(),
                         placementDriver,
-                        txMessageSender
+                        txMessageSender,
+                        txRecoveryEngine,
+                        new Lazy<>(() -> mock(InternalClusterNode.class)),
+                        Runnable::run
                 );
                 transactionStateResolver.start();
 
@@ -764,7 +787,10 @@ public class ItTxTestCluster {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 );
 
-                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var tableValidationSchemasSource = new DummyValidationSchemasSource(schemaManager);
+
+                validationSchemasSource.registerSource(tableId, tableValidationSchemasSource);
 
                 RaftGroupListener raftGroupListener = getOrCreateAndPopulateRaftGroupListener(
                         assignment,
@@ -796,9 +822,9 @@ public class ItTxTestCluster {
                                 txStateStorage,
                                 transactionStateResolver,
                                 storageUpdateHandler,
-                                new DummyValidationSchemasSource(schemaManager),
+                                validationSchemasSource,
                                 nodeResolver.getByConsistentId(assignment),
-                                new AlwaysSyncedSchemaSyncService(),
+                                schemaSyncService,
                                 catalogService,
                                 placementDriver,
                                 nodeResolver,
@@ -902,7 +928,6 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                partitionOperationsExecutor,
                 placementDriver,
                 clockServices.get(assignment),
                 zonePartitionId
@@ -951,6 +976,11 @@ public class ItTxTestCluster {
                 clockService
         );
 
+        var txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                clusterServices.get(assignment).topologyService()
+        );
+
         ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
                 zonePartitionId,
                 partitionId -> new ZonePartitionReplicaListener(
@@ -967,7 +997,8 @@ public class ItTxTestCluster {
                         localNode,
                         partitionId,
                         transactionStateResolver,
-                        txMessageSender
+                        txMessageSender,
+                        txRecoveryEngine
                 )
         );
 
@@ -1142,11 +1173,10 @@ public class ItTxTestCluster {
      * Shutdowns all cluster nodes after each test.
      */
     public void shutdownCluster() {
-        assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
+        LOG.info("Cluster shutdown begin");
 
-        if (client != null) {
-            assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), client), willCompleteSuccessfully());
 
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
@@ -1178,8 +1208,8 @@ public class ItTxTestCluster {
         }
 
         if (logStorageFactories != null) {
-            for (LogStorageFactory logStorageFactory : logStorageFactories.values()) {
-                assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            for (LogStorageManager logStorageManager : logStorageFactories.values()) {
+                assertThat(logStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
@@ -1220,6 +1250,8 @@ public class ItTxTestCluster {
         if (partitionOperationsExecutor != null) {
             IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
+
+        LOG.info("Cluster shutdown end");
     }
 
     /**
@@ -1265,7 +1297,9 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService, txStateVolatileStorage);
 
         clientTxManager = new TxManagerImpl(
                 "client",
@@ -1275,6 +1309,7 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 clientReplicaSvc,
                 HeapLockManager.smallInstance(),
+                txStateVolatileStorage,
                 clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,
@@ -1311,7 +1346,10 @@ public class ItTxTestCluster {
                         client.messagingService(),
                         clientReplicaSvc,
                         clientClockService
-                )
+                ),
+                new TxRecoveryEngine(clientTxManager, client.topologyService()),
+                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                Runnable::run
         );
 
         clientTxStateResolver.start();

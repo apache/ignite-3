@@ -100,7 +100,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final UUID transactionId = UUID.randomUUID();
-    private final int commitTableId = 999;
+    private static final int commitZoneId = 999;
 
     private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, PARTITION_ID);
 
@@ -192,7 +192,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowId1,
                 ROW_2,
                 transactionId,
-                commitTableId,
+                commitZoneId,
                 42,
                 clock.now()
         );
@@ -206,7 +206,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowId1.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
+        assertThat(responseRow.commitZoneId(), is(commitZoneId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
@@ -334,7 +334,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowIdOutOfOrder,
                 ROW_2,
                 transactionId,
-                commitTableId,
+                commitZoneId,
                 42,
                 clock.now()
         );
@@ -358,7 +358,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
+        assertThat(responseRow.commitZoneId(), is(commitZoneId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
@@ -431,7 +431,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowId1,
                 ROW_1,
                 transactionId,
-                commitTableId,
+                commitZoneId,
                 42,
                 clock.now()
         );

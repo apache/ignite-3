@@ -228,7 +228,7 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         cluster.setDataProvider("T1", TestBuilders.tableScan((nodeName, partId) -> {
             if (firstTimeThrow.compareAndSet(true, false)) {
                 reassignmentHappened.set(true);
-                return () -> new FailingIterator<>(new PrimaryReplicaMissException(UUID.randomUUID(), 0L, 0L));
+                return () -> new FailingIterator<>(new PrimaryReplicaMissException(UUID.randomUUID(), 0L, 0L, null));
             }
 
             return Collections.singleton(new Object[]{partId, partId, nodeName});

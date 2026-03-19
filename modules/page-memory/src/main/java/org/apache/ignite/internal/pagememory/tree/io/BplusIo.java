@@ -229,10 +229,9 @@ public abstract class BplusIo<L> extends PageIo {
     /**
      * Returns max items count.
      *
-     * @param pageAddr Page address.
      * @param pageSize Page size without encryption overhead.
      */
-    public abstract int getMaxCount(long pageAddr, int pageSize);
+    public abstract int getMaxCount(int pageSize);
 
     /**
      * Store the needed info about the row in the page. Leaf and inner pages can store different info.
@@ -349,6 +348,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @return Row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // rightId is used by BplusInnerIo override
     public byte @Nullable [] insert(
             long pageAddr,
             int idx,
@@ -472,7 +472,7 @@ public abstract class BplusIo<L> extends PageIo {
             newCnt++;
         }
 
-        if (newCnt > getMaxCount(leftPageAddr, pageSize)) {
+        if (newCnt > getMaxCount(pageSize)) {
             assert !emptyBranch;
 
             return false;
@@ -523,6 +523,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @param pageAddr Page address.
      * @param c Consumer triggered for each element stored in the page.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public void visit(BplusTree<L, ?> tree, long pageAddr, Consumer<L> c) {
         // No-op.
     }

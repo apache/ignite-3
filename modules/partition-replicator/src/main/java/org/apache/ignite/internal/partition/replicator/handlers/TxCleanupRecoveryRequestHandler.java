@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -70,10 +71,9 @@ public class TxCleanupRecoveryRequestHandler {
     /**
      * Handles a {@link TxCleanupRecoveryRequest}.
      *
-     * @param request Request to handle.
      * @return Future completed when the request has been handled.
      */
-    public CompletableFuture<Void> handle(TxCleanupRecoveryRequest request) {
+    public CompletableFuture<Void> handle() {
         runPersistentStorageScan();
 
         return nullCompletedFuture();
@@ -152,7 +152,11 @@ public class TxCleanupRecoveryRequestHandler {
                 txMeta.commitTimestamp(),
                 txId
         ).exceptionally(throwable -> {
-            LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+            LOG.warn(
+                    "Failed to cleanup transaction {}.",
+                    throwable,
+                    formatTxInfo(txId, txManager)
+            );
 
             return null;
         });

@@ -549,7 +549,7 @@ public class BinaryTupleComparatorUtils {
         int i = 0;
         int remaining = Math.min(trimmedSize1, trimmedSize2);
 
-        while (i + Long.BYTES < remaining) {
+        while (i + Long.BYTES <= remaining) {
             long w1 = buf1.getLong(begin1 + i);
             long w2 = buf2.getLong(begin2 + i);
 

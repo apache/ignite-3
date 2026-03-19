@@ -19,23 +19,15 @@ package org.apache.ignite.internal.table.metrics;
 
 import static java.util.List.of;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RO_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RW_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.WRITES;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.metrics.LongMetric;
-import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.TestMetricUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
@@ -171,14 +163,14 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void put() {
-        testKeyValueViewOperation(WRITES, 1, view -> view.put(null, 42, "value_42"));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 1L), view -> view.put(null, 42, "value_42"));
     }
 
     @Test
     void putAll() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.putAll(null, values));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, (long) values.size()), view -> view.putAll(null, values));
     }
 
     @Test
@@ -193,10 +185,10 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.put(null, key, "value_42");
 
         // Remove existing key.
-        testKeyValueViewOperation(WRITES, 1, view -> view.remove(null, key));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 1L), view -> view.remove(null, key));
 
         // Remove non existing key.
-        testKeyValueViewOperation(WRITES, 0, view -> view.remove(null, key));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 0L), view -> view.remove(null, key));
     }
 
     @Test
@@ -223,7 +215,13 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.removeAll(null));
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27670 Fix removeAll effect on read metrics.
+        // Reads happen when batch is retrieved, even though removeAll shouldn't update read metrics.
+        testKeyValueViewOperation(
+                of(RO_READS, RW_READS, WRITES),
+                of(0L, (long) values.size(), (long) values.size()),
+                view -> view.removeAll(null)
+        );
     }
 
     @Test
@@ -234,16 +232,24 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.putAll(null, values);
 
         // Remove existing keys.
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.removeAll(null, values.keySet()));
+        testKeyValueViewOperation(
+                of(RO_READS, RW_READS, WRITES),
+                of(0L, 0L, (long) values.size()),
+                view -> view.removeAll(null, values.keySet())
+        );
 
         // Remove non-existing keys.
-        testKeyValueViewOperation(WRITES, 0, view -> view.removeAll(null, values.keySet()));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 0L), view -> view.removeAll(null, values.keySet()));
 
         kvView.putAll(null, values);
 
         // Remove non-unique keys.
         List<Integer> nonUniqueKeys = of(12, 15, 12, 17, 19, 23);
-        testKeyValueViewOperation(WRITES, nonUniqueKeys.size() - 1, view -> view.removeAll(null, nonUniqueKeys));
+        testKeyValueViewOperation(
+                of(RO_READS, RW_READS, WRITES),
+                of(0L, 0L, nonUniqueKeys.size() - 1L),
+                view -> view.removeAll(null, nonUniqueKeys)
+        );
     }
 
     @Test
@@ -367,15 +373,15 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         recordView(0).upsertAll(null, recs);
 
         // Delete existing keys.
-        testRecordViewOperation(WRITES, recs.size(), view -> view.deleteAll(null, keys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, ((long) recs.size())), view -> view.deleteAll(null, keys));
 
         // Delete non-existing keys.
-        testRecordViewOperation(WRITES, 0L, view -> view.deleteAll(null, keys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 0L), view -> view.deleteAll(null, keys));
 
         recordView(0).insert(null, recs.get(0));
 
         // Delete one non-existing key.
-        testRecordViewOperation(WRITES, 1L, view -> view.deleteAll(null, keys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 1L), view -> view.deleteAll(null, keys));
 
         // Non-unique keys.
         List<Tuple> nonUniqueKeys = of(
@@ -389,7 +395,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
         recordView(0).upsertAll(null, nonUniqueRecs);
 
-        testRecordViewOperation(WRITES, 2L, view -> view.deleteAll(null, nonUniqueKeys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 2L), view -> view.deleteAll(null, nonUniqueKeys));
     }
 
     @Test
@@ -566,60 +572,6 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
             List<Long> expectedValues,
             Runnable op
     ) {
-        assertThat(metricNames.size(), is(expectedValues.size()));
-
-        Map<String, Long> initialValues = metricValues(metricNames);
-
-        op.run();
-
-        Map<String, Long> actualValues = metricValues(metricNames);
-
-        for (int i = 0; i < metricNames.size(); ++i) {
-            String metricName = metricNames.get(i);
-            long expectedValue = expectedValues.get(i);
-
-            long initialValue = initialValues.get(metricName);
-            long actualValue = actualValues.get(metricName);
-
-            assertThat(
-                    "The actual metric value does not match the expected value "
-                            + "[metric=" + metricName + ", initial=" + initialValue + ", actual=" + actualValue
-                            + ", expected=" + (initialValue + expectedValue) + ']',
-                    actualValue,
-                    is(initialValue + expectedValue));
-        }
-    }
-
-    /**
-     * Returns the sum of the specified metrics on all nodes.
-     *
-     * @param metricNames Metric names.
-     * @return Map of metric names to their values.
-     */
-    private Map<String, Long> metricValues(List<String> metricNames) {
-        Map<String, Long> values = new HashMap<>(metricNames.size());
-
-        for (int i = 0; i < initialNodes(); ++i) {
-            MetricSet tableMetrics = unwrapIgniteImpl(node(i))
-                    .metricManager()
-                    .metricSnapshot()
-                    .metrics()
-                    .get(METRIC_SOURCE_NAME);
-
-            metricNames.forEach(metricName ->
-                    values.compute(metricName, (k, v) -> {
-                        Metric metric = tableMetrics.get(metricName);
-
-                        assertThat("Metric not found [name=" + metricName + ']', metric, is(notNullValue()));
-                        assertThat(
-                                "Metric is not a LongMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']',
-                                metric,
-                                instanceOf(LongMetric.class));
-
-                        return (v == null ? 0 : v) + ((LongMetric) metric).value();
-                    }));
-        }
-
-        return values;
+        TestMetricUtils.testMetricChangeAfterOperation(CLUSTER, METRIC_SOURCE_NAME, metricNames, expectedValues, op);
     }
 }

@@ -128,8 +128,6 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
     private FreeList createFreeList(int pageSize) throws Exception {
         pageMemory = createPageMemory(pageSize);
 
-        pageMemory.start();
-
         long metaPageId = pageMemory.allocatePageNoReuse(1, 1, FLAG_DATA);
 
         return new FreeListImpl(

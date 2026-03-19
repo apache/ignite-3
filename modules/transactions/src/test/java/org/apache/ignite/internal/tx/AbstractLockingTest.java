@@ -34,6 +34,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +48,7 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     private SystemLocalConfiguration systemLocalConfiguration;
 
     protected LockManager lockManager;
+    protected VolatileTxStateMetaStorage txStateVolatileStorage;
     private final Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
 
     @BeforeEach
@@ -57,7 +59,8 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     protected abstract LockManager lockManager();
 
     protected LockManager lockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(deadlockPreventionPolicy);
         return lockManager;
     }

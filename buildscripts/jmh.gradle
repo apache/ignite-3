@@ -115,7 +115,10 @@ jmh {
     // Number of warmup iterations to do.
     // warmupIterations = 1
 
-    // jvmArgsAppend = ['-XX:+FlightRecorder']
+    // Add JVM args to open required modules for GridUnsafe and other internal access
+    jvmArgsAppend = rootProject.addOpens
+
+    // jvmArgsAppend += ['-XX:+FlightRecorder']
 }
 
 jmhReport {

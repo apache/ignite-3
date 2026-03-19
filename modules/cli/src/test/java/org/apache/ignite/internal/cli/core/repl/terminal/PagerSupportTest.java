@@ -22,10 +22,16 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.jline.terminal.Terminal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * Tests for {@link PagerSupport}.
@@ -194,6 +200,62 @@ class PagerSupportTest {
         void disabled() {
             PagerSupport pager = createPagerSupport(24, false, "less");
             assertThat(pager.isPagerEnabled(), is(false));
+        }
+    }
+
+    @Nested
+    @DisplayName("default pager enabled based on OS")
+    class DefaultPagerEnabledByOsTest {
+
+        @Test
+        @EnabledOnOs(OS.WINDOWS)
+        @DisplayName("returns false on Windows when not configured")
+        void disabledByDefaultOnWindows() {
+            PagerSupport pager = createPagerSupportWithConfig(null);
+
+            assertThat(pager.isPagerEnabled(), is(false));
+        }
+
+        @Test
+        @DisabledOnOs(OS.WINDOWS)
+        @DisplayName("returns true on non-Windows when not configured")
+        void enabledByDefaultOnNonWindows() {
+            PagerSupport pager = createPagerSupportWithConfig(null);
+
+            assertThat(pager.isPagerEnabled(), is(true));
+        }
+
+        @Test
+        @EnabledOnOs(OS.WINDOWS)
+        @DisplayName("respects explicit true config on Windows")
+        void explicitTrueOnWindows() {
+            PagerSupport pager = createPagerSupportWithConfig("true");
+
+            assertThat(pager.isPagerEnabled(), is(true));
+        }
+
+        @Test
+        @DisabledOnOs(OS.WINDOWS)
+        @DisplayName("respects explicit false config on non-Windows")
+        void explicitFalseOnNonWindows() {
+            PagerSupport pager = createPagerSupportWithConfig("false");
+
+            assertThat(pager.isPagerEnabled(), is(false));
+        }
+
+        private PagerSupport createPagerSupportWithConfig(String pagerEnabledValue) {
+            ConfigManager configManager = mock(ConfigManager.class);
+            when(configManager.getCurrentProperty(CliConfigKeys.PAGER_ENABLED.value()))
+                    .thenReturn(pagerEnabledValue);
+            when(configManager.getCurrentProperty(CliConfigKeys.PAGER_COMMAND.value()))
+                    .thenReturn(null);
+
+            ConfigManagerProvider configProvider = mock(ConfigManagerProvider.class);
+            when(configProvider.get()).thenReturn(configManager);
+
+            Terminal terminal = mock(Terminal.class);
+
+            return new PagerSupport(terminal, configProvider);
         }
     }
 

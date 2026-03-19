@@ -91,7 +91,7 @@ public enum ClientOperationType {
     TUPLE_REPLACE,
 
     /**
-     * Replace Exact ({@link RecordView#replace(Transaction, Object, Object)}).
+     * Replace Exact ({@link RecordView#replaceExact(Transaction, Object, Object)}).
      */
     TUPLE_REPLACE_EXACT,
 

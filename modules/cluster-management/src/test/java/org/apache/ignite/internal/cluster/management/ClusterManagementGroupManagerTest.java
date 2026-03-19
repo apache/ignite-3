@@ -48,11 +48,12 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,14 +83,15 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
             @Mock LogicalTopology logicalTopology,
             @Mock NodeAttributes nodeAttributes,
             @Mock FailureManager failureManager,
-            @Mock RaftGroupService raftGroupService,
-            @Mock MetricManager metricManager
+            @Mock PhysicalTopologyAwareRaftGroupService raftGroupService,
+            @Mock MetricManager metricManager,
+            @Mock RaftGroupEventsClientListener eventsClientListener
     ) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
 
         ClusterState clusterState = cmgMessagesFactory.clusterState()
@@ -99,12 +101,11 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 .version("foo")
                 .build();
 
-        when(raftGroupService.run(any()))
-                .thenReturn(nullCompletedFuture());
+        // General catch-all for timeout version must come before specific matchers
         when(raftGroupService.run(any(), anyLong()))
                 .thenReturn(nullCompletedFuture());
-
-        when(raftGroupService.run(any(InitCmgStateCommand.class)))
+        // More specific matcher for InitCmgStateCommand - must come after general matcher
+        when(raftGroupService.run(any(InitCmgStateCommand.class), anyLong()))
                 .thenReturn(completedFuture(clusterState));
 
         cmgManager = new ClusterManagementGroupManager(
@@ -117,6 +118,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 logicalTopology,
                 nodeAttributes,
                 failureManager,
+                eventsClientListener,
                 new ClusterIdHolder(),
                 RaftGroupOptionsConfigurer.EMPTY,
                 metricManager

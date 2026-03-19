@@ -35,17 +35,27 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
 
     /// <summary>
-    /// Gets or sets the name of the key column. Column type should be VARCHAR.
+    /// Gets or sets the name of the key column. The column type should be VARCHAR.
     /// </summary>
     public string KeyColumnName { get; set; } = "KEY";
 
     /// <summary>
-    /// Gets or sets the name of the value column. Column type should be VARBINARY.
+    /// Gets or sets the name of the value column. The column type should be VARBINARY.
     /// </summary>
     public string ValueColumnName { get; set; } = "VAL";
 
     /// <summary>
-    /// Gets or sets optional cache key prefix. Allows to use the same table for multiple caches.
+    /// Gets or sets the name of the expiration column. The column type should be BIGINT.
+    /// </summary>
+    public string ExpirationColumnName { get; set; } = "EXPIRATION";
+
+    /// <summary>
+    /// Gets or sets the name of the sliding expiration column. The column type should be BIGINT.
+    /// </summary>
+    public string SlidingExpirationColumnName { get; set; } = "SLIDING_EXPIRATION";
+
+    /// <summary>
+    /// Gets or sets optional cache key prefix. Allows using the same table for multiple caches.
     /// </summary>
     public string? CacheKeyPrefix { get; set; }
 
@@ -54,6 +64,34 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     /// from the service provider.
     /// </summary>
     public object? IgniteClientGroupServiceKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the interval for expired items cleanup.
+    /// <para />
+    /// Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable automatic cleanup.
+    /// <para />
+    /// Default is 5 minutes.
+    /// <para />
+    /// NOTE: Every cache instance performs its own cleanup task.
+    /// In a distributed environment, where N instances of the application exist, this means N times more cleanup operations,
+    /// roughly equivalent to N times shorter cleanup interval.
+    /// </summary>
+    public TimeSpan ExpiredItemsCleanupInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Gets or sets the threshold for sliding expiration refresh as a percentage of the sliding expiration period.
+    /// <para />
+    /// When getting a cache entry with sliding expiration, the entry will be refreshed only if the remaining time
+    /// until expiration is less than this threshold multiplied by the sliding expiration period.
+    /// <para />
+    /// For example, with a sliding expiration of 10 minutes and a threshold of 0.2 (20%), the entry will only
+    /// be refreshed if it has less than 2 minutes remaining before expiration.
+    /// <para />
+    /// The default is 0.5 (50%). Set to a lower value to reduce the number of refresh operations.
+    /// <para />
+    /// Valid range: 0.0 to 1.0.
+    /// </summary>
+    public double SlidingExpirationRefreshThreshold { get; set; } = 0.5;
 
     /// <inheritdoc/>
     IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;

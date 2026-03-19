@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-rest-api')
     implementation project(':ignite-network')
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jetbrains.annotations
     implementation libs.jackson.databind

@@ -118,4 +118,11 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor
+    integrationTestImplementation libs.rocksdb.jni
+}
+
+tasks.named('integrationTest').configure {
+    // Default allocator in Netty 4.2.+ consumes too much direct memory, which breaks some tests in this module, so we use the default
+    // value from older versions.
+    jvmArgs += '-Dio.netty.allocator.type=pooled'
 }

@@ -1,8 +1,6 @@
 package test.template_types
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
@@ -27,7 +25,7 @@ class OtherTestsModule(
 
         hiddenText("IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS", "-DtestAllVersions=false")
         hiddenText("IGNITE_DEFAULT_STORAGE_ENGINE", "")
-        hiddenText("env.GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
+        hiddenText("EXTRA_GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
     }
 
     steps {
@@ -43,9 +41,9 @@ class OtherTestsModule(
             id = "RunTests"
             name = "Run tests"
             tasks = configuration.testTask + " " +
-                excludeModules.map { "-x " + it.buildTask(configuration.testTask) }.joinToString(" ")
+                    excludeModules.joinToString(" ") { "-x " + it.mainTask(configuration.testTask) }
             workingDir = "%VCSROOT__IGNITE3%"
-            gradleParams = "%env.GRADLE_OPTS%"
+            gradleParams = "%env.GRADLE_OPTS% %EXTRA_GRADLE_OPTS%"
             this.jvmArgs = """
                 -Xmx%XMX%
                 %JVM_ARGS%

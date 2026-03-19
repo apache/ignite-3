@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJob;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -51,7 +51,6 @@ public class ClientComputeExecutePartitionedRequest {
      * @param in Unpacker.
      * @param compute Compute.
      * @param tables Tables.
-     * @param cluster Cluster service
      * @param notificationSender Notification sender.
      * @param clientContext Client context.
      * @return Future.
@@ -60,14 +59,15 @@ public class ClientComputeExecutePartitionedRequest {
             ClientMessageUnpacker in,
             IgniteComputeInternal compute,
             IgniteTables tables,
-            ClusterService cluster,
             NotificationSender notificationSender,
             ClientContext clientContext
     ) {
         int tableId = in.unpackInt();
         int partitionId = in.unpackInt();
 
-        Job job = unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+        boolean enablePlatformJobs = clientContext.hasFeature(PLATFORM_COMPUTE_JOB);
+        boolean enableObservableTs = clientContext.hasFeature(COMPUTE_OBSERVABLE_TS);
+        Job job = unpackJob(in, enablePlatformJobs, enableObservableTs);
         UUID taskId = unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID));
 
         return readTableAsync(tableId, tables).thenCompose(table -> {

@@ -71,7 +71,7 @@ public class TableTestUtils {
             new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, () -> new TableStatsStalenessConfiguration(0, 0));
 
     /** No-op partition modification counter factory. */
-    public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
+    public static final PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
             new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE, mock(MessagingService.class)) {
                 @Override
                 public PartitionModificationCounter create(
@@ -442,7 +442,7 @@ public class TableTestUtils {
         CatalogCommand command = AlterTableAddColumnCommand.builder()
                 .schemaName(schemaName)
                 .tableName(tableName)
-                .columns(List.of(ColumnParams.builder().name(columnName).type(columnType).build()))
+                .columns(List.of(ColumnParams.builder().name(columnName).type(columnType).nullable(true).build()))
                 .build();
 
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());
