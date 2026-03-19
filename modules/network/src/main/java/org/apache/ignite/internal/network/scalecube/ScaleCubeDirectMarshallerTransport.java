@@ -36,11 +36,9 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
-import reactor.core.publisher.DirectProcessor;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
+import reactor.core.publisher.Sinks;
 
 /**
  * ScaleCube transport over {@link ConnectionManager}.
@@ -53,16 +51,12 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     static final ChannelType SCALE_CUBE_CHANNEL_TYPE = new ChannelType((short) 1, "ScaleCube");
 
     /** Message subject. */
-    private final DirectProcessor<Message> subject = DirectProcessor.create();
+    private final Sinks.Many<Message> subject = Sinks.many().multicast().directBestEffort();
 
-    /** Message sink. */
-    private final FluxSink<Message> sink = subject.sink();
+    /** Mono representing the state of the stop operation. */
+    private final Mono<Void> stopMono;
 
-    /** Close handler. */
-    private final MonoProcessor<Void> stop = MonoProcessor.create();
-
-    /** On stop. */
-    private final MonoProcessor<Void> onStop = MonoProcessor.create();
+    private volatile boolean isStopped = false;
 
     /** Connection manager. */
     private final MessagingService messagingService;
@@ -78,7 +72,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      *
      * @param localAddress Local address.
      * @param messagingService Messaging service.
-     * @param messageFactory  Message factory.
+     * @param messageFactory Message factory.
      */
     ScaleCubeDirectMarshallerTransport(
             NetworkAddress localAddress,
@@ -90,13 +84,11 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         this.messageFactory = messageFactory;
 
         this.messagingService.addMessageHandler(NetworkMessageTypes.class, (message, sender, correlationId) -> onMessage(message));
-        // Setup cleanup
-        stop.then(doStop())
-                .doFinally(s -> onStop.onComplete())
-                .subscribe(
-                        null,
-                        ex -> LOG.warn("Failed to stop [address={}, reason={}]", this.localAddress, ex.toString())
-                );
+
+        stopMono = doStop()
+                .doOnError(ex -> LOG.warn("Failed to stop [address={}].", ex, this.localAddress))
+                .doFinally(s -> isStopped = true)
+                .cache();
     }
 
     /**
@@ -106,11 +98,12 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOG.info("Stopping [address={}]", localAddress);
+            LOG.info("Stopping ScaleCube transport [address={}]", localAddress);
 
-            sink.complete();
+            subject.tryEmitComplete();
 
-            LOG.info("Stopped [address={}]", localAddress);
+            LOG.info("Stopped ScaleCube transport [address={}]", localAddress);
+
             return Mono.empty();
         });
     }
@@ -127,15 +120,12 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
     @Override
     public Mono<Void> stop() {
-        return Mono.defer(() -> {
-            stop.onComplete();
-            return onStop;
-        });
+        return stopMono;
     }
 
     @Override
     public boolean isStopped() {
-        return onStop.isDisposed();
+        return isStopped;
     }
 
     @Override
@@ -146,13 +136,13 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /**
      * Handles new network messages.
      *
-     * @param msg    Network message.
+     * @param msg Network message.
      */
     private void onMessage(NetworkMessage msg) {
         Message message = fromNetworkMessage(msg);
 
         if (message != null) {
-            sink.next(message);
+            subject.tryEmitNext(message);
         }
     }
 
@@ -160,7 +150,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      * Wrap ScaleCube {@link Message} with {@link NetworkMessage}.
      *
      * @param message ScaleCube message.
-     * @return Netowork message that wraps ScaleCube message.
+     * @return Network message that wraps ScaleCube message.
      * @throws IgniteInternalException If failed to write message to ObjectOutputStream.
      */
     private NetworkMessage fromMessage(Message message) throws IgniteInternalException {
@@ -203,6 +193,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
             return Message.withHeaders(headers).data(data).build();
         }
+
         return null;
     }
 
@@ -234,6 +225,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
     @Override
     public final Flux<Message> listen() {
-        return subject.onBackpressureBuffer();
+        return subject.asFlux().onBackpressureBuffer();
     }
 }

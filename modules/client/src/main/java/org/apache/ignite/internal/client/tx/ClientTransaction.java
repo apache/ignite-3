@@ -297,8 +297,7 @@ public class ClientTransaction implements Transaction {
             ClientChannel ch = reliableChannel.getNodeChannel(entry.getKey());
 
             if (ch == null) {
-                // Connection is lost, the transaction will be cleaned up by other means.
-                // TODO https://issues.apache.org/jira/browse/IGNITE-27651
+                // Connection is lost, the transaction will be cleaned up by the server.
                 continue;
             }
 

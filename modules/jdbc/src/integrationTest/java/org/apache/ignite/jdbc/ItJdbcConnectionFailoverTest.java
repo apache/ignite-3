@@ -34,7 +34,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -197,7 +196,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
      * Ensures that the client receives a meaningful exception when the node holding the client transaction goes down.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27091")
     void testTransactionCannotBeUsedAfterNodeRestart() throws SQLException {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});
@@ -221,8 +219,7 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
                 cluster.startNode(1);
 
                 //noinspection ThrowableNotThrown
-                assertThrowsSqlException("Transaction context has been lost due to connection errors",
-                        () -> stmt.execute(dummyQuery));
+                assertThrowsSqlException("Transaction is already finished", () -> stmt.execute(dummyQuery));
             }
         }
     }

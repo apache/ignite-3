@@ -60,7 +60,7 @@ hamcrest = "3.0"
 hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
-scalecube = "2.7.7"
+scalecube = "2.7.7-java11"
 calcite = "1.41.0"
 value = "2.12.1"
 janino = "3.1.12"
@@ -251,7 +251,7 @@ spoon-core = { module = "fr.inria.gforge.spoon:spoon-core", version.ref = "spoon
 
 fastutil-core = { module = "it.unimi.dsi:fastutil-core", version.ref = "fastutil" }
 
-scalecube-cluster = { module = "io.scalecube:scalecube-cluster", version.ref = "scalecube" }
+scalecube-cluster = { module = "com.github.gridgain.scalecube-cluster:scalecube-cluster", version.ref = "scalecube" }
 
 kryo = { module = "com.esotericsoftware:kryo", version.ref = "kryo" }
 
