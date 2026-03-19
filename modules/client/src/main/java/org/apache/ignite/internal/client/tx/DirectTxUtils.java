@@ -294,10 +294,7 @@ public class DirectTxUtils {
         String opNode = mapping == null ? null : mapping.nodeConsistentId();
 
         if (tx != null) {
-            if (tx.isReadOnly()
-                    || !tx.hasCommitPartition()
-                    || opNode == null
-                    || tx.channel().protocolContext().clusterNode().name().equals(opNode)) {
+            if (tx.isReadOnly() || !tx.hasCommitPartition() || opNode == null) {
                 if (tx.channel().closed()) {
                     // Do not throw IgniteClientConnectionException to avoid retry kicking in.
                     throw new IgniteException(CONNECTION_ERR, TRANSACTION_CONTEXT_LOST);
