@@ -184,7 +184,7 @@ public class OrphanDetector {
 
             // We can path the work to another thread without any condition, because it is a very rare scenario in which the transaction
             // coordinator left topology.
-            partitionOperationsExecutor.execute(() -> sendTxRecoveryMessage(txState.commitPartitionId(), txId));
+            partitionOperationsExecutor.execute(() -> sendTxRecoveryMessageIgnoreErrors(txState.commitPartitionId(), txId));
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
@@ -206,6 +206,24 @@ public class OrphanDetector {
         }
 
         return sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+    }
+
+    /**
+     * Sends transaction recovery message to commit partition for particular transaction.
+     *
+     * @param cmpPartGrp Replication group of commit partition.
+     * @param txId Transaction id.
+     */
+    private void sendTxRecoveryMessageIgnoreErrors(ZonePartitionId cmpPartGrp, UUID txId) {
+        sendTxRecoveryMessage(cmpPartGrp, txId)
+                .exceptionally(throwable -> {
+                    if (throwable != null) {
+                        LOG.warn("A recovery message for the transaction was handled with the error {}.",
+                                throwable, formatTxInfo(txId, txLocalStateStorage));
+                    }
+
+                    return null;
+                });
     }
 
     /**
@@ -236,13 +254,6 @@ public class OrphanDetector {
                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                             .txId(txId)
                             .build());
-                }).exceptionally(throwable -> {
-                    if (throwable != null) {
-                        LOG.warn("A recovery message for the transaction was handled with the error {}.",
-                                throwable, formatTxInfo(txId, txLocalStateStorage));
-                    }
-
-                    return null;
                 });
     }
 
