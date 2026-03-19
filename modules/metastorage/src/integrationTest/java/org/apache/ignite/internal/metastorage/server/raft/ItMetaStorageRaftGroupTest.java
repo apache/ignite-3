@@ -285,7 +285,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         TimeAwareRaftGroupService timeAwareService = mock(TimeAwareRaftGroupService.class);
         when(timeAwareService.run(any(), anyLong())).thenAnswer(
                 invocation -> raftGroupServiceOfLiveServer.run(invocation.getArgument(0), invocation.getArgument(1)));
-        when(timeAwareService.clusterService()).thenReturn(liveServer.clusterService());
 
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
                 liveServer.clusterService().nodeName(),
