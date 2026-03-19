@@ -24,12 +24,9 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rel.core.TableModify.Operation;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -94,13 +91,10 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
     private final PartitionPruningMetadataExtractor extractor;
 
-    private final IgniteTable modifiedTable;
-
     private final Operation operation;
 
-    ModifyNodeVisitor(PartitionPruningMetadataExtractor extractor, IgniteTable table, Operation operation) {
+    private ModifyNodeVisitor(PartitionPruningMetadataExtractor extractor, Operation operation) {
         this.extractor = extractor;
-        this.modifiedTable = table;
         this.operation = operation;
     }
 
@@ -110,18 +104,21 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
      * <p>Every element from outer list contributes a partition, so after pruning all partitions defined by these
      * expressions must be preserved in the plan.
      *
+     * @param extractor Metadata extractor to use.
      * @param tableModify A modify node to start traversal from.
      * @return A list of expressions. It's guaranteed that returned collection represents complete set of partitions. Returns {@code null}
      *         otherwise.
      */
-    @Nullable
-    List<List<@Nullable RexNode>> go(IgniteTableModify tableModify) {
+    static @Nullable List<List<@Nullable RexNode>> go(
+            PartitionPruningMetadataExtractor extractor,
+            IgniteTableModify tableModify
+    ) {
         Operation operation = tableModify.getOperation();
         if (operation != INSERT && operation != DELETE && operation != UPDATE) {
             return null;
         }
 
-        return visit((IgniteRel) tableModify.getInput());
+        return new ModifyNodeVisitor(extractor, operation).visit((IgniteRel) tableModify.getInput());
     }
 
     @Override
@@ -244,24 +241,22 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
     @Override
     public @Nullable List<List<RexNode>> visit(IgniteIndexScan rel) {
-        // Extract metadata from this scan
         extractor.visit(rel);
 
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
         assert table != null : "No table";
 
-        return extractValuesFromScan(rel, rel.sourceId(), table, rel.requiredColumns(), rel.projects());
+        return extractValuesFromScan(rel.sourceId(), table, rel.requiredColumns(), rel.projects());
     }
 
     @Override
     public @Nullable List<List<RexNode>> visit(IgniteTableScan rel) {
-        // Extract metadata from this scan
         extractor.visit(rel);
 
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
         assert table != null : "No table";
 
-        return extractValuesFromScan(rel, rel.sourceId(), table, rel.requiredColumns(), rel.projects());
+        return extractValuesFromScan(rel.sourceId(), table, rel.requiredColumns(), rel.projects());
     }
 
     @Override
@@ -376,118 +371,71 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     }
 
     private @Nullable List<List<RexNode>> extractValuesFromScan(
-            IgniteRel rel,
             long sourceId,
             IgniteTable table,
             @Nullable ImmutableIntList requiredColumns,
             @Nullable List<RexNode> projects
     ) {
-
         PartitionPruningColumns metadata = extractor.result.get(sourceId);
-        // Do not propagate metadata if tables are different for now.
-        if (metadata == null || modifiedTable.id() != table.id()) {
-            return null;
-        }
 
-        if (requiredColumns == null) {
-            // If there are no required columns, this scan is expected to return all columns.
-            requiredColumns = ImmutableIntList.copyOf(ImmutableIntList.range(0, table.descriptor().columnsCount()));
-        }
-
-        IntList colocationKeys = PartitionPruningMetadataExtractor.distributionKeys(table);
-
+        // DELETE operation has a projection that only include references to columns from a corresponding WHERE clause. 
+        // Because of that use metadata as is w/o applying this projection.
         if (operation == DELETE) {
-            // Since DELETE only requires columns used by its WHERE clause and do not have projections,
-            // check that all colocation keys columns are required.
-            for (int c : colocationKeys) {
-                if (!requiredColumns.contains(c)) {
-                    return null;
-                }
+            if (metadata == null) {
+                return null;
             }
 
             return metadataToValues(table, metadata);
         }
 
-        List<RexNode> projectionFromScan;
-        if (nullOrEmpty(projects)) {
-            // If there is no projection, use a projection formed from required columns.
-            List<RexNode> columnProjection = new ArrayList<>(requiredColumns.size());
-
-            RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
-            RelDataType rowType = table.getRowType(rel.getCluster().getTypeFactory(), requiredColumns);
-
-            for (int c : requiredColumns) {
-                RelDataType fieldType = rowType.getFieldList().get(c).getType();
-                columnProjection.add(rexBuilder.makeLocalRef(fieldType, c));
-            }
-
-            projectionFromScan = columnProjection;
+        List<List<RexNode>> result;
+        if (metadata != null) {
+            result = metadataToValues(table, metadata);
         } else {
-            projectionFromScan = createProjectionFromScan(
-                    modifiedTable,
-                    operation,
-                    projects,
-                    requiredColumns,
-                    rel.getCluster().getRexBuilder()
-            );
-        }
+            int numColumns = table.descriptor().columnsCount();
+            List<RexNode> row = new ArrayList<>(numColumns);
 
-        // colocation keys: k1, k2
-        // INSERT INTO t
-        // k0, k1, k2
-        // SELECT
-        // 1, k1, k2 
-        // FROM t WHERE k1 = 1 and k2=3
-
-        int matchCount = 0;
-
-        for (int c : colocationKeys) {
-            RexNode node = projectionFromScan.get(c);
-            if (!(node instanceof RexLocalRef)) {
-                continue;
+            for (int i = 0; i < numColumns; i++) {
+                row.add(VALUE_NOT_ASSIGNED);
             }
-            RexLocalRef ref = (RexLocalRef) node;
-            if (ref.getIndex() == c) {
-                matchCount++;
+
+            result = List.of(row);
+        }
+
+        if (requiredColumns != null) {
+            List<List<RexNode>> projectedResult = new ArrayList<>(result.size());
+
+            for (List<RexNode> row : result) {
+                List<RexNode> projectedRow = new ArrayList<>(requiredColumns.size());
+
+                for (int i = 0; i < requiredColumns.size(); i++) {
+                    projectedRow.add(row.get(requiredColumns.getInt(i)));
+                }
+
+                projectedResult.add(projectedRow);
             }
+
+            result = projectedResult;
         }
 
-        if (matchCount != colocationKeys.size()) {
-            return null;
+        if (!nullOrEmpty(projects)) {
+            List<List<RexNode>> projectedResult = new ArrayList<>(result.size());
+
+            for (List<RexNode> inputRow : result) {
+                RexVisitor<RexNode> inputInliner = new RexShuttle() {
+                    @Override
+                    public RexNode visitLocalRef(RexLocalRef localRef) {
+                        return inputRow.get(localRef.getIndex());
+                    }
+                };
+
+                projectedResult.add(inputInliner.visitList(projects));
+            }
+
+            result = projectedResult;
         }
 
-        return metadataToValues(table, metadata);
-    }
-
-    private static List<RexNode> createProjectionFromScan(
-            IgniteTable table,
-            Operation operation,
-            List<RexNode> projects,
-            ImmutableIntList requiredColumns,
-            RexBuilder rexBuilder
-    ) {
-        List<RexNode> result;
-        if (operation == INSERT) {
-            // Projections for INSERTs do not include any extra columns.
-            result = projects;
-        } else if (operation == UPDATE) {
-            // UPDATEs have the following projection: [<columns in definition order>, <expressions as specified in UPDATE clause].
-            // Example:
-            // UPDATE t SET c3 = 100, c4='a' WHERE c1=42 AND c2=99
-            // => 
-            // [c1, c2, c3, c4, 100, 'a']
-            result = projects.subList(0, requiredColumns.size());
-        } else {
-            throw new IllegalStateException("Unexpected modification operation: " + operation);
-        }
-
-        // Re-columns in the projection so that each local ref is mapped to its table column.
-        return PartitionPruningMetadataExtractor.remapColumns(
-                table,
-                requiredColumns,
-                result,
-                rexBuilder
-        );
+        return result;
     }
 
     private static List<List<RexNode>> metadataToValues(
@@ -496,7 +444,7 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     ) {
         // Creates a row for each PP metadata entry. Consider the following example
         // of a scan predicate that includes colocation columns C1, C2, C3:
-        // 
+        //
         // c1 IN (10, ?0, 42) AND c2 = ?1 AND c3 = 99
         //
         // It's metadata is:
@@ -510,10 +458,10 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         //  [42, ?1, 99]
         //
 
+        int numColumns = table.descriptor().columnsCount();
         List<List<RexNode>> projectionAsValues = new ArrayList<>(metadata.columns().size());
 
         for (Int2ObjectMap<RexNode> columns : metadata.columns()) {
-            int numColumns = table.descriptor().columnsCount();
             List<RexNode> row = new ArrayList<>(numColumns);
 
             // There are more non-colocation key columns than colocation key ones.

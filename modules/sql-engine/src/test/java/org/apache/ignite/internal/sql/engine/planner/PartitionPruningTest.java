@@ -319,22 +319,22 @@ public class PartitionPruningTest extends AbstractPlannerTest {
             expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
         }
 
-        // Permuting projection does not allow propagation
+        // Constant replaces C1; C2 comes from scan (42). Both colocation keys are known at the INSERT site.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT 10, c2, c1 FROM t1 WHERE  c2=42 and c3=99 and c1=?",
                     table1
             );
-            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+            expectMetadata(Map.of(1L, "[[0=10, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
         }
 
-        // Projection with constants insertion order does not match.
+        // Constant replaces C1; C2 and C3 are taken from the scan. C1=10 is a known constant.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT 10, c2, c3 FROM t1 WHERE c2=42 and c1=?",
                     table1
             );
-            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+            expectMetadata(Map.of(1L, "[[0=10, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
         }
     }
 
@@ -368,13 +368,13 @@ public class PartitionPruningTest extends AbstractPlannerTest {
             expectMetadata(Map.of(2L, "[[1=42, 3=78]]"), actual);
         }
 
-        // Insertion order matches but expressions at column positions are not supported
+        // C2 and C4 (both colocation keys) come through the projection correctly; constants 10 and 78 fill other positions.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT 10, c2, c3, 78, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
                     table1
             );
-            expectMetadata(Map.of(2L, "[[1=42, 3=78]]"), actual);
+            expectMetadata(Map.of(1L, "[[1=42, 3=78]]", 2L, "[[1=42, 3=78]]"), actual);
         }
     }
 
@@ -396,40 +396,31 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
                 .build();
 
-        // Different tables: permuting projection does not allow propagation
+        // Different tables: identity projection — colocation keys propagate through to the INSERT target.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT c1, c2, c3 FROM t2 WHERE c2=42 and c1=?",
                     table1, table2
             );
-            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
         }
 
-        // Different tables: identity, do not propagate
-        {
-            PartitionPruningMetadata actual = extractMetadata(
-                    "INSERT INTO t1 SELECT c1, c2, c3 FROM t2 WHERE c2=42 and c1=?",
-                    table1, table2
-            );
-            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
-        }
-
-        // Different tables: other projection
+        // Different tables: constant replaces C3, C1 and C2 still propagate.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT c1, c2, 100 FROM t2 WHERE c2=42 and c1=?",
                     table1, table2
             );
-            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
         }
 
-        // Different tables: other projection
+        // Different tables: constant 99 replaces C1 — INSERT target gets a fully determined partition.
         {
             PartitionPruningMetadata actual = extractMetadata(
                     "INSERT INTO t1 SELECT 99, c2, c3 FROM t2 WHERE c2=42 and c1=?",
                     table1, table2
             );
-            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+            expectMetadata(Map.of(1L, "[[0=99, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
         }
     }
 

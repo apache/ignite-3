@@ -149,8 +149,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
-        ModifyNodeVisitor visitor = new ModifyNodeVisitor(this, table, rel.getOperation());
-        List<List<RexNode>> results = visitor.go(rel);
+        List<List<RexNode>> results = ModifyNodeVisitor.go(this, rel);
 
         if (results == null) {
             return rel;
@@ -240,37 +239,9 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
     }
 
-    static List<RexNode> remapColumns(
-            IgniteTable table, 
-            ImmutableIntList requiredColumns, 
-            List<RexNode> expressions, 
-            RexBuilder rexBuilder
-    ) {
+    private static RexNode remapColumns(IgniteTable table, ImmutableIntList requiredColumns, RexNode condition, RexBuilder rexBuilder) {
         RelDataType rowType = table.getRowType(Commons.typeFactory(), requiredColumns);
-        List<RexNode> output = new ArrayList<>(expressions.size());
 
-        for (RexNode expression : expressions) {
-            output.add(remapColumns(rowType, requiredColumns, expression, rexBuilder));
-        }
-
-        return output;
-    }
-
-    private static RexNode remapColumns(IgniteTable table,
-            ImmutableIntList requiredColumns,
-            RexNode condition,
-            RexBuilder rexBuilder
-    ) {
-        RelDataType rowType = table.getRowType(Commons.typeFactory(), requiredColumns);
-        return remapColumns(rowType, requiredColumns, condition, rexBuilder);
-    }
-
-    private static RexNode remapColumns(
-            RelDataType rowType,
-            ImmutableIntList requiredColumns,
-            RexNode condition, 
-            RexBuilder rexBuilder
-    ) {
         return condition.accept(new RexShuttle() {
             @Override
             public RexNode visitLocalRef(RexLocalRef localRef) {
