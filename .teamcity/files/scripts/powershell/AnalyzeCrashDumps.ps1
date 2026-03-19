@@ -22,3 +22,8 @@ foreach ($dump in $dumps) {
     & $cdb -z $dump.FullName -y $symPath -srcpath $srcPath -c ".symopt+ 0x80000; .reload /f; .lines; .ecxr; kL; q"
     Write-Host "##teamcity[blockClosed name='Crash analysis: $($dump.Name)']"
 }
+
+Write-Host "##teamcity[blockOpened name='Sym check']"
+Write-Host "Temp: %env.TEMP%"
+"C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\symchk.exe" /r C:\Windows\System32\ntdll.dll /s "srv*%env.TEMP%\symtest*https://msdl.microsoft.com/download/symbols"
+Write-Host "##teamcity[blockClosed name='Sym check']"
