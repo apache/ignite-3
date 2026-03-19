@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.commands.cluster;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCall;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCallInput;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCall;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;

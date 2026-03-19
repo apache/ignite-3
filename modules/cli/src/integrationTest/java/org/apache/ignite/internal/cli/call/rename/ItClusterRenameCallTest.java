@@ -20,12 +20,13 @@ package org.apache.ignite.internal.cli.call.rename;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.cli.call.cluster.rename.ClusterStatusCall;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCall;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCallInput;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCall;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCallInput;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.junit.jupiter.api.DisplayName;
@@ -46,10 +47,10 @@ public class ItClusterRenameCallTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @DisplayName("Should rename the cluster")
-    @ValueSource(strings = {"cluster2", "cluster name with spaces"})
+    @ValueSource(strings = {"cluster2", "cluster name with spaces", "$p0ng3808!"})
     public void testRename(String newName) {
         String name = readClusterName();
-        assertEquals("cluster", name);
+        assertNotEquals(newName, name);
 
         var input = ClusterRenameCallInput.builder()
                 .clusterUrl(NODE_URL)

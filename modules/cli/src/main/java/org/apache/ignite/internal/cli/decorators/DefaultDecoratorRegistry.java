@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.decorators;
 
 import org.apache.ignite.internal.cli.call.cliconfig.profile.ProfileList;
-import org.apache.ignite.internal.cli.call.cluster.rename.ClusterStatus;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatus;
 import org.apache.ignite.internal.cli.config.Profile;

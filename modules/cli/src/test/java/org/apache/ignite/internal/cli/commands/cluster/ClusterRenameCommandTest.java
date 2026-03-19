@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.commands.cluster;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCall;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCallInput;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCall;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCallInput;
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.junit.jupiter.api.Test;

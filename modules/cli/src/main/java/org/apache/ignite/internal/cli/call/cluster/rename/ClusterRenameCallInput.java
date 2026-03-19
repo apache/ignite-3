@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.status;
+package org.apache.ignite.internal.cli.call.cluster.rename;
 
 import org.apache.ignite.internal.cli.core.call.CallInput;
 

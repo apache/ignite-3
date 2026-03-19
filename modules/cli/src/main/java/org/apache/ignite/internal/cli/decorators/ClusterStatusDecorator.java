@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.decorators;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
-import org.apache.ignite.internal.cli.call.cluster.rename.ClusterStatus;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
