@@ -456,7 +456,6 @@ public class PlannerTest extends AbstractPlannerTest {
                         .build()
         );
 
-
         // Join on non-indexed columns.
         assertPlan("SELECT * FROM T1 LEFT JOIN T2 ON t1.val1 = t2.val1", publicSchema, isInstanceOf(IgniteHashJoin.class)
                 .and(not(nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)))));
