@@ -25,5 +25,5 @@ foreach ($dump in $dumps) {
 
 Write-Host "##teamcity[blockOpened name='Sym check']"
 Write-Host "Temp: %env.TEMP%"
-"C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\symchk.exe" /r C:\Windows\System32\ntdll.dll /s "srv*%env.TEMP%\symtest*https://msdl.microsoft.com/download/symbols"
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\symchk.exe" /r C:\Windows\System32\ntdll.dll /s "srv*%env.TEMP%\symtest*https://msdl.microsoft.com/download/symbols"
 Write-Host "##teamcity[blockClosed name='Sym check']"
