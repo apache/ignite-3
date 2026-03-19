@@ -254,7 +254,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28013")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28316")
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
