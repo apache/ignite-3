@@ -87,7 +87,6 @@ public class TxRecoveryEngine {
         // If the transaction state is pending, then the transaction should be rolled back,
         // meaning that the state is changed to aborted and a corresponding cleanup request
         // is sent in a common durable manner to a partition that has initiated recovery.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
         return txManager.finish(
                         HybridTimestampTracker.emptyTracker(),
                         // Tx recovery is executed on the commit partition.
