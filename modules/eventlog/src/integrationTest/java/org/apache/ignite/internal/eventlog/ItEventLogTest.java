@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.eventlog;
 
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -28,19 +31,30 @@ import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.testframework.log4j2.AccumulatingLogInspector;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ItEventLogTest extends ClusterPerClassIntegrationTest {
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
+
     private static final String PROVIDER_NAME = "basic";
 
     private static final String USERNAME = "admin";
@@ -49,10 +63,28 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
     private static Path eventlogPath;
 
+    private final AccumulatingLogInspector clientLogInspector = new AccumulatingLogInspector(
+            "org.apache.ignite.client.handler.ClientInboundMessageHandler");
+
+    private final AccumulatingLogInspector restLogInspector = new AccumulatingLogInspector(
+            "org.apache.ignite.internal.rest.authentication.IgniteAuthenticationProvider");
+
     @BeforeAll
     static void captureEventLogPath() {
         String buildDirPath = System.getProperty("buildDirPath");
         eventlogPath = Path.of(buildDirPath).resolve("event.log");
+    }
+
+    @BeforeEach
+    void startInspectors() {
+        clientLogInspector.start();
+        restLogInspector.start();
+    }
+
+    @AfterEach
+    void stopInspectors() {
+        clientLogInspector.stop();
+        restLogInspector.stop();
     }
 
     @Override
@@ -101,7 +133,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
         assertThat(readEventLog(), contains(matchesRegex(expectedEventJsonPattern)));
 
-        // When try to authenticate with invalid credentials.
+        // When try to authenticate with invalid credentials via thin client.
         BasicAuthenticator invalidAuthenticator = BasicAuthenticator.builder().username("UNKNOWN").password("SECRET").build();
         assertThrows(
                 IgniteClientConnectionException.class,
@@ -121,6 +153,32 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
                 + "}";
 
         assertThat(readEventLog(), hasItem(matchesRegex(expectedEventJsonPatternAfterInvalidAuth)));
+
+        // And the client handler log contains authentication failure details.
+        assertThat(clientLogInspector.events(), hasItem(allOf(
+                containsString("Client authentication failed"),
+                containsString("remoteAddress="),
+                containsString("identity=UNKNOWN]")
+        )));
+
+        // When try to authenticate with invalid credentials via REST API.
+        HttpClient httpClient = HttpClient.newBuilder().build();
+        String endpoint = "/management/v1/configuration/cluster/";
+        HttpRequest request = HttpRequest.newBuilder(URI.create(NODE_URL + endpoint))
+                .header("Authorization", basicAuthHeader("UNKNOWN", "SECRET"))
+                .build();
+
+        assertThat(httpClient.send(request, BodyHandlers.ofString()), hasStatusCode(401));
+
+        // Then the REST log contains authentication failure details.
+        assertThat(restLogInspector.events(), hasItem(allOf(
+                containsString("REST authentication failed [uri=" + endpoint + ", remoteAddress="),
+                containsString("identity=UNKNOWN]")
+        )));
+    }
+
+    private static String basicAuthHeader(String username, String password) {
+        return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     private static List<String> readEventLog() throws IOException {
