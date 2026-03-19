@@ -39,9 +39,11 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -73,6 +75,8 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
 
     private CommandLine cmd;
 
+    private final Pattern pattern = Pattern.compile("\"([^\"]*)\"|'([^']*)'|[^\\s\"']+");
+
     @BeforeAll
     static void setDumbTerminal() {
         System.setProperty("org.jline.terminal.dumb", "true");
@@ -91,8 +95,37 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
         CommandLineContextProvider.setCmd(cmd);
     }
 
+    private List<String> getArgs(String argsLine) {
+        var matcher = pattern.matcher(argsLine);
+        List<String> args = new ArrayList<>();
+
+        while (matcher.find()) {
+            if (matcher.group(1) != null) {
+                args.add(matcher.group(1));      // double-quoted content (no quotes)
+            } else if (matcher.group(2) != null) {
+                args.add(matcher.group(2));      // single-quoted content (no quotes)
+            } else {
+                args.add(matcher.group(0));       // unquoted token
+            }
+        }
+
+        return args;
+    }
+
     protected void execute(String argsLine) {
-        execute(argsLine.split(" "));
+        final var args = getArgs(argsLine);
+
+        List<String> joined = new ArrayList<>();
+        for (int i = 0; i < args.size(); i++) {
+            if (args.get(i).endsWith("=") && i + 1 < args.size()) {
+                joined.add(args.get(i) + args.get(i + 1));
+                i++;
+            } else {
+                joined.add(args.get(i));
+            }
+        }
+
+        execute(joined.toArray(new String[0]));
     }
 
     protected void execute(String... args) {

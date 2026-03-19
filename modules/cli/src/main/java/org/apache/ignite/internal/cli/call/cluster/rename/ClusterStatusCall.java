@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.status;
+package org.apache.ignite.internal.cli.call.cluster.rename;
 
 import jakarta.inject.Singleton;
 import java.util.List;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus.ClusterStatusBuilder;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterStatus.ClusterStatusBuilder;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;

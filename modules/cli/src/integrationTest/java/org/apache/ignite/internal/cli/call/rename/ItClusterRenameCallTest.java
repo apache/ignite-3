@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.configuration;
+package org.apache.ignite.internal.cli.call.rename;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,13 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.call.cluster.rename.ClusterStatusCall;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCall;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterRenameCallInput;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link ClusterRenameCall}.
@@ -43,15 +44,16 @@ public class ItClusterRenameCallTest extends CliIntegrationTest {
     @Inject
     ClusterStatusCall statusCall;
 
-    @Test
+    @ParameterizedTest
     @DisplayName("Should rename the cluster")
-    public void testRename() {
+    @ValueSource(strings = {"cluster2", "cluster name with spaces"})
+    public void testRename(String newName) {
         String name = readClusterName();
         assertEquals("cluster", name);
 
         var input = ClusterRenameCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .name("cluster2")
+                .name(newName)
                 .build();
 
         DefaultCallOutput<String> output = renameCall.execute(input);
@@ -59,7 +61,7 @@ public class ItClusterRenameCallTest extends CliIntegrationTest {
         assertThat(output.body()).contains("Cluster was renamed successfully");
 
         name = readClusterName();
-        assertEquals("cluster2", name);
+        assertEquals(newName, name);
     }
 
     private String readClusterName() {
