@@ -47,7 +47,7 @@ public class SchemaCompatibilityValidator {
     private final SchemaSyncService schemaSyncService;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
-    private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TableDefinitionDiffKey, ValidationResult> forwardDiffToResultCache = new ConcurrentHashMap<>();
 
     private static final List<ForwardCompatibilityValidator> FORWARD_COMPATIBILITY_VALIDATORS = List.of(
             new RenameTableValidator(),
@@ -142,7 +142,10 @@ public class SchemaCompatibilityValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
 
-            ValidationResult validationResult = validateForwardSchemaCompatibility(oldSchema, newSchema);
+            ValidationResult validationResult = forwardDiffToResultCache.computeIfAbsent(
+                    new TableDefinitionDiffKey(oldSchema.tableId(), oldSchema.catalogVersion(), newSchema.catalogVersion()),
+                    key -> validateForwardSchemaCompatibility(oldSchema, newSchema)
+            );
 
             if (validationResult.verdict == ValidatorVerdict.INCOMPATIBLE) {
                 return CompatValidationResult.incompatibleChange(
@@ -157,11 +160,8 @@ public class SchemaCompatibilityValidator {
         return CompatValidationResult.success();
     }
 
-    private ValidationResult validateForwardSchemaCompatibility(FullTableSchema prevSchema, FullTableSchema nextSchema) {
-        TableDefinitionDiff diff = diffCache.computeIfAbsent(
-                new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
-                key -> nextSchema.diffFrom(prevSchema)
-        );
+    private static ValidationResult validateForwardSchemaCompatibility(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+        TableDefinitionDiff diff = nextSchema.diffFrom(prevSchema);
 
         boolean accepted = false;
 
@@ -178,8 +178,8 @@ public class SchemaCompatibilityValidator {
             }
         }
 
-        assert accepted : "Table schema changed from " + prevSchema.schemaVersion()
-                + " to " + nextSchema.schemaVersion()
+        assert accepted : "Table schema changed from " + prevSchema.schemaVersion() + " (catalog version " + prevSchema.catalogVersion()
+                + ") to " + nextSchema.schemaVersion() + " (catalog version " + nextSchema.catalogVersion() + ")"
                 + ", but no schema change validator voted for any change. Some schema validator is missing.";
 
         return ValidationResult.COMPATIBLE;

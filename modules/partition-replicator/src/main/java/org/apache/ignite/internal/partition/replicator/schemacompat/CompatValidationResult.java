@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.schemacompat;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Result of a schema compatibility validation.
@@ -154,6 +155,12 @@ public class CompatValidationResult {
         assert !isSuccessful() : "Should not be called on a successful result";
         assert details != null : "Should not be called when there are no details";
 
+        return details;
+    }
+
+    @TestOnly
+    @Nullable
+    String optionalDetails() {
         return details;
     }
 
