@@ -29,6 +29,7 @@ public class AccumulatingLogInspector {
 
     private final LogInspector logInspector;
 
+    /** Constructor. */
     public AccumulatingLogInspector(String loggerName) {
         logInspector = new LogInspector(
                 loggerName, // From LogSinkConfigurationSchema.criteria default value

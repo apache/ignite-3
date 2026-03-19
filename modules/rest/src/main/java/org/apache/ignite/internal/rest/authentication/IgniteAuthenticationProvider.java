@@ -76,7 +76,7 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider, Res
             AuthenticationRequest<?, ?> authenticationRequest,
             Throwable throwable
     ) {
-        LOG.warn("REST authentication failed [uri={}, remoteAddress={}, identity={}]: {}",
+        LOG.info("REST authentication failed [uri={}, remoteAddress={}, identity={}]: {}",
                 httpRequest.getUri(), httpRequest.getRemoteAddress(), authenticationRequest.getIdentity(),
                 throwable.getMessage());
     }
