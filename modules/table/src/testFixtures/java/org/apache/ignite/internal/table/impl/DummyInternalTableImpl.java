@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -540,6 +541,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
 
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
         var tablePartitionListener = new TablePartitionProcessor(
@@ -563,7 +568,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 storageIndexTracker,
                 new NoOpPartitionsSnapshots(),
-                mock(Executor.class)
+                mock(Executor.class),
+                clockService
         );
 
         zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
