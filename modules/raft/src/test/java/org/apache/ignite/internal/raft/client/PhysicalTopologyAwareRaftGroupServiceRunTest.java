@@ -534,8 +534,15 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      */
     @Test
     void testInfiniteTimeoutShutdownDuringLeaderWaiting() throws Exception {
-        // GetLeaderRequest returns EPERM (default mock). No WriteActionRequest mock needed
-        // because the command never reaches the WriteActionRequest phase.
+        // Override default GetLeaderRequest mock with one that signals when it's been called.
+        var getLeaderCalled = new CountDownLatch(1);
+        lenient().when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    getLeaderCalled.countDown();
+                    return completedFuture(FACTORY.errorResponse()
+                            .errorCode(RaftError.EPERM.getNumber())
+                            .build());
+                });
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
@@ -543,8 +550,8 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest.
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
-        // Give some time for the GetLeaderRequest retry loop to start.
-        Thread.sleep(200);
+        // Wait for the GetLeaderRequest retry loop to actually start.
+        assertTrue(getLeaderCalled.await(5, TimeUnit.SECONDS), "GetLeaderRequest retry should start");
 
         // The result should not be complete yet (retrying GetLeaderRequest).
         assertThat(result.isDone(), is(false));
