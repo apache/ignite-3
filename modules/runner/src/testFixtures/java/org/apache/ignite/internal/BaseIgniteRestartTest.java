@@ -97,7 +97,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     @Language("HOCON")
     protected static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  network.listenAddresses: [127.0.0.1],\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
             + "  network.membership: {\n"

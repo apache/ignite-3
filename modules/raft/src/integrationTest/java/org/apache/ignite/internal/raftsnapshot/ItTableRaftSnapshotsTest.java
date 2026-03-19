@@ -19,8 +19,9 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.ConfigTemplates.DEFAULT_PROFILES;
-import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -136,10 +137,21 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * <p>installSnapshotTimeoutMillis is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
-    private static final String NODE_BOOTSTRAP_CFG = renderConfigTemplate(
-            DEFAULT_PROFILES
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  },\n"
             + "  raft.installSnapshotTimeoutMillis: 10000,\n"
-    );
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "}";
 
     /**
      * Marker that instructs to create a table with the default storage engine. Used in tests that are indifferent
