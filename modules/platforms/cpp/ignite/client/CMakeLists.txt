@@ -87,6 +87,9 @@ set(PUBLIC_HEADERS
     transaction/transaction_options.h
 )
 
+# Expose the public header list to the parent scope for cmake/abi_check.cmake.
+set(IGNITE3_CLIENT_PUBLIC_HEADERS "${PUBLIC_HEADERS}" PARENT_SCOPE)
+
 add_library(${TARGET}-obj OBJECT ${SOURCES})
 target_include_directories(${TARGET}-obj PUBLIC ${IGNITE_CMAKE_TOP_DIR})
 

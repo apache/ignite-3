@@ -65,6 +65,7 @@ option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analyzer" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck static analyzer" OFF)
 option(ENABLE_ABI_COMPLIANCE_CHECKER "Enable ABI compatibility check with abi-compliance-checker" OFF)
+option(ENABLE_HEADER_SELF_CONTAINMENT_CHECK "Enable header self-containment check (each public header compiles in isolation via find_package)" OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -243,8 +244,8 @@ if (${ENABLE_TESTS})
     endif()
 endif()
 
-# ABI compatibility checks (must come after all library subdirectories are added).
-if (ENABLE_LIBABIGAIL OR ENABLE_ABI_COMPLIANCE_CHECKER)
+# ABI and source-level API compatibility checks (must come after all library subdirectories are added).
+if (ENABLE_ABI_COMPLIANCE_CHECKER OR ENABLE_HEADER_SELF_CONTAINMENT_CHECK)
     include(abi_check)
 endif()
 
