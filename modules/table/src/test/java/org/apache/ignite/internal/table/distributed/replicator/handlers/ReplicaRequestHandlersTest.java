@@ -99,7 +99,7 @@ class ReplicaRequestHandlersTest {
         ReplicaRequestHandlers.Builder builder = new ReplicaRequestHandlers.Builder();
         builder.addHandler(GROUP_A, TYPE_1, (request, replicaPrimacy) -> nullCompletedFuture());
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(AssertionError.class,
                 () -> builder.addHandler(GROUP_A, TYPE_1, (request, replicaPrimacy) -> nullCompletedFuture()));
     }
 
@@ -108,7 +108,7 @@ class ReplicaRequestHandlersTest {
         ReplicaRequestHandlers.Builder builder = new ReplicaRequestHandlers.Builder();
         builder.addRoHandler(GROUP_A, TYPE_1, (request, opStartTs) -> nullCompletedFuture());
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(AssertionError.class,
                 () -> builder.addRoHandler(GROUP_A, TYPE_1, (request, opStartTs) -> nullCompletedFuture()));
     }
 }

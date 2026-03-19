@@ -120,12 +120,9 @@ public class ReplicaRequestHandlers {
         ) {
             MessageId id = new MessageId(messageGroup, messageType);
 
-            if (handlers.containsKey(id)) {
-                throw new IllegalArgumentException(
-                        "Handler already exists [messageGroup=" + messageGroup + ", messageType=" + messageType + "].");
-            }
+            ReplicaRequestHandler<?> oldHandler = handlers.put(id, handler);
 
-            handlers.put(id, handler);
+            assert oldHandler == null : "Handler already exists [messageGroup=" + messageGroup + ", messageType=" + messageType + "].";
         }
 
         /**
@@ -143,12 +140,9 @@ public class ReplicaRequestHandlers {
         ) {
             MessageId id = new MessageId(messageGroup, messageType);
 
-            if (roHandlers.containsKey(id)) {
-                throw new IllegalArgumentException(
-                        "RO handler already exists [messageGroup=" + messageGroup + ", messageType=" + messageType + "].");
-            }
+            ReadOnlyReplicaRequestHandler<?> oldHandler = roHandlers.put(id, handler);
 
-            roHandlers.put(id, handler);
+            assert oldHandler == null : "RO handler already exists [messageGroup=" + messageGroup + ", messageType=" + messageType + "].";
         }
 
         /**
