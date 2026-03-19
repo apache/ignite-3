@@ -15,22 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster;
+package org.apache.ignite.internal.cli.commands.cluster.rename;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCall;
 import org.apache.ignite.internal.cli.call.cluster.rename.ClusterRenameCallInput;
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ClusterRenameCommandTest extends CliCommandTestBase {
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliCommand.class;
+    }
+
+    private static Stream<Arguments> names() {
+        return Stream.of(
+                arguments("cluster", "cluster"), // normal
+                arguments("", ""), // empty
+                arguments("!@#!@$#%@#^%#$^#&^#*^#*$&*", "!@#!@$#%@#^%#$^#&^#*^#*$&*"), // special chars
+                arguments("'cluster'", "cluster"), // single quotes
+                arguments("\"cluster\"", "cluster"), // double quotes
+                arguments("'cluster with spaces'", "cluster with spaces"), // single quotes with spaces
+                arguments("\"cluster with spaces\"", "cluster with spaces") // double quotes with spaces
+        );
     }
 
     @Test
@@ -45,18 +60,12 @@ class ClusterRenameCommandTest extends CliCommandTestBase {
         );
     }
 
-    @Test
-    void unquotedParameter() {
-        checkParameters("cluster rename", ClusterRenameCall.class, ClusterRenameCallInput.class, ClusterRenameCallInput::getName,
-                "--name=cluster2", "cluster2");
-    }
-
     @ParameterizedTest
-    @ValueSource(chars = {'"', '\''})
-    void quotedParameter(char quote) {
-        String parameters = String.format("--name=%ccluster 2%c", quote, quote);
+    @MethodSource("names")
+    void nameParameterTests(String name, String expectedName) {
+        String parameters = String.format("--name=%s", name);
 
         checkParameters("cluster rename", ClusterRenameCall.class, ClusterRenameCallInput.class, ClusterRenameCallInput::getName,
-                parameters, "cluster 2");
+                parameters, expectedName);
     }
 }

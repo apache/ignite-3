@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -63,6 +65,33 @@ public class ItClusterRenameCallTest extends CliIntegrationTest {
 
         name = readClusterName();
         assertEquals(newName, name);
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should fail on passing an empty name")
+    @ValueSource(strings = {"", " "})
+    public void testFailOnEmptyName(String name) {
+        var input = ClusterRenameCallInput.builder()
+                .clusterUrl(NODE_URL)
+                .name(name)
+                .build();
+
+        DefaultCallOutput<String> output = renameCall.execute(input);
+        assertTrue(output.hasError());
+        assertThat(output.body()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should fail on passing a NULL name")
+    public void testFailOnNullName() {
+        var input = ClusterRenameCallInput.builder()
+                .clusterUrl(NODE_URL)
+                .name(null)
+                .build();
+
+        DefaultCallOutput<String> output = renameCall.execute(input);
+        assertTrue(output.hasError());
+        assertThat(output.body()).isNull();
     }
 
     private String readClusterName() {
