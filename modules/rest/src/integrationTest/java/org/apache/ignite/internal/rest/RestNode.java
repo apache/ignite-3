@@ -82,7 +82,6 @@ public class RestNode {
 
     private String bootstrapCfg() {
         return "ignite {\n"
-                + "  network.listenAddresses: [127.0.0.1],\n"
                 + "  network.port: {},\n"
                 + "  network.nodeFinder.netClusterNodes: [ {} ],\n"
                 + "  clientConnector.port: {},\n"

@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_P
  * Node configuration templates.
  */
 public class ConfigTemplates {
-    public static final String DEFAULT_PROFILES = ""
+    private static final String DEFAULT_PROFILES = ""
             + "  storage.profiles: {"
             + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
@@ -34,7 +34,7 @@ public class ConfigTemplates {
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n";
 
-    public static final String FAST_FAILURE_DETECTION = ""
+    private static final String FAST_FAILURE_DETECTION = ""
             + "  network.membership: {\n"
             + "    membershipSyncIntervalMillis: 1000,\n"
             + "    failurePingIntervalMillis: 500,\n"
@@ -73,7 +73,6 @@ public class ConfigTemplates {
     public static String renderConfigTemplate(String properties) {
         return "ignite {\n"
                 + "  network: {\n"
-                + "    listenAddresses: [\"127.0.0.1\"],\n"
                 + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ {} ]\n"
                 + "  },\n"
