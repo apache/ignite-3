@@ -1606,29 +1606,34 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ));
         }
 
-        CompletableFuture<T> fut = op.get(); // Starts the operation.
+        try {
+            CompletableFuture<T> fut = op.get(); // Starts the operation.
 
-        fut.whenComplete((v, th) -> {
-            if (th != null) {
-                partitionInflights.removeInflight(ctx);
-            } else {
-                if (v instanceof ReplicaResult) {
-                    ReplicaResult res = (ReplicaResult) v;
+            fut.whenComplete((v, th) -> {
+                if (th != null) {
+                    partitionInflights.removeInflight(ctx);
+                } else {
+                    if (v instanceof ReplicaResult) {
+                        ReplicaResult res = (ReplicaResult) v;
 
-                    if (res.applyResult().replicationFuture() != null) {
-                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
+                        if (res.applyResult().replicationFuture() != null) {
+                            res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
+                                partitionInflights.removeInflight(ctx);
+                            });
+                        } else {
                             partitionInflights.removeInflight(ctx);
-                        });
+                        }
                     } else {
                         partitionInflights.removeInflight(ctx);
                     }
-                } else {
-                    partitionInflights.removeInflight(ctx);
                 }
-            }
-        });
+            });
 
-        return fut;
+            return fut;
+        } catch (Throwable err) {
+            partitionInflights.removeInflight(ctx);
+            throw err;
+        }
     }
 
     /**
