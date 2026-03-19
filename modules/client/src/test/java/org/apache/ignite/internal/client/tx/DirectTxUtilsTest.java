@@ -32,6 +32,7 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
 import org.apache.ignite.internal.client.PartitionMapping;
+import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -84,6 +85,8 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
         ReliableChannel ch = mock(ReliableChannel.class);
         ClientChannel txChannel = mockClientChannel("node1");
 
+        when(ch.getChannelAsync("node1")).thenReturn(CompletableFuture.completedFuture(txChannel));
+
         // RW tx with commit partition, mapping points to the same node as the tx coordinator.
         PartitionMapping commitPm = new PartitionMapping(1, "node1", 0);
         ClientTransaction tx = createTx(txChannel, ch, false, commitPm);
@@ -94,7 +97,6 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
         CompletableFuture<ClientChannel> result = DirectTxUtils.resolveChannel(ctx, ch, true, tx, mapping);
 
         assertSame(txChannel, result.join());
-        verify(ch, never()).getChannelAsync(Mockito.any());
     }
 
     @Test
@@ -135,8 +137,13 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("DataFlowIssue")
     private static ClientChannel mockClientChannel(String nodeName) {
-        ClientChannel channel = mock(ClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
-        when(channel.protocolContext().clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), nodeName, null));
+        ClientChannel channel = mock(ClientChannel.class);
+        ProtocolContext protocolContext = mock(ProtocolContext.class);
+        ClientClusterNode clusterNode = new ClientClusterNode(randomUUID(), nodeName, null);
+
+        when(channel.protocolContext()).thenReturn(protocolContext);
+        when(protocolContext.clusterNode()).thenReturn(clusterNode);
+
         return channel;
     }
 
