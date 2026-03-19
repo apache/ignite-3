@@ -79,7 +79,6 @@ public class ItSslTest {
         @Language("JSON")
         String sslDisabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
-                + "    listenAddresses: [127.0.0.1],\n"
                 + "    ssl.enabled: false,\n"
                 + "    port: {},\n"
                 + "    nodeFinder:{\n"
@@ -165,7 +164,6 @@ public class ItSslTest {
         @Language("JSON")
         String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
-                + "    listenAddresses: [127.0.0.1],\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
                 + "      trustStore: {\n"
@@ -423,7 +421,6 @@ public class ItSslTest {
         @Language("JSON")
         String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
-                + "    listenAddresses: [127.0.0.1],\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
                 + "      clientAuth: \"require\",\n"

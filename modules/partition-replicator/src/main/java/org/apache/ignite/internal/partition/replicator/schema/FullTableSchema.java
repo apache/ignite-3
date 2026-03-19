@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  * don't affect such compatibility).
  */
 public class FullTableSchema {
+    private final int catalogVersion;
     private final int schemaVersion;
     private final int tableId;
     private final String tableName;
@@ -45,11 +47,25 @@ public class FullTableSchema {
     /**
      * Constructor.
      */
-    public FullTableSchema(int schemaVersion, int tableId, String tableName, List<CatalogTableColumnDescriptor> columns) {
+    public FullTableSchema(
+            int catalogVersion,
+            int schemaVersion,
+            int tableId,
+            String tableName,
+            List<CatalogTableColumnDescriptor> columns
+    ) {
+        this.catalogVersion = catalogVersion;
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
         this.tableName = tableName;
         this.columns = List.copyOf(columns);
+    }
+
+    /**
+     * Version of the catalog in which this schema was defined.
+     */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /**
@@ -93,20 +109,30 @@ public class FullTableSchema {
      * @return Difference between the schemas.
      */
     public TableDefinitionDiff diffFrom(FullTableSchema prevSchema) {
-        Map<String, CatalogTableColumnDescriptor> prevColumnsByName = toMapByName(prevSchema.columns, CatalogTableColumnDescriptor::name);
-        Map<String, CatalogTableColumnDescriptor> thisColumnsByName = toMapByName(this.columns, CatalogTableColumnDescriptor::name);
+        List<CatalogTableColumnDescriptor> addedColumns = List.of();
+        List<CatalogTableColumnDescriptor> removedColumns = List.of();
+        List<ColumnDefinitionDiff> changedColumns = List.of();
 
-        List<CatalogTableColumnDescriptor> addedColumns = subtractKeyed(thisColumnsByName, prevColumnsByName);
-        List<CatalogTableColumnDescriptor> removedColumns = subtractKeyed(prevColumnsByName, thisColumnsByName);
+        if (prevSchema.schemaVersion != schemaVersion) {
+            Map<String, CatalogTableColumnDescriptor> prevColumnsByName
+                    = toMapByName(prevSchema.columns, CatalogTableColumnDescriptor::name);
 
-        Set<String> intersectionColumnNames = intersect(thisColumnsByName.keySet(), prevColumnsByName.keySet());
-        List<ColumnDefinitionDiff> changedColumns = new ArrayList<>();
-        for (String commonColumnName : intersectionColumnNames) {
-            CatalogTableColumnDescriptor prevColumn = prevColumnsByName.get(commonColumnName);
-            CatalogTableColumnDescriptor thisColumn = thisColumnsByName.get(commonColumnName);
+            Map<String, CatalogTableColumnDescriptor> thisColumnsByName
+                    = toMapByName(this.columns, CatalogTableColumnDescriptor::name);
 
-            if (columnChanged(prevColumn, thisColumn)) {
-                changedColumns.add(new ColumnDefinitionDiff(prevColumn, thisColumn));
+            addedColumns = subtractKeyed(thisColumnsByName, prevColumnsByName);
+            removedColumns = subtractKeyed(prevColumnsByName, thisColumnsByName);
+            changedColumns = new ArrayList<>();
+
+            Set<String> intersectionColumnNames = intersect(thisColumnsByName.keySet(), prevColumnsByName.keySet());
+
+            for (String commonColumnName : intersectionColumnNames) {
+                CatalogTableColumnDescriptor prevColumn = prevColumnsByName.get(commonColumnName);
+                CatalogTableColumnDescriptor thisColumn = thisColumnsByName.get(commonColumnName);
+
+                if (columnChanged(prevColumn, thisColumn)) {
+                    changedColumns.add(new ColumnDefinitionDiff(prevColumn, thisColumn));
+                }
             }
         }
 
@@ -119,6 +145,20 @@ public class FullTableSchema {
                 removedColumns,
                 changedColumns
         );
+    }
+
+    boolean hasValidatableChangeFrom(FullTableSchema prev) {
+        if (this == prev) {
+            return false;
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19484 Remove the following condition.
+        if (!Objects.equals(tableName, prev.tableName())) {
+            return true;
+        }
+
+        // Table column related-changes only differ when the schema version is different
+        return schemaVersion != prev.schemaVersion();
     }
 
     private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {

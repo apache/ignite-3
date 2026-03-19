@@ -326,7 +326,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(TxState.ABANDONED, orphanState.txState());
 
         // Send tx recovery message.
-        verify(replicaService).invoke(any(InternalClusterNode.class), any());
+        verify(replicaService).invoke(any(String.class), any());
 
         assertThat(acquire, willThrow(LockException.class, "Failed to acquire the abandoned lock due to a possible deadlock"));
 

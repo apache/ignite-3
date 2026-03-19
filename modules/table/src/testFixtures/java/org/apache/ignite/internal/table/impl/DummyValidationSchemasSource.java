@@ -60,7 +60,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 .map(DummyValidationSchemasSource::columnDescriptor)
                 .collect(toList());
 
-        var fullSchema = new FullTableSchema(1, tableId, "test", columns);
+        var fullSchema = new FullTableSchema(-1, 1, tableId, "test", columns);
 
         return List.of(fullSchema);
     }

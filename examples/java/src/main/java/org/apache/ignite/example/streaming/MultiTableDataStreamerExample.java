@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -56,13 +55,11 @@ public class MultiTableDataStreamerExample {
      */
     public static void main(String[] arg) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(arg);
-
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             /* Create tables using client SQL API */
             client.sql().executeScript(
