@@ -80,8 +80,13 @@ public class ConnectSuccessCall {
         try {
             new ClusterManagementApi(clientFactory.getClient(sessionInfo.nodeUrl())).clusterState();
         } catch (ApiException e) {
-            if (e.getCode() == 409) { // CONFLICT means the cluster is not initialized yet
-                builder.hint("The cluster is not initialized. Run %s command to initialize it.", UiElements.command("cluster init"));
+            if (e.getCode() == 409) { // CONFLICT means the cluster is not initialized yet or the node is still starting
+                builder.hint(
+                        "The cluster is not initialized or the node has not finished starting yet."
+                        + " If this is a new cluster, run %s command to initialize it."
+                        + " If the node was recently restarted, please try again shortly.",
+                        UiElements.command("cluster init")
+                );
             }
         }
     }

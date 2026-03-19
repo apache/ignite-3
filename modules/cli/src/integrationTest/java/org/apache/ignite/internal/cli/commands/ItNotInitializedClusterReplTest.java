@@ -43,7 +43,9 @@ public class ItNotInitializedClusterReplTest extends ItNotInitializedClusterTest
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10300" + System.lineSeparator()
-                + "The cluster is not initialized. Run cluster init command to initialize it.")
+                + "The cluster is not initialized or the node has not finished starting yet."
+                + " If this is a new cluster, run cluster init command to initialize it."
+                + " If the node was recently restarted, please try again shortly.")
         );
     }
 
