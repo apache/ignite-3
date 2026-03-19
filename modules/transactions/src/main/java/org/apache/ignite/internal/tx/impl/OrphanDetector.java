@@ -235,26 +235,11 @@ public class OrphanDetector {
      */
     private CompletableFuture<Object> sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
-                .thenCompose(replicaMeta -> {
-                    InternalClusterNode commitPartPrimaryNode =
-                            replicaMeta != null ? topologyService.getByConsistentId(replicaMeta.getLeaseholder()) : null;
-
-                    if (commitPartPrimaryNode == null) {
-                        LOG.warn(
-                                "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
-                                cmpPartGrp,
-                                txId
-                        );
-
-                        return nullCompletedFuture();
-                    }
-
-                    return replicaService.invoke(commitPartPrimaryNode, TX_MESSAGES_FACTORY.txRecoveryMessage()
-                            .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
-                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                            .txId(txId)
-                            .build());
-                });
+                .thenCompose(replicaMeta -> replicaService.invoke(replicaMeta.getLeaseholder(), TX_MESSAGES_FACTORY.txRecoveryMessage()
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
+                        .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                        .txId(txId)
+                        .build()));
     }
 
     /**
