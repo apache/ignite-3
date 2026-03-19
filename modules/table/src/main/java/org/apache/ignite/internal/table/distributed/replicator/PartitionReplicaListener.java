@@ -111,6 +111,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApp
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
 import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
@@ -120,7 +121,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
@@ -136,7 +136,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
-import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
@@ -183,6 +182,10 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReadOnlyReplicaRequestHandler;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandler;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandlers;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ScanCloseRequestHandler;
 import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.Lock;
@@ -334,8 +337,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
 
-    // Replica request handlers.
-    private final BuildIndexReplicaRequestHandler buildIndexReplicaRequestHandler;
+    /** Registry of replica request handlers. */
+    private final ReplicaRequestHandlers requestHandlers;
 
     /**
      * The constructor.
@@ -427,7 +430,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator);
+        ReplicaRequestHandlers.Builder handlersBuilder = new ReplicaRequestHandlers.Builder();
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.SCAN_CLOSE_REPLICA_REQUEST,
+                new ScanCloseRequestHandler(remotelyTriggeredResourceRegistry, replicationGroupId));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.BUILD_INDEX_REPLICA_REQUEST,
+                new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator));
+
+        requestHandlers = handlersBuilder.build();
     }
 
     @Override
@@ -510,6 +525,21 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
+        ReplicaRequestHandler<ReplicaRequest> handler = requestHandlers.handler(request.groupType(), request.messageType());
+
+        if (handler != null) {
+            return handler.handle(request, replicaPrimacy);
+        }
+
+        ReadOnlyReplicaRequestHandler<ReplicaRequest> roHandler =
+                requestHandlers.roHandler(request.groupType(), request.messageType());
+
+        if (roHandler != null) {
+            assert opStartTsIfDirectRo != null;
+
+            return roHandler.handle(request, opStartTsIfDirectRo);
+        }
+
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -589,10 +619,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             releaseTxLocks(req.transactionId());
                         }
                     });
-        } else if (request instanceof ScanCloseReplicaRequest) {
-            processScanCloseAction((ScanCloseReplicaRequest) request);
-
-            return nullCompletedFuture();
         } else if (request instanceof TableWriteIntentSwitchReplicaRequest) {
             return processTableWriteIntentSwitchAction((TableWriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
@@ -601,8 +627,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            return buildIndexReplicaRequestHandler.handle((BuildIndexReplicaRequest) request);
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
             return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
@@ -916,23 +940,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return allOfToList(resolutionFuts);
         });
-    }
-
-    /**
-     * Processes scan close request.
-     *
-     * @param request Scan close request operation.
-     */
-    private void processScanCloseAction(ScanCloseReplicaRequest request) {
-        UUID txId = request.transactionId();
-
-        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
-
-        try {
-            remotelyTriggeredResourceRegistry.close(cursorId);
-        } catch (IgniteException e) {
-            throw wrapCursorCloseException(e);
-        }
     }
 
     /**

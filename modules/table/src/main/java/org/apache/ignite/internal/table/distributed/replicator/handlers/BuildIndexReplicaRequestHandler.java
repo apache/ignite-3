@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -32,7 +33,7 @@ import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 /**
  * Handler for {@link BuildIndexReplicaRequest}.
  */
-public class BuildIndexReplicaRequestHandler {
+public class BuildIndexReplicaRequestHandler implements ReplicaRequestHandler<BuildIndexReplicaRequest> {
     /** Factory to create RAFT command messages. */
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -53,12 +54,8 @@ public class BuildIndexReplicaRequestHandler {
         this.commandApplicator = commandApplicator;
     }
 
-    /**
-     * Handles {@link BuildIndexReplicaRequest}.
-     *
-     * @param request Request to handle.
-     */
-    public CompletableFuture<?> handle(BuildIndexReplicaRequest request) {
+    @Override
+    public CompletableFuture<?> handle(BuildIndexReplicaRequest request, ReplicaPrimacy replicaPrimacy) {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(request.indexId());
 
         if (indexMeta == null || indexMeta.isDropped()) {
