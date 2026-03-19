@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUui
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -264,7 +265,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
-        lenient().when(clockService.getClock()).thenReturn(hybridClock);
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return hybridClock.update(requestTime);
+        });
 
         commandListener = new TablePartitionProcessor(
                 mock(TxManager.class),
@@ -593,7 +597,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
-        lenient().when(clockService.getClock()).thenReturn(hybridClock);
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return hybridClock.update(requestTime);
+        });
 
         when(indexUpdateHandler.getNextRowIdToBuildIndex(anyInt())).thenReturn(RowId.lowestRowId(PARTITION_ID));
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());

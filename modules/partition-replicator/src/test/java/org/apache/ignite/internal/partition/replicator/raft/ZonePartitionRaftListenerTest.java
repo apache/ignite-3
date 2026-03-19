@@ -195,7 +195,10 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     private ZonePartitionRaftListener createListener() {
         HybridClock clock = mock(HybridClock.class);
         ClockService clockService = mock(ClockService.class);
-        lenient().when(clockService.getClock()).thenReturn(clock);
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
         return new ZonePartitionRaftListener(
                 new ZonePartitionId(ZONE_ID, PARTITION_ID),
                 txStatePartitionStorage,
@@ -954,7 +957,10 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
-        lenient().when(clockService.getClock()).thenReturn(clock);
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
 
         StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
 

@@ -73,17 +73,24 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public HybridTimestamp updateClock(HybridTimestamp requestTime) {
-        // Since clock.current() is also called inside clock.update formally it's a method call duplication.
-        // However, since benchmarks did not show any noticeable performance penalty due to the aforementioned call duplication,
-        // design purity was prioritized over call redundancy.
-        HybridTimestamp currentLocalTimestamp = clock.current();
-        long requestTimePhysical = requestTime.getPhysical();
-        long currentLocalTimePhysical = currentLocalTimestamp.getPhysical();
+        return updateClock(requestTime, true);
+    }
 
-        if (requestTimePhysical - maxClockSkewMillis() > currentLocalTimePhysical) {
-            log.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
-                    currentLocalTimestamp, maxClockSkewMillis());
-            onMaxClockSkewExceededClosure.accept(requestTimePhysical - currentLocalTimePhysical);
+    @Override
+    public HybridTimestamp updateClock(HybridTimestamp requestTime, boolean checkClockSkew) {
+        if (checkClockSkew) {
+            // Since clock.current() is also called inside clock.update formally it's a method call duplication.
+            // However, since benchmarks did not show any noticeable performance penalty due to the aforementioned call duplication,
+            // design purity was prioritized over call redundancy.
+            HybridTimestamp currentLocalTimestamp = clock.current();
+            long requestTimePhysical = requestTime.getPhysical();
+            long currentLocalTimePhysical = currentLocalTimestamp.getPhysical();
+
+            if (requestTimePhysical - maxClockSkewMillis() > currentLocalTimePhysical) {
+                log.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
+                        currentLocalTimestamp, maxClockSkewMillis());
+                onMaxClockSkewExceededClosure.accept(requestTimePhysical - currentLocalTimePhysical);
+            }
         }
 
         return clock.update(requestTime);
@@ -102,10 +109,5 @@ public class ClockServiceImpl implements ClockService {
         }
 
         return maxClockSkewMillis;
-    }
-
-    @Override
-    public HybridClock getClock() {
-        return clock;
     }
 }

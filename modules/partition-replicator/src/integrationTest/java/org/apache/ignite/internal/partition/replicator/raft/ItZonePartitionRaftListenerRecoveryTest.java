@@ -396,7 +396,10 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
-        lenient().when(clockService.getClock()).thenReturn(clock);
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
 
         return new TablePartitionProcessor(
                 txManager,
