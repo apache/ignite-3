@@ -461,7 +461,8 @@ public class PlannerTest extends AbstractPlannerTest {
         assertPlan("SELECT * FROM T1 LEFT JOIN T2 ON t1.val1 = t2.val1", publicSchema, isInstanceOf(IgniteHashJoin.class)
                 .and(not(nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)))));
         // Order by non-indexed column
-        assertPlan("SELECT * FROM T1 ORDER BY val1", publicSchema, isInstanceOf(IgniteSort.class).and(nodeOrAnyChild(isTableScan("T1"))));
+        assertPlan("SELECT * FROM T1 ORDER BY val1", publicSchema, isInstanceOf(IgniteSort.class)
+                .and(nodeOrAnyChild(isTableScan("T1"))));
         // Condition on non-indexed column.
         assertPlan("SELECT * FROM T1", publicSchema, nodeOrAnyChild(isTableScan("T1")));
     }
