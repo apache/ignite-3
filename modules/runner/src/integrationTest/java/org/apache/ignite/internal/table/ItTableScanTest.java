@@ -85,6 +85,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -727,6 +728,140 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void testRepeatableReadDuringInFlightScanWithConcurrentInserts() throws Exception {
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        int sortedIndexId = getSortedIndexId();
+
+        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
+
+        try {
+            ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+            PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
+            InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
+
+            Publisher<BinaryRow> firstScanPublisher = new RollbackTxOnErrorPublisher<>(
+                    tx,
+                    internalTable.scan(
+                            PART_ID,
+                            recipient,
+                            sortedIndexId,
+                            IndexScanCriteria.unbounded(),
+                            OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
+                    )
+            );
+
+            List<BinaryRow> firstScanRows = new ArrayList<>();
+            CompletableFuture<Void> firstScanDone = new CompletableFuture<>();
+
+            Subscription firstScanSubscription = subscribeToPublisher(firstScanRows, firstScanPublisher, firstScanDone);
+
+            // Pause scan after the first row and run competing inserts while the scan transaction is still active.
+            firstScanSubscription.request(1);
+            assertTrue(waitForCondition(() -> firstScanRows.size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+            Transaction tx2 = igniteTx().begin();
+
+            try {
+                kvView.put(tx2, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "Str_3"));
+                kvView.put(tx2, Tuple.create().set("key", 4), Tuple.create().set("valInt", 4).set("valStr", "Str_4"));
+                kvView.put(tx2, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "Str_8"));
+                kvView.put(tx2, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "Str_9"));
+
+                tx2.commit();
+            } catch (TransactionException e) {
+                Throwable rootCause = unwrapRootCause(e);
+                assertInstanceOf(LockException.class, rootCause);
+                assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
+
+                tx2.rollback();
+            }
+
+            firstScanSubscription.request(1_000);
+            assertThat(firstScanDone, willCompleteSuccessfully());
+
+            Publisher<BinaryRow> secondScanPublisher = new RollbackTxOnErrorPublisher<>(
+                    tx,
+                    internalTable.scan(
+                            PART_ID,
+                            recipient,
+                            sortedIndexId,
+                            IndexScanCriteria.unbounded(),
+                            OperationContext.create(TxContext.readWrite(tx, enlistment.consistencyToken()))
+                    )
+            );
+
+            List<BinaryRow> secondScanRows = scanAllRows(secondScanPublisher);
+
+            assertEquals(scanKeys(firstScanRows), scanKeys(secondScanRows));
+        } finally {
+            tx.commit();
+        }
+    }
+
+    @Test
+    public void testGapLockPreventsInsertIntoScannedRange() throws Exception {
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        int sortedIndexId = getSortedIndexId();
+
+        InternalTransaction scanTx = startTxWithEnlistedPartition(PART_ID, false);
+
+        try {
+            ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
+            PendingTxPartitionEnlistment enlistment = scanTx.enlistedPartition(replicationGroupId);
+            InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
+
+            Publisher<BinaryRow> scanPublisher = new RollbackTxOnErrorPublisher<>(
+                    scanTx,
+                    internalTable.scan(
+                            PART_ID,
+                            recipient,
+                            sortedIndexId,
+                            IndexScanCriteria.unbounded(),
+                            OperationContext.create(TxContext.readWrite(scanTx, enlistment.consistencyToken()))
+                    )
+            );
+
+            List<BinaryRow> scannedRows = new ArrayList<>();
+            CompletableFuture<Void> scanDone = new CompletableFuture<>();
+
+            Subscription scanSubscription = subscribeToPublisher(scannedRows, scanPublisher, scanDone);
+
+            // Read three rows (valInt: 1, 2, 5), so the scan holds S lock on "5", which is the successor for inserted "4".
+            scanSubscription.request(3);
+            assertTrue(waitForCondition(() -> scannedRows.size() == 3, AWAIT_TIMEOUT_MILLIS));
+            assertEquals(List.of(1, 2, 5), scanKeys(scannedRows));
+
+            TransactionException transactionException = (TransactionException) IgniteTestUtils.assertThrowsWithCode(
+                    TransactionException.class,
+                    Transactions.ACQUIRE_LOCK_ERR,
+                    () -> kvView.put(
+                            igniteTx().begin(new TransactionOptions().timeoutMillis(1_000)),
+                            Tuple.create().set("key", 100),
+                            Tuple.create().set("valInt", 4).set("valStr", "Str_100")
+                    ),
+                    "Failed to acquire a lock during request handling"
+            );
+
+            Throwable rootCause = unwrapRootCause(transactionException);
+            assertInstanceOf(LockException.class, rootCause);
+            assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
+
+            scanSubscription.request(1_000);
+            assertThat(scanDone, willCompleteSuccessfully());
+        } finally {
+            scanTx.commit();
+        }
+
+        kvView.put(
+                null,
+                Tuple.create().set("key", 100),
+                Tuple.create().set("valInt", 4).set("valStr", "Str_100")
+        );
+    }
+
     /**
      * Ensures that multiple consecutive scan requests with different requested rows amount return the expected total number of requested
      * rows.
@@ -900,6 +1035,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         subscription.request(1_000); // Request so many entries here to close the publisher.
 
         assertTrue(waitForCondition(() -> scanned.isDone(), AWAIT_TIMEOUT_MILLIS));
+        if (scanned.isCompletedExceptionally()) {
+            scanned.handle((unused, throwable) -> {
+                log.error("Scan publisher completed exceptionally.", throwable);
+
+                return null;
+            }).join();
+        }
+        assertThat(scanned, willCompleteSuccessfully());
 
         return scannedRows;
     }
@@ -969,6 +1112,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private static void insertRow(int rowId) {
         sql(IgniteStringFormatter.format("INSERT INTO {} (key, valInt, valStr) VALUES ({}, {}, '{}');",
                 TABLE_NAME, rowId, rowId, "Str_" + rowId));
+    }
+
+    private List<Integer> scanKeys(List<BinaryRow> rows) {
+        return rows.stream().map(row -> Row.wrapBinaryRow(schema, row).intValue(0)).collect(Collectors.toList());
     }
 
     /**
