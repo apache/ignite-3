@@ -518,7 +518,7 @@ public class ClientInboundMessageHandler
                     .whenCompleteAsync((user, err) -> {
                         if (err != null) {
                             if (isAuthenticationException(err)) {
-                                LOG.info("Client authentication failed [connectionId={}, remoteAddress={}, identity={}]: {}",
+                                LOG.warn("Client authentication failed [connectionId={}, remoteAddress={}, identity={}]: {}",
                                         connectionId, ctx.channel().remoteAddress(), authReq.getIdentity(), err.getMessage());
                             }
 
