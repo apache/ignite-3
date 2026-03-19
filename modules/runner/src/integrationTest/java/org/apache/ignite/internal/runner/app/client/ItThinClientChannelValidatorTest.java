@@ -245,7 +245,6 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
             nodesBootstrapCfg.put(
                     nodeName,
                     "ignite {\n"
-                            + "  network.listenAddresses: [127.0.0.1],\n"
                             + "  network.port: " + (3344 + i) + ",\n"
                             + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
                             + (i == 1 ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"
