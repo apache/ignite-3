@@ -235,8 +235,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, TestInfo testInfo) {
-        var addr1 = new NetworkAddress("localhost", 10000);
-        var addr2 = new NetworkAddress("localhost", 10001);
+        var addr1 = new NetworkAddress("127.0.0.1", 10000);
+        var addr2 = new NetworkAddress("127.0.0.1", 10001);
 
         var nodeFinder = new StaticNodeFinder(List.of(addr1, addr2));
 

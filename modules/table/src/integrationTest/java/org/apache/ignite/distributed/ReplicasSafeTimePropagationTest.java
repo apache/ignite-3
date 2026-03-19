@@ -115,7 +115,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     private static final StaticNodeFinder NODE_FINDER = new StaticNodeFinder(
             IntStream.range(BASE_PORT, BASE_PORT + 5)
-                    .mapToObj(p -> new NetworkAddress("localhost", p))
+                    .mapToObj(p -> new NetworkAddress("127.0.0.1", p))
                     .collect(Collectors.toList())
     );
 

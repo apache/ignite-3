@@ -102,7 +102,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        var addr = new NetworkAddress("localhost", PORT);
+        var addr = new NetworkAddress("127.0.0.1", PORT);
 
         clusterService = clusterService(testInfo, PORT, new StaticNodeFinder(List.of(addr)));
 
