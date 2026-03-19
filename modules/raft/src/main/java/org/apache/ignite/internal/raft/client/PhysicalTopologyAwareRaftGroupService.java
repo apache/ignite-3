@@ -47,6 +47,7 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.ReplicationGroupUnavailableException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -327,10 +328,10 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
-        if (commandExecutor.leader() == null) {
+        if (commandExecutor.leader() == null && timeoutMillis != 0) {
             // Discover the leader first, similar to RaftGroupServiceImpl.run() behavior.
-            // Without this, the command would be sent to a random peer which may cause
-            // cascading EPERM errors and race conditions with leader election notifications.
+            // Without this, the command is sent to a random peer causing cascading EPERM errors
+            // and potential hangs due to race conditions with leader election notifications.
             return refreshAndGetLeaderWithTerm(timeoutMillis)
                     .thenCompose(ignored -> commandExecutor.run(cmd, timeoutMillis));
         }
