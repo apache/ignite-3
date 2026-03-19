@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.existingCauseOrSuppressed;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
@@ -97,24 +99,6 @@ class ClientFutureUtils {
                 resFut.completeExceptionally(t);
             }
         });
-    }
-
-    private static boolean existingCauseOrSuppressed(Throwable t, HashSet<Throwable> dejaVu) {
-        if (t == null) {
-            return false;
-        }
-
-        if (!dejaVu.add(t)) {
-            return true;
-        }
-
-        for (Throwable sup : t.getSuppressed()) {
-            if (existingCauseOrSuppressed(sup, dejaVu)) {
-                return true;
-            }
-        }
-
-        return existingCauseOrSuppressed(t.getCause(), dejaVu);
     }
 
     static class RetryContext {
