@@ -18,7 +18,7 @@ JavaDoc documentation is generated from source code annotations and comments.
 
 ### Access the Documentation
 
-<a href="/docs/ignite3/api/java/index.html" target="_blank" rel="noopener noreferrer" style={{
+<a href="https://ignite.apache.org/releases/ignite3/3.1.0/javadoc/index.html" target="_blank" rel="noopener noreferrer" style={{
   display: 'inline-block',
   padding: '12px 24px',
   backgroundColor: '#0066cc',
