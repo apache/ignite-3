@@ -33,6 +33,7 @@ import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -404,6 +405,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 payloadWriter.accept(payloadCh);
             }
 
+            var actions = Collections.unmodifiableList(payloadCh.onSentActions());
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     String msg = "Failed to send request async [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
@@ -419,8 +421,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 } else {
                     metrics.requestsSentIncrement();
 
-                    Runnable action = payloadCh.onSentAction();
-                    if (action != null) {
+                    for (Runnable action : actions) {
                         asyncContinuationExecutor.execute(action);
                     }
                 }
