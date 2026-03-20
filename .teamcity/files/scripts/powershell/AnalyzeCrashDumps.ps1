@@ -19,7 +19,7 @@ foreach ($dump in $dumps) {
     Write-Host "##teamcity[buildProblem description='Crash dump detected: $($dump.Name)']"
     Write-Host "##teamcity[blockOpened name='Crash analysis: $($dump.Name)']"
 
-    & $cdb -z $dump.FullName -y $symPath -srcpath $srcPath -s -c ".symopt+ 0x80000; .reload /f; .lines; .ecxr; kp; q"
+    & $cdb -z $dump.FullName -y $symPath -srcpath $srcPath -t 0 -c ".symopt+ 0x80000; .reload /f; .lines; .ecxr; kp; q"
 
     Write-Host "##teamcity[blockClosed name='Crash analysis: $($dump.Name)']"
 }
