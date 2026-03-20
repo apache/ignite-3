@@ -710,4 +710,15 @@ public class ClientTransaction implements Transaction {
     public boolean killed() {
         return state.get() == STATE_KILLED;
     }
+
+    /**
+     * Validates transaction ownership.
+     *
+     * @param clientCh Client channel.
+     */
+    void validateOwnership(ReliableChannel clientCh) {
+        if (clientCh != reliableChannel) {
+            throw new IllegalArgumentException("Transaction belongs to a different client instance");
+        }
+    }
 }
