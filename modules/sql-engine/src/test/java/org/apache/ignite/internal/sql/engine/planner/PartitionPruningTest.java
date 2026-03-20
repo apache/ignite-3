@@ -488,7 +488,17 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .build();
 
         {
-            String query = "DELETE FROM t WHERE c1 = 42 and c2=?";
+            String query = "DELETE FROM t WHERE c1 = 42 and c2=? and c3=99";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?0]]", 2L, "[[1=?0]]"), actual);
+        }
+
+        // swap columns
+        {
+            String query = "DELETE FROM t WHERE c2=? and c3=99 and c1 = 42";
             PartitionPruningMetadata actual = extractMetadata(
                     query,
                     table
@@ -504,6 +514,38 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                     table
             );
             expectMetadata(Map.of(), actual);
+        }
+    }
+
+    @Test
+    public void testDeleteKeyWithGaps() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .addKeyColumn("C4", NativeTypes.INT32)
+                .addColumn("C5", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(3, 1), 1, 2))
+                .build();
+
+        {
+            String query = "DELETE FROM t WHERE c1 = ? and c2=? and c4=111 and c3=?";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?1, 3=111]]", 2L, "[[1=?1, 3=111]]"), actual);
+        }
+
+        // swap columns
+        {
+            String query = "DELETE FROM t WHERE  c4=111 and c2=? and c3=99 and c1 = 42";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?0, 3=111]]", 2L, "[[1=?0, 3=111]]"), actual);
         }
     }
 
@@ -539,7 +581,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                     2L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=101, 1=42], [0=101, 1=99]]"
             ), actual);
         }
-
+        
         // Simple selects are not constant-folded
         {
             String query = "UPDATE t SET c3 = 100 WHERE c2 = (SELECT 42) and c1 = (SELECT 99)";
@@ -616,6 +658,9 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(table);
         IgniteRel rel = physicalPlan(query, schema);
+        
+        log.info("Query: {}", query);
+        log.info("Plan:\n{}", rel.explain());
 
         return extractor.go(rel.accept(new AssignSourceIds()));
     }
