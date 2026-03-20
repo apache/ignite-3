@@ -72,6 +72,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -560,7 +561,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
         );
 
         pkIndexDescriptor = mock(CatalogIndexDescriptor.class);
@@ -674,7 +675,9 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         Int2ObjectMap.entry(sortedIndexId, sortedIndexLocker),
                         Int2ObjectMap.entry(hashIndexId, hashIndexLocker)),
                 pkStorageSupplier,
-                () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexStorage)),
                 clockService,
                 safeTimeTracker,
                 transactionStateResolver,

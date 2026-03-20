@@ -47,11 +47,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -229,7 +229,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()))
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
@@ -266,9 +266,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexLocker)
                 ),
                 pkStorage,
-                () -> Map.of(
-                        sortedIndexLocker.id(), sortedIndexStorage,
-                        hashIndexLocker.id(), hashIndexStorage
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexLocker.id(), hashIndexStorage)
                 ),
                 CLOCK_SERVICE,
                 safeTime,

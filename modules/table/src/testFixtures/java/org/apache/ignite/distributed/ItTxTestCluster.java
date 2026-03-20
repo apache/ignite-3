@@ -778,7 +778,8 @@ public class ItTxTestCluster {
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
 
                 IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(
+                                Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()))
                 );
 
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
@@ -818,7 +819,7 @@ public class ItTxTestCluster {
                                 tableId,
                                 () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                                 pkStorage,
-                                Map::of,
+                                Int2ObjectMaps::emptyMap,
                                 clockServices.get(assignment),
                                 safeTime,
                                 txStateStorage,
@@ -955,7 +956,7 @@ public class ItTxTestCluster {
             int tableId,
             Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStatePartitionStorage txStatePartitionStorage,
@@ -1071,7 +1072,7 @@ public class ItTxTestCluster {
             int tableId,
             Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TransactionStateResolver transactionStateResolver,

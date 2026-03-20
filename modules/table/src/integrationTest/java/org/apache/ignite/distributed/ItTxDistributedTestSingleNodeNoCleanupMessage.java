@@ -29,7 +29,6 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -180,7 +179,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     int tableId,
                     Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
                     Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-                    Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+                    Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
                     ClockService clockService,
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
                     TransactionStateResolver transactionStateResolver,

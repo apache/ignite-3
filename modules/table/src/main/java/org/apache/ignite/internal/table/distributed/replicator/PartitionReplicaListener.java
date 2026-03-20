@@ -265,7 +265,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
     /** Secondary indices. */
-    private final Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
+    private final Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages;
 
     /** Versioned partition storage. */
     private final MvPartitionStorage mvDataStorage;
@@ -374,7 +374,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             int tableId,
             Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TransactionStateResolver transactionStateResolver,
@@ -637,10 +637,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 ? nullCompletedFuture()
                 : safeTime.waitFor(readTimestamp);
 
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+        Integer indexToUse = request.indexToUse();
+        if (indexToUse != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(indexToUse.intValue());
 
-            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
+            throwsIfIndexNotFound(indexToUse, indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -965,10 +966,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return Listener response.
      */
     private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+        Integer indexToUse = request.indexToUse();
+        if (indexToUse != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(indexToUse.intValue());
 
-            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
+            throwsIfIndexNotFound(indexToUse, indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";

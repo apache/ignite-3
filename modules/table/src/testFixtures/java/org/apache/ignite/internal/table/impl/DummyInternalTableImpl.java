@@ -33,11 +33,11 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -444,7 +444,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
-        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
+        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(
+                Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()));
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
 
@@ -487,7 +488,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId,
                 () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                 pkStorage,
-                Map::of,
+                Int2ObjectMaps::emptyMap,
                 CLOCK_SERVICE,
                 safeTime,
                 transactionStateResolver,
@@ -741,7 +742,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Int2ObjectMap<TableSchemaAwareIndexStorage> indexes) {
         return () -> indexes;
     }
 

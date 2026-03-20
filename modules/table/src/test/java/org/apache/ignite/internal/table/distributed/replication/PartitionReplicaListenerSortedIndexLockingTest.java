@@ -52,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -202,7 +201,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()))
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
@@ -237,7 +236,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 TABLE_ID,
                 () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                 pkStorage,
-                () -> Map.of(),
+                Int2ObjectMaps::emptyMap,
                 CLOCK_SERVICE,
                 safeTime,
                 mock(TransactionStateResolver.class),

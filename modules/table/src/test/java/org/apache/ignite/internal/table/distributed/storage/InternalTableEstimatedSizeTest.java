@@ -333,7 +333,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 TABLE_ID,
                 Int2ObjectMaps::emptyMap,
                 new Lazy<>(() -> null),
-                Map::of,
+                Int2ObjectMaps::emptyMap,
                 clockService,
                 new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE),
                 transactionStateResolver,
