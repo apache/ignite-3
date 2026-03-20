@@ -18,6 +18,7 @@
 #pragma once
 
 #include <ignite/common/bytes_view.h>
+#include <ignite/common/detail/bytes.h>
 #include <ignite/common/ignite_error.h>
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/utils.h>
@@ -233,6 +234,45 @@ public:
         }
 
         return read_int64_array();
+    }
+
+    /**
+     * Read array of int64 from binary data.
+     * Compatible with Java's ClientMessageUnpacker.unpackLongArrayAsBinary.
+     *
+     * @return Vector of int64 values.
+     */
+    [[nodiscard]] std::vector<std::int64_t> read_int64_array_from_binary() {
+        auto binary_data = read_binary();
+
+        if (binary_data.size() % 8 != 0) {
+            throw ignite_error("Binary data size must be a multiple of 8, but was " + std::to_string(binary_data.size()));
+        }
+
+        std::size_t count = binary_data.size() / 8;
+        std::vector<std::int64_t> result;
+        result.reserve(count);
+
+        for (std::size_t i = 0; i < count; ++i) {
+            std::int64_t value = detail::bytes::load<detail::endian::LITTLE, std::int64_t>(
+                binary_data.data() + i * 8);
+            result.push_back(value);
+        }
+
+        return result;
+    }
+
+    /**
+     * Read array of int64 from binary data, or nullopt if nil.
+     *
+     * @return Vector of int64 values or nullopt.
+     */
+    [[nodiscard]] std::optional<std::vector<std::int64_t>> read_int64_array_from_binary_nullable() {
+        if (try_read_nil()) {
+            return std::nullopt;
+        }
+
+        return read_int64_array_from_binary();
     }
 
     /**
