@@ -60,6 +60,7 @@ import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlRow;
@@ -239,9 +240,11 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlBatchException() {
+        IgniteSql sql = client().sql();
+
         // Insert initial row to trigger constraint violation
         int duplicateId = idGen().incrementAndGet();
-        client().sql().execute("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", duplicateId, "initial");
+        sql.execute((Transaction) null, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", duplicateId, "initial");
 
         // Create batch where some rows will succeed and one will fail with duplicate key
         int id1 = idGen().incrementAndGet();
@@ -258,7 +261,7 @@ public interface ClientCompatibilityTests {
 
         var ex = assertThrows(
                 SqlBatchException.class,
-                () -> client().sql().executeBatch("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", args));
+                () -> sql.executeBatch(null, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", args));
 
         // Verify error extensions: update counters should reflect 3 successful inserts before the error
         // Note: Old clients (before SQL_UPDATE_COUNTERS_2 support) will have null updateCounters()
