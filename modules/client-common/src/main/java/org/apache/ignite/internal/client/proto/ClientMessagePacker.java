@@ -610,11 +610,11 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes an long array.
+     * Writes a long array as a single binary value.
      *
      * @param arr Long array value.
      */
-    public void packLongArray(long[] arr) {
+    public void packLongArrayAsBinary(long[] arr) {
         assert !closed : "Packer is closed";
 
         if (arr == null) {
@@ -623,10 +623,10 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-        packInt(arr.length);
+        packBinaryHeader(arr.length * 8);
 
-        for (long i : arr) {
-            packLong(i);
+        for (long value : arr) {
+            buf.writeLong(value);
         }
     }
 

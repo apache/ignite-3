@@ -769,23 +769,18 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads array of longs.
+     * Reads a long array from a single binary value.
      *
      * @return Array of longs.
      */
-    public long[] unpackLongArray() {
+    public long[] unpackLongArrayAsBinary() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        int size = unpackInt();
+        int binSize = unpackBinaryHeader();
+        long[] res = new long[binSize / 8];
 
-        if (size == 0) {
-            return ArrayUtils.LONG_EMPTY_ARRAY;
-        }
-
-        long[] res = new long[size];
-
-        for (int i = 0; i < size; i++) {
-            res[i] = unpackInt();
+        for (int i = 0; i < res.length; i++) {
+            res[i] = buf.readLong();
         }
 
         return res;

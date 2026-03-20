@@ -794,9 +794,8 @@ public class ClientInboundMessageHandler
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
-                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
                 packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
-                packer.packLongArray(sqlBatchException.updateCounters());
+                packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
             } else if (delayedAckException != null) {
                 packer.packString(ErrorExtensions.DELAYED_ACK);
                 packer.packUuid(delayedAckException.txId());
