@@ -782,6 +782,7 @@ public class ClientInboundMessageHandler
 
         // Extensions.
         if (extCnt > 0) {
+            // IMPORTANT: every extension must be a single msgpack value, so that the client can skip unknown values.
             packer.packInt(extCnt);
 
             if (retriable) {
