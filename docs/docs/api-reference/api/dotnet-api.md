@@ -18,7 +18,7 @@ API documentation is generated from XML comments in source code.
 
 ### Access the Documentation
 
-<a href="/docs/ignite3/api/dotnet/index.html" target="_blank" rel="noopener noreferrer" style={{
+<a href="https://ignite.apache.org/releases/ignite3/3.1.0/dotnetdoc/api/" target="_blank" rel="noopener noreferrer" style={{
   display: 'inline-block',
   padding: '12px 24px',
   backgroundColor: '#0066cc',

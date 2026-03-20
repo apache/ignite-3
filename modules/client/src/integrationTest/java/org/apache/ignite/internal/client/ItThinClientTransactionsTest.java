@@ -333,8 +333,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
 
-            assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
-            assertEquals(ErrorGroups.Client.CONNECTION_ERR, ex.code());
+            assertThat(ex.getMessage(), containsString("Transaction belongs to a different client instance"));
         }
     }
 

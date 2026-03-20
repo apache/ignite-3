@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 
 /**
  * Message for transferring a {@link BinaryTuple} or a {@link BinaryTuplePrefix}.

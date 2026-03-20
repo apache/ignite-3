@@ -225,6 +225,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private TestLowWatermark lowWatermark;
     private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
+    private RocksDbKeyValueStorage keyValueStorage;
+
     private IndexMetaStorage indexMetaStorage;
 
     // Table internal components
@@ -263,8 +265,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         savedWatermark = clock.now();
 
-        stopComponents();
-        startComponents();
+        restartComponents();
 
         // Table below LWM shouldn't started.
         assertEquals(0, tableManager.startedTables().size());
@@ -289,8 +290,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         // Drop table.
         dropTable(TABLE_NAME);
 
-        stopComponents();
-        startComponents();
+        restartComponents();
 
         // Table is available after restart.
         assertThat(tableManager.startedTables().keySet(), contains(tableId));
@@ -306,8 +306,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         clearInvocations(mvTableStorage);
 
-        stopComponents();
-        startComponents();
+        restartComponents();
 
         // Table is available after restart.
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).atLeastOnce()).createMvPartition(anyInt());
@@ -330,8 +329,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
                 .loadTableListenerToZoneReplica(any(), anyInt(), any(), any(), any(), eq(false));
 
-        stopComponents();
-        startComponents();
+        restartComponents();
 
         // Verify that the listeners were loaded with the correct recovery flag value.
         verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
@@ -407,7 +405,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void startComponents() throws Exception {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var storage = new RocksDbKeyValueStorage(
+        keyValueStorage = new RocksDbKeyValueStorage(
                 NODE_NAME,
                 workDir,
                 new NoOpFailureManager(),
@@ -500,7 +498,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     .thenReturn(assignment);
         }
 
-        metaStorageManager = StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker);
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage, clock, readOperationForCompactionTracker);
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
         var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
@@ -655,6 +653,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         willCompleteSuccessfully()
                 )
         );
+    }
+
+    private void restartComponents() throws Exception {
+        assertThat(keyValueStorage.flush(), willCompleteSuccessfully());
+
+        stopComponents();
+        startComponents();
     }
 
     private DataStorageManager createDataStorageManager(MetricManager metricManager) {

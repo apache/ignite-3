@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import java.nio.ByteBuffer;
 import java.util.function.Function;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.binarytuple.ByteBufferAccessor;
 
 /**
  * Utility for access to binary tuple elements as typed values and with schema knowledge that allows to read

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.security.authentication.AuthenticationUtils.findBasicProviderName;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Comparator;
 import java.util.Iterator;
@@ -185,9 +186,10 @@ public class AuthenticationManagerImpl
             return authenticator.authenticateAsync(authenticationRequest)
                     .handle((userDetails, throwable) -> {
                         if (throwable != null) {
-                            if (!(throwable instanceof InvalidCredentialsException
-                                    || throwable instanceof UnsupportedAuthenticationTypeException)) {
-                                LOG.error("Unexpected exception during authentication", throwable);
+                            Throwable cause = unwrapCause(throwable);
+                            if (!(cause instanceof InvalidCredentialsException
+                                    || cause instanceof UnsupportedAuthenticationTypeException)) {
+                                LOG.error("Unexpected exception during authentication", cause);
                             }
 
                             logAuthenticationFailure(authenticationRequest);
