@@ -804,6 +804,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         int binSize = unpackBinaryHeader();
+
+        assert binSize % 8 == 0 : "Binary size should be a multiple of 8, but was " + binSize;
+
         long[] res = new long[binSize / 8];
 
         for (int i = 0; i < res.length; i++) {
