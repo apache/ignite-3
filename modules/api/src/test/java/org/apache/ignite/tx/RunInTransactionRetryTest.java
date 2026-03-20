@@ -88,8 +88,8 @@ public class RunInTransactionRetryTest {
         }
 
         boolean requiresEventualSuccess = closureFailureCount < Integer.MAX_VALUE
-                // Commit failure can't be retried.
-                && commitFailureCount == 0
+                && commitFailureCount < Integer.MAX_VALUE
+                && (commitFailureCount == 0 || rollbackFailureCount < Integer.MAX_VALUE)
                 // Rollbacks should be retried until success or timeout, so the rollback must succeed before closure retry.
                 && (closureFailureCount == 0 || rollbackFailureCount < Integer.MAX_VALUE);
 

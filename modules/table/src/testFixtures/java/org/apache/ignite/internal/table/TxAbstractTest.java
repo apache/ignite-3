@@ -45,7 +45,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -821,8 +823,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
      */
     @Test
     public void testIncrement() throws TransactionException {
-        Transaction tx1 = igniteTransactions.begin();
-        Transaction tx2 = igniteTransactions.begin();
+        Transaction[] txns = startTransactions(2);
+
+        Transaction tx1 = txns[0];
+        Transaction tx2 = txns[1];
 
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
@@ -839,7 +843,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         double valTx2 = table2.get(tx1, key).doubleValue("balance");
 
         // Write in tx2 (out of order)
-        // TODO asch IGNITE-15937 fix exception model.
         Exception err = assertThrows(Exception.class, () -> table.upsert(tx2, makeValue(1, valTx + 1)));
 
         assertTransactionLockException(err);
@@ -850,6 +853,20 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         tx1.commit();
 
         assertEquals(101., accounts.recordView().get(null, key).doubleValue("balance"));
+    }
+
+    private InternalTransaction[] startTransactions(int cnt) {
+        InternalTransaction[] txns = new InternalTransaction[cnt];
+        for (int i = 0; i < txns.length; i++) {
+            txns[i] = (InternalTransaction) igniteTransactions.begin();
+        }
+
+        boolean reversed = lockManager(accounts).policy().reverse();
+        if (!reversed) {
+            Arrays.sort(txns, (o1, o2) -> o2.id().compareTo(o1.id()));
+        }
+
+        return txns;
     }
 
     @Test
