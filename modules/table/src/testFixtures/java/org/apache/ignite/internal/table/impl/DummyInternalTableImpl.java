@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -32,10 +33,11 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -443,7 +445,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
-        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
+        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(
+                Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()));
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
 
@@ -484,9 +487,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Runnable::run,
                 zonePartitionId,
                 tableId,
-                () -> Map.of(pkLocker.id(), pkLocker),
+                () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                 pkStorage,
-                Map::of,
+                Int2ObjectMaps::emptyMap,
                 CLOCK_SERVICE,
                 safeTime,
                 transactionStateResolver,
@@ -542,6 +545,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
 
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
         var tablePartitionListener = new TablePartitionProcessor(
@@ -565,7 +572,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 storageIndexTracker,
                 new NoOpPartitionsSnapshots(),
-                mock(Executor.class)
+                mock(Executor.class),
+                clockService
         );
 
         zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
@@ -736,7 +744,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Int2ObjectMap<TableSchemaAwareIndexStorage> indexes) {
         return () -> indexes;
     }
 

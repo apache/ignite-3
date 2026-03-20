@@ -328,7 +328,16 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         // have, Metastorage divergence will have to be detected.
         cluster.stopNode(0);
 
-        igniteImpl(1).metaStorageManager().put(new ByteArray("test-key"), new byte[]{42});
+        assertThat(
+                igniteImpl(1).metaStorageManager().put(new ByteArray("test-key"), new byte[]{42}),
+                willCompleteSuccessfully()
+        );
+
+        // Do an explicit storage flush to make sure the command has been applied.
+        assertThat(
+                ((MetaStorageManagerImpl) igniteImpl(1).metaStorageManager()).storage().flush(),
+                willCompleteSuccessfully()
+        );
 
         // This makes the MG majority go away.
         cluster.stopNode(1);

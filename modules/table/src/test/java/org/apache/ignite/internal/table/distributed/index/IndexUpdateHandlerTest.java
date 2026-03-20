@@ -30,11 +30,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
@@ -56,7 +57,8 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     void testBuildIndex() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
 
-        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         BinaryRowAndRowId row0 = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
         BinaryRowAndRowId row1 = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
@@ -86,7 +88,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         var row = mock(BinaryRow.class);
         var rowId = new RowId(PARTITION_ID);
@@ -102,7 +104,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageException.class).when(indexStorage).put(any(), any());
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         assertThrows(
                 StorageException.class,
@@ -116,7 +118,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         var row = mock(BinaryRow.class);
         var rowId = new RowId(PARTITION_ID);
@@ -133,7 +135,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageException.class).when(indexStorage).put(any(), any());
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         assertThrows(StorageException.class, () -> indexUpdateHandler.addToIndex(mock(BinaryRow.class), new RowId(PARTITION_ID), INDEX_ID));
     }
@@ -146,7 +148,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
         doThrow(StorageDestroyedException.class).when(storage).setNextRowIdToBuild(any());
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         var row = mock(BinaryRow.class);
         var rowId = new RowId(PARTITION_ID);
@@ -165,7 +167,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageException.class).when(indexStorage).put(any(), any());
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         var rowId = new RowId(PARTITION_ID);
         var binaryRowAndRowId = new BinaryRowAndRowId(mock(BinaryRow.class), rowId);
@@ -187,7 +189,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageDestroyedException.class).when(storage).getNextRowIdToBuild();
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         assertNull(indexUpdateHandler.getNextRowIdToBuildIndex(INDEX_ID));
         assertNull(indexUpdateHandler.getNextRowIdToBuildIndex(INDEX_ID + 1));
@@ -202,7 +204,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         doThrow(StorageException.class).when(storage).getNextRowIdToBuild();
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         assertThrows(StorageException.class, () -> indexUpdateHandler.getNextRowIdToBuildIndex(INDEX_ID));
     }
@@ -216,7 +218,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         var rowId = new RowId(PARTITION_ID);
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         assertDoesNotThrow(() -> indexUpdateHandler.setNextRowIdToBuildIndex(INDEX_ID, rowId));
         assertDoesNotThrow(() -> indexUpdateHandler.setNextRowIdToBuildIndex(INDEX_ID + 1, rowId));
@@ -233,7 +235,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
 
         var rowId = new RowId(PARTITION_ID);
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         assertThrows(StorageException.class, () -> indexUpdateHandler.setNextRowIdToBuildIndex(INDEX_ID, rowId));
     }
@@ -246,7 +248,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         doThrow(StorageDestroyedException.class).when(indexStorage).remove(any(), any());
         when(columnsExtractor.extractColumns(any())).thenReturn(mock(BinaryTuple.class));
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         var row = mock(BinaryRow.class);
         var rowId = new RowId(PARTITION_ID);
@@ -264,7 +266,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         doThrow(StorageException.class).when(indexStorage).remove(any(), any());
         when(columnsExtractor.extractColumns(any())).thenReturn(mock(BinaryTuple.class));
 
-        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
+        var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Int2ObjectMaps.singleton(INDEX_ID, indexStorage)));
 
         var row = mock(BinaryRow.class);
         var rowId = new RowId(PARTITION_ID);
@@ -289,7 +291,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         return indexStorage;
     }
 
-    private static TableIndexStoragesSupplier indexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexStorageById) {
+    private static TableIndexStoragesSupplier indexStoragesSupplier(Int2ObjectMap<TableSchemaAwareIndexStorage> indexStorageById) {
         return () -> indexStorageById;
     }
 }

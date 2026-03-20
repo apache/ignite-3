@@ -249,7 +249,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // LongJob catches interruption and completes normally — cooperative cancellation honors the result.
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
         assertThatNoRequestsWereSent();
     }

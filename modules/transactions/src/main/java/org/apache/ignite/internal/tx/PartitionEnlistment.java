@@ -30,7 +30,15 @@ public class PartitionEnlistment {
     @IgniteToStringInclude
     protected final Set<Integer> tableIds;
 
+    /**
+     * Constructs a {@code PartitionEnlistment} instance.
+     *
+     * @param primaryNodeConsistentId The consistent ID of the primary node.
+     * @param tableIds A set of table IDs for which the partition is enlisted.
+     */
     public PartitionEnlistment(String primaryNodeConsistentId, Set<Integer> tableIds) {
+        assert primaryNodeConsistentId != null : "Primary node consistent ID cannot be null";
+
         this.primaryNodeConsistentId = primaryNodeConsistentId;
         this.tableIds = tableIds;
     }

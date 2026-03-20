@@ -30,7 +30,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
@@ -57,8 +56,6 @@ public class ComputeColocatedExample {
      * @throws Exception if any error occurs.
      */
     public static void main(String[] args) throws Exception {
-
-        DeployComputeUnit.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -114,7 +111,7 @@ public class ComputeColocatedExample {
 
                 System.out.println("Configuring compute job...");
 
-                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
                 JobDescriptor<Integer, Void> job = JobDescriptor.builder(PrintAccountInfoJob.class)
                         .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))

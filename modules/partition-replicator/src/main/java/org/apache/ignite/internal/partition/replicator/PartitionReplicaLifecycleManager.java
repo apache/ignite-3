@@ -385,7 +385,8 @@ public class PartitionReplicaLifecycleManager extends
                         catalogService,
                         failureProcessor,
                         partitionOperationsExecutor,
-                        replicaMgr
+                        replicaMgr,
+                        clockService
                 ),
                 metricManager,
                 messagingService,
@@ -1374,7 +1375,7 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartitionInternal(
+                () -> inBusyLockAsync(busyLock, () -> stopPartitionInternal(
                         zonePartitionId,
                         BEFORE_REPLICA_STOPPED,
                         AFTER_REPLICA_STOPPED,
@@ -1384,7 +1385,7 @@ public class PartitionReplicaLifecycleManager extends
                                 zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
                             }
                         }
-                )
+                ))
         );
     }
 
@@ -1792,7 +1793,7 @@ public class PartitionReplicaLifecycleManager extends
             long eventRevision,
             Consumer<Boolean> afterReplicaStopAction
     ) {
-        // Not using the busy lock here, because this method is called on component stop.
+        // Not using the busy lock here, because this method is also called on component stop (when the lock is already blocked).
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             var eventParameters = new LocalPartitionReplicaEventParameters(zonePartitionId, eventRevision, false);
 
@@ -2064,7 +2065,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
-        return stopPartitionInternal(
+        return inBusyLockAsync(busyLock, () -> stopPartitionInternal(
                 zonePartitionId,
                 BEFORE_REPLICA_DESTROYED,
                 AFTER_REPLICA_DESTROYED,
@@ -2080,7 +2081,7 @@ public class PartitionReplicaLifecycleManager extends
                         }
                     }
                 }
-        );
+        ));
     }
 
     @TestOnly

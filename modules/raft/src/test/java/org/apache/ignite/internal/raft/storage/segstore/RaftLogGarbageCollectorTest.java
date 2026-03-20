@@ -129,12 +129,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         FileProperties fileProperties = SegmentFile.fileProperties(segmentFilePath);
 
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
-        try {
-            garbageCollector.runCompaction(segmentFile);
-        } finally {
-            segmentFile.close();
-        }
+        runCompaction(segmentFilePath);
 
         assertThat(segmentFilePath, not(exists()));
         assertThat(indexFileManager.indexFilePath(fileProperties), not(exists()));
@@ -170,12 +165,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         FileProperties originalFileProperties = SegmentFile.fileProperties(firstSegmentFile);
 
-        SegmentFile segmentFile = SegmentFile.openExisting(firstSegmentFile, false);
-        try {
-            garbageCollector.runCompaction(segmentFile);
-        } finally {
-            segmentFile.close();
-        }
+        runCompaction(firstSegmentFile);
 
         // Segment file should be replaced by a new one with increased generation.
         assertThat(firstSegmentFile, not(exists()));
@@ -208,13 +198,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         triggerAndAwaitCheckpoint(batches.size() / 2);
 
         for (Path segmentFilePath : segmentFiles) {
-            SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
-
-            try {
-                garbageCollector.runCompaction(segmentFile);
-            } finally {
-                segmentFile.close();
-            }
+            runCompaction(segmentFilePath);
 
             assertThat(segmentFilePath, not(exists()));
         }
@@ -244,12 +228,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 while (!segmentFiles.get(0).equals(lastSegmentFile)) {
                     fileManager.truncatePrefix(GROUP_ID_1, ++aliveIndex);
 
-                    SegmentFile segmentFile = SegmentFile.openExisting(segmentFiles.get(0), false);
-                    try {
-                        garbageCollector.runCompaction(segmentFile);
-                    } finally {
-                        segmentFile.close();
-                    }
+                    runCompaction(segmentFiles.get(0));
 
                     segmentFiles = segmentFiles();
                 }
@@ -308,12 +287,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
                     long sizeBeforeCompaction = Files.size(curSegmentFilePath);
 
-                    SegmentFile segmentFile = SegmentFile.openExisting(curSegmentFilePath, false);
-                    try {
-                        garbageCollector.runCompaction(segmentFile);
-                    } finally {
-                        segmentFile.close();
-                    }
+                    runCompaction(curSegmentFilePath);
 
                     FileProperties newFileProperties = new FileProperties(fileProperties.ordinal(), fileProperties.generation() + 1);
 
@@ -387,25 +361,9 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         List<Path> segmentFiles = segmentFiles();
 
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFiles.get(0), false);
-        try {
-            garbageCollector.runCompaction(segmentFile);
-        } finally {
-            segmentFile.close();
-        }
+        runCompaction(segmentFiles.get(0));
 
-        fileManager.close();
-
-        fileManager = new SegmentFileManager(
-                NODE_NAME,
-                workDir,
-                STRIPES,
-                new NoOpFailureManager(),
-                raftConfiguration,
-                storageConfiguration
-        );
-
-        fileManager.start();
+        restartSegmentFileManager();
 
         for (int i = 0; i < batches.size(); i++) {
             int index = i;
@@ -477,7 +435,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testRunCompactionDoesNotRetainEntriesTruncatedBySuffix() throws Exception {
+    void testRunCompactionWithFullyCompactedFileByTruncatedSuffix() throws Exception {
         List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
 
         for (int i = 0; i < batches.size(); i++) {
@@ -493,14 +451,196 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         assertThat(segmentFiles, hasSize(greaterThan(2)));
 
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFiles.get(1), false);
-        try {
-            garbageCollector.runCompaction(segmentFile);
-        } finally {
-            segmentFile.close();
-        }
+        runCompaction(segmentFiles.get(1));
 
         assertThat(segmentFiles.get(1), not(exists()));
+
+        // Check that no other generations of this file exist.
+        var differentGenerationFileProperties = new FileProperties(1, 1);
+        Path differentGenerationFile = fileManager.segmentFilesDir().resolve(SegmentFile.fileName(differentGenerationFileProperties));
+
+        assertThat(differentGenerationFile, not(exists()));
+    }
+
+    @Test
+    void testRunCompactionWithPartiallyCompactedFileByTruncatedSuffix() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        // Use two groups to guarantee that no files will be fully truncated.
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+            appendBytes(GROUP_ID_2, batches.get(i), i);
+        }
+
+        fileManager.truncateSuffix(GROUP_ID_1, 1);
+
+        triggerAndAwaitCheckpoint(1);
+
+        // Since we truncated GROUP_ID_1 entries after log index 1, the second segment file will be partially compacted:
+        // GROUP_ID_1 entries are dropped but GROUP_ID_2 entries survive in a new generation file.
+        List<Path> segmentFiles = segmentFiles();
+
+        assertThat(segmentFiles, hasSize(greaterThan(2)));
+
+        runCompaction(segmentFiles.get(1));
+
+        assertThat(segmentFiles.get(1), not(exists()));
+
+        // Check that a new generation file has been created.
+        var differentGenerationFileProperties = new FileProperties(1, 1);
+        Path differentGenerationFile = fileManager.segmentFilesDir().resolve(SegmentFile.fileName(differentGenerationFileProperties));
+
+        assertThat(differentGenerationFile, exists());
+    }
+
+    /**
+     * Similar to {@link #testRunCompactionWithFullyCompactedFileByTruncatedSuffix()} but includes recovery validation.
+     */
+    @Test
+    void testRecoveryAfterCompactionWithFullyCompactedFileByTruncatedSuffix() throws Exception {
+        List<byte[]> staleBatches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < staleBatches.size(); i++) {
+            appendBytes(GROUP_ID_1, staleBatches.get(i), i);
+        }
+
+        long lastLogIndexKept = 1;
+
+        fileManager.truncateSuffix(GROUP_ID_1, lastLogIndexKept);
+
+        List<byte[]> newBatches = createRandomData(FILE_SIZE / 4, 5);
+
+        for (int i = 0; i < newBatches.size(); i++) {
+            appendBytes(GROUP_ID_1, newBatches.get(i), i + lastLogIndexKept + 1);
+        }
+
+        await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(segmentFiles().size() - 1)));
+
+        List<Path> segmentFiles = segmentFiles();
+
+        runCompaction(segmentFiles.get(0));
+
+        runCompaction(segmentFiles.get(1));
+
+        restartSegmentFileManager();
+
+        for (int i = 0; i <= lastLogIndexKept; i++) {
+            int finalI = i;
+
+            fileManager.getEntry(GROUP_ID_1, i, bs -> {
+                assertThat(bs, is(staleBatches.get(finalI)));
+                return null;
+            });
+        }
+
+        for (int i = 0; i < newBatches.size(); i++) {
+            int finalI = i;
+
+            fileManager.getEntry(GROUP_ID_1, lastLogIndexKept + i + 1, bs -> {
+                assertThat(bs, is(newBatches.get(finalI)));
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Similar to {@link #testRunCompactionWithPartiallyCompactedFileByTruncatedSuffix()} but includes recovery validation.
+     */
+    @Test
+    void testRecoveryAfterCompactionWithPartiallyCompactedFileByTruncatedSuffix() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+            appendBytes(GROUP_ID_2, batches.get(i), i);
+        }
+
+        fileManager.truncateSuffix(GROUP_ID_1, 1);
+
+        triggerAndAwaitCheckpoint(1);
+
+        List<Path> segmentFiles = segmentFiles();
+
+        runCompaction(segmentFiles.get(0));
+
+        runCompaction(segmentFiles.get(1));
+
+        restartSegmentFileManager();
+
+        // GROUP_ID_1: only entries 0 and 1 are within the suffix truncation boundary and should be readable.
+        fileManager.getEntry(GROUP_ID_1, 0, bs -> {
+            assertThat(bs, is(batches.get(0)));
+            return null;
+        });
+
+        fileManager.getEntry(GROUP_ID_1, 1, bs -> {
+            assertThat(bs, is(batches.get(1)));
+            return null;
+        });
+
+        // GROUP_ID_2: all original entries should still be accessible.
+        for (int i = 0; i < batches.size(); i++) {
+            int index = i;
+
+            fileManager.getEntry(GROUP_ID_2, i, bs -> {
+                assertThat(bs, is(batches.get(index)));
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Reproducer for the stale-deque-entry corruption bug: after fully deleting a middle segment file, its {@link IndexFileMeta} remains
+     * in the same deque block as the preceding file's meta. When the preceding file is subsequently partially compacted (its live log range
+     * shrinks), {@link IndexFileMetaArray#onIndexCompacted} asserts that the new meta's {@code lastLogIndexExclusive} equals the next
+     * entry's {@code firstLogIndexInclusive}.
+     */
+    @Test
+    void testCompactionOfFileAdjacentToStaleEntryInDequeCausesCorruption() throws Exception {
+        // Use FILE_SIZE / 8 batches so that ~4 entries fit per segment file. This ensures file 0 covers [0,4),
+        // file 1 covers [4,8), etc. After suffix-truncation at index 1, file 0's live range shrinks to [0,2)
+        // while the stale file 1 meta still starts at 4.
+        List<byte[]> batches = createRandomData(FILE_SIZE / 8, 20);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        // Entries > 1 are now stale. File 0 has live entries [0,1] plus stale entries, file 1 is fully stale.
+        fileManager.truncateSuffix(GROUP_ID_1, 1);
+
+        triggerAndAwaitCheckpoint(1);
+
+        List<Path> segmentFiles = segmentFiles();
+
+        assertThat(segmentFiles, hasSize(greaterThan(3)));
+
+        // Partially compact file 0.
+        runCompaction(segmentFiles.get(0));
+
+        assertThat(segmentFiles.get(0), not(exists()));
+
+        var newFile0Properties = new FileProperties(0, 1);
+
+        assertThat(fileManager.segmentFilesDir().resolve(SegmentFile.fileName(newFile0Properties)), exists());
+
+        // Fully delete file 1 and 2 (all entries stale). Its IndexFileMeta stays in block 0 of the GroupIndexMeta deque.
+        runCompaction(segmentFiles.get(1));
+        runCompaction(segmentFiles.get(2));
+
+        assertThat(segmentFiles.get(1), not(exists()));
+        assertThat(segmentFiles.get(2), not(exists()));
+
+        // Entries 0 and 1 must still be readable.
+        fileManager.getEntry(GROUP_ID_1, 0, bs -> {
+            assertThat(bs, is(batches.get(0)));
+            return null;
+        });
+
+        fileManager.getEntry(GROUP_ID_1, 1, bs -> {
+            assertThat(bs, is(batches.get(1)));
+            return null;
+        });
     }
 
     private List<Path> segmentFiles() throws IOException {
@@ -565,5 +705,30 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         // Wait for the checkpoint process to complete.
         await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(segmentFilesAfterCheckpoint.size() - 1)));
+    }
+
+    private void restartSegmentFileManager() throws Exception {
+        fileManager.close();
+
+        fileManager = new SegmentFileManager(
+                NODE_NAME,
+                workDir,
+                STRIPES,
+                new NoOpFailureManager(),
+                raftConfiguration,
+                storageConfiguration
+        );
+
+        fileManager.start();
+    }
+
+    private void runCompaction(Path segmentFilePath) throws IOException {
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
+
+        try {
+            garbageCollector.runCompaction(segmentFile);
+        } finally {
+            segmentFile.close();
+        }
     }
 }

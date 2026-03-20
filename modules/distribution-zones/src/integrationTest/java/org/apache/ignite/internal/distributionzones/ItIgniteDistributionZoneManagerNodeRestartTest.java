@@ -78,6 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -91,7 +92,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
@@ -115,7 +116,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
@@ -203,7 +203,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var clusterIdService = new ClusterIdService(vault);
 
-        ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
+        List<ConfigurationModule> allModules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
+        ConfigurationModule localModule = CompoundModule.local(allModules);
+        ConfigurationModule distributedModule = CompoundModule.distributed(allModules);
 
         Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
         String configString = configurationString(idx);
@@ -214,16 +216,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         }
 
         var localConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                localModule.rootKeys(),
+                localModule.schemaExtensions(),
+                localModule.polymorphicSchemaExtensions()
         );
 
         var nodeConfigRegistry = new ConfigurationRegistry(
-                modules.local().rootKeys(),
-                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
+                localModule.rootKeys(),
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, localModule),
                 localConfigurationGenerator,
-                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, localModule.validators())
         );
 
         var componentContext = new ComponentContext();
@@ -275,7 +277,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 failureProcessor,
                 readOperationForCompactionTracker,
                 commonScheduledExecutorService
-        );
+        ) {
+            @Override
+            public void close() throws Exception {
+                assertThat(flush(), willCompleteSuccessfully());
+
+                super.close();
+            }
+        };
 
         var clock = new HybridClockImpl();
 
@@ -285,21 +294,19 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         blockMetaStorageUpdates(metastore);
 
-        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metastore);
-
         var cfgStorage = new DistributedConfigurationStorage("test", metastore);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.distributed().rootKeys(),
-                modules.distributed().schemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                distributedModule.rootKeys(),
+                distributedModule.schemaExtensions(),
+                distributedModule.polymorphicSchemaExtensions()
         );
 
-        Set<Validator<?, ?>> validators = new HashSet<>(modules.distributed().validators());
+        Set<Validator<?, ?>> validators = new HashSet<>(distributedModule.validators());
         validators.remove(AuthenticationProvidersValidatorImpl.INSTANCE);
 
         var clusterConfigRegistry = new ConfigurationRegistry(
-                modules.distributed().rootKeys(),
+                distributedModule.rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, validators)

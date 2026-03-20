@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.replicator.handlers;
 
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 
 /**
  * Handler for {@link BuildIndexReplicaRequest}.

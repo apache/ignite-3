@@ -77,6 +77,14 @@ public class MinimumActiveTxTimeCommandHandler extends AbstractCommandHandler<Up
 
         long timestamp = command.timestamp();
 
+        // We MUST bump information about last updated index+term.
+        // See a comment in TablePartitionProcessor#processCommand() for explanation.
+        storage.runConsistently(locker -> {
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
+
         storage.flush(false)
                 .whenComplete((r, t) -> {
                     if (t == null) {

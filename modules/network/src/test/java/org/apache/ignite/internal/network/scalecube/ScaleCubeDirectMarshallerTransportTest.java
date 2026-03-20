@@ -24,7 +24,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.when;
 
 import io.scalecube.cluster.transport.api.Message;
-import io.scalecube.net.Address;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -47,7 +46,7 @@ class ScaleCubeDirectMarshallerTransportTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void createAndStartTransport() {
         transport = new ScaleCubeDirectMarshallerTransport(
-                Address.create("localhost", 3000),
+                new NetworkAddress("localhost", 3000),
                 messagingService,
                 new NetworkMessagesFactory()
         );
@@ -66,7 +65,7 @@ class ScaleCubeDirectMarshallerTransportTest extends BaseIgniteAbstractTest {
     void transportSendsByAddress() {
         when(messagingService.send(any(NetworkAddress.class), any(), any())).thenReturn(nullCompletedFuture());
 
-        CompletableFuture<Void> future = transport.send(Address.create("localhost", 3001), Message.withData("test").build()).toFuture();
+        CompletableFuture<Void> future = transport.send("localhost:3001", Message.withData("test").build()).toFuture();
 
         assertThat(future, willCompleteSuccessfully());
     }
