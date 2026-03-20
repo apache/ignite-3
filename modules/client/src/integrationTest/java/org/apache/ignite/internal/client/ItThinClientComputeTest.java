@@ -342,7 +342,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().execute(JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null);
+        String res = client().compute()
+                .execute(JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null);
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
@@ -445,7 +446,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdSync() {
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.IgniteExceptionJob.class).build(), null)
+                () -> client().compute()
+                        .execute(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.IgniteExceptionJob.class).build(), null)
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
