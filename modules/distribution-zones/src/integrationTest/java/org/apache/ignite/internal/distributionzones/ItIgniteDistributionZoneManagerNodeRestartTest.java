@@ -116,7 +116,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
@@ -278,7 +277,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 failureProcessor,
                 readOperationForCompactionTracker,
                 commonScheduledExecutorService
-        );
+        ) {
+            @Override
+            public void close() throws Exception {
+                assertThat(flush(), willCompleteSuccessfully());
+
+                super.close();
+            }
+        };
 
         var clock = new HybridClockImpl();
 
@@ -287,8 +293,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         metaStorageMocker.accept(metastore);
 
         blockMetaStorageUpdates(metastore);
-
-        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metastore);
 
         var cfgStorage = new DistributedConfigurationStorage("test", metastore);
 
