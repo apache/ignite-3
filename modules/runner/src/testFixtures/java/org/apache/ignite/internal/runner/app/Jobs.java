@@ -20,21 +20,29 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.Comparator.comparing;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_NOT_FOUND_ERR;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
@@ -473,6 +481,153 @@ public class Jobs {
         public TwoStringPojo(String firstString, String secondString) {
             this.firstString = firstString;
             this.secondString = secondString;
+        }
+    }
+
+    /** Trace ID used in exception jobs for testing purposes. */
+    public static final UUID TRACE_ID = UUID.randomUUID();
+
+    /** Returns node name concatenated with optional argument. */
+    public static class NodeNameJob implements ComputeJob<Object, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
+            return completedFuture(context.ignite().name() + (arg == null ? "" : arg.toString()));
+        }
+    }
+
+    /** Concatenates colon-separated args using underscore. */
+    public static class ConcatJob implements ComputeJob<String, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
+            if (args == null) {
+                return nullCompletedFuture();
+            }
+
+            return completedFuture(
+                    Arrays.stream(args.split(":"))
+                            .map(o -> o == null ? "null" : o)
+                            .collect(Collectors.joining("_")));
+        }
+    }
+
+    /** Custom exception class for testing. */
+    public static class CustomException extends IgniteException {
+        public CustomException(UUID traceId, int code, String message, Throwable cause) {
+            super(traceId, code, message, cause);
+        }
+    }
+
+    /** Throws a custom Ignite exception. */
+    public static class IgniteExceptionJob implements ComputeJob<Object, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object args) {
+            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
+        }
+    }
+
+    /** Echoes the argument back. */
+    public static class EchoJob implements ComputeJob<Object, Object> {
+        @Override
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object arg) {
+            return completedFuture(arg);
+        }
+    }
+
+    /** Returns the string representation of the argument. */
+    public static class ToStringJob implements ComputeJob<Object, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
+            if (arg instanceof byte[]) {
+                return completedFuture(Arrays.toString((byte[]) arg));
+            }
+
+            return completedFuture(arg.toString());
+        }
+    }
+
+    /** Sleeps for the specified number of milliseconds. */
+    public static class SleepJob implements ComputeJob<Integer, Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer sleepMs) {
+            try {
+                Thread.sleep(sleepMs);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
+        }
+    }
+
+    /** Parses and scales a decimal number. */
+    public static class DecimalJob implements ComputeJob<String, BigDecimal> {
+        @Override
+        public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, String arg) {
+            @SuppressWarnings("DataFlowIssue")
+            var args = arg.split(",", 2);
+
+            return completedFuture(new BigDecimal(args[0]).setScale(Integer.parseInt(args[1]), RoundingMode.HALF_UP));
+        }
+    }
+
+    /** Always returns null. */
+    public static class ReturnNullJob implements ComputeJob<Void, String> {
+        @Override
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable Void arg) {
+            return null;
+        }
+    }
+
+    /** MapReduce task that collects node names. */
+    public static class MapReduceNodeNameTask implements MapReduceTask<String, Object, String, String> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, String args) {
+            return completedFuture(context.ignite().cluster().nodes().stream()
+                    .map(node -> MapReduceJob.<Object, String>builder()
+                            .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
+                            .nodes(Set.of(node))
+                            .args(args)
+                            .build())
+                    .collect(Collectors.toList()));
+        }
+
+        @Override
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
+            return completedFuture(results.values().stream()
+                    .map(String.class::cast)
+                    .collect(Collectors.joining(",")));
+        }
+    }
+
+    /** MapReduce task that throws a custom exception during split. */
+    public static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object, Object, Object, String> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, Object args) {
+            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
+        }
+
+        @Override
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
+            return completedFuture("expected split exception");
+        }
+    }
+
+    /** MapReduce task that throws a custom exception during reduce. */
+    public static class MapReduceExceptionOnReduceTask implements MapReduceTask<Object, Object, String, String> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
+            return completedFuture(context.ignite().cluster().nodes().stream()
+                    .map(node -> MapReduceJob.<Object, String>builder()
+                            .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
+                            .nodes(Set.of(node))
+                            .args(args)
+                            .build())
+                    .collect(Collectors.toList()));
+        }
+
+        @Override
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
+            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
         }
     }
 }

@@ -61,7 +61,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -95,6 +94,7 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.JobTaskStatusMapper;
+import org.apache.ignite.internal.runner.app.Jobs;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.Cursor;
@@ -115,8 +115,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
-    /** Test trace id. */
-    private static final UUID TRACE_ID = UUID.randomUUID();
 
     @Test
     void testClusterNodes() {
@@ -136,10 +134,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteOnSpecificNode() {
         String res1 = client().compute().execute(
-                JobTarget.node(node(0)), JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobTarget.node(node(0)), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null
         );
         String res2 = client().compute().execute(
-                JobTarget.node(node(1)), JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobTarget.node(node(1)), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null
         );
 
         assertEquals("itcct_n_3344", res1);
@@ -236,10 +234,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteOnSpecificNodeAsync() {
         JobExecution<String> execution1 = submit(
-                JobTarget.node(node(0)), JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobTarget.node(node(0)), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null
         );
         JobExecution<String> execution2 = submit(
-                JobTarget.node(node(1)), JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobTarget.node(node(1)), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null
         );
 
         assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
@@ -254,7 +252,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
         JobExecution<String> execution = submit(
                 JobTarget.node(node(0)),
-                JobDescriptor.builder(NodeNameJob.class).build(),
+                JobDescriptor.builder(Jobs.NodeNameJob.class).build(),
                 cancelHandle.token(),
                 null
         );
@@ -270,7 +268,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testChangingPriorityCompletedJob() {
         JobExecution<String> execution = submit(
                 JobTarget.node(node(0)),
-                JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null
         );
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
@@ -285,7 +283,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testCancelOnSpecificNodeAsync(boolean asyncJob) {
         int sleepMs = 1_000_000;
         JobDescriptor<Integer, Void> sleepJob = JobDescriptor
-                .builder(asyncJob ? AsyncSleepJob.class : SleepJob.class)
+                .builder(asyncJob ? AsyncSleepJob.class : Jobs.SleepJob.class)
                 .build();
 
         CancelHandle cancelHandle = CancelHandle.create();
@@ -304,7 +302,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void changeJobPriority() {
         int sleepMs = 1_000_000;
-        JobDescriptor<Integer, Void> sleepJob = JobDescriptor.builder(SleepJob.class).build();
+        JobDescriptor<Integer, Void> sleepJob = JobDescriptor.builder(Jobs.SleepJob.class).build();
         JobTarget target = JobTarget.node(node(0));
 
         // Start 1 task in executor with 1 thread
@@ -344,7 +342,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().execute(JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(NodeNameJob.class).build(), null);
+        String res = client().compute().execute(JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null);
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
@@ -352,7 +350,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteOnRandomNodeAsync() {
         JobExecution<String> execution = submit(
-                JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(NodeNameJob.class).build(), null);
+                JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null);
 
         assertThat(
                 execution.resultAsync(),
@@ -365,7 +363,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBroadcastOneNode() {
         BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(node(1)),
-                JobDescriptor.builder(NodeNameJob.class).build(),
+                JobDescriptor.builder(Jobs.NodeNameJob.class).build(),
                 null
         );
 
@@ -378,7 +376,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBroadcastAllNodes() {
         BroadcastExecution<String> broadcastExecution = submit(
                 new HashSet<>(sortedNodes()),
-                JobDescriptor.builder(NodeNameJob.class).build(),
+                JobDescriptor.builder(Jobs.NodeNameJob.class).build(),
                 null
         );
 
@@ -395,7 +393,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         BroadcastExecution<Void> broadcastExecution = submit(
                 new HashSet<>(sortedNodes()),
-                JobDescriptor.builder(SleepJob.class).build(),
+                JobDescriptor.builder(Jobs.SleepJob.class).build(),
                 cancelHandle.token(),
                 sleepMs
         );
@@ -420,7 +418,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         JobExecution<String> execution = submit(
-                JobTarget.anyNode(client().cluster().nodes()), JobDescriptor.builder(ConcatJob.class).build(),
+                JobTarget.anyNode(client().cluster().nodes()), JobDescriptor.builder(Jobs.ConcatJob.class).build(),
                 "1:2:3.3"
         );
 
@@ -431,13 +429,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdAsync() {
         IgniteException cause = getExceptionInJobExecutionAsync(
-                submit(JobTarget.node(node(0)), JobDescriptor.builder(IgniteExceptionJob.class).build(), null)
+                submit(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.IgniteExceptionJob.class).build(), null)
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
-        assertEquals(TRACE_ID, cause.traceId());
+        assertEquals(Jobs.TRACE_ID, cause.traceId());
         assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-        assertInstanceOf(CustomException.class, cause);
+        assertInstanceOf(Jobs.CustomException.class, cause);
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
@@ -447,13 +445,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdSync() {
         IgniteException cause = getExceptionInJobExecutionSync(
-                () -> client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(IgniteExceptionJob.class).build(), null)
+                () -> client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.IgniteExceptionJob.class).build(), null)
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
-        assertEquals(TRACE_ID, cause.traceId());
+        assertEquals(Jobs.TRACE_ID, cause.traceId());
         assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-        assertInstanceOf(CustomException.class, cause);
+        assertInstanceOf(Jobs.CustomException.class, cause);
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
@@ -683,7 +681,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
 
         JobExecution<String> tupleExecution = submit(
-                JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null
         );
 
         String expectedNode = "itcct_n_" + port;
@@ -699,7 +697,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
         JobExecution<String> pojoExecution = submit(
-                JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(NodeNameJob.class).build(), null);
+                JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(Jobs.NodeNameJob.class).build(), null);
 
         String expectedNode = "itcct_n_" + port;
         assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
@@ -716,7 +714,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
         JobExecution<Void> tupleExecution = submit(
                 JobTarget.colocated(TABLE_NAME, keyTuple),
-                JobDescriptor.builder(SleepJob.class).build(),
+                JobDescriptor.builder(Jobs.SleepJob.class).build(),
                 cancelHandle.token(),
                 sleepMs
         );
@@ -738,7 +736,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
         JobExecution<Void> pojoExecution = submit(
                 JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper),
-                JobDescriptor.builder(SleepJob.class).build(),
+                JobDescriptor.builder(Jobs.SleepJob.class).build(),
                 cancelHandle.token(),
                 sleepMs
         );
@@ -756,7 +754,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 CompletionException.class,
                 () -> client().compute().executeAsync(
                         JobTarget.node(node(0)),
-                        JobDescriptor.builder(NodeNameJob.class)
+                        JobDescriptor.builder(Jobs.NodeNameJob.class)
                                 .units(List.of(new DeploymentUnit("u", "latest")))
                                 .build(),
                         null
@@ -776,7 +774,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 CompletionException.class,
                 () -> client().compute().executeAsync(
                         JobTarget.colocated(TABLE_NAME, Tuple.create().set(COLUMN_KEY, 1)),
-                        JobDescriptor.builder(NodeNameJob.class)
+                        JobDescriptor.builder(Jobs.NodeNameJob.class)
                                 .units(new DeploymentUnit("u", "latest"))
                                 .build(),
                         null
@@ -796,7 +794,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         try (IgniteClient client = builder.build()) {
             int delayMs = 3000;
             CompletableFuture<Void> jobFut = client.compute().executeAsync(
-                    JobTarget.node(node(0)), JobDescriptor.builder(SleepJob.class).build(), delayMs);
+                    JobTarget.node(node(0)), JobDescriptor.builder(Jobs.SleepJob.class).build(), delayMs);
 
             // Wait a bit and close the connection.
             Thread.sleep(10);
@@ -831,7 +829,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
         TestPojo pojoKey = new TestPojo(1);
         Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
-        JobDescriptor<Object, String> job = JobDescriptor.builder(NodeNameJob.class).build();
+        JobDescriptor<Object, String> job = JobDescriptor.builder(Jobs.NodeNameJob.class).build();
 
         var tupleRes = client().compute().execute(JobTarget.colocated(tableName, tupleKey), job, null);
         var pojoRes = client().compute().execute(JobTarget.colocated(tableName, pojoKey, mapper), job, null);
@@ -844,7 +842,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBigDecimalPropagation(String number, int scale) {
         BigDecimal res = client().compute().execute(
                 JobTarget.node(node(0)),
-                JobDescriptor.builder(DecimalJob.class).build(),
+                JobDescriptor.builder(Jobs.DecimalJob.class).build(),
                 number + "," + scale);
 
         var expected = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
@@ -853,7 +851,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduce() throws Exception {
-        TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceNodeNameTask.class).build();
+        TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(Jobs.MapReduceNodeNameTask.class).build();
         TaskExecution<String> execution = client().compute().submitMapReduce(taskDescriptor, null);
 
         List<Matcher<? super String>> nodeNames = sortedNodes().stream()
@@ -879,7 +877,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
+    @ValueSource(classes = {Jobs.MapReduceExceptionOnSplitTask.class, Jobs.MapReduceExceptionOnReduceTask.class})
     <I, M, T> void testExecuteMapReduceExceptionPropagation(Class<? extends MapReduceTask<I, M, T, String>> taskClass) {
         // Task execution doesn't use preferred node name and will use round-robin leading to random node selection
         try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
@@ -887,9 +885,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             IgniteException cause = getExceptionInTaskExecutionAsync(client.compute().submitMapReduce(taskDescriptor, null));
 
             assertThat(cause.getMessage(), containsString("Custom job error"));
-            assertEquals(TRACE_ID, cause.traceId());
+            assertEquals(Jobs.TRACE_ID, cause.traceId());
             assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-            assertInstanceOf(CustomException.class, cause);
+            assertInstanceOf(Jobs.CustomException.class, cause);
             assertNotNull(cause.getCause());
             String hint = cause.getCause().getMessage();
 
@@ -928,7 +926,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(EchoJob.class).build(), arg);
+        Object res = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.EchoJob.class).build(), arg);
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -936,36 +934,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             assertEquals(arg, res);
         }
 
-        String str = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(ToStringJob.class).build(), arg);
+        String str = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.ToStringJob.class).build(), arg);
         assertEquals(arg.toString(), str);
-    }
-
-    private static class NodeNameJob implements ComputeJob<Object, String> {
-        @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
-            return completedFuture(context.ignite().name() + (arg == null ? "" : arg.toString()));
-        }
-    }
-
-    private static class ConcatJob implements ComputeJob<String, String> {
-        @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
-            if (args == null) {
-                return nullCompletedFuture();
-            }
-
-            return completedFuture(
-                    Arrays.stream(args.split(":"))
-                            .map(o -> o == null ? "null" : o)
-                            .collect(Collectors.joining("_")));
-        }
-    }
-
-    private static class IgniteExceptionJob implements ComputeJob<Object, String> {
-        @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object args) {
-            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
-        }
     }
 
     private static class ExceptionJob implements ComputeJob<Boolean, String> {
@@ -978,37 +948,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             } else {
                 throw new ArithmeticException("math err");
             }
-        }
-    }
-
-    private static class EchoJob implements ComputeJob<Object, Object> {
-        @Override
-        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object arg) {
-            return completedFuture(arg);
-        }
-    }
-
-    private static class ToStringJob implements ComputeJob<Object, String> {
-        @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
-            if (arg instanceof byte[]) {
-                return completedFuture(Arrays.toString((byte[]) arg));
-            }
-
-            return completedFuture(arg.toString());
-        }
-    }
-
-    private static class SleepJob implements ComputeJob<Integer, Void> {
-        @Override
-        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer sleepMs) {
-            try {
-                Thread.sleep(sleepMs);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
-            return null;
         }
     }
 
@@ -1032,42 +971,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class DecimalJob implements ComputeJob<String, BigDecimal> {
-        @Override
-        public CompletableFuture<BigDecimal> executeAsync(JobExecutionContext context, String arg) {
-            @SuppressWarnings("DataFlowIssue")
-            var args = arg.split(",", 2);
-
-            return completedFuture(new BigDecimal(args[0]).setScale(Integer.parseInt(args[1]), RoundingMode.HALF_UP));
-        }
-    }
-
-    private static class MapReduceNodeNameTask implements MapReduceTask<String, Object, String, String> {
-        @Override
-        public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().cluster().nodes().stream()
-                    .map(node -> MapReduceJob.<Object, String>builder()
-                            .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
-                            .nodes(Set.of(node))
-                            .args(args)
-                            .build())
-                    .collect(Collectors.toList()));
-        }
-
-        @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
-            return completedFuture(results.values().stream()
-                    .map(String.class::cast)
-                    .collect(Collectors.joining(",")));
-        }
-    }
-
     private static class MapReduceArgsTask implements MapReduceTask<String, String, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext context, String args) {
             return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<String, String>builder()
-                            .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
+                            .jobDescriptor(JobDescriptor.builder(Jobs.ConcatJob.class).build())
                             .nodes(Set.of(node))
                             .args(args)
                             .build())
@@ -1079,37 +988,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             return completedFuture(results.values().stream()
                     .map(String.class::cast)
                     .collect(Collectors.joining(",")));
-        }
-    }
-
-    private static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object, Object, Object, String> {
-        @Override
-        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, Object args) {
-            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
-        }
-
-        @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
-            return completedFuture("expected split exception");
-        }
-    }
-
-    private static class MapReduceExceptionOnReduceTask implements MapReduceTask<Object, Object, String, String> {
-
-        @Override
-        public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
-            return completedFuture(context.ignite().cluster().nodes().stream()
-                    .map(node -> MapReduceJob.<Object, String>builder()
-                            .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
-                            .nodes(Set.of(node))
-                            .args(args)
-                            .build())
-                    .collect(Collectors.toList()));
-        }
-
-        @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
-            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
         }
     }
 
@@ -1122,15 +1000,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 throw new CancellationException();
             }
             return null;
-        }
-    }
-
-    /**
-     * Custom public exception class.
-     */
-    public static class CustomException extends IgniteException {
-        public CustomException(UUID traceId, int code, String message, Throwable cause) {
-            super(traceId, code, message, cause);
         }
     }
 
@@ -1174,11 +1043,4 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    /** Simple job which always returns null value. */
-    public static class ReturnNullJob implements ComputeJob<Void, String> {
-        @Override
-        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable Void arg) {
-            return null;
-        }
-    }
 }

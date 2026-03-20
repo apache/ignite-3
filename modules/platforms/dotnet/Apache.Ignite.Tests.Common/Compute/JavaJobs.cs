@@ -23,21 +23,21 @@ public static class JavaJobs
 {
     public const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
-    public const string ItThinClientComputeTest = "org.apache.ignite.internal.client.ItThinClientComputeTest";
+    public const string Jobs = "org.apache.ignite.internal.runner.app.Jobs";
 
-    public static readonly JobDescriptor<object?, string> NodeNameJob = new(ItThinClientComputeTest + "$NodeNameJob");
+    public static readonly JobDescriptor<object?, string> NodeNameJob = new(Jobs + "$NodeNameJob");
 
-    public static readonly JobDescriptor<string?, string> ConcatJob = new(ItThinClientComputeTest + "$ConcatJob");
+    public static readonly JobDescriptor<string?, string> ConcatJob = new(Jobs + "$ConcatJob");
 
-    public static readonly JobDescriptor<string, string> ErrorJob = new(ItThinClientComputeTest + "$IgniteExceptionJob");
+    public static readonly JobDescriptor<string, string> ErrorJob = new(Jobs + "$IgniteExceptionJob");
 
-    public static readonly JobDescriptor<object?, object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
+    public static readonly JobDescriptor<object?, object> EchoJob = new(Jobs + "$EchoJob");
 
-    public static readonly JobDescriptor<object, string> ToStringJob = new(ItThinClientComputeTest + "$ToStringJob");
+    public static readonly JobDescriptor<object, string> ToStringJob = new(Jobs + "$ToStringJob");
 
-    public static readonly JobDescriptor<int, string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
+    public static readonly JobDescriptor<int, string> SleepJob = new(Jobs + "$SleepJob");
 
-    public static readonly JobDescriptor<string, BigDecimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
+    public static readonly JobDescriptor<string, BigDecimal> DecimalJob = new(Jobs + "$DecimalJob");
 
     public static readonly JobDescriptor<string, string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
 
@@ -49,15 +49,15 @@ public static class JavaJobs
 
     public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
 
-    public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
+    public static readonly TaskDescriptor<string, string> NodeNameTask = new(Jobs + "$MapReduceNodeNameTask");
 
     public static readonly TaskDescriptor<int, object?> SleepTask = new(PlatformTestNodeRunner + "$SleepTask");
 
     public static readonly TaskDescriptor<object?, object?> SplitExceptionTask =
-        new(ItThinClientComputeTest + "$MapReduceExceptionOnSplitTask");
+        new(Jobs + "$MapReduceExceptionOnSplitTask");
 
     public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask =
-        new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
+        new(Jobs + "$MapReduceExceptionOnReduceTask");
 
     public static readonly JobDescriptor<int, string> ExceptionCodeAsStringJob = new(PlatformTestNodeRunner + "$ExceptionCodeAsStringJob");
 }
