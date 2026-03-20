@@ -431,6 +431,13 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         if (writeIntentSwitchBlocked) {
+            if (onApplication != null) {
+                storage.runConsistently(locker -> {
+                    onApplication.run();
+                    return true;
+                });
+            }
+
             return;
         }
 
