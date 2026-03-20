@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.example.jobs.standalone;
 
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.lang.InternalTuple;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-/**
- * Interface that provides a method to copy value (maybe raw) of the given column directly into a tuple builder.
- */
-public interface InternalTupleEx extends InternalTuple {
-    /**
-     * Copy value of the given column.
-     *
-     * @param builder Binary tuple builder to copy value to.
-     * @param columnIndex Column index.
-     */
-    void copyValue(BinaryTupleBuilder builder, int columnIndex);
+/** Compute job that sleeps for a number of seconds and throws {@link CancellationException} if interrupted. */
+public class CancelAwareSleepJob implements ComputeJob<Long, Void> {
+    @Override
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
+        try {
+            TimeUnit.SECONDS.sleep(timeout);
+        } catch (InterruptedException e) {
+            throw new CancellationException();
+        }
+        return null;
+    }
 }

@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.binarytuple;
 
-import com.google.auto.service.AutoService;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
- * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.
+ * Interface that provides a method to copy value (maybe raw) of the given column directly into a tuple builder.
  */
-@AutoService(ConfigurationModule.class)
-public class TestConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+public interface InternalTupleEx extends InternalTuple {
+    /**
+     * Copy value of the given column.
+     *
+     * @param builder Binary tuple builder to copy value to.
+     * @param columnIndex Column index.
+     */
+    void copyValue(BinaryTupleBuilder builder, int columnIndex);
 }

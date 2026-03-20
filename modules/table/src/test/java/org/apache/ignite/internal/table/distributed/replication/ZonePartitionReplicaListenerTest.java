@@ -71,6 +71,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -559,7 +561,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
         );
 
         pkIndexDescriptor = mock(CatalogIndexDescriptor.class);
@@ -668,9 +670,14 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 Runnable::run,
                 new ZonePartitionId(tableDescriptor.zoneId(), PART_ID),
                 TABLE_ID,
-                () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexLocker),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexLocker)),
                 pkStorageSupplier,
-                () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexStorage)),
                 clockService,
                 safeTimeTracker,
                 transactionStateResolver,
@@ -1739,7 +1746,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns);
     }
 
     private CompletableFuture<?> beginAndCommitTx() {

@@ -85,8 +85,12 @@ public class ClockServiceImpl implements ClockService {
                     currentLocalTimestamp, maxClockSkewMillis());
             onMaxClockSkewExceededClosure.accept(requestTimePhysical - currentLocalTimePhysical);
         }
-
         return clock.update(requestTime);
+    }
+
+    @Override
+    public HybridTimestamp updateClock(HybridTimestamp requestTime, boolean checkClockSkew) {
+        return checkClockSkew ? updateClock(requestTime) : clock.update(requestTime);
     }
 
     @Override

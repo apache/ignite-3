@@ -43,6 +43,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -776,7 +778,8 @@ public class ItTxTestCluster {
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
 
                 IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(
+                                Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()))
                 );
 
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
@@ -814,9 +817,9 @@ public class ItTxTestCluster {
                                 txManagers.get(assignment),
                                 new ZonePartitionId(predefinedZoneId, partId),
                                 tableId,
-                                () -> Map.of(pkLocker.id(), pkLocker),
+                                () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                                 pkStorage,
-                                Map::of,
+                                Int2ObjectMaps::emptyMap,
                                 clockServices.get(assignment),
                                 safeTime,
                                 txStateStorage,
@@ -915,7 +918,8 @@ public class ItTxTestCluster {
                         safeTimeTracker,
                         storageIndexTracker,
                         mock(PartitionsSnapshots.class, RETURNS_DEEP_STUBS),
-                        partitionOperationsExecutor
+                        partitionOperationsExecutor,
+                        clockServices.get(assignment)
                 )
         );
 
@@ -950,9 +954,9 @@ public class ItTxTestCluster {
             TxManager txManager,
             ZonePartitionId zonePartitionId,
             int tableId,
-            Supplier<Map<Integer, IndexLocker>> indexesLockers,
+            Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStatePartitionStorage txStatePartitionStorage,
@@ -1066,9 +1070,9 @@ public class ItTxTestCluster {
             Executor scanRequestExecutor,
             ZonePartitionId replicationGroupId,
             int tableId,
-            Supplier<Map<Integer, IndexLocker>> indexesLockers,
+            Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TransactionStateResolver transactionStateResolver,

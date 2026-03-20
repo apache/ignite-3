@@ -24,4 +24,4 @@ set(SOURCES
     connection_test.cpp
 )
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c ignite-protocol ignite-tuple)
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS asio ignite-test-common ignite3-client msgpack-c ignite-protocol ignite-tuple)

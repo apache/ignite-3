@@ -241,6 +241,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
+    private final RemotelyTriggeredResourceRegistry resourcesRegistry;
+
     /**
      * Test-only constructor.
      *
@@ -366,6 +368,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
         this.metricsManager = metricManager;
+        this.resourcesRegistry = resourcesRegistry;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -1196,17 +1199,29 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
-        return txCleanupRequestHandler.discardLocalWriteIntents(groups, txId).handle((r, e) -> {
-            // We don't need tx state any more.
-            updateTxMeta(txId, old -> null);
-            return null;
-        });
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx) {
+        CompletableFuture<Object> f = nullCompletedFuture();
+
+        if (abortTx) {
+            f = orphanDetector.sendTxRecoveryMessage(txId);
+        }
+
+        return f.thenCompose(unused -> txCleanupRequestHandler.discardLocalWriteIntents(groups, txId))
+                .handle((r, e) -> {
+                    // We don't need tx state any more.
+                    updateTxMeta(txId, old -> null);
+                    return null;
+                });
     }
 
     @Override
     public int lockRetryCount() {
         return lockRetryCount;
+    }
+
+    @Override
+    public RemotelyTriggeredResourceRegistry resourceRegistry() {
+        return resourcesRegistry;
     }
 
     @Override

@@ -25,14 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -91,12 +88,7 @@ public class TestUtils {
      * @return localhost IP address
      */
     public static String getLocalAddress() {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        }
-        catch (UnknownHostException e) {
-            throw new IgniteInternalException(e);
-        }
+        return "127.0.0.1";
     }
 
     public static List<LogEntry> mockEntries(int n) {

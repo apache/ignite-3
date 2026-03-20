@@ -240,6 +240,10 @@ public interface InternalTuple {
 
     /**
      * Returns the representation of this tuple as a Byte Buffer.
+     *
+     * @deprecated The method must be moved to another interface. This interface is not assumed the instance must be backed by raw bytes.
+     *         Also, in general, a tuple is schemaless, and schema is external here and can't be used implicitly inside the method.
      */
+    @Deprecated(forRemoval = true)
     ByteBuffer byteBuffer();
 }

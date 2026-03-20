@@ -83,6 +83,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.NodePropertiesImpl;
@@ -109,7 +110,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
@@ -357,7 +358,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clusterIdService = new ClusterIdService(vault);
 
-        ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
+        List<ConfigurationModule> allModules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
+        ConfigurationModule localModule = CompoundModule.local(allModules);
+        ConfigurationModule distributedModule = CompoundModule.distributed(allModules);
 
         Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
         String configString = cfgString == null ? configurationString(idx) : cfgString;
@@ -368,16 +371,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         var localConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                localModule.rootKeys(),
+                localModule.schemaExtensions(),
+                localModule.polymorphicSchemaExtensions()
         );
 
         var nodeConfigRegistry = new ConfigurationRegistry(
-                modules.local().rootKeys(),
-                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
+                localModule.rootKeys(),
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, localModule),
                 localConfigurationGenerator,
-                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, localModule.validators())
         );
 
         NetworkConfiguration networkConfiguration = nodeConfigRegistry
@@ -465,6 +468,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopology,
                 new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                 failureProcessor,
+                raftGroupEventsClientListener,
                 clusterIdService,
                 cmgRaftConfigurer,
                 metricManager
@@ -544,16 +548,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var cfgStorage = new DistributedConfigurationStorage("test", metaStorageMgr);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.distributed().rootKeys(),
-                modules.distributed().schemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                distributedModule.rootKeys(),
+                distributedModule.schemaExtensions(),
+                distributedModule.polymorphicSchemaExtensions()
         );
 
         var clusterConfigRegistry = new ConfigurationRegistry(
-                modules.distributed().rootKeys(),
+                distributedModule.rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, distributedModule.validators())
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());

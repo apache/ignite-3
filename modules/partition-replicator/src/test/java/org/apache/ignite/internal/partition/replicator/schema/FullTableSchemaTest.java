@@ -42,8 +42,8 @@ class FullTableSchemaTest {
         CatalogTableColumnDescriptor column2 = someColumn("b");
         CatalogTableColumnDescriptor column3 = someColumn("c");
 
-        var schema1 = new FullTableSchema(1, 1, TABLE_NAME1, List.of(column1, column2));
-        var schema2 = new FullTableSchema(2, 1, TABLE_NAME1, List.of(column2, column3));
+        var schema1 = tableSchema(1, 1, TABLE_NAME1, List.of(column1, column2));
+        var schema2 = tableSchema(2, 1, TABLE_NAME1, List.of(column2, column3));
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
@@ -56,8 +56,8 @@ class FullTableSchemaTest {
     void changedColumnsAreReflectedInDiff() {
         CatalogTableColumnDescriptor column1 = someColumn("a");
 
-        var schema1 = new FullTableSchema(1, 1, TABLE_NAME1, List.of(column1));
-        var schema2 = new FullTableSchema(2, 1, TABLE_NAME1,
+        var schema1 = tableSchema(1, 1, TABLE_NAME1, List.of(column1));
+        var schema2 = tableSchema(2, 1, TABLE_NAME1,
                 List.of(new CatalogTableColumnDescriptor("a", ColumnType.STRING, true, 0, 0, 10, DefaultValue.constant(null)))
         );
 
@@ -71,11 +71,16 @@ class FullTableSchemaTest {
     void changedNameIsReflected() {
         CatalogTableColumnDescriptor column = someColumn("a");
 
-        var schema1 = new FullTableSchema(1, 1, TABLE_NAME1, List.of(column));
-        var schema2 = new FullTableSchema(1, 1, TABLE_NAME2, List.of(column));
+        var schema1 = tableSchema(1, 1, TABLE_NAME1, List.of(column));
+        var schema2 = tableSchema(1, 1, TABLE_NAME2, List.of(column));
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
         assertThat(diff.nameDiffers(), is(true));
+    }
+
+    private static FullTableSchema tableSchema(int schemaVersion, int tableId, String tableName,
+            List<CatalogTableColumnDescriptor> columns) {
+        return new FullTableSchema(-1, schemaVersion, tableId, tableName, columns);
     }
 }

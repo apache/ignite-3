@@ -26,7 +26,7 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.util.HashCalculator;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provider that computes {@link PartitionMapping partition mapping} based on a

@@ -186,6 +186,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.tx.RetriableTransactionException;
@@ -516,6 +517,11 @@ public class ClientInboundMessageHandler
                     .thenCompose(unused -> authenticationManager.authenticateAsync(authReq))
                     .whenCompleteAsync((user, err) -> {
                         if (err != null) {
+                            if (isAuthenticationException(err)) {
+                                LOG.warn("Client authentication failed [connectionId={}, remoteAddress={}, identity={}]: {}",
+                                        connectionId, ctx.channel().remoteAddress(), authReq.getIdentity(), err.getMessage());
+                            }
+
                             handshakeError(ctx, err);
                         } else {
                             handshakeSuccess(ctx, user, clientFeatures, clientVer, clientCode);
@@ -562,8 +568,10 @@ public class ClientInboundMessageHandler
     }
 
     private void handshakeError(ChannelHandlerContext ctx, Throwable t) {
-        LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                + t.getMessage(), t);
+        // Authentication failures are already logged by the caller with more details (e.g. username).
+        if (!isAuthenticationException(t)) {
+            LOG.warn("Handshake failed [connectionId={}, remoteAddress={}]", t, connectionId, ctx.channel().remoteAddress());
+        }
 
         var errPacker = getPacker(ctx.alloc());
 
@@ -698,11 +706,11 @@ public class ClientInboundMessageHandler
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
         if (LOG.isDebugEnabled() && shouldLogError(err)) {
             if (isNotification) {
-                LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+                LOG.debug("Error processing client notification [connectionId={}, id={}, remoteAddress={}]",
+                        err, connectionId, requestId, ctx.channel().remoteAddress());
             } else {
-                LOG.debug("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+                LOG.debug("Error processing client request [connectionId={}, id={}, op={}, remoteAddress={}]",
+                        err, connectionId, requestId, opCode, ctx.channel().remoteAddress());
             }
         }
 
@@ -1421,9 +1429,8 @@ public class ClientInboundMessageHandler
                 fut.completeExceptionally(err);
             }
         } catch (Throwable t) {
-            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id=" + requestId
-                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
-                    + ", message=" + t.getMessage() + ']', t);
+            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id={}, connectionId={}, remoteAddress={}]",
+                    t, requestId, connectionId, channelHandlerContext.channel().remoteAddress());
         }
     }
 
@@ -1499,6 +1506,11 @@ public class ClientInboundMessageHandler
                         ))
                         .build()
         );
+    }
+
+    private static boolean isAuthenticationException(Throwable t) {
+        Throwable cause = ExceptionUtils.unwrapCause(t);
+        return cause instanceof InvalidCredentialsException || cause instanceof UnsupportedAuthenticationTypeException;
     }
 
     private class ComputeConnection implements PlatformComputeConnection {

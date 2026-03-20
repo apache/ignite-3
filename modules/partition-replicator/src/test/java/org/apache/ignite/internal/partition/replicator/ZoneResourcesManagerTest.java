@@ -38,6 +38,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -96,7 +97,8 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 catalogService,
                 mock(FailureProcessor.class),
                 executor,
-                replicaManager
+                replicaManager,
+                mock(ClockService.class)
         );
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }

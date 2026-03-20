@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -115,7 +116,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     private static final StaticNodeFinder NODE_FINDER = new StaticNodeFinder(
             IntStream.range(BASE_PORT, BASE_PORT + 5)
-                    .mapToObj(p -> new NetworkAddress("localhost", p))
+                    .mapToObj(p -> new NetworkAddress("127.0.0.1", p))
                     .collect(Collectors.toList())
     );
 
@@ -380,6 +381,10 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             ClockService clockService = mock(ClockService.class);
             when(clockService.current()).thenReturn(clock.current());
+            when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+                HybridTimestamp requestTime = invocation.getArgument(0);
+                return clock.update(requestTime);
+            });
 
             OutgoingSnapshotsManager outgoingSnapshotsManager = new OutgoingSnapshotsManager(
                     clusterService.nodeName(),
@@ -397,7 +402,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             safeTs,
                             mock(PendingIndependentComparableValuesTracker.class),
                             outgoingSnapshotsManager,
-                            mock(Executor.class)
+                            mock(Executor.class),
+                            clockService
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {

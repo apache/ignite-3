@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.List;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.rocksdb.AbstractComparator;

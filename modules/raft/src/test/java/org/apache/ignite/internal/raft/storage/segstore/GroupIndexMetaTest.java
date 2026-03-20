@@ -340,13 +340,13 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         groupMeta.addIndexMeta(meta2);
         groupMeta.addIndexMeta(meta3);
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(meta1));
-        assertThat(groupMeta.indexMetaByFileOrdinal(2), is(meta2));
-        assertThat(groupMeta.indexMetaByFileOrdinal(3), is(meta3));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(meta1));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(meta2));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(3), is(meta3));
 
         // Ordinals before the first and after the last return null.
-        assertThat(groupMeta.indexMetaByFileOrdinal(0), is(nullValue()));
-        assertThat(groupMeta.indexMetaByFileOrdinal(4), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(0), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(4), is(nullValue()));
     }
 
     @Test
@@ -363,13 +363,80 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(3));
         groupMeta.addIndexMeta(meta3);
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(meta1));
-        assertThat(groupMeta.indexMetaByFileOrdinal(2), is(meta2));
-        assertThat(groupMeta.indexMetaByFileOrdinal(3), is(meta3));
+        // Effective meta1 should be truncated on top by the second block.
+        var effectiveMeta1 = new IndexFileMeta(
+                meta1.firstLogIndexInclusive(),
+                meta2.firstLogIndexInclusive(),
+                meta1.indexFilePayloadOffset(),
+                meta1.indexFileProperties()
+        );
+
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(effectiveMeta1));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(meta2));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(3), is(meta3));
 
         // Ordinals before the first and after the last return null.
-        assertThat(groupMeta.indexMetaByFileOrdinal(0), is(nullValue()));
-        assertThat(groupMeta.indexMetaByFileOrdinal(4), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(0), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(4), is(nullValue()));
+    }
+
+    @Test
+    void testIndexMetaByFileOrdinalWithThreeBlocks() {
+        // meta1 is in block 0.
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(1));
+        var groupMeta = new GroupIndexMeta(meta1);
+
+        // meta2 overlaps meta1, creating a second deque block (first suffix truncation).
+        var meta2 = new IndexFileMeta(50, 100, 42, new FileProperties(2));
+        groupMeta.addIndexMeta(meta2);
+
+        // meta3 overlaps meta2 (and meta1), creating a third deque block (second suffix truncation).
+        var meta3 = new IndexFileMeta(30, 100, 84, new FileProperties(3));
+        groupMeta.addIndexMeta(meta3);
+
+        // Effective meta1 range is capped by the minimum of all subsequent blocks' firstLogIndexInclusive.
+        var effectiveMeta1 = new IndexFileMeta(
+                meta1.firstLogIndexInclusive(),
+                meta3.firstLogIndexInclusive(),
+                meta1.indexFilePayloadOffset(),
+                meta1.indexFileProperties()
+        );
+
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(effectiveMeta1));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(3), is(meta3));
+
+        // Ordinals before the first and after the last return null.
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(0), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(4), is(nullValue()));
+    }
+
+    @Test
+    void testIndexMetaByFileOrdinalWithThreeBlocksWhenSecondBlockIsObsolete() {
+        // meta1 is in block 0.
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(1));
+        var groupMeta = new GroupIndexMeta(meta1);
+
+        // meta2 overlaps meta1, creating a second deque block.
+        var meta2 = new IndexFileMeta(50, 100, 42, new FileProperties(2));
+        groupMeta.addIndexMeta(meta2);
+
+        // meta3's firstLogIndexInclusive is lower than meta2's, creating a third block.
+        var meta3 = new IndexFileMeta(10, 100, 84, new FileProperties(3));
+        groupMeta.addIndexMeta(meta3);
+
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(nullValue()));
+
+        var effectiveMeta1 = new IndexFileMeta(
+                meta1.firstLogIndexInclusive(),
+                meta3.firstLogIndexInclusive(),
+                meta1.indexFilePayloadOffset(),
+                meta1.indexFileProperties()
+        );
+
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(effectiveMeta1));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(3), is(meta3));
     }
 
     @Test
@@ -385,15 +452,15 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         // After prefix truncation, ordinal 0 is dropped; ordinals 1 and 2 must still be found correctly.
         groupMeta.truncatePrefix(75);
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(0), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(0), is(nullValue()));
 
         // meta2 was trimmed – the ordinal is the same but firstLogIndexInclusive changed.
-        IndexFileMeta trimmedMeta2 = groupMeta.indexMetaByFileOrdinal(1);
+        IndexFileMeta trimmedMeta2 = groupMeta.effectiveIndexMetaByFileOrdinal(1);
         assertThat(trimmedMeta2, is(notNullValue()));
         assertThat(trimmedMeta2.firstLogIndexInclusive(), is(75L));
         assertThat(trimmedMeta2.indexFileProperties(), is(new FileProperties(1)));
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(2), is(meta3));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(meta3));
     }
 
     @Test
@@ -413,15 +480,15 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         // After prefix truncation, ordinal 0 is dropped; ordinals 1 and 2 must still be found correctly.
         groupMeta.truncatePrefix(75);
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(nullValue()));
 
         // meta2 was trimmed – the ordinal is the same but firstLogIndexInclusive changed.
-        IndexFileMeta trimmedMeta2 = groupMeta.indexMetaByFileOrdinal(2);
+        IndexFileMeta trimmedMeta2 = groupMeta.effectiveIndexMetaByFileOrdinal(2);
         assertThat(trimmedMeta2, is(notNullValue()));
         assertThat(trimmedMeta2.firstLogIndexInclusive(), is(75L));
         assertThat(trimmedMeta2.indexFileProperties(), is(new FileProperties(2)));
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(3), is(meta3));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(3), is(meta3));
     }
 
     @Test
@@ -436,8 +503,29 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         var compactedMeta1 = new IndexFileMeta(1, 50, 0, new FileProperties(0, 1));
         groupMeta.onIndexCompacted(new FileProperties(0), compactedMeta1);
 
-        assertThat(groupMeta.indexMetaByFileOrdinal(0), is(compactedMeta1));
-        assertThat(groupMeta.indexMetaByFileOrdinal(1), is(meta2));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(0), is(compactedMeta1));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(meta2));
+    }
+
+    @Test
+    void testAddIndexMetaAfterFileRemoval() {
+        var meta1 = new IndexFileMeta(0, 50, 0, new FileProperties(0));
+        var meta2 = new IndexFileMeta(50, 100, 42, new FileProperties(1));
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta2);
+
+        groupMeta.onIndexRemoved(meta2.indexFileProperties());
+
+        var meta3 = new IndexFileMeta(50, 150, 84, new FileProperties(2));
+        groupMeta.addIndexMeta(meta3);
+
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(0), is(meta1));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(1), is(nullValue()));
+        assertThat(groupMeta.effectiveIndexMetaByFileOrdinal(2), is(meta3));
+
+        assertThat(groupMeta.indexMetaByLogIndex(25), is(meta1));
+        assertThat(groupMeta.indexMetaByLogIndex(50), is(meta3));
     }
 
     @RepeatedTest(100)
