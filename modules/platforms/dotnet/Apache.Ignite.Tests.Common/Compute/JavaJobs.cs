@@ -23,7 +23,7 @@ public static class JavaJobs
 {
     public const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
-    public const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
+    public const string ItThinClientComputeTest = "org.apache.ignite.internal.client.ItThinClientComputeTest";
 
     public static readonly JobDescriptor<object?, string> NodeNameJob = new(ItThinClientComputeTest + "$NodeNameJob");
 

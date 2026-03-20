@@ -49,7 +49,7 @@ public:
     inline static const std::string ENABLE_AUTHN_JOB = PLATFORM_TEST_NODE_RUNNER + "$EnableAuthenticationJob";
 
     inline static const std::string IT_THIN_CLIENT_COMPUTE_TEST =
-        "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
+        "org.apache.ignite.internal.client.ItThinClientComputeTest";
 
     inline static const std::string NODE_NAME_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$NodeNameJob";
     inline static const std::string SLEEP_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$SleepJob";

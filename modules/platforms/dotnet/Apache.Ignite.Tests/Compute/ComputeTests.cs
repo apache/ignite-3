@@ -157,7 +157,7 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Custom job error", ex!.Message);
 
             StringAssert.StartsWith(
-                "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
+                "org.apache.ignite.internal.client.ItThinClientComputeTest$CustomException",
                 ex.InnerException!.Message);
 
             Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
