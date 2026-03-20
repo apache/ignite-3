@@ -79,6 +79,7 @@ public class ClientSqlExecuteRequest {
      *         transaction.
      * @param notificationSender Notification sender is required to send acknowledge for underlying write operation within a remote
      *         transaction.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @param username Authenticated user name or {@code null} for unknown user.
      * @return Future representing result of operation.
      */
@@ -97,6 +98,7 @@ public class ClientSqlExecuteRequest {
             IgniteTables tables,
             ClockService clockService,
             NotificationSender notificationSender,
+            Map<Long, Long> reqToTxMap,
             @Nullable String username,
             boolean sqlMultistatementsSupported,
             boolean sqlPartitionAwarenessQualifiedNameSupported,
@@ -118,7 +120,9 @@ public class ClientSqlExecuteRequest {
                 txManager,
                 tables,
                 notificationSender,
-                resIdHolder
+                resIdHolder,
+                requestId,
+                reqToTxMap
         );
 
         ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementsSupported);

@@ -47,6 +47,7 @@ public class ClientSqlExecuteBatchRequest {
      * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
      *         thread.
      * @param username Authenticated user name.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -56,6 +57,7 @@ public class ClientSqlExecuteBatchRequest {
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap,
             HybridTimestampTracker tsTracker,
+            Map<Long, Long> reqToTxMap,
             String username
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
@@ -68,7 +70,9 @@ public class ClientSqlExecuteBatchRequest {
                 null,
                 null,
                 null,
-                null
+                null,
+                requestId,
+                reqToTxMap
         );
 
         ClientSqlProperties props = new ClientSqlProperties(in, false);

@@ -23,6 +23,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTupleRequest
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -46,6 +47,8 @@ public class ClientTupleContainsAllKeysRequest {
      * @param txManager    Transaction manager.
      * @param clockService Clock service.
      * @param tsTracker    Tracker.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @param supportsOptions {@code True} if supports tx options.
      * @return Future.
      */
@@ -56,11 +59,13 @@ public class ClientTupleContainsAllKeysRequest {
             TxManager txManager,
             ClockService clockService,
             HybridTimestampTracker tsTracker,
+            long requestId,
+            Map<Long, Long> reqToTxMap,
             boolean supportsOptions
     ) {
         EnumSet<RequestOptions> options = supportsOptions ? of(KEY_ONLY, HAS_OPTIONS) : of(KEY_ONLY);
 
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options)
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options, requestId, reqToTxMap)
                 .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())
                         .thenApply(containsAll -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

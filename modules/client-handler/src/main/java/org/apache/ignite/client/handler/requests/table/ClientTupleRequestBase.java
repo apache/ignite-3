@@ -25,6 +25,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTupleRequest
 
 import java.util.BitSet;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -91,7 +92,9 @@ class ClientTupleRequestBase {
             TxManager txManager,
             @Nullable NotificationSender notificationSender,
             HybridTimestampTracker tsTracker,
-            EnumSet<RequestOptions> options
+            EnumSet<RequestOptions> options,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
         int tableId = in.unpackInt();
 
@@ -105,7 +108,9 @@ class ClientTupleRequestBase {
                 tables,
                 options,
                 notificationSender,
-                resIdHolder
+                resIdHolder,
+                requestId,
+                reqToTxMap
         );
 
         int schemaId = in.unpackInt();

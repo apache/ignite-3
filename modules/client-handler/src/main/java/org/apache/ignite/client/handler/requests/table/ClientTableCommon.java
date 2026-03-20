@@ -30,6 +30,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResource;
@@ -421,6 +422,8 @@ public class ClientTableCommon {
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
      * @param resourceIdHolder Resource id holder.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @return Transaction, if present, or null.
      */
     public static CompletableFuture<@Nullable InternalTransaction> readTx(
@@ -430,7 +433,9 @@ public class ClientTableCommon {
             @Nullable TxManager txManager,
             @Nullable IgniteTables tables,
             @Nullable NotificationSender notificationSender,
-            long[] resourceIdHolder
+            long[] resourceIdHolder,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
         return readTx(
                 in,
@@ -440,6 +445,8 @@ public class ClientTableCommon {
                 tables,
                 notificationSender,
                 resourceIdHolder,
+                requestId,
+                reqToTxMap,
                 EnumSet.noneOf(RequestOptions.class)
         );
     }
@@ -453,6 +460,8 @@ public class ClientTableCommon {
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
      * @param resourceIdHolder Resource id holder.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @param options Request options. Defines how a request is processed.
      * @return Transaction, if present, or null.
      */
@@ -464,6 +473,8 @@ public class ClientTableCommon {
             @Nullable IgniteTables tables,
             @Nullable NotificationSender notificationSender,
             long[] resourceIdHolder,
+            long requestId,
+            Map<Long, Long> reqToTxMap,
             EnumSet<RequestOptions> options
     ) {
         if (in.tryUnpackNil()) {
@@ -509,6 +520,9 @@ public class ClientTableCommon {
 
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
+
+                // Record the mapping between first request and resourceId.
+                reqToTxMap.put(requestId, resourceIdHolder[0]);
 
                 return completedFuture(tx);
             } else if (id == TX_ID_DIRECT) {
@@ -589,9 +603,11 @@ public class ClientTableCommon {
             IgniteTables tables,
             EnumSet<RequestOptions> options,
             @Nullable NotificationSender notificationSender,
-            long[] resourceIdHolder
+            long[] resourceIdHolder,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
-        return readTx(in, readTs, resources, txManager, tables, notificationSender, resourceIdHolder, options)
+        return readTx(in, readTs, resources, txManager, tables, notificationSender, resourceIdHolder, requestId, reqToTxMap, options)
                 .thenApply(tx -> {
                     if (tx == null) {
                         // Implicit transactions do not use an observation timestamp because RW never depends on it,

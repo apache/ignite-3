@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -42,6 +43,8 @@ public class ClientSqlQueryMetadataRequest {
      * @param in Unpacker.
      * @param processor SQL API.
      * @param resources Resources.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -49,9 +52,11 @@ public class ClientSqlQueryMetadataRequest {
             ClientMessageUnpacker in,
             QueryProcessor processor,
             ClientResourceRegistry resources,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
-        CompletableFuture<InternalTransaction> txFut = readTx(in, tsTracker, resources, null, null, null, null);
+        CompletableFuture<InternalTransaction> txFut = readTx(in, tsTracker, resources, null, null, null, null, requestId, reqToTxMap);
 
         String schema = in.unpackString();
         String query = in.unpackString();

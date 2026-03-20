@@ -21,7 +21,9 @@ import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.readAsync;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -42,6 +44,8 @@ public class ClientTupleContainsKeyRequest {
      * @param tables    Ignite tables.
      * @param resources Resource registry.
      * @param txManager Transaction manager.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -50,9 +54,11 @@ public class ClientTupleContainsKeyRequest {
             ClientResourceRegistry resources,
             TxManager txManager,
             ClockService clockService,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, of(READ_ONLY, KEY_ONLY))
+        return readAsync(in, tables, resources, txManager, null, tsTracker, of(READ_ONLY, KEY_ONLY), requestId, reqToTxMap)
                 .thenCompose(req -> req.table().recordView().containsAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);
