@@ -70,16 +70,16 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         UUID older = TestTransactionIds.newTransactionId();
         UUID newer = TestTransactionIds.newTransactionId();
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), LockMode.IX);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(older, lockKey(), LockMode.IX);
         assertTrue(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertFalse(fut2.isDone());
 
-        lockManager.releaseAll(newer);
+        lockManager.releaseAll(older);
         fut2.join();
 
-        lockManager.releaseAll(older);
+        lockManager.releaseAll(newer);
     }
 
     @Test
@@ -104,12 +104,13 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
     @Test
     public void testComplex() {
         // Older.
-        UUID txId4 = TestTransactionIds.newTransactionId();
-        UUID txId5 = TestTransactionIds.newTransactionId();
-        // Newer.
         UUID txId1 = TestTransactionIds.newTransactionId();
         UUID txId2 = TestTransactionIds.newTransactionId();
         UUID txId3 = TestTransactionIds.newTransactionId();
+
+        // Newer.
+        UUID txId4 = TestTransactionIds.newTransactionId();
+        UUID txId5 = TestTransactionIds.newTransactionId();
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
         assertTrue(fut1.isDone());
@@ -265,20 +266,20 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         UUID older = TestTransactionIds.newTransactionId();
         UUID newer = TestTransactionIds.newTransactionId();
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), LockMode.IX);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(older, lockKey(), LockMode.IX);
         assertTrue(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), LockMode.S);
         assertTrue(fut2.isDone());
 
-        CompletableFuture<Lock> fut3 = lockManager.acquire(older, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut3 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertFalse(fut3.isDone());
 
-        lockManager.releaseAll(newer);
+        lockManager.releaseAll(older);
 
         fut3.join();
 
-        lockManager.releaseAll(older);
+        lockManager.releaseAll(newer);
     }
 
     @Test
@@ -286,20 +287,20 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         UUID older = TestTransactionIds.newTransactionId();
         UUID newer = TestTransactionIds.newTransactionId();
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(older, lockKey(), LockMode.S);
         assertTrue(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.IX);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), LockMode.IX);
         assertTrue(fut2.isDone());
 
-        CompletableFuture<Lock> fut3 = lockManager.acquire(older, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut3 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertFalse(fut3.isDone());
 
-        lockManager.releaseAll(newer);
+        lockManager.releaseAll(older);
 
         fut3.join();
 
-        lockManager.releaseAll(older);
+        lockManager.releaseAll(newer);
     }
 
     @Test
@@ -345,17 +346,18 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey2(), LockMode.IX);
         assertTrue(fut2.isDone());
 
+        // For coarse locks only younger transactions are allowed to wait to break potential cycle in wait graph.
         CompletableFuture<Lock> fut3 = lockManager.acquire(newer, lockKey2(), LockMode.S);
-        assertThrowsWithCause(fut3::join, LockException.class);
+        assertFalse(fut3.isDone());
 
         CompletableFuture<Lock> fut4 = lockManager.acquire(older, lockKey(), LockMode.S);
-        assertFalse(fut4.isDone());
-
-        lockManager.releaseAll(newer);
-
-        fut4.join();
+        assertThrowsWithCause(fut4::join, LockException.class);
 
         lockManager.releaseAll(older);
+
+        fut3.join();
+
+        lockManager.releaseAll(newer);
     }
 
     @Test
@@ -363,17 +365,17 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         UUID older = TestTransactionIds.newTransactionId();
         UUID newer = TestTransactionIds.newTransactionId();
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), LockMode.IX);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(older, lockKey(), LockMode.IX);
         assertTrue(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertFalse(fut2.isDone());
 
-        lockManager.releaseAll(older);
+        lockManager.releaseAll(newer);
 
         fut2.join();
 
-        lockManager.releaseAll(newer);
+        lockManager.releaseAll(older);
     }
 
     @Test
@@ -381,18 +383,18 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
         UUID older = TestTransactionIds.newTransactionId();
         UUID newer = TestTransactionIds.newTransactionId();
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), LockMode.IX);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(older, lockKey(), LockMode.IX);
         assertTrue(fut1.isDone());
 
         // Currently only S locks are allowed to wait.
-        CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), LockMode.S);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertFalse(fut2.isDone());
 
         // Should do nothing.
-        lockManager.failAllWaiters(newer, new Exception());
+        lockManager.failAllWaiters(older, new Exception());
         assertFalse(fut2.isDone());
 
-        lockManager.failAllWaiters(older, new Exception("test"));
+        lockManager.failAllWaiters(newer, new Exception("test"));
         assertThat(fut2, willThrowWithCauseOrSuppressed(Exception.class, "test"));
 
         lockManager.releaseAll(older);

@@ -628,7 +628,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 assert false : "Should not reach here";
                             }
 
-                            // Deadlock are not possible for coarse locks, because IX locks don't wait.
+                            // Prevent deadlocks by allowing only younger transactions to wait.
+                            for (Lock lock : ixlockOwners.values()) {
+                                if (deadlockPreventionPolicy.txIdComparator().compare(txId, lock.txId()) < 0) {
+                                    return notifyAndFail(txId, lock.txId(), lockMode, lock.lockMode());
+                                }
+                            }
 
                             if (!track(txId, this)) {
                                 return failedFuture(resolveTransactionSealedException(txId));
