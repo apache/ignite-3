@@ -24,13 +24,13 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MA
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
