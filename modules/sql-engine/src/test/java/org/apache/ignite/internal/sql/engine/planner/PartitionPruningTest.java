@@ -581,7 +581,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                     2L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=101, 1=42], [0=101, 1=99]]"
             ), actual);
         }
-        
+
         // Simple selects are not constant-folded
         {
             String query = "UPDATE t SET c3 = 100 WHERE c2 = (SELECT 42) and c1 = (SELECT 99)";
@@ -658,9 +658,6 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(table);
         IgniteRel rel = physicalPlan(query, schema);
-        
-        log.info("Query: {}", query);
-        log.info("Plan:\n{}", rel.explain());
 
         return extractor.go(rel.accept(new AssignSourceIds()));
     }
