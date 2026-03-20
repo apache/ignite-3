@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
-import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
  * Class that represents a Binary Tuple Prefix.
  *
  * @see BinaryTuplePrefixBuilder BinaryTuplePrefixBuilder for information about the Binary Tuple Prefix format.
  */
-public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTuple {
+public class BinaryTuplePrefix extends BinaryTupleReader {
 
     /**
      * Constructor.
