@@ -66,6 +66,8 @@ class RunInTransactionInternalImpl {
             try {
                 ret = clo.apply(tx);
 
+                tx.commit(); // Commit is retriable.
+
                 break;
             } catch (Exception ex) {
                 addSuppressedToList(suppressed, ex);
@@ -96,19 +98,6 @@ class RunInTransactionInternalImpl {
                     throwExceptionWithSuppressed(ex, suppressed);
                 }
             }
-        }
-
-        try {
-            tx.commit();
-        } catch (Exception e) {
-            try {
-                // Try to rollback tx in case if it's not finished. Retry is not needed here due to the durable finish.
-                tx.rollback();
-            } catch (Exception re) {
-                e.addSuppressed(re);
-            }
-
-            throw e;
         }
 
         return ret;
@@ -158,6 +147,7 @@ class RunInTransactionInternalImpl {
                 .thenCompose(tx -> {
                     try {
                         return clo.apply(tx)
+                                .thenCompose(res -> tx.commitAsync().thenApply(ignored -> res))
                                 .handle((res, e) -> {
                                     if (e != null) {
                                         return handleClosureException(
@@ -173,30 +163,11 @@ class RunInTransactionInternalImpl {
                                     } else {
                                         return completedFuture(res);
                                     }
-                                })
-                                .thenCompose(identity())
-                                .thenApply(res -> new TxWithVal<>(tx, res));
+                                }).thenCompose(identity());
                     } catch (Exception e) {
-                        return handleClosureException(igniteTransactions, tx, clo, txOptions, startTimestamp, initialTimeout, sup, e)
-                                .thenApply(res -> new TxWithVal<>(tx, res));
+                        return handleClosureException(igniteTransactions, tx, clo, txOptions, startTimestamp, initialTimeout, sup, e);
                     }
-                })
-                // Transaction commit with rollback on failure, without retries.
-                // Transaction rollback on closure failure is implemented in closure retry logic.
-                .thenCompose(txWithVal ->
-                        txWithVal.tx.commitAsync()
-                                .handle((ignored, e) -> {
-                                    if (e == null) {
-                                        return completedFuture(null);
-                                    } else {
-                                        return txWithVal.tx.rollbackAsync()
-                                                // Rethrow commit exception.
-                                                .handle((ign, re) -> sneakyThrow(e));
-                                    }
-                                })
-                                .thenCompose(fut -> fut)
-                                .thenApply(ignored -> txWithVal.val)
-                );
+                });
     }
 
     private static <T> CompletableFuture<T> handleClosureException(
@@ -346,15 +317,5 @@ class RunInTransactionInternalImpl {
 
     private static <E extends Throwable> E sneakyThrow(Throwable e) throws E {
         throw (E) e;
-    }
-
-    private static class TxWithVal<T> {
-        private final Transaction tx;
-        private final T val;
-
-        private TxWithVal(Transaction tx, T val) {
-            this.tx = tx;
-            this.val = val;
-        }
     }
 }
