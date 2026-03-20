@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogVersionsSpan;
 import org.apache.ignite.internal.partition.replicator.schema.ColumnDefinitionDiff;
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff;
@@ -48,7 +49,7 @@ public class SchemaCompatibilityValidator {
     private final SchemaSyncService schemaSyncService;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
-    private final ConcurrentMap<TableDefinitionDiffKey, ValidationResult> forwardDiffToResultCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogVersionsSpan, CompatValidationResult> forwardCompatValidationResultCache = new ConcurrentHashMap<>();
 
     private static final List<ForwardCompatibilityValidator> FORWARD_COMPATIBILITY_VALIDATORS = List.of(
             new RenameTableValidator(),
@@ -140,16 +141,26 @@ public class SchemaCompatibilityValidator {
 
         assert !tableSchemas.isEmpty() : "No table schemas for table " + tableId + " between " + beginTimestamp + " and " + commitTimestamp;
 
-        ValidationContext context = new ValidationContext(tableSchemas.get(0).catalogVersion());
+        int initialSchemaCatalogVersion = tableSchemas.get(0).catalogVersion();
+        int commitSchemaCatalogVersion = tableSchemas.get(tableSchemas.size() - 1).catalogVersion();
+
+        return forwardCompatValidationResultCache.computeIfAbsent(
+                new CatalogVersionsSpan(tableId, initialSchemaCatalogVersion, commitSchemaCatalogVersion),
+                key -> validateForwardSchemaCompatibility(initialSchemaCatalogVersion, tableSchemas)
+        );
+    }
+
+    private static CompatValidationResult validateForwardSchemaCompatibility(
+            int initialSchemaCatalogVersion,
+            List<FullTableSchema> tableSchemas
+    ) {
+        ValidationContext context = new ValidationContext(initialSchemaCatalogVersion);
 
         for (int i = 0; i < tableSchemas.size() - 1; i++) {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
 
-            ValidationResult validationResult = forwardDiffToResultCache.computeIfAbsent(
-                    new TableDefinitionDiffKey(oldSchema.tableId(), oldSchema.catalogVersion(), newSchema.catalogVersion()),
-                    key -> validateForwardSchemaCompatibility(oldSchema, newSchema, context)
-            );
+            ValidationResult validationResult = validateForwardSchemaCompatibility(oldSchema, newSchema, context);
 
             if (validationResult.verdict == ValidatorVerdict.INCOMPATIBLE) {
                 return CompatValidationResult.incompatibleChange(

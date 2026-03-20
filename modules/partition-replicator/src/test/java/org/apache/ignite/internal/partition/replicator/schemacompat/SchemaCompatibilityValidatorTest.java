@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_L
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasS
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
@@ -96,7 +96,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     private final HybridTimestamp commitTimestamp = new HybridTimestamp(2, 2);
 
-    private final UUID txId = TransactionIds.transactionId(beginTimestamp, 0);
+    private final UUID txId = transactionId(beginTimestamp, 0);
 
     private static final int TABLE_ID = 1;
     private static final String TABLE_NAME = "test";
@@ -379,6 +379,47 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat(result.failedTableName(), is(TABLE_NAME));
         assertThat(result.fromSchemaVersion(), is(1));
         assertThat(result.toSchemaVersion(), is(2));
+    }
+
+    @Test
+    void doesNotCacheStaleResultForDifferentInitialCatalogVersions() {
+        HybridTimestamp beginTsA = new HybridTimestamp(1, 1);
+        HybridTimestamp beginTsB = new HybridTimestamp(2, 1);
+        HybridTimestamp sharedCommitTs = new HybridTimestamp(5, 1);
+
+        UUID txIdA = transactionId(beginTsA, 0);
+        UUID txIdB = transactionId(beginTsB, 0);
+
+        Catalog catalogAtCommit = mock(Catalog.class);
+        when(catalogAtCommit.table(TABLE_ID)).thenReturn(mock(CatalogTableDescriptor.class));
+        when(catalogService.activeCatalog(sharedCommitTs.longValue())).thenReturn(catalogAtCommit);
+
+        List<CatalogTableColumnDescriptor> cols1 = List.of(intColumn("col1"));
+        List<CatalogTableColumnDescriptor> cols2 = List.of(intColumn("col1"), nullableIntColumn("col2"));
+
+        // catalogVersion=1: one column, no index.
+        FullTableSchema v1 = tableSchema(1, 1, TABLE_NAME, cols1);
+        // catalogVersion=2: nullable col2 added; index 10 registered here (not yet building).
+        FullTableSchema v2 = tableSchema(2, 2, TABLE_NAME, cols2);
+        // catalogVersion=3: same schema, index 10 started building; it was registered at catalog version 2.
+        FullTableSchema v3 = tableSchema(3, 2, TABLE_NAME, cols2, Int2IntMaps.singleton(10, 2));
+
+        // Tx A starts at catalog v2 — only sees [v2, v3].
+        when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTsA, sharedCommitTs))
+                .thenReturn(List.of(v2, v3));
+        // Tx B starts at catalog v1 — sees the full range [v1, v2, v3].
+        when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTsB, sharedCommitTs))
+                .thenReturn(List.of(v1, v2, v3));
+
+        CompletableFuture<CompatValidationResult> resultA = validator.validateCommit(txIdA, Set.of(TABLE_ID), sharedCommitTs);
+        assertThat(resultA, willCompleteSuccessfully());
+        assertThat("Tx A should be compatible (it saw the index when it started)",
+                resultA.getNow(null).isSuccessful(), is(true));
+
+        CompletableFuture<CompatValidationResult> resultB = validator.validateCommit(txIdB, Set.of(TABLE_ID), sharedCommitTs);
+        assertThat(resultB, willCompleteSuccessfully());
+        assertThat("Tx B should be incompatible (index was created and started building after Tx B began)",
+                resultB.getNow(null).isSuccessful(), is(false));
     }
 
     private static CatalogTableColumnDescriptor intColumn(String columnName) {

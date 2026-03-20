@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.schema;
 import static java.util.stream.Collectors.toList;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.List;
@@ -182,7 +183,7 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
     }
 
     private Int2IntMap indexesJustStartedBeingBuilt(CatalogTableDescriptor tableDescriptor, Catalog catalog) {
-        Int2IntMap indexesJustStartedBeingBuilt = new Int2IntOpenHashMap();
+        Int2IntMap indexesJustStartedBeingBuilt = Int2IntMaps.EMPTY_MAP;
 
         for (CatalogIndexDescriptor index : catalog.indexes(tableDescriptor.id())) {
             if (index.status() == CatalogIndexStatus.BUILDING) {
@@ -194,60 +195,20 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
                 }
 
                 MetaIndexStatusChange changeToBuilding = indexMeta.statusChange(MetaIndexStatus.BUILDING);
-                if (changeToBuilding == null) {
-                    throw new IllegalStateException(
-                            "Index " + index.id() + " is being built, but its status was never changed to BUILDING"
-                    );
-                }
 
                 if (catalog.version() == changeToBuilding.catalogVersion()) {
                     // The index has just become being built.
+
+                    if (indexesJustStartedBeingBuilt.isEmpty()) {
+                        indexesJustStartedBeingBuilt = new Int2IntOpenHashMap();
+                    }
+
                     indexesJustStartedBeingBuilt.put(index.id(), indexMeta.statusChange(MetaIndexStatus.REGISTERED).catalogVersion());
                 }
             }
         }
 
         return indexesJustStartedBeingBuilt;
-    }
-
-    private static class CatalogVersionsSpan {
-        private final int tableId;
-        private final int fromCatalogVersion;
-        private final int toCatalogVersion;
-
-        private CatalogVersionsSpan(int tableId, int fromCatalogVersion, int toCatalogVersion) {
-            this.tableId = tableId;
-            this.fromCatalogVersion = fromCatalogVersion;
-            this.toCatalogVersion = toCatalogVersion;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            CatalogVersionsSpan that = (CatalogVersionsSpan) o;
-
-            if (tableId != that.tableId) {
-                return false;
-            }
-            if (fromCatalogVersion != that.fromCatalogVersion) {
-                return false;
-            }
-            return toCatalogVersion == that.toCatalogVersion;
-        }
-
-        @Override
-        public int hashCode() {
-            int result = tableId;
-            result = 31 * result + fromCatalogVersion;
-            result = 31 * result + toCatalogVersion;
-            return result;
-        }
     }
 
     private static class CatalogVersionToTableVersionSpan {
