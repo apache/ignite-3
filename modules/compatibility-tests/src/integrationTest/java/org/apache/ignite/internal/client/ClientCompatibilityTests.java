@@ -237,6 +237,50 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
+    default void testSqlBatchException() {
+        // Insert initial row to trigger constraint violation
+        int duplicateId = idGen().incrementAndGet();
+        client().sql().execute((Transaction) null, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", duplicateId, "initial");
+
+        // Create batch where some rows will succeed and one will fail with duplicate key
+        int id1 = idGen().incrementAndGet();
+        int id2 = idGen().incrementAndGet();
+        int id3 = idGen().incrementAndGet();
+        int id4 = idGen().incrementAndGet();
+
+        BatchedArguments args = BatchedArguments.create()
+                .add(id1, "test1")
+                .add(id2, "test2")
+                .add(id3, "test3")
+                .add(duplicateId, "duplicate") // This will fail - duplicate primary key
+                .add(id4, "test4"); // This won't be executed due to error
+
+        var ex = assertThrows(
+                org.apache.ignite.sql.SqlBatchException.class,
+                () -> client().sql().executeBatch(null, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", args));
+
+        // Verify error extensions: update counters should reflect 3 successful inserts before the error
+        // Note: Old clients (before SQL_UPDATE_COUNTERS_2 support) will have null updateCounters()
+        // because they don't support the new binary format extension
+        if (ex.updateCounters() != null) {
+            assertEquals(3, ex.updateCounters().length, "Expected 3 successful updates before error");
+
+            // Verify all successful inserts have counter = 1
+            for (long counter : ex.updateCounters()) {
+                assertEquals(1, counter, "Each successful insert should have update count = 1");
+            }
+        }
+
+        // Verify the successful rows were actually inserted
+        List<SqlRow> rows = sql("SELECT * FROM " + TABLE_NAME_TEST + " WHERE id IN (?, ?, ?)", id1, id2, id3);
+        assertEquals(3, rows.size(), "The 3 rows before the error should have been inserted");
+
+        // Verify the row after the error was not inserted
+        List<SqlRow> notInserted = sql("SELECT * FROM " + TABLE_NAME_TEST + " WHERE id = ?", id4);
+        assertEquals(0, notInserted.size(), "Row after the error should not have been inserted");
+    }
+
+    @Test
     default void testRecordViewOperations() {
         int id = idGen().incrementAndGet();
         int id2 = idGen().incrementAndGet();
