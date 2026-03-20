@@ -37,7 +37,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
