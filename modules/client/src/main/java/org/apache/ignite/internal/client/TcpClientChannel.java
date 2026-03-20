@@ -658,7 +658,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
                 expectedSchemaVersion = unpacker.unpackInt();
-            } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
+            } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS_2)) {
                 return new SqlBatchException(traceId, code, unpacker.unpackLongArray(),
                         errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {

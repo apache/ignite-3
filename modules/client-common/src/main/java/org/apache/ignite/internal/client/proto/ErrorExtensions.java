@@ -23,7 +23,8 @@ package org.apache.ignite.internal.client.proto;
 public class ErrorExtensions {
     public static final String EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
 
-    public static final String SQL_UPDATE_COUNTERS = "sql-update-counters";
+    // Replaces "sql-update-counters" which used problematic array format.
+    public static final String SQL_UPDATE_COUNTERS_2 = "sql-update-counters-2";
 
     public static final String DELAYED_ACK = "delayed-ack";
 
