@@ -796,8 +796,12 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return Array of longs.
      */
-    public long[] unpackLongArrayAsBinary() {
+    public long @Nullable [] unpackLongArrayAsBinary() {
         assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
 
         int binSize = unpackBinaryHeader();
         long[] res = new long[binSize / 8];
