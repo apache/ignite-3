@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.index;
+package org.apache.ignite.internal.partition.replicator.index;
 
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableNavigableMap;
@@ -92,7 +92,7 @@ public class IndexMeta {
      * @param indexId Catalog index ID.
      * @param catalog Catalog version from which the {@code catalogIndexDescriptor} was taken.
      */
-    static IndexMeta of(int indexId, Catalog catalog) {
+    public static IndexMeta of(int indexId, Catalog catalog) {
         CatalogIndexDescriptor catalogIndexDescriptor = catalog.index(indexId);
 
         assert catalogIndexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
@@ -148,7 +148,7 @@ public class IndexMeta {
      * @param newIndexName New index name.
      * @return New instance of the index meta with only a new index name.
      */
-    IndexMeta indexName(int catalogVersion, String newIndexName) {
+    public IndexMeta indexName(int catalogVersion, String newIndexName) {
         return new IndexMeta(
                 catalogVersion,
                 indexId,
@@ -174,7 +174,7 @@ public class IndexMeta {
      * @return New instance of the index meta with a change in the current status and status history updates.
      * @see Catalog#time()
      */
-    IndexMeta status(MetaIndexStatus newStatus, int catalogVersion, long activationTs) {
+    public IndexMeta status(MetaIndexStatus newStatus, int catalogVersion, long activationTs) {
         assert !statusChanges.containsKey(newStatus) :
                 String.format("newStatus=%s, catalogVersion=%d, indexName=%s", newStatus, catalogVersion, indexName);
 

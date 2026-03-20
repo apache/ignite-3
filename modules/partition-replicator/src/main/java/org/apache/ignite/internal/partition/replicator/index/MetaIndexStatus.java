@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.index;
+package org.apache.ignite.internal.partition.replicator.index;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -98,7 +98,7 @@ public enum MetaIndexStatus {
      * @param code Code to use when searching.
      * @throws IllegalArgumentException If there is no status with the provided code.
      */
-    static MetaIndexStatus findByCode(int code) {
+    public static MetaIndexStatus findByCode(int code) {
         MetaIndexStatus status = VALUES_INDEXED_BY_CODE[code];
 
         if (status == null) {
@@ -130,7 +130,7 @@ public enum MetaIndexStatus {
     }
 
     /** Returns the index status on an index removal event from a catalog, based on the previous status. */
-    static MetaIndexStatus statusOnRemoveIndex(MetaIndexStatus previousStatus) {
+    public static MetaIndexStatus statusOnRemoveIndex(MetaIndexStatus previousStatus) {
         switch (previousStatus) {
             case REGISTERED:
             case BUILDING:

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.index;
+package org.apache.ignite.internal.partition.replicator.index;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.tostring.S;
