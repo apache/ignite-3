@@ -62,6 +62,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -264,7 +265,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
     /** Secondary indices. */
-    private final Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
+    private final Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages;
 
     /** Versioned partition storage. */
     private final MvPartitionStorage mvDataStorage;
@@ -293,7 +294,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
 
-    private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
+    private final Supplier<Int2ObjectMap<IndexLocker>> indexesLockers;
 
     private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
@@ -371,9 +372,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             Executor scanRequestExecutor,
             ZonePartitionId replicationGroupId,
             int tableId,
-            Supplier<Map<Integer, IndexLocker>> indexesLockers,
+            Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TransactionStateResolver transactionStateResolver,
@@ -636,10 +637,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 ? nullCompletedFuture()
                 : safeTime.waitFor(readTimestamp);
 
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+        Integer indexToUse = request.indexToUse();
+        if (indexToUse != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(indexToUse.intValue());
 
-            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
+            throwsIfIndexNotFound(indexToUse, indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -964,10 +966,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return Listener response.
      */
     private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+        Integer indexToUse = request.indexToUse();
+        if (indexToUse != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(indexToUse.intValue());
 
-            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
+            throwsIfIndexNotFound(indexToUse, indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
