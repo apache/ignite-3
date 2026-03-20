@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.cluster;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Rest.CLUSTER_NOT_INIT_ERR;
+import static org.jsoup.internal.StringUtil.isBlank;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -104,7 +105,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
     public CompletableFuture<ClusterTag> rename(String newName) {
         LOG.info("Received rename command with new name = '{}'", newName);
 
-        if (newName.trim().isEmpty()) {
+        if (isBlank(newName)) {
             return CompletableFuture.failedFuture(mapRenameException(new IllegalArgumentException("Cluster name must not be empty")));
         }
 
