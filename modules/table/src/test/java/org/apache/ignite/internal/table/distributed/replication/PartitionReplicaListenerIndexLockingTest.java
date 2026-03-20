@@ -46,6 +46,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -259,10 +260,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 Runnable::run,
                 new ZonePartitionId(ZONE_ID, PART_ID),
                 TABLE_ID,
-                () -> Map.of(
-                        pkLocker.id(), pkLocker,
-                        hashIndexLocker.id(), hashIndexLocker,
-                        sortedIndexLocker.id(), sortedIndexLocker
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
+                        Int2ObjectMap.entry(hashIndexLocker.id(), hashIndexLocker),
+                        Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexLocker)
                 ),
                 pkStorage,
                 () -> Map.of(

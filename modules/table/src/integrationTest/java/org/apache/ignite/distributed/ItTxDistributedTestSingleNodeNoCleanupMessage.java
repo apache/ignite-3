@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -177,7 +178,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     Executor scanRequestExecutor,
                     ZonePartitionId replicationGroupId,
                     int tableId,
-                    Supplier<Map<Integer, IndexLocker>> indexesLockers,
+                    Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
                     Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
                     Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
                     ClockService clockService,

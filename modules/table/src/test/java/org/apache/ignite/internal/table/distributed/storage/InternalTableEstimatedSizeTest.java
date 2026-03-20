@@ -42,6 +42,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -330,7 +331,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 ForkJoinPool.commonPool(),
                 new ZonePartitionId(ZONE_ID, partId),
                 TABLE_ID,
-                Map::of,
+                Int2ObjectMaps::emptyMap,
                 new Lazy<>(() -> null),
                 Map::of,
                 clockService,

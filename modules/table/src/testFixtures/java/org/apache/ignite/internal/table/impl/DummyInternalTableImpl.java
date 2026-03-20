@@ -33,6 +33,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -484,7 +485,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Runnable::run,
                 zonePartitionId,
                 tableId,
-                () -> Map.of(pkLocker.id(), pkLocker),
+                () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                 pkStorage,
                 Map::of,
                 CLOCK_SERVICE,
