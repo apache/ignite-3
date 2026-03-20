@@ -152,7 +152,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             @Nullable RowId rowId,
             @Nullable HybridTimestamp newestCommitTimestamp
     ) {
-        // The state is either null or PENDING or ABANDONED, other states have been filtered out previously.lo
+        // The state is either null or PENDING or ABANDONED, other states have been filtered out previously
         assert txStateMeta == null || txStateMeta.txState() == PENDING || txStateMeta.txState() == ABANDONED
                 : "Unexpected transaction state: " + txStateMeta;
 
