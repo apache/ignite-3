@@ -406,7 +406,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 placementDriverHelper,
                 txStateVolatileStorage,
                 writeIntentSwitchPool,
-                commonScheduler
+                commonScheduler,
+                topologyService
         );
 
         txMetrics = new TransactionMetricsSource(clockService);
