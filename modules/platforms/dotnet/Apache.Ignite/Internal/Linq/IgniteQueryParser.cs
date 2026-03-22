@@ -17,8 +17,14 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading;
 using Dml;
+using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Parsing.ExpressionVisitors.Transformation;
 using Remotion.Linq.Parsing.ExpressionVisitors.TreeEvaluation;
 using Remotion.Linq.Parsing.Structure;
@@ -44,6 +50,7 @@ internal static class IgniteQueryParser
     private static QueryParser CreateParser()
     {
         var transformerRegistry = ExpressionTransformerRegistry.CreateDefault();
+        transformerRegistry.Register(new MyCass());
 
         var proc = CreateCompoundProcessor(transformerRegistry);
 
@@ -62,6 +69,7 @@ internal static class IgniteQueryParser
         methodInfoRegistry.Register(ExecuteDeleteExpressionNode.MethodInfos, typeof(ExecuteDeleteExpressionNode));
         methodInfoRegistry.Register(ExecuteUpdateExpressionNode.MethodInfos, typeof(ExecuteUpdateExpressionNode));
 
+        // methodInfoRegistry.Register(MemoryExtensionsContainsExpressionNode.MethodInfos, typeof(MemoryExtensionsContainsExpressionNode));
         return new CompoundNodeTypeProvider(new INodeTypeProvider[]
         {
             methodInfoRegistry,
@@ -89,5 +97,49 @@ internal static class IgniteQueryParser
     private sealed class NullEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
     {
         // No-op.
+    }
+
+    /// <summary>
+    /// Empty implementation of IEvaluatableExpressionFilter.
+    /// </summary>
+    private sealed class MyCass : IExpressionTransformer<MethodCallExpression>
+    {
+        private static readonly MethodInfo SourceMethodInfo = typeof(MemoryExtensions)
+            .GetMethod(nameof(MemoryExtensions.Contains), [
+                typeof(ReadOnlySpan<>).MakeGenericType(Type.MakeGenericMethodParameter(0)),
+                Type.MakeGenericMethodParameter(0)
+            ])!;
+
+        private static readonly MethodInfo TargetMethodInfo = typeof(Enumerable)
+            .GetMethod(nameof(Enumerable.Contains), [
+                typeof(IEnumerable<>).MakeGenericType(Type.MakeGenericMethodParameter(0)),
+                Type.MakeGenericMethodParameter(0)
+            ])!;
+
+        public Expression Transform(MethodCallExpression expression)
+        {
+            if (expression.Method.IsConstructedGenericMethod && expression.Method.GetGenericMethodDefinition() == SourceMethodInfo)
+            {
+                var genericType = expression.Method.GetGenericArguments()[0];
+                var target = TargetMethodInfo.MakeGenericMethod(genericType);
+
+                var enumerable = expression.Arguments[0];
+                var exceptionExpression = enumerable as PartialEvaluationExceptionExpression;
+                var exceptionExpressionEvaluatedExpression = exceptionExpression?.EvaluatedExpression;
+                var argument = (exceptionExpressionEvaluatedExpression as MethodCallExpression)?.Arguments[0]!;
+
+                var targetProp = expression.Arguments[1];
+
+                return Expression.Call(target, argument, targetProp);
+            }
+
+            return expression;
+        }
+
+#pragma warning disable CA1819
+#pragma warning disable SA1201
+        public ExpressionType[] SupportedExpressionTypes => [ExpressionType.Call];
+#pragma warning restore SA1201
+#pragma warning restore CA1819
     }
 }
