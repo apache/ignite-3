@@ -127,6 +127,7 @@ abstract class AbstractTarget implements ExecutionTarget {
         return allOf;
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     static ExecutionTarget colocate(AllOfTarget allOf, PartitionedTarget partitioned) throws ColocationMappingException {
         throw new ColocationMappingException("AllOf target and Partitioned can't be colocated");
     }
@@ -203,7 +204,6 @@ abstract class AbstractTarget implements ExecutionTarget {
             newPartitionsNodes[partNo] = newNodes;
             finalised = finalised && isPow2(newNodes);
         }
-
 
         if (!Arrays.equals(partitioned.enlistmentConsistencyTokens, otherPartitioned.enlistmentConsistencyTokens)) {
             throw new ColocationMappingException("Partitioned targets have different terms");

@@ -18,17 +18,21 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -37,6 +41,11 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
+     * Returns transaction metrics source.
+     */
+    TransactionMetricsSource transactionMetricsSource();
+
+    /**
      * Starts an implicit read-write transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
@@ -44,7 +53,7 @@ public interface TxManager extends IgniteComponent {
      * @return The transaction.
      */
     default InternalTransaction beginImplicitRw(HybridTimestampTracker timestampTracker) {
-        return beginImplicit(timestampTracker, false);
+        return beginImplicit(timestampTracker, false, null);
     }
 
     /**
@@ -55,7 +64,7 @@ public interface TxManager extends IgniteComponent {
      * @return The transaction.
      */
     default InternalTransaction beginImplicitRo(HybridTimestampTracker timestampTracker) {
-        return beginImplicit(timestampTracker, true);
+        return beginImplicit(timestampTracker, true, null);
     }
 
     /**
@@ -63,10 +72,11 @@ public interface TxManager extends IgniteComponent {
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
-     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @param readOnly {@code true} in order to start a read snapshot transaction, {@code false} in order to start read-write one.
+     * @param txLabel Transaction label.
      * @return The transaction.
      */
-    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
+    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, @Nullable String txLabel);
 
     /**
      * Starts an explicit read-write transaction coordinated by a local node.
@@ -81,7 +91,7 @@ public interface TxManager extends IgniteComponent {
     }
 
     /**
-     * Starts an explicit read-only transaction coordinated by a local node.
+     * Starts an explicit read snapshot transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
@@ -116,7 +126,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @return Remote transaction.
      */
-    InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);
+    InternalTransaction beginRemote(UUID txId, ZonePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);
 
     /**
      * Returns a transaction state meta.
@@ -137,21 +147,34 @@ public interface TxManager extends IgniteComponent {
     <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);
 
     /**
+     * Atomically replaces metadata of an already existing transaction state, but only if the resulting state keeps the same
+     * {@link TxStateMeta#txState()} value.
+     *
+     * <p>If the transaction is absent, the update is skipped. If the updater returns {@code null}, the existing metadata is preserved and
+     * the removal is skipped. If the updater changes {@code txState}, the update is skipped as well. Otherwise, the returned metadata is
+     * stored as-is, so this method may be used for any non-state changes.
+     *
+     * @param txId Transaction id.
+     * @param updater Transaction meta updater.
+     * @return Stored transaction state after the operation.
+     */
+    @Nullable
+    <T extends TxStateMeta> T enrichTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);
+
+    /**
      * Returns lock manager.
      *
      * @return Lock manager for the given transactions manager.
-     * @deprecated Use lockManager directly.
      */
-    @Deprecated
+    @TestOnly
     LockManager lockManager();
 
     /**
-     * Execute write intent switch asynchronously.
+     * Executor that writes intent switch asynchronously.
      *
-     * @param runnable Write intent switch action.
-     * @return Future that completes once the write intent switch action finishes.
+     * @return Executor.
      */
-    CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable);
+    Executor writeIntentSwitchExecutor();
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
@@ -160,11 +183,14 @@ public interface TxManager extends IgniteComponent {
      *         updated with commit timestamp of every committed transaction. Not null on commit.
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
-     * @param commit {@code True} if a commit requested.
-     * @param timeoutExceeded {@code True} if a timeout exceeded. 'commit' and timeout must not be {@code} True at the same time.
+     * @param commit {@code true} if a commit requested.
      */
-    void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    CompletableFuture<Void> finishFull(
+            HybridTimestampTracker timestampTracker,
+            UUID txId,
+            @Nullable HybridTimestamp ts,
+            boolean commit,
+            Throwable finishReason
     );
 
     /**
@@ -173,17 +199,21 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
-     * @param commit {@code true} if a commit requested.
-     * @param timeoutExceeded {@code true} if a timeout exceeded.
+     * @param commitIntent {@code true} if a commit requested.
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
+     * @param recovery {@code true} if finished by recovery.
+     * @param noRemoteWrites {@code true} if remote(directly mapped) part of this transaction has no writes.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            @Nullable ReplicationGroupId commitPartition,
-            boolean commit,
-            boolean timeoutExceeded,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            @Nullable ZonePartitionId commitPartition,
+            boolean commitIntent,
+            @Nullable Throwable finishReason,
+            boolean recovery,
+            boolean noRemoteWrites,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
 
@@ -192,7 +222,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
-     * @param commitPartitionId Commit partition id.
+     * @param commitPartitionId Commit partition id. {@code Null} for unlock only path.
      * @param enlistedPartitions Map of enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -200,8 +230,8 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            @Nullable ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -212,7 +242,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to sends the request to are calculated by the placement driver.
      *
-     * @param commitPartitionId Commit partition id.
+     * @param commitPartitionId Commit partition id. {@code Null} for unlock only path.
      * @param enlistedPartitions Enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -220,7 +250,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -228,21 +258,22 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
-     * Sends cleanup request to the nodes than initiated recovery.
+     * Sends cleanup request to a node that had initiated the recovery.
      *
      * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId);
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
      *
+     * @param resourceVacuumMetrics Metrics of resource vacuumizing.
      * @return Vacuum complete future.
      */
-    CompletableFuture<Void> vacuum();
+    CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics);
 
     /**
      * Kills a local transaction by its id. The behavior is similar to the transaction rollback.
@@ -253,11 +284,27 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Boolean> kill(UUID txId);
 
     /**
+     * Discards local write intents. Used together with kill command.
+     *
+     * @param groups Groups.
+     * @param txId Transaction id.
+     * @param abortTx If {@code true}, the transaction will be aborted.
+     */
+    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx);
+
+    /**
      * Returns lock retry count.
      *
      * @return The count.
      */
     int lockRetryCount();
+
+    /**
+     * Returns the resource registry.
+     *
+     * @return Resource registry.
+     */
+    RemotelyTriggeredResourceRegistry resourceRegistry();
 
     /**
      * Returns a number of finished transactions.

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.configuration;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 
@@ -28,5 +29,34 @@ import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
     /** Export period, in milliseconds. */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "period")
     public long periodMillis = 30_000;
+
+    /** Whether to print each metric source on a separate line. */
+    @Value(hasDefault = true)
+    public boolean oneLinePerMetricSource = false;
+
+    /**
+     * List of enabled metric sources. If not empty, metric sources that are not enumerated will not be printed.
+     * Wildcard '*' can be used in the end of each item. Some metrics are logged by default. To disable it, specify the empty list here
+     * explicitly. To print all metrics, include a single string '*'.
+     */
+    @Value(hasDefault = true)
+    public String[] enabledMetrics = {
+            "client.handler",
+            "clock.service",
+            "index.builder",
+            "jvm",
+            "metastorage",
+            "os",
+            "placement-driver",
+            "raft*",
+            "resource.vacuum",
+            "sql.plan.cache",
+            "storage.aipersist",
+            "storage.aipersist.checkpoint",
+            "thread.pools*",
+            "topology*",
+            "transactions"
+    };
 }

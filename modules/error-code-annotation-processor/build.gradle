@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
+    implementation project(':ignite-error-code-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.javapoet

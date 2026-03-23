@@ -17,65 +17,69 @@
 
 package org.apache.ignite.internal.metastorage.metrics;
 
-import java.util.HashMap;
+import java.util.List;
+import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource.Holder;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Metric source which provides MetaStorage-related metrics.
  */
-public class MetaStorageMetricSource implements MetricSource {
+public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
     private static final String SOURCE_NAME = "metastorage";
 
     private final MetaStorageMetrics metaStorageMetrics;
-
-    /** Enablement status. Accessed from different threads under synchronization on this object. */
-    private boolean enabled;
 
     /**
      * Constructor.
      */
     public MetaStorageMetricSource(MetaStorageMetrics metaStorageMetrics) {
+        super(SOURCE_NAME);
+
         this.metaStorageMetrics = metaStorageMetrics;
     }
 
     @Override
-    public String name() {
-        return SOURCE_NAME;
+    protected Holder createHolder() {
+        return new Holder();
     }
 
-    @Override
-    public synchronized @Nullable MetricSet enable() {
-        if (enabled) {
-            return null;
+    /**
+     * Is called on the change of idempotent commands' cache size.
+     *
+     * @param newSize New size of the cache.
+     */
+    public void onIdempotentCacheSizeChange(int newSize) {
+        Holder holder = holder();
+        if (holder != null) {
+            holder.idempotentCacheSize.value(newSize);
         }
+    }
 
-        var metrics = new HashMap<String, Metric>();
-
-        metrics.put(
+    /** Holder. */
+    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final LongMetric safeTimeLag = new LongGauge(
                 "SafeTimeLag",
-                new LongGauge(
-                        "SafeTimeLag",
-                        "Number of milliseconds the local MetaStorage SafeTime lags behind the local logical clock.",
-                        metaStorageMetrics::safeTimeLag
-                )
+                "Number of milliseconds the local MetaStorage SafeTime lags behind the local logical clock.",
+                metaStorageMetrics::safeTimeLag
         );
 
-        enabled = true;
+        private final AtomicIntMetric idempotentCacheSize = new AtomicIntMetric(
+                "IdempotentCacheSize",
+                "The current size of the cache of idempotent commands' results."
+        );
 
-        return new MetricSet(SOURCE_NAME, metrics);
-    }
+        private final List<Metric> metrics = List.of(
+                safeTimeLag,
+                idempotentCacheSize
+        );
 
-    @Override
-    public synchronized void disable() {
-        enabled = false;
-    }
-
-    @Override
-    public synchronized boolean enabled() {
-        return enabled;
+        @Override
+        public Iterable<Metric> metrics() {
+            return metrics;
+        }
     }
 }

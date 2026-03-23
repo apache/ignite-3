@@ -765,7 +765,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
         while (utfLen > 0) {
             int avail = end - pos;
 
-            if (avail >= 3 || (long) avail == utfLen) {
+            if (avail >= 3 || avail == utfLen) {
                 utfLen -= readUtfSpan(sbuf, utfLen);
             } else {
                 // shift and refill buffer manually

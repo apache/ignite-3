@@ -20,9 +20,12 @@ package org.apache.ignite.internal.cli.commands;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.mockito.Mockito.mock;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.IOException;
@@ -35,23 +38,15 @@ import java.util.List;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowCommand;
-import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigUpdateCommand;
-import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigUpdateReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;
-import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyCommand;
-import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
-import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
@@ -70,8 +65,9 @@ import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListReplCommand;
+import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeAll;
@@ -88,7 +84,7 @@ import picocli.CommandLine;
  */
 @MicronautTest
 @ExtendWith(WorkDirectoryExtension.class)
-public class UrlOptionsNegativeTest {
+public class UrlOptionsNegativeTest extends BaseIgniteAbstractTest {
     private static final String NODE_URL = "http://localhost:10300";
 
     private static final String NODE_URL_OPTION = "--url=";
@@ -106,9 +102,6 @@ public class UrlOptionsNegativeTest {
 
     @Inject
     TestConfigManagerProvider configManagerProvider;
-
-    @Inject
-    NodeNameRegistry nodeNameRegistry;
 
     @WorkDirectory
     protected static Path WORK_DIR;
@@ -139,7 +132,7 @@ public class UrlOptionsNegativeTest {
         exitCode = cmd.execute(options.toArray(new String[0]));
     }
 
-    static List<Arguments> cmdClassAndOptionsProvider() {
+    private static List<Arguments> cmdClassAndOptionsProvider() {
         return List.of(
                 arguments(NodeConfigShowCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
@@ -165,24 +158,15 @@ public class UrlOptionsNegativeTest {
         );
     }
 
-    static List<Arguments> cmdReplClassAndOptionsProvider() {
+    private static List<Arguments> cmdReplClassAndOptionsProvider() {
         return List.of(
                 arguments(NodeConfigShowReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateReplCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
                 arguments(NodeStatusReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterConfigShowReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterConfigUpdateReplCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
-                arguments(ClusterStatusReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSourceEnableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceDisableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSetListReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(LogicalTopologyReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(PhysicalTopologyReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterUnitDeployReplCommand.class, NODE_URL_OPTION,
-                        List.of("--path=" + TEMP_FILE_PATH, "id", "--version=1.0.0")),
-                arguments(ClusterUnitUndeployReplCommand.class, NODE_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(ClusterUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, NODE_URL_OPTION, List.of("--name=cluster", "--metastorage-group=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
@@ -229,7 +213,6 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertExitCodeIsFailure,
-                this::assertOutputIsEmpty,
                 () -> assertErrOutputIs(
                         "Unknown host: http://no-such-host.com" + System.lineSeparator())
         );
@@ -243,7 +226,6 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertExitCodeIsFailure,
-                this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
                         + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
         );
@@ -283,10 +265,7 @@ public class UrlOptionsNegativeTest {
     void invalidUrlRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, "http://no-such-host.com", additionalOptions);
 
-        assertAll(
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Unknown host: http://no-such-host.com" + System.lineSeparator())
-        );
+        assertErrOutputIs("Unknown host: http://no-such-host.com" + System.lineSeparator());
     }
 
     @ParameterizedTest
@@ -295,11 +274,8 @@ public class UrlOptionsNegativeTest {
     void connectErrorRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, NODE_URL, additionalOptions);
 
-        assertAll(
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
-                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
-        );
+        assertErrOutputIs("Node unavailable" + System.lineSeparator()
+                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator());
     }
 
     @Test
@@ -344,4 +320,9 @@ public class UrlOptionsNegativeTest {
                 .contains(expectedErrOutput);
     }
 
+    @Bean
+    @Replaces(ConnectionHeartBeat.class)
+    public static ConnectionHeartBeat connectionHeartBeat() {
+        return mock(ConnectionHeartBeat.class);
+    }
 }

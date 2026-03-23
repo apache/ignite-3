@@ -78,17 +78,26 @@ public final class EnumOutter {
         }
 
         /**
-        * Returns the enumerated value from its ordinal.
+        * Returns the enumerated value from its id.
         *
-        * @param ordinal Ordinal of enumeration constant.
-        * @throws IllegalArgumentException If no enumeration constant by ordinal.
+        * @param id Id of enumeration constant.
+        * @throws IllegalArgumentException If no enumeration constant by id.
         */
-        public static EntryType fromOrdinal(int ordinal) throws IllegalArgumentException {
-            if (ordinal < 0 || ordinal >= VALUES.length) {
-                throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+        public static EntryType fromId(int id) throws IllegalArgumentException {
+            EntryType entryType = forNumber(id);
+            if (entryType == null) {
+                throw new IllegalArgumentException("No enum constant from id: " + id);
             }
+            return entryType;
+        }
 
-            return VALUES[ordinal];
+        /**
+        * Returns the id of enumeration constant, used by serialization.
+        *
+        * @return id of enumeration constant, used by serialization.
+        */
+        public int id() {
+            return getNumber();
         }
 
         private final int value;

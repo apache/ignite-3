@@ -25,6 +25,7 @@ import static org.apache.ignite.table.mapper.Mapper.nativelySupported;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
@@ -36,6 +37,7 @@ import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
@@ -44,7 +46,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
 
     private CreateTableImpl createTable;
 
-    private String tableName;
+    private QualifiedName tableName;
 
     private IndexType pkType;
 
@@ -98,8 +100,11 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
         Table table = clazz.getAnnotation(Table.class);
         if (table != null) {
             String tableName = table.value().isEmpty() ? clazz.getSimpleName() : table.value();
-            createTable.name(table.schemaName(), tableName);
-            this.tableName = tableName;
+            String schemaName = table.schemaName();
+            QualifiedName qualifiedName = QualifiedName.of(schemaName, tableName);
+
+            this.tableName = qualifiedName;
+            createTable.name(qualifiedName);
 
             processZone(table);
             processTable(table);
@@ -133,12 +138,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
                 createZone.distributionAlgorithm(zone.distributionAlgorithm());
             }
 
-            if (zone.dataNodesAutoAdjust() > 0) {
-                createZone.dataNodesAutoAdjust(zone.dataNodesAutoAdjust());
-            }
             if (zone.dataNodesAutoAdjustScaleUp() > 0) {
                 createZone.dataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
             }
+
             if (zone.dataNodesAutoAdjustScaleDown() > 0) {
                 createZone.dataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
             }
@@ -199,7 +202,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
     }
 
     private static void processColumnsInPojo(CreateTableImpl createTable, Class<?> clazz, List<ColumnSorted> idColumns) {
-        for (Field f : clazz.getDeclaredFields()) {
+        for (Field f : getAllFields(clazz)) {
             if (Modifier.isStatic(f.getModifiers()) || Modifier.isTransient(f.getModifiers())) {
                 continue;
             }
@@ -226,6 +229,17 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
                 idColumns.add(column(columnName, id.value()));
             }
         }
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     */
+    private static List<Field> getAllFields(Class<?> clazz) {
+        var result = new ArrayList<Field>();
+        for (Class<?> current = clazz; current != Object.class; current = current.getSuperclass()) {
+            Collections.addAll(result, current.getDeclaredFields());
+        }
+        return result;
     }
 
 }

@@ -1,0 +1,110 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.example.table;
+
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
+
+/**
+ * This example demonstrates the usage of the {@link KeyValueView} API.
+ *
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
+ */
+public class KeyValueViewExample {
+    /**
+     * Runs the KeyValueViewExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception If failed.
+     */
+    public static void main(String[] args) throws Exception {
+        //--------------------------------------------------------------------------------------
+        //
+        // Creating a client to connect to the cluster.
+        //
+        //--------------------------------------------------------------------------------------
+
+        System.out.println("Connecting to server...");
+
+        try (IgniteClient client = IgniteClient.builder()
+                .addresses("127.0.0.1:10800")
+                .build()
+        ) {
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating 'accounts' table.
+            //
+            //--------------------------------------------------------------------------------------
+
+            client.sql().execute(
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
+            );
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating a key-value view for the 'accounts' table.
+            //
+            //--------------------------------------------------------------------------------------
+
+            KeyValueView<Tuple, Tuple> kvView = client.tables().table("accounts").keyValueView();
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Performing the 'put' operation.
+            //
+            //--------------------------------------------------------------------------------------
+
+            System.out.println("Inserting a key-value pair into the 'accounts' table...");
+
+            Tuple key = Tuple.create()
+                    .set("accountNumber", 123456);
+
+            Tuple value = Tuple.create()
+                    .set("firstName", "Val")
+                    .set("lastName", "Kulichenko")
+                    .set("balance", 100.00d);
+
+            kvView.put(null, key, value);
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Performing the 'get' operation.
+            //
+            //--------------------------------------------------------------------------------------
+
+            System.out.println("Retrieving a value using KeyValueView API...");
+
+            value = kvView.get(null, key);
+
+            System.out.println(
+                    "\nRetrieved value:\n"
+                            + "    Account Number: " + key.intValue("accountNumber") + '\n'
+                            + "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n'
+                            + "    Balance: $" + value.doubleValue("balance"));
+
+            System.out.println("Dropping the table...");
+
+            client.sql().execute("DROP TABLE IF EXISTS accounts");
+        }
+    }
+}

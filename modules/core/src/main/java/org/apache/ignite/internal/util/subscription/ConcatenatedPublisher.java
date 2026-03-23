@@ -26,7 +26,6 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 /**
  * Thread-safe implementation of combining multiple publishers.
  * Starts to consume the next source only after the previous has been completed.

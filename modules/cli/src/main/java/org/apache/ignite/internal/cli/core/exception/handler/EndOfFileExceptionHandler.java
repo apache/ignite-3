@@ -26,9 +26,8 @@ import org.jline.reader.LineReader;
 /**
  * Exception handler for {@link EndOfFileException}.
  * From {@link EndOfFileException}
- * <p>
- *     This exception is thrown by {@link LineReader#readLine} when the user types ctrl-D)
- * </p>
+ *
+ * <p>This exception is thrown by {@link LineReader#readLine} when the user types ctrl-D)
  * This handler call {@param endAction} to stop some process.
  */
 public class EndOfFileExceptionHandler implements ExceptionHandler<EndOfFileException> {

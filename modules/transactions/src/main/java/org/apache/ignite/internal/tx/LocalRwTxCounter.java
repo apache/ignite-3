@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Counter of read-write transactions that were created and completed locally on the node.
@@ -63,4 +64,10 @@ public interface LocalRwTxCounter {
      * @return Result of the provided function.
      */
     <T> T inUpdateRwTxCountLock(Supplier<T> supplier);
+
+    /**
+     * Clears the internal state. For test purposes only.
+     */
+    @TestOnly
+    void clear();
 }

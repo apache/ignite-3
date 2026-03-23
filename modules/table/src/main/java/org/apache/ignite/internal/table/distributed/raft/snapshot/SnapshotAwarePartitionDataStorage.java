@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshot;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
@@ -30,6 +31,8 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -37,7 +40,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -86,20 +88,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.runConsistently(closure);
     }
 
-    @Override
-    public void acquirePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
-
-        partitionSnapshots.acquireReadLock();
-    }
-
-    @Override
-    public void releasePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
-
-        partitionSnapshots.releaseReadLock();
-    }
-
     private PartitionSnapshots getPartitionSnapshots() {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
@@ -135,19 +123,27 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
-            int commitPartitionId) throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) throws StorageException {
         handleSnapshotInterference(rowId);
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         handleSnapshotInterference(rowId);
 
-        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override
@@ -177,9 +173,17 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
      * @param rowId Row id.
      */
     private void handleSnapshotInterference(RowId rowId) {
-        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+        List<OutgoingSnapshot> outgoingSnapshots = new ArrayList<>();
 
-        for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+        partitionSnapshots.acquireReadLock();
+        try {
+            outgoingSnapshots.addAll(partitionSnapshots.ongoingSnapshots());
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
+
+        for (OutgoingSnapshot snapshot : outgoingSnapshots) {
             snapshot.acquireMvLock();
 
             try {
@@ -203,14 +207,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void close() {
-        if (partitionKey instanceof ZonePartitionKey) {
-            // FIXME: This is a hack for the colocation feature, for zone-based partitions snapshots are cleaned up for a bunch of storages
-            //  at once and this is done in a separate place. Should be removed as a part of
-            //  https://issues.apache.org/jira/browse/IGNITE-22522
-            return;
-        }
-
-        partitionsSnapshots.cleanupOutgoingSnapshots(partitionKey);
+        // No-op.
     }
 
     @Override
@@ -225,8 +222,8 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        return partitionStorage.peek(lowWatermark);
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        return partitionStorage.peek(lowWatermark, count);
     }
 
     @Override

@@ -17,30 +17,20 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.internal.compute.utils.Clients;
+import org.junit.jupiter.api.AfterAll;
 
 class ItThinClientComputeErrorsTest extends ItComputeErrorsBaseTest {
-    private final Map<String, IgniteClient> clients = new HashMap<>();
+    private final Clients clients = new Clients();
 
-    @AfterEach
+    @AfterAll
     void cleanup() {
-        for (IgniteClient igniteClient : clients.values()) {
-            igniteClient.close();
-        }
-        clients.clear();
+        clients.cleanup();
     }
 
     @Override
     protected IgniteCompute compute() {
-        String address = "127.0.0.1:" + unwrapIgniteImpl(CLUSTER.node(0)).clientAddress().port();
-        IgniteClient client = IgniteClient.builder().addresses(address).build();
-        clients.put(address, client);
-        return client.compute();
+        return clients.compute(node(0));
     }
 }

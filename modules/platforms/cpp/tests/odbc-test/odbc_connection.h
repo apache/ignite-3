@@ -614,6 +614,14 @@ public:
         ret = SQLExecute(m_statement);
     }
 
+    void insert_test_batch(int from, int to, int expected_to_affect) const {
+        SQLULEN sets_processed = 0;
+
+        insert_test_batch(from, to, expected_to_affect, sets_processed);
+
+        EXPECT_EQ(sets_processed, expected_to_affect);
+    }
+
     /**
      * Inserts batch of rows with the given indices and checks affected rows.
      *
@@ -621,10 +629,8 @@ public:
      * @param to End index.
      * @param expected_to_affect Expected number of affected rows.
      */
-    void insert_test_batch(int from, int to, int expected_to_affect) {
-        SQLULEN sets_processed = 0;
-
-        SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAMS_PROCESSED_PTR, &sets_processed, SQL_IS_POINTER);
+    void insert_test_batch(int from, int to, int expected_to_affect, SQLULEN& sets_processed) const {
+        SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAMS_PROCESSED_PTR, &sets_processed, 0);
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         insert_test_batch_no_check(from, to, ret);
@@ -655,15 +661,7 @@ public:
         EXPECT_EQ(sets_processed, expected_to_affect);
     }
 
-    /**
-     * Inserts batch of rows with the given indices and checks rows with the select query.
-     *
-     * @param records_num Count of rows.
-     */
-    void insert_batch_select(int records_num) {
-        // Inserting values.
-        insert_test_batch(0, records_num, records_num);
-
+    void select_batch(int records_num) const {
         int64_t key = 0;
         char str_field[1024] = {0};
         SQLLEN str_field_len = 0;
@@ -704,26 +702,50 @@ public:
     }
 
     /**
+     * Inserts batch of rows with the given indices and checks rows with the select query.
+     *
+     * @param records_num Count of rows.
+     */
+    void insert_batch_select(int records_num) {
+        // Inserting values.
+        SQLULEN sets_processed = 0;
+        insert_test_batch(0, records_num, records_num, sets_processed);
+
+        EXPECT_EQ(sets_processed, records_num);
+
+        select_batch(records_num);
+    }
+
+    /**
      * Inserts two batches of rows with the given indices and checks rows with the select query.
      *
      * @param records_num Count of rows.
      * @param split_at Index to split rows between queries.
      */
     void insert_non_full_batch_select(int records_num, int split_at) {
-        std::vector<SQLUSMALLINT> statuses(records_num, 42);
+        SQLULEN sets_processed = 0;
+        std::vector<SQLUSMALLINT> statuses(records_num);
 
         // Binding statuses array.
         SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_PARAM_STATUS_PTR, &statuses[0], 0);
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         // Inserting values.
-        insert_test_batch(split_at, records_num, records_num - split_at);
+        insert_test_batch(split_at, records_num, records_num - split_at, sets_processed);
 
+        EXPECT_EQ(sets_processed, records_num - split_at);
+
+        // Check the statuses which will be written from index 0.
         for (int i = 0; i < records_num - split_at; ++i)
             EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS) << "index=" << i;
 
         insert_test_batch_no_check(0, records_num, ret);
 
+        // Expect to affect the remaining split_at rows.
+        EXPECT_EQ(sets_processed, split_at);
+
+        // Check the statuses for the whole batch. We expect that first [split_at] rows should be written successfully
+        // and next [records_num - split_at] should not, because we have already written these lines before.
         for (int i = 0; i < split_at; ++i)
             EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS) << "index=" << i;
 
@@ -733,47 +755,7 @@ public:
         SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
         SQLFreeStmt(m_statement, SQL_UNBIND);
 
-        std::int64_t key = 0;
-        char str_field[1024] = {0};
-        SQLLEN str_field_len = 0;
-
-        // Binding columns.
-        ret = SQLBindCol(m_statement, 1, SQL_C_SLONG, &key, 0, 0);
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        // Binding columns.
-        ret = SQLBindCol(m_statement, 2, SQL_C_CHAR, &str_field, sizeof(str_field), &str_field_len);
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        // Just selecting everything to make sure everything is OK
-        SQLCHAR select_req[] = "SELECT key, str FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
-
-        ret = SQLExecDirect(m_statement, select_req, sizeof(select_req));
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        int selected_records_num = 0;
-
-        ret = SQL_SUCCESS;
-
-        while (ret == SQL_SUCCESS) {
-            ret = SQLFetch(m_statement);
-
-            if (ret == SQL_NO_DATA)
-                break;
-
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-            std::string expected_str = get_test_string(selected_records_num);
-            int64_t expected_key = selected_records_num;
-
-            EXPECT_EQ(key, expected_key);
-
-            EXPECT_EQ(std::string(str_field, str_field_len), expected_str);
-
-            ++selected_records_num;
-        }
-
-        EXPECT_EQ(records_num, selected_records_num);
+        select_batch(records_num);
     }
 
     /**

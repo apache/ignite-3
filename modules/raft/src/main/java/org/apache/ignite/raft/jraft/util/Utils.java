@@ -269,6 +269,9 @@ public final class Utils {
     public static final int MAX_COLLECTOR_SIZE_PER_THREAD = SystemPropertyUtil.getInt(
         "jraft.max_collector_size_per_thread", 256);
 
+    /** Default max {@link ByteBufferCollector} size per server, it can be set by "-Djraft.max_collector_size_per_thread", default 256. */
+    public static final int MAX_COLLECTOR_SIZE_PER_SERVER = SystemPropertyUtil.getInt("jraft.max_collector_size_per_server", 256);
+
     /**
      * Expand byte buffer for 1024 bytes.
      */
@@ -336,6 +339,38 @@ public final class Utils {
      */
     public static long monotonicUs() {
         return TimeUnit.NANOSECONDS.toMicros(System.nanoTime());
+    }
+
+    /**
+     * Computes a monotonic-time deadline based on the provided timeout.
+     *
+     * <p>The returned value is expressed in the same time domain as
+     * {@link Utils#monotonicMs()} and is intended for comparisons against
+     * that value (for example, {@code now >= deadline}).
+     *
+     * <p>Timeout semantics:
+     * <ul>
+     *     <li>{@code timeoutMillis < 0} or {@code timeoutMillis == Long.MAX_VALUE}
+     *     — the deadline is unbounded and {@code Long.MAX_VALUE} is returned.</li>
+     *     <li>{@code timeoutMillis >= 0} — the deadline is computed as
+     *     {@code Utils.monotonicMs() + timeoutMillis}, with overflow protection.</li>
+     * </ul>
+     *
+     * @param timeoutMillis timeout in milliseconds controlling the retry window
+     * @return a monotonic-time deadline in milliseconds, or {@code Long.MAX_VALUE}
+     *         if retries are unbounded or if overflow would occur
+     */
+    public static long monotonicMsAfter(long timeoutMillis) {
+        if (timeoutMillis == Long.MAX_VALUE || timeoutMillis < 0) {
+            // Infinite retry.
+            return Long.MAX_VALUE;
+        }
+        long now = monotonicMs();
+        // Overflow check: if now + timeoutMillis would overflow, return MAX_VALUE.
+        if (timeoutMillis > Long.MAX_VALUE - now) {
+            return Long.MAX_VALUE;
+        }
+        return now + timeoutMillis;
     }
 
     /**

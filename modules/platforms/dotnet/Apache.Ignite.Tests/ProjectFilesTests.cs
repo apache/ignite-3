@@ -141,6 +141,28 @@ namespace Apache.Ignite.Tests
             }
         }
 
+        [Test]
+        public void TestBenchmarkAndTestProjectsAreNotPackable()
+        {
+            foreach (var file in Directory.GetFiles(TestUtils.SolutionDir, "*.csproj", SearchOption.AllDirectories))
+            {
+                var fileName = Path.GetFileName(file);
+
+                if (!fileName.Contains("Test", StringComparison.OrdinalIgnoreCase) &&
+                    !fileName.Contains("Benchmark", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var text = File.ReadAllText(file);
+
+                StringAssert.Contains(
+                    "<IsPackable>false</IsPackable>",
+                    text,
+                    "Test and benchmark projects must not be packable: " + fileName);
+            }
+        }
+
         [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
         [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
         private sealed class TodoWithoutTicketException : AssertionException

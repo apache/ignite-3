@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -27,6 +28,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 /**
  * Test configuration module.
  */
+@AutoService(ConfigurationModule.class)
 public class TestConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
@@ -34,7 +36,7 @@ public class TestConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
+    public Collection<RootKey<?, ?, ?>> rootKeys() {
         return List.of(TestConfiguration.KEY);
     }
 

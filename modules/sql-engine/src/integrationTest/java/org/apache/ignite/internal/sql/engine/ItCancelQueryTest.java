@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -170,7 +169,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 "SELECT 1"
         ));
 
-        expectQueryCancelledInternalException(run);
+        expectQueryCancelled(run);
 
         waitUntilRunningQueriesCount(is(0));
     }
@@ -209,7 +208,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> f = cancelHandle.cancelAsync();
 
         // Obverse cancellation error
-        expectQueryCancelledInternalException(run);
+        expectQueryCancelled(run);
 
         await(f);
 

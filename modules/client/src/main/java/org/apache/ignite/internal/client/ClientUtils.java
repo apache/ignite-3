@@ -141,6 +141,7 @@ public class ClientUtils {
             case ClientOp.TX_BEGIN:
             case ClientOp.TX_COMMIT:
             case ClientOp.TX_ROLLBACK:
+            case ClientOp.TX_DISCARD:
                 return null; // Commit/rollback use owning connection and bypass retry mechanism.
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
@@ -175,6 +176,9 @@ public class ClientUtils {
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientOperationType.SQL_CURSOR_NEXT_PAGE;
 
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientOperationType.SQL_CURSOR_NEXT_RESULT_SET;
+
             case ClientOp.SQL_CURSOR_CLOSE:
                 return null;
 
@@ -199,7 +203,7 @@ public class ClientUtils {
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientOperationType.PRIMARY_REPLICAS_GET;
 
-            case ClientOp.SQL_CANCEL_EXEC:
+            case ClientOp.OPERATION_CANCEL:
                 // The request is used to cancel queries initiated with a particular connection,
                 // and these requests are terminated when the connection is lost.
                 return null;
@@ -220,8 +224,8 @@ public class ClientUtils {
      * @return Logger.
      */
     public static <T> IgniteLogger logger(IgniteClientConfiguration cfg, Class<T> cls) {
-        var loggerFactory = cfg.loggerFactory() == null
-                ? (LoggerFactory) System::getLogger
+        LoggerFactory loggerFactory = cfg.loggerFactory() == null
+                ? System::getLogger
                 : cfg.loggerFactory();
 
         return loggerFactory == null

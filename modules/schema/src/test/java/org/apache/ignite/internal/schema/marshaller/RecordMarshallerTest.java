@@ -156,8 +156,8 @@ public class RecordMarshallerTest {
                 }
         );
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
+        MarshallerException ex = assertThrows(
+                MarshallerException.class,
                 () -> factory.create(schema, TestObjectWithAllTypes.class));
 
         assertEquals(
@@ -215,7 +215,7 @@ public class RecordMarshallerTest {
                 }
         );
 
-        Throwable ex = assertThrows(ClassCastException.class, () -> factory.create(schema, TestSimpleObject.class));
+        Throwable ex = assertThrows(MarshallerException.class, () -> factory.create(schema, TestSimpleObject.class));
 
         assertThat(
                 ex.getMessage(),

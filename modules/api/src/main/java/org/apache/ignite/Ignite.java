@@ -23,6 +23,7 @@ import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -73,16 +74,24 @@ public interface Ignite {
      * NOTE: Temporary API to enable Compute until we have proper Cluster API.
      *
      * @return Collection of cluster nodes.
+     * @deprecated Use {@link IgniteCluster#nodes()} instead.
      */
-    Collection<ClusterNode> clusterNodes();
+    @Deprecated
+    default Collection<ClusterNode> clusterNodes() {
+        return cluster().nodes();
+    }
 
     /**
      * Returns cluster nodes.
      * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
+     * @deprecated Use {@link IgniteCluster#nodesAsync()} instead.
      */
-    CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
+    @Deprecated
+    default CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
+        return cluster().nodesAsync();
+    }
 
     /**
      * Returns {@link IgniteCatalog} which can be used to create and execute SQL DDL queries from annotated classes or
@@ -91,4 +100,11 @@ public interface Ignite {
      * @return Catalog object.
      */
     IgniteCatalog catalog();
+
+    /**
+     * Returns the cluster object, which provides access to the cluster nodes and the local node.
+     *
+     * @return Ignite cluster.
+     */
+    IgniteCluster cluster();
 }

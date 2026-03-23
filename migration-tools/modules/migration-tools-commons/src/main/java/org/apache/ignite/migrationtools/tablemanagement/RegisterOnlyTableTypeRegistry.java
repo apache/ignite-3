@@ -17,7 +17,6 @@
 
 package org.apache.ignite.migrationtools.tablemanagement;
 
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /** Decorator for {@link TableTypeRegistry} that only registers new hints. */
@@ -28,14 +27,14 @@ public class RegisterOnlyTableTypeRegistry implements TableTypeRegistry {
         this.base = base;
     }
 
-    @Override
     @Nullable
-    public Map.Entry<Class<?>, Class<?>> typesForTable(String tableName) throws ClassNotFoundException {
+    @Override
+    public TableTypeDescriptor typesForTable(String tableName) {
         return null;
     }
 
     @Override
-    public void registerTypesForTable(String tableName, Map.Entry<String, String> tableTypes) {
-        base.registerTypesForTable(tableName, tableTypes);
+    public void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor) {
+        base.registerTypesForTable(tableName, tableDescriptor);
     }
 }

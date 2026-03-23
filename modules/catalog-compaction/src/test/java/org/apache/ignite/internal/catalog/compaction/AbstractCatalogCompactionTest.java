@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,6 +26,7 @@ import static org.mockito.Mockito.spy;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -85,7 +85,8 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
                 new UpdateLogImpl(metastore, failureProcessor),
                 clockService,
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         assertThat(startAsync(new ComponentContext(), metastore), willCompleteSuccessfully());
@@ -93,7 +94,7 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
 
         assertThat(startAsync(new ComponentContext(), clockWaiter, manager), willCompleteSuccessfully());
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
-        awaitDefaultZoneCreation(manager);
+        assertThat("Catalog initialization", manager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         return manager;
     }

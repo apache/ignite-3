@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -53,7 +54,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -138,7 +140,12 @@ public class OutgoingSnapshot {
      */
     private volatile boolean finishedTxData;
 
-    private volatile boolean closed = false;
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final AtomicBoolean closedGuard = new AtomicBoolean();
+
+    private final OutgoingSnapshotStats snapshotStats;
+
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
 
     /**
      * Creates a new instance.
@@ -148,13 +155,16 @@ public class OutgoingSnapshot {
             PartitionKey partitionKey,
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
-            CatalogService catalogService
+            CatalogService catalogService,
+            RaftSnapshotsMetricsSource snapshotMetricsSource
     ) {
         this.id = id;
         this.partitionKey = partitionKey;
         this.partitionsByTableId = partitionsByTableId;
         this.txState = txState;
         this.catalogService = catalogService;
+        this.snapshotStats = new OutgoingSnapshotStats(id, partitionKey);
+        this.snapshotsMetricsSource = snapshotMetricsSource;
     }
 
     /**
@@ -180,6 +190,9 @@ public class OutgoingSnapshot {
         acquireMvLock();
 
         try {
+            snapshotStats.onSnapshotStart();
+            snapshotsMetricsSource.onOutgoingSnapshotStart();
+
             int catalogVersion = catalogService.latestCatalogVersion();
 
             List<PartitionMvStorageAccess> partitionStorages = freezePartitionStorages();
@@ -214,6 +227,8 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
+            snapshotStats.setSnapshotMeta(txState.lastAppliedIndex(), txState.lastAppliedTerm(), config, catalogVersion);
+
             return snapshotMetaAt(
                     txState.lastAppliedIndex(),
                     txState.lastAppliedTerm(),
@@ -227,6 +242,13 @@ public class OutgoingSnapshot {
 
             assert config != null : "Configuration should never be null when installing a snapshot";
 
+            snapshotStats.setSnapshotMeta(
+                    partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
+                    partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
+                    config,
+                    catalogVersion
+            );
+
             return snapshotMetaAt(
                     partitionStorageWithMaxAppliedIndex.lastAppliedIndex(),
                     partitionStorageWithMaxAppliedIndex.lastAppliedTerm(),
@@ -239,17 +261,9 @@ public class OutgoingSnapshot {
     }
 
     private List<PartitionMvStorageAccess> freezePartitionStorages() {
-        if (partitionKey instanceof ZonePartitionKey) {
-            return partitionsByTableId.values().stream()
-                    .sorted(comparingInt(PartitionMvStorageAccess::tableId))
-                    .collect(toList());
-        } else {
-            // TODO: remove this clause, see https://issues.apache.org/jira/browse/IGNITE-22522
-            // For a non-colocation case we always have a single entry in this map.
-            assert partitionsByTableId.size() == 1;
-
-            return List.copyOf(partitionsByTableId.values());
-        }
+        return partitionsByTableId.values().stream()
+                .sorted(comparingInt(PartitionMvStorageAccess::tableId))
+                .collect(toList());
     }
 
     /**
@@ -274,15 +288,19 @@ public class OutgoingSnapshot {
     SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest request) {
         assert Objects.equals(request.id(), id) : "Expected id " + id + " but got " + request.id();
 
-        if (closed) {
+        if (!busyLock.enterBusy()) {
             return logThatAlreadyClosedAndReturnNull();
         }
 
-        PartitionSnapshotMeta meta = frozenMeta;
+        try {
+            PartitionSnapshotMeta meta = frozenMeta;
 
-        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+            assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+            return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Nullable
@@ -298,12 +316,22 @@ public class OutgoingSnapshot {
      */
     @Nullable
     SnapshotMvDataResponse handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
-        if (closed) {
+        if (!busyLock.enterBusy()) {
             return logThatAlreadyClosedAndReturnNull();
         }
 
+        try {
+            return handleSnapshotMvDataRequestInternal(request);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private SnapshotMvDataResponse handleSnapshotMvDataRequestInternal(SnapshotMvDataRequest request) {
         long totalBatchSize = 0;
-        List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
+        List<ResponseEntry> batch = new ArrayList<>();
+
+        snapshotStats.onStartMvDataBatchProcessing();
 
         while (true) {
             acquireMvLock();
@@ -316,6 +344,8 @@ public class OutgoingSnapshot {
                 // As out-of-order rows are added under the same lock that we hold, and we always send OOO data first,
                 // exhausting the partition means that no MV data to send is left, we are finished with it.
                 if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
+                    snapshotStats.onEndMvDataBatchProcessing();
+
                     return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMvDataResponse()
                             .rows(batch)
                             .finish(finishedMvData())
@@ -344,7 +374,12 @@ public class OutgoingSnapshot {
             }
 
             rowEntries.add(rowEntry);
-            totalBytesAfter += rowSizeInBytes(rowEntry.rowVersions());
+
+            long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+            snapshotStats.onProcessOutOfOrderRow(rowEntry.rowVersions().size(), rowSize);
+
+            totalBytesAfter += rowSize;
         }
 
         return totalBytesAfter;
@@ -388,7 +423,11 @@ public class OutgoingSnapshot {
 
                 batch.add(rowEntry);
 
-                totalBatchSize += rowSizeInBytes(rowEntry.rowVersions());
+                long rowSize = rowSizeInBytes(rowEntry.rowVersions());
+
+                totalBatchSize += rowSize;
+
+                snapshotStats.onProcessRegularRow(rowEntry.rowVersions().size(), rowSize);
             }
         }
 
@@ -414,7 +453,7 @@ public class OutgoingSnapshot {
         long[] commitTimestamps = new long[commitTimestampsCount];
 
         UUID transactionId = null;
-        Integer commitTableOrZoneId = null;
+        Integer commitZoneId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
         for (int i = count - 1, j = 0; i >= 0; i--) {
@@ -434,8 +473,7 @@ public class OutgoingSnapshot {
                 assert i == 0 : rowVersionsN2O;
 
                 transactionId = version.transactionId();
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
-                commitTableOrZoneId = version.commitTableOrZoneId();
+                commitZoneId = version.commitZoneId();
                 commitPartitionId = version.commitPartitionId();
             } else {
                 commitTimestamps[j++] = version.commitTimestamp().longValue();
@@ -448,7 +486,7 @@ public class OutgoingSnapshot {
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
                 .txId(transactionId)
-                .commitTableOrZoneId(commitTableOrZoneId)
+                .commitZoneId(commitZoneId)
                 .commitPartitionId(commitPartitionId)
                 .build();
     }
@@ -460,10 +498,18 @@ public class OutgoingSnapshot {
      */
     @Nullable
     SnapshotTxDataResponse handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
-        if (closed) {
+        if (!busyLock.enterBusy()) {
             return logThatAlreadyClosedAndReturnNull();
         }
 
+        try {
+            return handleSnapshotTxDataRequestInternal(request);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private SnapshotTxDataResponse handleSnapshotTxDataRequestInternal(SnapshotTxDataRequest request) {
         List<IgniteBiTuple<UUID, TxMeta>> rows = new ArrayList<>();
 
         boolean finishedTxData = this.finishedTxData;
@@ -606,6 +652,17 @@ public class OutgoingSnapshot {
      * Closes the snapshot releasing the underlying resources.
      */
     public void close() {
+        if (!closedGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        snapshotStats.onSnapshotEnd();
+        snapshotsMetricsSource.onOutgoingSnapshotEnd();
+
+        snapshotStats.logSnapshotStats();
+
         if (!finishedTxData) {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
 
@@ -614,7 +671,5 @@ public class OutgoingSnapshot {
                 finishedTxData = true;
             }
         }
-
-        closed = true;
     }
 }

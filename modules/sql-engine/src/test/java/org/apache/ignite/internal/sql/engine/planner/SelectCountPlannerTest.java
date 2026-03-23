@@ -81,10 +81,8 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     void clearCatalog() {
         Commons.resetFastQueryOptimizationFlag();
 
-        int version = CLUSTER.catalogManager().latestCatalogVersion();
-
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().latestCatalog().tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
@@ -367,7 +365,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(SelectCountPlan plan, String... expectedExpressions) {
-        List<String> expressions = plan.selectCountNode().expressions().stream()
+        List<String> expressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -376,7 +374,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
                 equalTo(List.of(expectedExpressions))
         );
 
-        RelDataType rowType = plan.selectCountNode().getRowType();
+        RelDataType rowType = plan.getRel().getRowType();
         assertEquals(expectedExpressions.length, rowType.getFieldCount(), "output columns");
     }
 }

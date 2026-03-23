@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,5 +53,6 @@ public interface CmgInitMessage extends NetworkMessage {
      * Cluster configuration that should be applied after init.
      */
     @Nullable
+    @IgniteToStringExclude
     String initialClusterConfiguration();
 }

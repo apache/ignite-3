@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.call.cliconfig.profile;
 
-
 import java.util.Collection;
 
 /**

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -32,6 +33,7 @@ import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.sql.fun.SqlSingleValueAggFunction;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
@@ -941,13 +943,40 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         CASE_27B("UPDATE test set val0 = (SELECT val1 FROM test)", schema(single())),
 
         /**
-         * Query: MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id
-         *        WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test)
+         * Query: MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test).
          *
          * <p>Distribution single()
          */
         CASE_27C("MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id "
                 + "WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test)", schema(single())),
+
+        /**
+         * Query: SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0)).
+         *
+         * <p>Distribution single()
+         */
+        CASE_28_1A("SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0))", schema(single())),
+
+        /**
+         * Query: SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0), (grp1)).
+         *
+         * <p>Distribution single()
+         */
+        CASE_28_1B("SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0), (grp1))", schema(single())),
+
+        /**
+         * Query: SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0)).
+         *
+         * <p>Distribution hash(1)
+         */
+        CASE_28_2A("SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0))", schema(hash(1))),
+
+        /**
+         * Query: SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0), (grp1)).
+         *
+         * <p>Distribution hash(1)
+         */
+        CASE_28_2B("SELECT GROUPING(grp0) from test GROUP BY GROUPING SETS ((grp0), (grp1))", schema(hash(1))),
         ;
 
         final String query;
@@ -1000,8 +1029,10 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), rulesToDisable);
     }
 
-    protected void assumeRun(String methodName, TestCase testCase) {
-        missedCases.remove(testCase);
+    protected void assumeRun(TestCase testCase) {
+        boolean removed = missedCases.remove(testCase);
+
+        assertTrue(removed, "Unapplicable/Ignored test case was unexpectedly run.");
     }
 
     @SafeVarargs
@@ -1029,11 +1060,11 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     private static IgniteDistribution hash() {
-        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
     }
 
     private static IgniteDistribution hash(int... keys) {
-        return IgniteDistributions.affinity(IntList.of(keys), nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(IntList.of(keys), nextTableId(), DEFAULT_ZONE_ID);
     }
 
     private static IgniteDistribution identity() {

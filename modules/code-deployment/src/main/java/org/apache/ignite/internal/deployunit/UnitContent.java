@@ -18,15 +18,12 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 
 /**
  * Unit content representation.
@@ -79,24 +76,6 @@ public class UnitContent implements Iterable<Entry<String, byte[]>> {
     }
 
     /**
-     * Read unit content from unit {@link DeploymentUnit}.
-     *
-     * @param deploymentUnit Deployment unit instance.
-     * @return Unit content from provided deployment unit.
-     */
-    public static UnitContent readContent(DeploymentUnit deploymentUnit) {
-        Map<String, byte[]> map = deploymentUnit.content().entrySet().stream()
-                .collect(Collectors.toMap(Entry::getKey, entry -> {
-                    try {
-                        return entry.getValue().readAllBytes();
-                    } catch (IOException e) {
-                        throw new DeploymentUnitReadException(e);
-                    }
-                }));
-        return new UnitContent(map);
-    }
-
-    /**
      * Convert unit content to {@link DeploymentUnit}.
      *
      * @param content Unit content.
@@ -107,6 +86,6 @@ public class UnitContent implements Iterable<Entry<String, byte[]>> {
         content.iterator().forEachRemaining(it -> {
             files.put(it.getKey(), new ByteArrayInputStream(it.getValue()));
         });
-        return new DeploymentUnit(files);
+        return new StreamDeploymentUnit(files);
     }
 }

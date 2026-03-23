@@ -33,6 +33,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -50,6 +52,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
 
     private final List<ColumnParams> columns;
 
+    private final boolean ifColumnNotExists;
+
     /**
      * Constructs the object.
      *
@@ -63,11 +67,14 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
             String tableName,
             String schemaName,
             boolean ifTableExists,
-            List<ColumnParams> columns
+            List<ColumnParams> columns,
+            boolean ifColumnNotExists
     ) throws CatalogValidationException {
         super(schemaName, tableName, ifTableExists, true);
 
         this.columns = copyOrNull(columns);
+
+        this.ifColumnNotExists = ifColumnNotExists;
 
         validate();
     }
@@ -88,16 +95,22 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 
         for (ColumnParams column : columns) {
-            if (table.column(column.name()) != null) {
-                throw new CatalogValidationException("Column with name '{}' already exists.", column.name());
-            }
+            CatalogTableColumnDescriptor columnDescriptor = table.column(column.name());
 
-            columnDescriptors.add(fromParams(column));
+            if (columnDescriptor != null && !ifColumnNotExists) {
+                throw new CatalogValidationException("Column with name '{}' already exists.", column.name());
+            } else if (columnDescriptor == null) {
+                columnDescriptors.add(fromParams(column));
+            }
         }
 
-        return List.of(
-                new NewColumnsEntry(table.id(), columnDescriptors)
-        );
+        if (columnDescriptors.isEmpty()) {
+            return List.of();
+        } else {
+            return List.of(
+                    new NewColumnsEntry(table.id(), columnDescriptors)
+            );
+        }
     }
 
     private void validate() {
@@ -112,8 +125,15 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
                 throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
 
+            DefaultValue defaultValue = column.defaultValueDefinition();
+
             ensureTypeCanBeStored(column.name(), column.type());
-            ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
+            ensureNonFunctionalDefault(column.name(), defaultValue);
+
+            if (!column.nullable() && (defaultValue == null
+                    || (defaultValue.type() == Type.CONSTANT && ((ConstantValue) defaultValue).value() == null))) {
+                throw new CatalogValidationException("Non-nullable column '{}' must have the default value.", column.name());
+            }
         }
     }
 
@@ -128,6 +148,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         private String tableName;
 
         private boolean ifTableExists;
+
+        private boolean ifColumnNotExists;
 
         @Override
         public AlterTableAddColumnCommandBuilder schemaName(String schemaName) {
@@ -158,12 +180,20 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         }
 
         @Override
+        public AlterTableAddColumnCommandBuilder ifColumnNotExists(boolean notExists) {
+            this.ifColumnNotExists = notExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new AlterTableAddColumnCommand(
                     tableName,
                     schemaName,
                     ifTableExists,
-                    columns
+                    columns,
+                    ifColumnNotExists
             );
         }
     }

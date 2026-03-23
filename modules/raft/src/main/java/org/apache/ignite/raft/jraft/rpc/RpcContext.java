@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 
@@ -55,7 +55,7 @@ public interface RpcContext {
      *
      * @return Cluster node.
      */
-    ClusterNode getSender();
+    InternalClusterNode getSender();
 
     /**
      * Gets the local consistent ID of the server.

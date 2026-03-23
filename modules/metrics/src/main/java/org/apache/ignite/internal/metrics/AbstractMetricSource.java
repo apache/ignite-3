@@ -36,6 +36,12 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
     /** Metric source name. */
     private final String name;
 
+    /** Metrics set description. */
+    private final String description;
+
+    /** Metrics set group name. */
+    private final String group;
+
     /** Metric instances holder. */
     private volatile T holder;
 
@@ -45,7 +51,45 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      * @param name Metric source name.
      */
     protected AbstractMetricSource(String name) {
+        this(name, null, null);
+    }
+
+    /**
+     * Base constructor for all metric source implementations.
+     *
+     * @param name Metric source name.
+     * @param description Description.
+     */
+    protected AbstractMetricSource(String name, @Nullable String description) {
+        this(name, description, null);
+    }
+
+    /**
+     * Base constructor for all metric source implementations.
+     *
+     * @param name Metric source name.
+     * @param description Description.
+     * @param group Optional group name.
+     */
+    protected AbstractMetricSource(String name, @Nullable String description, @Nullable String group) {
         this.name = name;
+        this.description = description;
+        this.group = group;
+    }
+
+    /**
+     * Base constructor for all metric source implementations.
+     *
+     * @param name Metric source name.
+     * @param description Description.
+     * @param group Optional group name.
+     * @param holder Metric instances holder.
+     */
+    protected AbstractMetricSource(String name, @Nullable String description, @Nullable String group, @Nullable T holder) {
+        this.name = name;
+        this.description = description;
+        this.group = group;
+        this.holder = holder;
     }
 
     @Override
@@ -54,12 +98,22 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
     }
 
     @Override
+    public @Nullable String description() {
+        return description;
+    }
+
+    @Override
+    public @Nullable String group() {
+        return group;
+    }
+
+    @Override
     public final boolean enabled() {
         return holder != null;
     }
 
     /**
-     * Returns metric instances' holder. Use this on order to avoid metric lookup from map-like data structures.
+     * Returns metric instances' holder. Use this in order to avoid metric lookup from map-like data structures.
      * Returned value is {@code null} if metrics are disabled.
      *
      * @return Metrics holder instance if metrics are enabled, otherwise - {@code null}.
@@ -80,7 +134,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
         T newHolder = createHolder();
 
         if (HOLDER_FIELD_UPD.compareAndSet(this, null, newHolder)) {
-            var metricSetBuilder = new MetricSetBuilder(name);
+            var metricSetBuilder = new MetricSetBuilder(name, description, group);
 
             newHolder.metrics().forEach(metricSetBuilder::register);
 
@@ -100,6 +154,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      *
      * @param <T> Holder type subclass.
      */
+    @FunctionalInterface
     protected interface Holder<T extends Holder<T>> {
         /** Returns the holder metrics. */
         Iterable<Metric> metrics();

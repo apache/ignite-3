@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-test-common)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-test-common)
 
 set(SOURCES
     basic_auth_test_suite.h
@@ -25,6 +23,7 @@ set(SOURCES
     ignite_runner.cpp ignite_runner.h
     process.cpp
     test_utils.cpp test_utils.h
+    hidden_param.h
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})

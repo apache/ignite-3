@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -39,10 +40,12 @@ public class LowWatermarkConfigurationSchema {
     // propagation period plus max clock skew.
     @Range(min = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "dataAvailabilityTime")
     public long dataAvailabilityTimeMillis = TimeUnit.MINUTES.toMillis(10);
 
     /** Low watermark update interval (in milliseconds). */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "updateInterval")
     public long updateIntervalMillis = TimeUnit.MINUTES.toMillis(5);
 }

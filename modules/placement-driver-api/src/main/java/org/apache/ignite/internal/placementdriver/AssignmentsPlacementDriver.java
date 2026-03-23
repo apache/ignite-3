@@ -60,4 +60,19 @@ public interface AssignmentsPlacementDriver {
             List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     );
+
+    /**
+     * Returns the future with list of tokenized assignments for the specified replication group ids. The future will be completed when
+     * either non-empty assignments for all specified replication group ids are available or timeoutMillis elapsed since the method was
+     * called. If timeoutMillis elapsed and there are still replication group ids without assignments, then
+     * {@link EmptyAssignmentsException} is thrown.
+     *
+     * @param replicationGroupIds List of replication group Ids.
+     * @param timeoutMillis Timeout in milliseconds.
+     * @return List of tokenized assignments.
+     */
+    CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    );
 }

@@ -41,10 +41,6 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.typesafe.config
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(':ignite-api')

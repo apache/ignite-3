@@ -38,7 +38,7 @@ public class CliVersionInfo {
      * Creates Ignite CLI version provider according to builtin version file.
      */
     public CliVersionInfo() {
-        try (InputStream inputStream = CliVersionInfo.class.getResourceAsStream("/version.properties")) {
+        try (InputStream inputStream = CliVersionInfo.class.getResourceAsStream("/ignite.cli.version.properties")) {
             Properties prop = new Properties();
             prop.load(inputStream);
 

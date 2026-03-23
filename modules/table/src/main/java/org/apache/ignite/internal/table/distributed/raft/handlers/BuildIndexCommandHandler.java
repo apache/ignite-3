@@ -18,23 +18,27 @@
 package org.apache.ignite.internal.table.distributed.raft.handlers;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -43,16 +47,17 @@ import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
-import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft command handler that handles {@link BuildIndexCommand}.
+ * Raft command handler that handles {@link BuildIndexCommandV2}.
+ *
+ * <p>We will also handle {@link BuildIndexCommand}, since there is no specific logic for {@link BuildIndexCommandV2}, we will leave it
+ * as is to support backward compatibility.</p>
  */
 public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexCommand> {
     private static final IgniteLogger LOG = Loggers.forClass(BuildIndexCommandHandler.class);
@@ -103,34 +108,84 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
 
         if (indexMeta == null || indexMeta.isDropped()) {
             // Index has been dropped.
-            return EMPTY_APPLIED_RESULT;
+            return storage.runConsistently(locker -> {
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return EMPTY_APPLIED_RESULT;
+            });
         }
 
-        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta);
+        IndexUpdateHandler indexUpdateHandler = storageUpdateHandler.getIndexUpdateHandler();
+
+        RowId previousNextRowIdToBuild = indexUpdateHandler.getNextRowIdToBuildIndex(command.indexId());
+        if (previousNextRowIdToBuild == null) {
+            // Index is already built. This command either repeats the final batch, or it is one of the previous commands that's been
+            // processed out of order for some reason.
+            if (command.finish()) {
+                logCommandDuplication(command);
+            } else {
+                logCommandReordering(command);
+            }
+
+            // It is safe to ignore such commands, because it is a duplicate of already applied command in both cases (duplication and
+            // out-of-order replication). We guarantee that because new command is only created when the previous one has been replicated
+            // at least once.
+            return storage.runConsistently(locker -> {
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return EMPTY_APPLIED_RESULT;
+            });
+        }
+
+        Set<UUID> abortedTransactionIds = command instanceof BuildIndexCommandV3
+                ? ((BuildIndexCommandV3) command).abortedTransactionIds()
+                : Set.of();
+        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta, abortedTransactionIds);
 
         BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(indexMeta);
 
-        storage.runConsistently(locker -> {
-            var rowUuids = new ArrayList<>(command.rowIds());
+        List<RowId> rowIds = command.rowIds().stream()
+                // Natural UUID order matches RowId order within the same partition.
+                .sorted()
+                .map(this::toRowId)
+                .collect(Collectors.toList());
+        @Nullable RowId lastRowId = last(rowIds);
 
-            // Natural UUID order matches RowId order within the same partition.
-            Collections.sort(rowUuids);
+        AtomicInteger rowIdsIterationIndex = new AtomicInteger(0);
+        boolean finished = false;
+        while (!finished) {
+            finished = storage.runConsistently(locker -> {
+                if (rowIds.isEmpty()) {
+                    // necessary to bump `nextRowIdToBuild` to null
+                    indexUpdateHandler.buildIndex(command.indexId(), Stream.of(), null);
+                } else {
+                    int index = rowIdsIterationIndex.get();
+                    while (index < rowIds.size()) {
+                        RowId rowId = rowIds.get(index);
+                        locker.lock(rowId);
+                        Stream<BinaryRowAndRowId> rowVersions = rowVersionChooser.chooseForBuildIndex(rowId)
+                                .stream()
+                                .map(row -> upgradeBinaryRow(binaryRowUpgrader, row));
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
-                    rowUuids,
-                    locker,
-                    rowVersionChooser,
-                    binaryRowUpgrader
-            );
+                        RowId nextRowIdToBuild = null;
+                        if (index != rowIds.size() - 1) {
+                            nextRowIdToBuild = rowIds.get(index + 1);
+                        } else if (!command.finish()) {
+                            nextRowIdToBuild = requireNonNull(lastRowId).increment();
+                        }
 
-            RowId nextRowIdToBuild = command.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
+                        indexUpdateHandler.buildIndex(command.indexId(), rowVersions, nextRowIdToBuild);
+                        index = rowIdsIterationIndex.incrementAndGet();
 
-            storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), buildIndexRowStream, nextRowIdToBuild);
-
-            storage.lastApplied(commandIndex, commandTerm);
-
-            return null;
-        });
+                        if (locker.shouldRelease() && index < rowIds.size()) {
+                            return false;
+                        }
+                    }
+                }
+                storage.lastApplied(commandIndex, commandTerm);
+                return true;
+            });
+        }
 
         if (command.finish()) {
             LOG.info(
@@ -142,14 +197,31 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         return EMPTY_APPLIED_RESULT;
     }
 
-    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta) {
+    private void logCommandDuplication(BuildIndexCommand command) {
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Duplicated building the index command received [tableId={}, partitionId={}, indexId={}, finish={}]",
+                    storage.tableId(), storage.partitionId(), command.indexId(), command.finish()
+            );
+        }
+    }
+
+    private void logCommandReordering(BuildIndexCommand command) {
+        LOG.warn(
+                "Build index command reordering detected [tableId={}, partitionId={}, indexId={}, finish={}]",
+                storage.tableId(), storage.partitionId(), command.indexId(), command.finish()
+        );
+    }
+
+    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta, Set<UUID> abortedTransactionIds) {
         MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
         MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
 
         return new BuildIndexRowVersionChooser(
                 storage,
                 registeredChangeInfo.activationTimestamp(),
-                buildingChangeInfo.activationTimestamp()
+                buildingChangeInfo.activationTimestamp(),
+                abortedTransactionIds
         );
     }
 
@@ -159,22 +231,9 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         return new BinaryRowUpgrader(schemaRegistry, schema);
     }
 
-    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(
-            List<UUID> rowUuids,
-            Locker locker,
-            BuildIndexRowVersionChooser rowVersionChooser,
-            BinaryRowUpgrader binaryRowUpgrader
-    ) {
-        return rowUuids.stream()
-                .map(this::toRowId)
-                .peek(locker::lock)
-                .map(rowVersionChooser::chooseForBuildIndex)
-                .flatMap(Collection::stream)
-                .map(binaryRowAndRowId -> upgradeBinaryRow(binaryRowUpgrader, binaryRowAndRowId));
-    }
-
     private static BinaryRowAndRowId upgradeBinaryRow(BinaryRowUpgrader upgrader, BinaryRowAndRowId source) {
         BinaryRow sourceBinaryRow = source.binaryRow();
+        assert sourceBinaryRow != null : "rowId=" + source.rowId();
         BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
 
         return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());

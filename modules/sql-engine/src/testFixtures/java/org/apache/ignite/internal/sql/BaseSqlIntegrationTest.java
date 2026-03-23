@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -49,6 +51,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,7 +119,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
     }
 
     /**
-     * Used for query with aggregates checks, disables other aggregate rules for executing exact agregate algo.
+     * Used for query with aggregates checks, disables other aggregate rules for executing exact aggregate algo.
      *
      * @param qry Query for check.
      * @param aggregateType Type of aggregate algo.
@@ -280,7 +283,28 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
     protected void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
-        SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, matcher);
+    }
+
+    /**
+     * Waits until the number of queries in {@link ExecutionPhase#CURSOR_PUBLICATION Cursor Publication} phase matches the specified
+     * matcher.
+     *
+     * @param matcher THe matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    protected void waitUntilQueriesInCursorPublicationPhaseCount(Matcher<Integer> matcher) {
+        SqlTestUtils.waitUntilQueriesInPhaseCount(queryProcessor(), ExecutionPhase.CURSOR_PUBLICATION, matcher);
+    }
+
+    /**
+     * Waits until the number of active (pending) transactions matches the specified matcher.
+     *
+     * @param matcher Matcher to check the number of active transactions.
+     * @throws AssertionError If after waiting the number of active transactions still does not match the specified matcher.
+     */
+    protected void waitUntilActiveTransactionsCount(Matcher<Integer> matcher) {
+        Awaitility.await().timeout(5, SECONDS).untilAsserted(() -> assertThat(txManager().pending(), matcher));
     }
 
     protected static void gatherStatistics() {
@@ -289,7 +313,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
 
         statisticManager.forceUpdateAll();
         try {
-            statisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.SECONDS);
+            statisticManager.lastUpdateStatisticFuture().get(5_000, SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
         }

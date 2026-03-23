@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.cli.commands.treesitter.highlighter;
 
-import java.util.Map;
 import org.apache.ignite.internal.cli.commands.treesitter.parser.Indexer;
 import org.apache.ignite.internal.cli.commands.treesitter.parser.Parser;
 import org.apache.ignite.internal.cli.commands.treesitter.parser.SqlTokenType;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport;
+import org.apache.ignite.internal.cli.core.style.ColorScheme;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
@@ -29,26 +30,24 @@ import org.jline.utils.AttributedStyle;
  * Highlighter for SQL text. The highlighted text is returned as an AttributedString.
  */
 public class SqlAttributedStringHighlighter {
-    private static final Map<SqlTokenType, Integer> colorMap = Map.of(
-            SqlTokenType.KEYWORD, 215,
-            SqlTokenType.IDENTIFIER, 254,
-            SqlTokenType.BRACKET, 248,
-            SqlTokenType.LITERAL, 106,
-            SqlTokenType.SPACE, 0,
-            SqlTokenType.COMMA, 248,
-            SqlTokenType.EQUAL, 248,
-            SqlTokenType.STAR, 248,
-            SqlTokenType.SEMICOLON, 248,
-            SqlTokenType.UNKNOWN, 248
-    );
-
     /**
-     * Highlights the input SQL text with ANSI colors.
+     * Highlights the input SQL text with ANSI colors using the current color scheme.
      *
      * @param text The input SQL text.
      * @return The highlighted SQL text.
      */
     public static AttributedString highlight(String text) {
+        return highlight(text, AnsiStringSupport.getColorScheme());
+    }
+
+    /**
+     * Highlights the input SQL text with ANSI colors using the specified color scheme.
+     *
+     * @param text The input SQL text.
+     * @param scheme The color scheme to use.
+     * @return The highlighted SQL text.
+     */
+    public static AttributedString highlight(String text, ColorScheme scheme) {
         var as = new AttributedStringBuilder();
 
         var tree = Parser.parseSql(text);
@@ -56,11 +55,33 @@ public class SqlAttributedStringHighlighter {
 
         for (int i = 0; i < text.length(); i++) {
             SqlTokenType token = tokens[i];
-            int color = colorMap.getOrDefault(token, 1);
+            int color = getColorForToken(token, scheme);
             var style = AttributedStyle.DEFAULT.foreground(color);
             as.style(style).append(text.charAt(i));
         }
 
         return as.toAttributedString();
+    }
+
+    private static int getColorForToken(SqlTokenType token, ColorScheme scheme) {
+        switch (token) {
+            case KEYWORD:
+                return scheme.keywordColor();
+            case IDENTIFIER:
+                return scheme.identifierColor();
+            case LITERAL:
+                return scheme.stringColor();
+            case BRACKET:
+            case COMMA:
+            case EQUAL:
+            case STAR:
+            case SEMICOLON:
+                return scheme.punctuationColor();
+            case SPACE:
+                return 0;
+            case UNKNOWN:
+            default:
+                return scheme.punctuationColor();
+        }
     }
 }

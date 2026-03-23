@@ -48,11 +48,12 @@ class RocksDbFlushListener extends LoggingRocksDbFlushListener {
      * Constructor.
      *
      * @param name Listener name, for logs.
+     * @param nodeName Node name, for logs.
      * @param flusher Flusher instance to delegate events processing to.
      * @param logSyncer Write-ahead log synchronizer.
      */
-    RocksDbFlushListener(String name, RocksDbFlusher flusher, LogSyncer logSyncer, FailureProcessor failureProcessor) {
-        super(name);
+    RocksDbFlushListener(String name, String nodeName, RocksDbFlusher flusher, LogSyncer logSyncer, FailureProcessor failureProcessor) {
+        super(name, nodeName);
 
         this.flusher = flusher;
         this.logSyncer = logSyncer;

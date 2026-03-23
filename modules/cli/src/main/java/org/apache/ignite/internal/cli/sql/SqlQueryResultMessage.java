@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.sql;
 
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
+import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 
 /**
  * A message in the SQL query result.
@@ -32,7 +33,8 @@ class SqlQueryResultMessage implements SqlQueryResultItem {
     }
 
     @Override
-    public TerminalOutput decorate(boolean plain) {
+    public TerminalOutput decorate(boolean plain, TruncationConfig truncationConfig) {
+        // Messages are not truncated
         return new DefaultDecorator<String>().decorate(message);
     }
 }

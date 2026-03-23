@@ -30,6 +30,12 @@ class Checkpoint {
     /** Number of dirty pages. */
     final int dirtyPagesSize;
 
+    /** Number of written dirty pages. */
+    int writtenPages;
+
+    /** Number of fsync-ed files. */
+    int syncedFiles;
+
     /**
      * Constructor.
      *
@@ -49,7 +55,18 @@ class Checkpoint {
     /**
      * Returns {@code true} if this checkpoint contains at least one dirty page.
      */
-    public boolean hasDelta() {
+    boolean hasDelta() {
         return dirtyPagesSize != 0;
+    }
+
+    void finishCheckpoint() {
+        if (hasDelta()) {
+            writtenPages = progress.writtenPages();
+            syncedFiles = progress.syncedFiles();
+
+            progress.pagesToWrite(null);
+
+            progress.clearCounters();
+        }
     }
 }

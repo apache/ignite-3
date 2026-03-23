@@ -178,7 +178,7 @@ public class ColumnType<T> {
     public static ColumnType<?> of(Class<?> type) {
         ColumnType<?> columnType = TYPES.get(type);
         if (columnType == null) {
-            throw new UnsupportedOperationException("Class is not supported: " + type.getCanonicalName());
+            throw new IllegalArgumentException("Class is not supported: " + type.getCanonicalName());
         }
         return columnType.copy();
     }

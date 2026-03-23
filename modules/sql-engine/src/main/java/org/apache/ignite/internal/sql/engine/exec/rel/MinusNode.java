@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapMinus;
@@ -40,7 +40,7 @@ public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
      */
     public MinusNode(ExecutionContext<RowT> ctx, int columnCnt, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory) {
-        super(ctx, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, columnCnt, type, all));
+        super(ctx, type, new MinusGrouping<>(ctx, rowFactory, columnCnt, type, all));
     }
 
     /**

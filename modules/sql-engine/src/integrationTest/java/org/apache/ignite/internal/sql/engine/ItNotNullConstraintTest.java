@@ -39,6 +39,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +61,7 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
 
     protected void runSql(String stmt) {
         Ignite ignite = ignite();
-        try (ResultSet<SqlRow> rs = ignite.sql().execute(null, stmt)) {
+        try (ResultSet<SqlRow> rs = ignite.sql().execute((Transaction) null, stmt)) {
             assertNotNull(rs);
         }
     }

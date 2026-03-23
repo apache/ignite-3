@@ -59,7 +59,7 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
     public DynamicConfiguration(
             List<String> prefix,
             String key,
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             DynamicConfigurationChanger changer,
             boolean listenOnly
     ) {

@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
@@ -41,11 +42,13 @@ public class ClientConnectorConfigurationSchema {
     /** Connect timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "connectTimeout")
     public final int connectTimeoutMillis = 5000;
 
     /** Idle timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "idleTimeout")
     public final long idleTimeoutMillis = 0;
 
     /** Server exception stack trace visibility. */

@@ -60,6 +60,10 @@ public class LocalPartitionStateMessageByNode {
         return map.get(node);
     }
 
+    public Set<String> nodes() {
+        return map.keySet();
+    }
+
     @Override
     public String toString() {
         return map.toString();

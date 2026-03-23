@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.lowwatermark;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -45,11 +46,34 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
     void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer);
 
     /**
-     * Updates the low watermark if it is higher than the current one.
+     * Updates the low watermark if it is higher than the current one. Fire-and-forget version of
+     * {@link #updateLowWatermarkAsync(HybridTimestamp)}.
      *
      * @param newLowWatermark Candidate for update.
      */
-    void updateLowWatermark(HybridTimestamp newLowWatermark);
+    default void updateLowWatermark(HybridTimestamp newLowWatermark) {
+        updateLowWatermarkAsync(newLowWatermark);
+    }
+
+    /**
+     * Updates the low watermark asynchronously if it is higher than the current one. If no updates required the resulting future
+     * will complete immediately.
+     *
+     * @param newLowWatermark Candidate for update.
+     * @return Future that completes when the low watermark update is finished.
+     */
+    CompletableFuture<Void> updateLowWatermarkAsync(HybridTimestamp newLowWatermark);
+
+    /**
+     * Sets the low watermark during node recovery.
+     *
+     * <p>This method sets the low watermark immediately and unconditionally, without checking if the new value is higher than
+     * the current one. Listeners are not notified about the change; even more, they must not be registered at this point.
+     * It is intended to be used only during node recovery.
+     *
+     * @param newLowWatermark New low watermark.
+     */
+    void setLowWatermarkOnRecovery(HybridTimestamp newLowWatermark);
 
     /**
      * Locks the low watermark at the provided timestamp (prevents it from being updated to a value higher than the provided one).

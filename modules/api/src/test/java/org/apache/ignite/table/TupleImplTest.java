@@ -41,6 +41,11 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         return new TupleImpl().set(columnName, value);
     }
 
+    @Override
+    protected Tuple createNullValueTuple(ColumnType valueType) {
+        return Tuple.create().set("ID", 1).set("VAL", null);
+    }
+
     @Test
     void testTupleFactoryMethods() {
         assertEquals(Tuple.create(), Tuple.create(10));
@@ -85,5 +90,11 @@ public class TupleImplTest extends AbstractMutableTupleTest {
 
         // must be found by non normalized name, regular method does normalization
         assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27577 Remove this method
+    @Override
+    protected boolean enableClassCastMessageVerification() {
+        return false;
     }
 }

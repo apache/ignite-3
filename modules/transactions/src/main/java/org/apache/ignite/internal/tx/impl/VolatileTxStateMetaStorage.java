@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
@@ -33,23 +34,42 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.PersistentTxStateVacuumResult;
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.VacuumizableTx;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
+    private static final IgniteThrottledLogger THROTTLED_LOG = Loggers.toThrottledLogger(LOG);
+    private static final String ENRICH_REMOVE_THROTTLE_KEY = "volatile-tx-state-enrich-remove";
+    private static final String ENRICH_CREATE_THROTTLE_KEY = "volatile-tx-state-enrich-create";
+    private static final String ENRICH_STATE_CHANGE_THROTTLE_KEY = "volatile-tx-state-enrich-state-change";
 
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    /**
+     * Creates and starts the storage.
+     *
+     * <p>Intended for tests/benchmarks where the storage is used directly without a full component lifecycle.
+     */
+    @TestOnly
+    public static VolatileTxStateMetaStorage createStarted() {
+        VolatileTxStateMetaStorage storage = new VolatileTxStateMetaStorage();
+        storage.start();
+        return storage;
+    }
 
     /**
      * Starts the storage.
@@ -69,10 +89,17 @@ public class VolatileTxStateMetaStorage {
      * Initializes the meta state for a created transaction.
      *
      * @param tx Transaction object.
+     * @param txLabel Transaction label.
      */
-    public void initialize(InternalTransaction tx) {
-        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
-
+    public void initialize(InternalTransaction tx, @Nullable String txLabel) {
+        TxStateMeta previous = txStateMap.put(
+                tx.id(),
+                TxStateMeta.builder(PENDING)
+                        .txCoordinatorId(tx.coordinatorId())
+                        .tx(tx)
+                        .txLabel(txLabel)
+                        .build()
+        );
 
         assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }
@@ -96,6 +123,72 @@ public class VolatileTxStateMetaStorage {
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
+    }
+
+    /**
+     * Atomically replaces metadata of an already existing transaction state, but only if the resulting state keeps the same
+     * {@link TxStateMeta#txState()} value.
+     *
+     * <p>If the transaction is absent, the update is skipped. If the updater returns {@code null}, the existing metadata is preserved and
+     * the removal is skipped. If the updater changes {@code txState}, the update is skipped as well. Otherwise, the returned metadata is
+     * stored as-is, so this method may be used for any non-state changes.
+     *
+     * @param txId Transaction id.
+     * @param updater Transaction meta updater.
+     * @return Stored transaction state after the operation.
+     */
+    public @Nullable <T extends TxStateMeta> T enrichMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return (T) txStateMap.compute(txId, (k, oldMeta) -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
+
+            if (!isEnrichAllowed(txId, oldMeta, newMeta)) {
+                return oldMeta;
+            }
+
+            return newMeta;
+        });
+    }
+
+    private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, @Nullable TxStateMeta newMeta) {
+        if (newMeta == null) {
+            if (oldMeta != null) {
+                THROTTLED_LOG.info(
+                        ENRICH_REMOVE_THROTTLE_KEY,
+                        "Skipped removing transaction state in enrichMeta [{}, oldMeta={}].",
+                        formatTxInfo(txId, oldMeta, false),
+                        oldMeta
+                );
+            }
+
+            return false;
+        }
+
+        if (oldMeta == null) {
+            THROTTLED_LOG.info(
+                    ENRICH_CREATE_THROTTLE_KEY,
+                    "Skipped creating transaction state in enrichMeta [{}, newMeta={}].",
+                    formatTxInfo(txId, newMeta, false),
+                    newMeta
+            );
+
+            return false;
+        }
+
+        if (oldMeta.txState() != newMeta.txState()) {
+            THROTTLED_LOG.info(
+                    ENRICH_STATE_CHANGE_THROTTLE_KEY,
+                    "Skipped changing transaction state in enrichMeta [{}, oldState={}, newState={}, newMeta={}].",
+                    formatTxInfo(txId, oldMeta, false),
+                    oldMeta.txState(),
+                    newMeta.txState(),
+                    newMeta
+            );
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -144,26 +237,19 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-            // Should be changed to ZonePartitionId.
-            Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
+            Function<Map<ZonePartitionId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp,
+            ResourceVacuumMetrics resourceVacuumMetrics
     ) {
-        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
-
-        AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
-        AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
-        AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-        // Should be changed to ZonePartitionId.
-        Map<ReplicationGroupId, Set<VacuumizableTx>> txIds = new HashMap<>();
+        Map<ZonePartitionId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
+
+        var skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger();
 
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
                 if (meta0.tx() != null && meta0.tx().isReadOnly()) {
                     if (meta0.tx().isFinishingOrFinished()) {
-                        vacuumizedTxnsCount.incrementAndGet();
+                        resourceVacuumMetrics.onVolatileStateVacuum();
 
                         return null;
                     }
@@ -177,12 +263,10 @@ public class VolatileTxStateMetaStorage {
 
                     if (shouldBeVacuumized) {
                         if (meta0.commitPartitionId() == null) {
-                            vacuumizedTxnsCount.incrementAndGet();
+                            resourceVacuumMetrics.onVolatileStateVacuum();
 
                             return null;
                         } else {
-                            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                            // Should be changed to ZonePartitionId.
                             Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                             ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
 
@@ -193,7 +277,8 @@ public class VolatileTxStateMetaStorage {
                             return meta0;
                         }
                     } else {
-                        alreadyMarkedTxnsCount.incrementAndGet();
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-27773
+                        resourceVacuumMetrics.onMarkedForVacuum();
 
                         return meta0;
                     }
@@ -217,7 +302,7 @@ public class VolatileTxStateMetaStorage {
                                 TxStateMeta newMeta = (Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp())) ? null : v;
 
                                 if (newMeta == null) {
-                                    vacuumizedTxnsCount.incrementAndGet();
+                                    resourceVacuumMetrics.onVolatileStateVacuum();
                                 }
 
                                 return newMeta;
@@ -225,18 +310,9 @@ public class VolatileTxStateMetaStorage {
                         });
                     }
 
-                    LOG.info("Vacuum finished [vacuumObservationTimestamp={}, "
-                                    + "txnResourceTtl={}, "
-                                    + "vacuumizedTxnsCount={}, "
-                                    + "vacuumizedPersistentTxnStatesCount={}, "
-                                    + "alreadyMarkedTxnsCount={}, "
-                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
-                            vacuumObservationTimestamp,
-                            txnResourceTtl,
-                            vacuumizedTxnsCount,
+                    resourceVacuumMetrics.onVacuumFinish(
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
-                            alreadyMarkedTxnsCount,
-                            skippedForFurtherProcessingUnfinishedTxnsCount
+                            skippedForFurtherProcessingUnfinishedTxnsCount.get()
                     );
                 });
     }

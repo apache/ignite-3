@@ -49,7 +49,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -414,7 +414,7 @@ public class ItZoneDataReplicationTest extends ItAbstractColocationTest {
     }
 
     private static @Nullable MvTableStorage tableStorage(Node node, int tableId) {
-        TableImpl table = node.tableManager.startedTables().get(tableId);
+        TableViewInternal table = node.tableManager.startedTables().get(tableId);
 
         return table == null ? null : table.internalTable().storage();
     }

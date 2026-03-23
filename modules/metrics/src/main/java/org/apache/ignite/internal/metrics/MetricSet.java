@@ -30,6 +30,12 @@ public class MetricSet implements Iterable<Metric> {
     /** Metrics set name. */
     private final String name;
 
+    /** Metrics set description. */
+    private final String description;
+
+    /** Metrics set group name. */
+    private final String group;
+
     /** Registered metrics. */
     private final Map<String, Metric> metrics;
 
@@ -40,7 +46,22 @@ public class MetricSet implements Iterable<Metric> {
      * @param metrics Metrics.
      */
     public MetricSet(String name, Map<String, Metric> metrics) {
+        this(name, null, null, metrics);
+    }
+
+    /**
+     * Creates an instance of a metrics set with given name and metrics.
+     *
+     * @param name Metrics set name.
+     * @param description Description.
+     * @param group Optional group name.
+     * @param metrics Metrics.
+     */
+    public MetricSet(String name, @Nullable String description, @Nullable String group, Map<String, Metric> metrics) {
         this.name = name;
+        this.description = description;
+        this.group = group;
+
         this.metrics = Collections.unmodifiableMap(metrics);
     }
 
@@ -62,11 +83,35 @@ public class MetricSet implements Iterable<Metric> {
     }
 
     /**
-     * Name of the metric set.
+     * Returns name of this metric set.
      *
      * @return Name of the metrics set.
+     * @see MetricSource#name()
      */
     public String name() {
         return name;
+    }
+
+    /**
+     * Returns description of this metric set.
+     *
+     * @return Metrics source description.
+     * @see MetricSource#description()
+     **/
+    public @Nullable String description() {
+        return description;
+    }
+
+    /**
+     * Returns a group name for this metric set.
+     * In general, a group name is a prefix of the metric set name.
+     * For example, thread pool metric sources have the following group: {@code thread.pools}.
+     * This group name allows adding additional grouping in external systems like JConsole.
+     *
+     * @return Group name.
+     * @see MetricSource#group()
+     */
+    public @Nullable String group() {
+        return group;
     }
 }

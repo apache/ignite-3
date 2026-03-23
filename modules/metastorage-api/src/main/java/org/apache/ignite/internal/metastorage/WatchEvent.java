@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metastorage.timebag.TimeBag;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.TestOnly;
@@ -38,17 +39,22 @@ public class WatchEvent {
     /** Timestamp assigned by the MetaStorage to the event's revision. */
     private final HybridTimestamp timestamp;
 
+    /** Time bag to collect timings of this event processing. */
+    private final TimeBag timeBag;
+
     /**
      * Constructs an watch event with given entry events collection.
      *
      * @param entryEvts Events for entries corresponding to an update under one revision.
      * @param revision Revision of the updated entries.
      * @param timestamp Timestamp assigned by the MetaStorage to the event's revision.
+     * @param timeBag Time bag to collect timings of this event processing.
      */
-    public WatchEvent(Collection<EntryEvent> entryEvts, long revision, HybridTimestamp timestamp) {
+    public WatchEvent(Collection<EntryEvent> entryEvts, long revision, HybridTimestamp timestamp, TimeBag timeBag) {
         this.entryEvts = List.copyOf(entryEvts);
         this.revision = revision;
         this.timestamp = timestamp;
+        this.timeBag = timeBag;
     }
 
     /**
@@ -59,7 +65,7 @@ public class WatchEvent {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19820 - remove/rework.
     @TestOnly
     public WatchEvent(EntryEvent entryEvt) {
-        this(List.of(entryEvt), entryEvt.newEntry().revision(), HybridTimestamp.MAX_VALUE);
+        this(List.of(entryEvt), entryEvt.newEntry().revision(), HybridTimestamp.MAX_VALUE, TimeBag.createTimeBag(false, false));
     }
 
     /**
@@ -107,6 +113,15 @@ public class WatchEvent {
      */
     public HybridTimestamp timestamp() {
         return timestamp;
+    }
+
+    /**
+     * Returns the time bag to collect timings of this event processing.
+     *
+     * @return Time bag.
+     */
+    public TimeBag timeBag() {
+        return timeBag;
     }
 
     @Override

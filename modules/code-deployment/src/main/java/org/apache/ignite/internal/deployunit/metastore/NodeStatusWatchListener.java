@@ -31,7 +31,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 
 /**
  * Node statuses store watch listener.
@@ -60,7 +60,7 @@ public class NodeStatusWatchListener implements WatchListener {
         this.callback = callback;
 
         executor = Executors.newFixedThreadPool(
-                4, NamedThreadFactory.create(nodeName, "NodeStatusWatchListener-pool", LOG)
+                4, IgniteThreadFactory.create(nodeName, "NodeStatusWatchListener-pool", LOG)
         );
     }
 

@@ -49,13 +49,21 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Spliterator;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -76,6 +84,7 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -517,6 +526,84 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    @Test
+    public void testQueryAllColumnTypes() {
+        String tableName = "all_column_types";
+
+        CLIENT.sql().executeScript(format(
+                "CREATE TABLE {} (str VARCHAR PRIMARY KEY, byteCol TINYINT, shortCol SMALLINT, intCol INT, longCol BIGINT, "
+                        + "floatCol REAL, doubleCol DOUBLE, decimalCol DECIMAL(6, 3), boolCol BOOLEAN, bytesCol VARBINARY, "
+                        + "uuidCol UUID, dateCol DATE, timeCol TIME, datetimeCol TIMESTAMP, instantCol TIMESTAMP WITH LOCAL TIME ZONE)",
+                tableName));
+
+        UUID uuid = UUID.randomUUID();
+        LocalDate localDate = LocalDate.of(2024, 1, 1);
+        LocalTime localTime = LocalTime.of(12, 15, 10);
+        LocalDateTime localDateTime = LocalDateTime.of(2024, 1, 1, 12, 0);
+        Instant instant = Instant.parse("2024-01-01T12:00:00Z");
+        byte[] bytes = {1, 2, 3};
+
+        CLIENT.sql().executeScript("INSERT INTO " + tableName + " (str, byteCol, shortCol, intCol, longCol, floatCol, doubleCol, "
+                + "decimalCol, boolCol, bytesCol, uuidCol, dateCol, timeCol, datetimeCol, instantCol) VALUES "
+                + "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "test", (byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7.89"), true,
+                bytes, uuid, localDate, localTime, localDateTime, instant);
+
+        Table table = CLIENT.tables().table(tableName);
+
+        try (Cursor<TestAllColumnTypes> cur = table.recordView(TestAllColumnTypes.class).query(null, null)) {
+            List<TestAllColumnTypes> results = StreamSupport.stream(spliteratorUnknownSize(cur, Spliterator.ORDERED), false)
+                    .collect(toList());
+
+            assertThat(results, Matchers.hasSize(1));
+
+            TestAllColumnTypes row = results.get(0);
+
+            assertEquals("test", row.str);
+            assertEquals(Byte.valueOf((byte) 1), row.byteCol);
+            assertEquals(Short.valueOf((short) 2), row.shortCol);
+            assertEquals(Integer.valueOf(3), row.intCol);
+            assertEquals(Long.valueOf(4L), row.longCol);
+            assertEquals(Float.valueOf(5.0f), row.floatCol);
+            assertEquals(Double.valueOf(6.0d), row.doubleCol);
+            assertEquals(new BigDecimal("7.890"), row.decimalCol);
+            assertEquals(Boolean.TRUE, row.boolCol);
+            assertArrayEquals(bytes, row.bytesCol);
+            assertEquals(uuid, row.uuidCol);
+            assertEquals(localDate, row.dateCol);
+            assertEquals(localTime, row.timeCol);
+            assertEquals(localDateTime, row.datetimeCol);
+            assertEquals(instant, row.instantCol);
+        }
+
+        try (Cursor<Entry<String, TestAllColumnTypes>> cur = table.keyValueView(String.class, TestAllColumnTypes.class).query(null, null)) {
+            List<Entry<String, TestAllColumnTypes>> results = StreamSupport.stream(spliteratorUnknownSize(cur, Spliterator.ORDERED), false)
+                    .collect(toList());
+
+            assertThat(results, Matchers.hasSize(1));
+
+            Entry<String, TestAllColumnTypes> entry = results.get(0);
+            TestAllColumnTypes row = entry.getValue();
+
+            assertEquals("test", entry.getKey());
+            assertNull(row.str);
+            assertEquals(Byte.valueOf((byte) 1), row.byteCol);
+            assertEquals(Short.valueOf((short) 2), row.shortCol);
+            assertEquals(Integer.valueOf(3), row.intCol);
+            assertEquals(Long.valueOf(4L), row.longCol);
+            assertEquals(Float.valueOf(5.0f), row.floatCol);
+            assertEquals(Double.valueOf(6.0d), row.doubleCol);
+            assertEquals(new BigDecimal("7.890"), row.decimalCol);
+            assertEquals(Boolean.TRUE, row.boolCol);
+            assertArrayEquals(bytes, row.bytesCol);
+            assertEquals(uuid, row.uuidCol);
+            assertEquals(localDate, row.dateCol);
+            assertEquals(localTime, row.timeCol);
+            assertEquals(localDateTime, row.datetimeCol);
+            assertEquals(instant, row.instantCol);
+        }
+    }
+
     private static Stream<Arguments> testSessionClosing() {
         Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
 
@@ -564,5 +651,23 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         double salary;
 
         byte[] hash;
+    }
+
+    static class TestAllColumnTypes {
+        String str;
+        Byte byteCol;
+        Short shortCol;
+        Integer intCol;
+        Long longCol;
+        Float floatCol;
+        Double doubleCol;
+        BigDecimal decimalCol;
+        Boolean boolCol;
+        byte[] bytesCol;
+        UUID uuidCol;
+        LocalDate dateCol;
+        LocalTime timeCol;
+        LocalDateTime datetimeCol;
+        Instant instantCol;
     }
 }

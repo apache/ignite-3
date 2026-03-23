@@ -110,9 +110,12 @@ public class VarIntUtils {
     /**
      * Reads a varint from a buffer.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param buf Buffer from which to read.
      * @return Long value that was encoded as a varint.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public static long readVarInt(ByteBuffer buf) {
         long res = 0;
 
@@ -132,10 +135,13 @@ public class VarIntUtils {
     /**
      * Reads a varint from a byte buffer.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param bytes Array from which to read.
      * @param off Offset to start reading from.
      * @return Long value that was encoded as a varint.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public static long readVarInt(byte[] bytes, int off) {
         long res = 0;
 
@@ -156,9 +162,12 @@ public class VarIntUtils {
     /**
      * Reads a varint from an input.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param in Input from which to read.
      * @return Long value that was encoded as a varint.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public static long readVarInt(DataInput in) throws IOException {
         long res = 0;
 

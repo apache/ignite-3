@@ -20,6 +20,7 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionEvaluationException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingException;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -58,6 +59,9 @@ public class SqlExceptionMapperUtil {
         }
         if (unwrapped instanceof UnknownNodeException) {
             return new SqlException(Common.NODE_LEFT_ERR, "Node left the cluster. Node: " + ((UnknownNodeException) unwrapped).nodeName());
+        }
+        if (unwrapped instanceof ExpressionEvaluationException) {
+            return new SqlException(Sql.RUNTIME_ERR, unwrapped.getMessage());
         }
 
         Throwable e = mapToPublicException(origin);

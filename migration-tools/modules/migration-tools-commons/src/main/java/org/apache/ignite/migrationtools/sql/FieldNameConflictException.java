@@ -18,6 +18,7 @@
 package org.apache.ignite.migrationtools.sql;
 
 import java.util.Set;
+import org.apache.ignite.migrationtools.types.InspectedField;
 
 /** Defines a situation when it was not possible to assign a field name due to a conflict with other fields. */
 public class FieldNameConflictException extends RuntimeException {
@@ -26,7 +27,7 @@ public class FieldNameConflictException extends RuntimeException {
         super(message);
     }
 
-    public FieldNameConflictException(SqlDdlGenerator.InspectedField inspectedField, Set<String> knownFieldNames) {
+    public FieldNameConflictException(InspectedField inspectedField, Set<String> knownFieldNames) {
         super("Duplicated field name for:" + inspectedField + " in " + knownFieldNames);
     }
 

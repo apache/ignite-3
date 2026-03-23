@@ -73,13 +73,10 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private @Nullable RowVersion toDropFromQueue;
 
-    private final UpdateNextLinkHandler updateNextLinkHandler;
-
     RemoveWriteOnGcInvokeClosure(
             RowId rowId,
             HybridTimestamp timestamp,
             long link,
-            UpdateNextLinkHandler updateNextLinkHandler,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
@@ -91,11 +88,10 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
         this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
-
-        this.updateNextLinkHandler = updateNextLinkHandler;
     }
 
-    static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
+    private static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
+        private static final UpdateNextLinkHandler INSTANCE = new UpdateNextLinkHandler();
 
         @Override
         public Object run(
@@ -201,7 +197,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     }
 
     private void updateNextLink(long link, long nextLink) throws IgniteInternalCheckedException {
-        freeList.updateDataRow(link, updateNextLinkHandler, nextLink);
+        freeList.updateDataRow(link, UpdateNextLinkHandler.INSTANCE, nextLink);
     }
 
     private RowVersion readRowVersionWithChecks(VersionChain versionChain) {

@@ -59,7 +59,7 @@ public interface CommandClosure<R extends Command> {
     R command();
 
     /**
-     * Must be called after a command has been processed normally.
+     * Must be called after a command has been processed (with result or exception).
      *
      * @param res Execution result.
      */

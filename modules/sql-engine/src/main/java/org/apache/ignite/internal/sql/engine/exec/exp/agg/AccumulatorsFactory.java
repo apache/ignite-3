@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import static org.apache.calcite.sql.fun.SqlInternalOperators.LITERAL_AGG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.createRowType;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -45,13 +44,13 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
-import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
@@ -128,7 +127,7 @@ public class AccumulatorsFactory<RowT> {
         RexProgram program = programBuilder.getProgram();
         BlockBuilder list = new BlockBuilder();
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, SqlConformanceEnum.DEFAULT,
-                list, null, DataContext.ROOT, getter, null);
+                list, null, null, DataContext.ROOT, getter, null);
         list.add(projects.get(0));
 
         MethodDeclaration decl = Expressions.methodDecl(
@@ -167,11 +166,11 @@ public class AccumulatorsFactory<RowT> {
         prototypes = Commons.transform(aggCalls, call -> new WrapperPrototype(accumulators, call));
     }
 
-    public List<AccumulatorWrapper<RowT>> get(ExecutionContext<RowT> context) {
+    public List<AccumulatorWrapper<RowT>> get(SqlEvaluationContext<RowT> context) {
         return Commons.transform(prototypes, prototype -> prototype.apply(context));
     }
 
-    private final class WrapperPrototype implements Function<ExecutionContext<RowT>, AccumulatorWrapper<RowT>> {
+    private final class WrapperPrototype implements Function<SqlEvaluationContext<RowT>, AccumulatorWrapper<RowT>> {
         private Supplier<Accumulator> accFactory;
 
         private final Accumulators accumulators;
@@ -189,19 +188,19 @@ public class AccumulatorsFactory<RowT> {
 
         /** {@inheritDoc} */
         @Override
-        public AccumulatorWrapper<RowT> apply(ExecutionContext<RowT> context) {
-            Accumulator accumulator = accumulator();
+        public AccumulatorWrapper<RowT> apply(SqlEvaluationContext<RowT> context) {
+            Accumulator accumulator = accumulator(context);
 
             return new AccumulatorWrapperImpl<>(context, accumulator, call, inAdapter, outAdapter);
         }
 
-        private Accumulator accumulator() {
+        private Accumulator accumulator(DataContext context) {
             if (accFactory != null) {
                 return accFactory.get();
             }
 
             // init factory and adapters
-            accFactory = accumulators.accumulatorFactory(call, inputRowType);
+            accFactory = accumulators.accumulatorFactory(context, call, inputRowType);
             Accumulator accumulator = accFactory.get();
 
             inAdapter = createInAdapter(accumulator);
@@ -230,7 +229,7 @@ public class AccumulatorsFactory<RowT> {
             List<Function<Object, Object>> casts =
                     Commons.transform(Pair.zip(inTypes, outTypes), AccumulatorsFactory::cast);
 
-            return new Function<Object[], Object[]>() {
+            return new Function<>() {
                 @Override
                 public Object[] apply(Object[] args) {
                     for (int i = 0; i < args.length; i++) {
@@ -260,6 +259,8 @@ public class AccumulatorsFactory<RowT> {
     private static final class AccumulatorWrapperImpl<RowT> implements AccumulatorWrapper<RowT> {
         static final IntList SINGLE_ARG_LIST = IntList.of(0);
 
+        private static final Object[] NO_ARGUMENTS = {null};
+
         private final Accumulator accumulator;
 
         private final Function<Object[], Object[]> inAdapter;
@@ -270,48 +271,45 @@ public class AccumulatorsFactory<RowT> {
 
         private final boolean literalAgg;
 
-        private final Object preOperand;
-
         private final int filterArg;
 
         private final boolean ignoreNulls;
 
-        private final RowHandler<RowT> handler;
+        private final RowAccessor<RowT> handler;
 
         private final boolean distinct;
 
+        private final boolean grouping;
+
         AccumulatorWrapperImpl(
-                ExecutionContext<RowT> ctx,
+                SqlEvaluationContext<RowT> ctx,
                 Accumulator accumulator,
                 AggregateCall call,
                 Function<Object[], Object[]> inAdapter,
                 Function<Object, Object> outAdapter
         ) {
-            this.handler = ctx.rowHandler();
+            this.handler = ctx.rowAccessor();
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
             this.distinct = call.isDistinct();
 
-            literalAgg = call.getAggregation() == LITERAL_AGG;
+            grouping = call.getAggregation().getKind() == SqlKind.GROUPING;
+            literalAgg = call.getAggregation().getKind() == SqlKind.LITERAL_AGG;
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
 
             argList = distinct && call.getArgList().isEmpty() ? SINGLE_ARG_LIST : new IntArrayList(call.getArgList());
-
-            if (literalAgg) {
-                assert call.getArgList().isEmpty() : "LiteralAgg should have no operands: " + call;
-
-                SqlScalar<RowT, Object> litAggArg = ctx.expressionFactory().scalar(call.rexList.get(0));
-                preOperand = litAggArg.get(ctx);
-            } else {
-                preOperand = null;
-            }
         }
 
         @Override
         public boolean isDistinct() {
             return distinct;
+        }
+
+        @Override
+        public boolean isGrouping() {
+            return grouping;
         }
 
         @Override
@@ -325,12 +323,14 @@ public class AccumulatorsFactory<RowT> {
                 return null;
             }
 
-            if (literalAgg) {
-                return new Object[]{preOperand};
+            if (literalAgg || grouping) {
+                // LiteralAgg has a constant as its argument.
+                // Grouping aggregate doesn't accepts rows.
+                return NO_ARGUMENTS;
             }
 
             if (IgniteUtils.assertionsEnabled() && argList == SINGLE_ARG_LIST) {
-                int cnt = handler.columnCount(row);
+                int cnt = handler.columnsCount(row);
                 assert cnt <= 1;
             }
 

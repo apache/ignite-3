@@ -20,8 +20,10 @@ package org.apache.ignite.internal.rest.metrics;
 import static io.micronaut.core.type.Argument.listOf;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.POST;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
@@ -55,8 +57,30 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("client.handler", true),
             new MetricSource("sql.client", true),
             new MetricSource("sql.plan.cache", true),
+            new MetricSource("sql.queries", true),
             new MetricSource("storage.aipersist.default", true),
-            new MetricSource("storage.aipersist.default_aipersist", true)
+            new MetricSource("storage.aipersist.default_aipersist", true),
+            new MetricSource("storage.aipersist.checkpoint", true),
+            new MetricSource("storage.aipersist.io", true),
+            new MetricSource("storage.aipersist", true),
+            new MetricSource("topology.cluster", true),
+            new MetricSource("topology.local", true),
+            new MetricSource("thread.pools.partitions-executor", true),
+            new MetricSource("thread.pools.sql-executor", true),
+            new MetricSource("thread.pools.sql-planning-executor", true),
+            new MetricSource("transactions", true),
+            new MetricSource("resource.vacuum", true),
+            new MetricSource("placement-driver", true),
+            new MetricSource("zones.Default", true),
+            new MetricSource("clock.service", true),
+            new MetricSource("index.builder", true),
+            new MetricSource("raft.snapshots", true),
+            new MetricSource("messaging", true),
+            new MetricSource("log.storage", true),
+            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default", true),
+            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits", true),
+            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube", true),
+            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound", true),
     };
 
     @Inject
@@ -111,6 +135,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
         List<Matcher<? super NodeMetricSources>> matchers = CLUSTER.runningNodes()
                 .map(ignite -> both(hasNodeName(is(ignite.name()))).and(hasSources(containsInAnyOrder(ALL_METRIC_SOURCES))))
                 .collect(toList());
+
         assertThat(response.body(), containsInAnyOrder(matchers));
     }
 
@@ -152,8 +177,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
     void nodeNonExistingMetrics() {
         assertThrowsProblem(
                 () -> node0Client.toBlocking().exchange(POST("disable", "no.such.metric").contentType(TEXT_PLAIN_TYPE)),
-                HttpStatus.NOT_FOUND,
-                isProblem().withDetail("Metrics source with given name doesn't exist: no.such.metric")
+                isProblem().withStatus(NOT_FOUND).withDetail("Metrics source with given name doesn't exist: no.such.metric")
         );
     }
 
@@ -161,8 +185,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
     void clusterNonExistingMetrics() {
         assertThrowsProblem(
                 () -> clusterClient.toBlocking().exchange(POST("disable", "no.such.metric").contentType(TEXT_PLAIN_TYPE)),
-                HttpStatus.NOT_FOUND,
-                isProblem().withDetail("Metrics source with given name doesn't exist: no.such.metric")
+                isProblem().withStatus(NOT_FOUND).withDetail("Metrics source with given name doesn't exist: no.such.metric")
         );
     }
 

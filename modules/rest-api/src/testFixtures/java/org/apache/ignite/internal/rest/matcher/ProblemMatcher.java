@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.matcher;
 
 import static org.hamcrest.Matchers.equalTo;
 
+import io.micronaut.http.HttpStatus;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.rest.api.InvalidParam;
@@ -66,6 +67,10 @@ public class ProblemMatcher extends TypeSafeMatcher<Problem> {
         return this;
     }
 
+    public ProblemMatcher withStatus(HttpStatus status) {
+        return withStatus(status.getCode());
+    }
+
     public ProblemMatcher withStatus(Integer status) {
         return withStatus(equalTo(status));
     }
@@ -73,6 +78,10 @@ public class ProblemMatcher extends TypeSafeMatcher<Problem> {
     public ProblemMatcher withStatus(Matcher<Integer> matcher) {
         this.statusMatcher = matcher;
         return this;
+    }
+
+    public Matcher<Integer> statusMatcher() {
+        return statusMatcher;
     }
 
     public ProblemMatcher withCode(String code) {

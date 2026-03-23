@@ -36,16 +36,13 @@ public class DynamicCompletionInsider {
 
     private static String[] trim(String[] typedWords) {
         List<String> trimmedWords = new ArrayList<>(typedWords.length);
-        int offset = 0;
         for (String typedWord : typedWords) {
             String currentTrim = typedWord.trim();
-            if (currentTrim.isEmpty()) {
-                offset++;
-            } else {
+            if (!currentTrim.isEmpty()) {
                 trimmedWords.add(currentTrim);
             }
         }
-        return trimmedWords.toArray(new String[typedWords.length - offset]);
+        return trimmedWords.toArray(new String[0]);
     }
 
     /** Say if the positional parameter is already completed. */

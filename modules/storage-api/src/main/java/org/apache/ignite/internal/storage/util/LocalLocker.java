@@ -60,6 +60,11 @@ public class LocalLocker implements Locker {
         return false;
     }
 
+    @Override
+    public boolean shouldRelease() {
+        return false;
+    }
+
     /**
      * Returns {@code true} if passed row ID is currently locked.
      */

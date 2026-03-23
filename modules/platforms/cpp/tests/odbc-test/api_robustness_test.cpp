@@ -880,3 +880,31 @@ TEST_F(api_robustness_test, many_fds) {
             fclose(fd);
     }
 }
+
+TEST_F(api_robustness_test, reusing_connection_with_args) {
+    odbc_connect(get_basic_connection_string());
+
+    std::vector<std::int64_t> mem;
+    // Allocating a bunch of memory so the new page is allocated
+    mem.resize(1024 * 1024);
+    SQLRETURN ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, 0, 0, &mem.back(), 8, &mem.back());
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
+
+    SQLCHAR firstReq[] = "SELECT ?";
+    ret = SQLExecDirect(m_statement, firstReq, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
+
+    // Un-binding parameter.
+    ret = SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
+
+    // De-allocation happens here
+    mem = std::vector<std::int64_t>();
+    mem.reserve(1);
+
+    SQLCHAR secondReq[] = "SELECT 1";
+    SQLExecDirect(m_statement, secondReq, SQL_NTS);
+}

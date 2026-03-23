@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -43,7 +44,7 @@ class LifecycleManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> startFuture = lifecycleManager.startComponentsAsync(context, componentFailingStart);
 
         assertThat(startFuture, willThrow(RuntimeException.class, "Oops"));
-        assertThat(lifecycleManager.allComponentsStartFuture(), willThrow(RuntimeException.class, "Oops"));
+        assertThat(lifecycleManager.allComponentsStartFuture(ForkJoinPool.commonPool()), willThrow(RuntimeException.class, "Oops"));
     }
 
     @Test

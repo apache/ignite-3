@@ -1,0 +1,117 @@
+# description: Tests for printout of VALUES, FILTER, and PROJECT operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+# single tuple Values node
+explain plan
+SELECT 1, 2;
+----
+Values
+    fieldNames: [EXPR$0, EXPR$1]
+    tuples: [[1, 2]]
+    est: (rows=1)
+
+# single tuple Values node with renamed fields
+explain plan
+SELECT 1 AS first_val, 2 AS second_val;
+----
+Values
+    fieldNames: [FIRST_VAL, SECOND_VAL]
+    tuples: [[1, 2]]
+    est: (rows=1)
+
+# multiple tuples Values node
+explain plan
+SELECT * FROM (VALUES (1), (2), (3), (4)) v(x)
+----
+Values
+    fieldNames: [X]
+    tuples: [[1], [2], [3], [4]]
+    est: (rows=4)
+
+# multiple tuples with multiple values inside Values node
+explain plan
+SELECT * FROM (VALUES (1, 1), (2, 2), (3, 3), (4, 4)) v(x, y)
+----
+Values
+    fieldNames: [X, Y]
+    tuples: [[1, 1], [2, 2], [3, 3], [4, 4]]
+    est: (rows=4)
+
+# simple Project node 
+explain plan
+SELECT x * 2 FROM (VALUES (1)) v(x);
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [*(X, 2)]
+    est: (rows=1)
+  Values
+      fieldNames: [X]
+      tuples: [[1]]
+      est: (rows=1)
+
+# similar test case but with different filed name of input node
+explain plan
+SELECT y * 2 FROM (VALUES (1)) v(y);
+----
+Project
+    fieldNames: [EXPR$0]
+    projection: [*(Y, 2)]
+    est: (rows=1)
+  Values
+      fieldNames: [Y]
+      tuples: [[1]]
+      est: (rows=1)
+
+# simple Project node with rename
+explain plan
+SELECT x * 2 AS doubled_x FROM (VALUES (1)) v(x);
+----
+Project
+    fieldNames: [DOUBLED_X]
+    projection: [*(X, 2)]
+    est: (rows=1)
+  Values
+      fieldNames: [X]
+      tuples: [[1]]
+      est: (rows=1)
+
+# projection with computed field
+explain plan
+SELECT CURRENT_DATE, x * 2 AS doubled_x FROM (VALUES (1)) v(x);
+----
+Project
+    fieldNames: [CURRENT_DATE, DOUBLED_X]
+    projection: [CURRENT_DATE, *(X, 2)]
+    est: (rows=1)
+  Values
+      fieldNames: [X]
+      tuples: [[1]]
+      est: (rows=1)
+
+# simple Filter node
+explain plan
+SELECT x FROM (VALUES (1)) v(x) WHERE EXTRACT(YEAR FROM CURRENT_DATE) > 2000;
+----
+Filter
+    predicate: >(EXTRACT(FLAG(YEAR), CURRENT_DATE), 2000)
+    est: (rows=1)
+  Values
+      fieldNames: [X]
+      tuples: [[1]]
+      est: (rows=1)
+
+# Filter node with predicate based on input
+explain plan
+SELECT x FROM (VALUES (1)) v(x) WHERE x != 0 AND EXTRACT(YEAR FROM CURRENT_DATE) > 2000;
+----
+Filter
+    predicate: >(EXTRACT(FLAG(YEAR), CURRENT_DATE), 2000)
+    est: (rows=1)
+  Values
+      fieldNames: [X]
+      tuples: [[1]]
+      est: (rows=1)

@@ -22,19 +22,18 @@ import java.util.UUID;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 
 /**
- * {@link VersionedSerializer} for {@link ClusterNode} instances.
+ * {@link VersionedSerializer} for {@link InternalClusterNode} instances.
  */
-public class ClusterNodeSerializer extends VersionedSerializer<ClusterNode> {
+public class ClusterNodeSerializer extends VersionedSerializer<InternalClusterNode> {
     /** Serializer instance. */
     public static final ClusterNodeSerializer INSTANCE = new ClusterNodeSerializer();
 
     @Override
-    protected void writeExternalData(ClusterNode node, IgniteDataOutput out) throws IOException {
+    protected void writeExternalData(InternalClusterNode node, IgniteDataOutput out) throws IOException {
         out.writeUuid(node.id());
         out.writeUTF(node.name());
 
@@ -51,7 +50,7 @@ public class ClusterNodeSerializer extends VersionedSerializer<ClusterNode> {
     }
 
     @Override
-    protected ClusterNode readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+    protected InternalClusterNode readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         UUID id = in.readUuid();
         String name = in.readUTF();
         NetworkAddress address = new NetworkAddress(in.readUTF(), in.readVarIntAsInt());

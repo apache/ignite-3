@@ -23,15 +23,16 @@ import org.apache.ignite.internal.cluster.management.network.messages.CancelInit
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,12 +69,12 @@ public class CmgMessageHandler implements NetworkMessageHandler {
     private static class NetworkMessageContext {
         final NetworkMessage message;
 
-        final ClusterNode sender;
+        final InternalClusterNode sender;
 
         @Nullable
         final Long correlationId;
 
-        NetworkMessageContext(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        NetworkMessageContext(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
             this.message = message;
             this.sender = sender;
             this.correlationId = correlationId;
@@ -104,7 +105,7 @@ public class CmgMessageHandler implements NetworkMessageHandler {
     }
 
     @Override
-    public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    public void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             if (correlationId != null) {
                 clusterService.messagingService().respond(sender, initFailed(new NodeStoppingException()), correlationId);
@@ -130,6 +131,8 @@ public class CmgMessageHandler implements NetworkMessageHandler {
                 cmgMessageCallback.onRefuseJoinMessageReceived((RefuseJoinMessage) message, sender, correlationId);
             } else if (message instanceof CmgInitMessage) {
                 cmgMessageCallback.onCmgInitMessageReceived((CmgInitMessage) message, sender, correlationId);
+            } else if (message instanceof CmgPrepareInitMessage) {
+                cmgMessageCallback.onCmgPrepareInitMessageReceived((CmgPrepareInitMessage) message, sender, correlationId);
             }
         } catch (Exception e) {
             failureProcessor.process(new FailureContext(e, "CMG message handling failed"));

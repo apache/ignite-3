@@ -145,12 +145,12 @@ class ClientComputeJobPackerUnpackerTest {
     @ParameterizedTest
     void notMarshalledArgument(Object arg, ComputeJobDataType type) {
         // When pack job argument without marshaller.
-        packJobArgument(arg, null, messagePacker);
+        packJobArgument(arg, null, messagePacker, null);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var res = unpackJobArgumentWithoutMarshaller(messageUnpacker);
+            var res = unpackJobArgumentWithoutMarshaller(messageUnpacker, false);
 
             // Then argument is unpacked but not unmarshalled.
             ComputeJobDataHolder argument = assertInstanceOf(ComputeJobDataHolder.class, res);
@@ -209,7 +209,7 @@ class ClientComputeJobPackerUnpackerTest {
             assertThrows(
                     ComputeException.class,
                     () -> unpackJobResult(messageUnpacker, null, null),
-                    "Marshaller should be defined on the client"
+                    "ComputeJob.resultMarshaller is defined, but the JobDescriptor.resultMarshaller is not defined."
             );
         }
     }
@@ -230,7 +230,7 @@ class ClientComputeJobPackerUnpackerTest {
             assertThrows(
                     ComputeException.class,
                     () -> unpackJobResult(messageUnpacker, new TestStringMarshaller(), null),
-                    "Marshaller is defined on the server, but the argument was not marshalled on the client"
+                    "JobDescriptor.resultMarshaller is defined, but the ComputeJob.resultMarshaller is not defined."
             );
         }
     }

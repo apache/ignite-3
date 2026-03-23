@@ -47,11 +47,9 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
                 HybridTimestampTracker.atomicTracker(null),
                 txId,
                 new UUID(1, 2),
-                false,
                 10_000,
                 readTimestamp,
-                new CompletableFuture<>()
-        );
+                new CompletableFuture<>());
 
         assertThat(tx.schemaTimestamp(), is(readTimestamp));
     }

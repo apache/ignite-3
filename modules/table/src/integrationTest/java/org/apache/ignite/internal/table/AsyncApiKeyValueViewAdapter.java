@@ -31,9 +31,9 @@ import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -113,8 +113,8 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return await(delegate.removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return await(delegate.removeExactAsync(tx, key, val));
     }
 
     @Override
@@ -138,8 +138,8 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
-        return await(delegate.replaceAsync(tx, key, oldValue, newValue));
+    public boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return await(delegate.replaceExactAsync(tx, key, oldValue, newValue));
     }
 
     @Override
@@ -213,7 +213,7 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
         throw new UnsupportedOperationException("Must not be called");
     }
 
@@ -248,7 +248,7 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
         throw new UnsupportedOperationException("Must not be called");
     }
 
@@ -301,9 +301,10 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public <E, S, R, A> CompletableFuture<Void> streamData(Publisher<E> publisher, Function<E, Entry<K, V>> keyFunc,
-            Function<E, S> payloadFunc, ReceiverDescriptor<A> receiver, @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options, @Nullable A receiverArg) {
+    public <E, S, A, R> CompletableFuture<Void> streamData(Publisher<E> publisher, DataStreamerReceiverDescriptor<S, A, R> receiver,
+            Function<E, Entry<K, V>> keyFunc, Function<E, S> payloadFunc, @Nullable A receiverArg,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            @Nullable DataStreamerOptions options) {
         throw new UnsupportedOperationException();
     }
 }

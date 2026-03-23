@@ -260,8 +260,8 @@ public class KvMarshallerTest {
                 valueColumns
         );
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
+        MarshallerException ex = assertThrows(
+                MarshallerException.class,
                 () -> factory.create(schema, Integer.class, TestObjectWithAllTypes.class)
         );
 
@@ -329,7 +329,7 @@ public class KvMarshallerTest {
         );
 
         Throwable ex = assertThrows(
-                ClassCastException.class,
+                MarshallerException.class,
                 () -> factory.create(schema, TestSimpleObjectKey.class, TestSimpleObjectVal.class));
 
         assertThat(
@@ -355,7 +355,7 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
+        assertThrows(MarshallerException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
     }
 
     @ParameterizedTest

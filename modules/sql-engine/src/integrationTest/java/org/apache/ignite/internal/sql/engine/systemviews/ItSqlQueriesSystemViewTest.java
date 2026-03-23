@@ -34,19 +34,18 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
@@ -129,7 +128,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
             assertThat(res, hasSize(1));
 
             verifyQueryInfo(res.get(0), initiator.name(), schema, query, tsBefore, tsAfter,
-                    equalTo(tx.id().toString()), SqlQueryType.QUERY.name(), null);
+                    equalTo(tx.id().toString()), SqlQueryType.QUERY.displayName(), null);
         } finally {
             tx.rollback();
         }
@@ -140,14 +139,14 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         {
             long tsBefore = clockService.now().getPhysical();
 
-            List<List<Object>> res = sql(initiator, null, schema, null, query);
+            List<List<Object>> res = sql(initiator, (Transaction) null, schema, null, query);
 
             long tsAfter = clockService.now().getPhysical();
 
             assertThat(res, hasSize(1));
 
             verifyQueryInfo(res.get(0), initiator.name(), schema, query, tsBefore, tsAfter,
-                    hasLength(36), SqlQueryType.QUERY.name(), null);
+                    hasLength(36), SqlQueryType.QUERY.displayName(), null);
         }
     }
 
@@ -170,7 +169,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         // Verify script query info.
         {
             String sql = "SELECT * FROM SYSTEM.SQL_QUERIES WHERE TYPE=?";
-            List<List<Object>> res = sql(initiator, null, null, null, sql, SCRIPT_QUERY_TYPE);
+            List<List<Object>> res = sql(initiator, sql, SCRIPT_QUERY_TYPE);
 
             assertThat(res, hasSize(1));
 
@@ -199,7 +198,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
                 List<Object> row = res.get(i);
 
                 verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, expectedQueries.get(i), timeBefore, timeAfter,
-                        hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).name(), i);
+                        hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).displayName(), i);
 
                 transactionIds.add((String) row.get(7));
             }
@@ -239,7 +238,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         waitUntilRunningQueriesCount(is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
-                + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
+                + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='Script') "
                 + "ORDER BY STATEMENT_NUM";
 
         List<List<Object>> res = sql(0, sql);
@@ -250,13 +249,13 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
 
         // Expecting 3 queries with same transaction.
         verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO test VALUES (0), (1);",
-                timeBefore, timeAfter, hasLength(36), SqlQueryType.DML.name(), 1);
+                timeBefore, timeAfter, hasLength(36), SqlQueryType.DML.displayName(), 1);
 
         verifyQueryInfo(res.get(1), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "SELECT * FROM test;",
-                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.name(), 3);
+                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.displayName(), 3);
 
         verifyQueryInfo(res.get(2), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO test VALUES (2), (3);",
-                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.name(), 4);
+                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.displayName(), 4);
 
         for (AsyncSqlCursor<InternalSqlRow> cursor : cursors) {
             await(cursor.closeAsync());
@@ -314,13 +313,7 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
     }
 
     private void checkNoPendingQueries() {
-        List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
-
-        for (Ignite node : nodes) {
-            SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
-
-            SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(0));
-        }
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, is(0));
     }
 
     private static void verifyQueryInfo(

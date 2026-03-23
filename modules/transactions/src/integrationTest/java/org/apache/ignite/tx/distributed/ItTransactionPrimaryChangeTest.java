@@ -18,11 +18,11 @@
 package org.apache.ignite.tx.distributed;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
@@ -37,7 +37,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableImpl;
@@ -56,21 +55,12 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     private static final String TABLE_NAME = "test_table";
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {},\n"
-            + "  raft: { responseTimeoutMillis: 30000 },"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = renderConfigTemplate(
+            "  raft.responseTimeoutMillis: 30000,\n"
+    );
 
     @BeforeEach
-    public void setup() throws Exception {
+    public void setup() {
         String zoneSql = "create zone test_zone (partitions 1, replicas 3) storage profiles ['" + DEFAULT_AIPERSIST_PROFILE_NAME + "']";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone TEST_ZONE";
 
@@ -106,14 +96,12 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     }
 
     @Test
-    public void testFullTxConsistency() throws InterruptedException {
+    public void testFullTxConsistency() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         int partId = 0;
 
-        var replicationGrp = enabledColocation()
-                ? new ZonePartitionId(tbl.zoneId(), partId)
-                : new TablePartitionId(tbl.tableId(), partId);
+        var replicationGrp = new ZonePartitionId(tbl.zoneId(), partId);
 
         String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), replicationGrp).getLeaseholder();
 

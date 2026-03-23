@@ -85,6 +85,7 @@ namespace Apache.Ignite.Internal.Table
         public Sql Sql => _sql;
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
             var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration.Configuration);
@@ -118,6 +119,21 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
+            return ReadSchemaAndBoolean(resBuf);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<T> keys)
+        {
+            IgniteArgumentCheck.NotNull(keys);
+
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleContainsAllKeys, transaction, keys, true)
+                .ConfigureAwait(false);
+            if (resBuf == null)
+            {
+                return true;
+            }
+
             return ReadSchemaAndBoolean(resBuf);
         }
 
@@ -309,9 +325,9 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
             IAsyncEnumerable<TSource> data,
+            ReceiverDescriptor<TPayload, TArg, TResult> receiver,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            ReceiverDescriptor<TArg, TResult> receiver,
             TArg receiverArg,
             DataStreamerOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -337,7 +353,7 @@ namespace Apache.Ignite.Internal.Table
                 SingleWriter = false
             });
 
-            // Stream in background.
+            // Stream in the background.
             var streamTask = Stream();
 
             // Result async enumerable is returned immediately. It will be completed when the streaming completes.
@@ -381,6 +397,9 @@ namespace Apache.Ignite.Internal.Table
                         receiver.DeploymentUnits ?? [],
                         receiver.ReceiverClassName,
                         receiver.Options ?? ReceiverExecutionOptions.Default,
+                        receiver.PayloadMarshaller,
+                        receiver.ArgumentMarshaller,
+                        receiver.ResultMarshaller,
                         receiverArg,
                         cancellationToken).ConfigureAwait(false);
 
@@ -415,6 +434,9 @@ namespace Apache.Ignite.Internal.Table
                 receiver.DeploymentUnits ?? [],
                 receiver.ReceiverClassName,
                 receiver.Options ?? ReceiverExecutionOptions.Default,
+                null,
+                null,
+                null,
                 receiverArg,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -554,6 +576,12 @@ namespace Apache.Ignite.Internal.Table
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger.LogFailedTableOpDebug(e, op);
+
+                throw;
             }
         }
 

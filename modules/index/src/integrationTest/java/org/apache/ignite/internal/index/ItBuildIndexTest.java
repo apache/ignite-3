@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -25,18 +26,17 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.List;
@@ -62,8 +62,6 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -71,6 +69,8 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.raft.handlers.BuildIndexCommandHandler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -120,6 +120,38 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    void testRaftCommandsDuplicationOnPrimaryNotColocatedWithLeader() throws Exception {
+        // Usage of 2 replicas is a minimal possible configuration where it's possible to have a follower node.
+        // Cluster with 2 nodes would be enough, but it would require more complex test class modifications.
+        int replicas = 2;
+        int partitions = 1;
+
+        LogInspector logInspector = new LogInspector(
+                BuildIndexCommandHandler.class.getName(),
+                evt -> evt.getMessage().getFormattedMessage().contains("Duplicated building the index command received")
+        );
+
+        logInspector.start();
+        try {
+            createAndPopulateTable(replicas, partitions);
+
+            ZonePartitionId tableGroupId = replicationGroupId(TABLE_NAME, 0);
+
+            IgniteImpl currentPrimary = primaryReplica(tableGroupId);
+
+            unColocateLeaderFromPrimaryReplica(tableGroupId, currentPrimary);
+
+            createIndex(INDEX_NAME);
+
+            checkIndexBuild(partitions, replicas, INDEX_NAME);
+
+            assertFalse(logInspector.isMatched());
+        } finally {
+            logInspector.stop();
+        }
+    }
+
+    @Test
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         IgniteImpl currentPrimary = prepareBuildIndexToChangePrimaryReplica();
 
@@ -129,7 +161,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         checkIndexBuild(1, initialNodes(), INDEX_NAME);
     }
 
-    private static IgniteImpl primaryReplica(ReplicationGroupId groupId) {
+    private static IgniteImpl primaryReplica(ZonePartitionId groupId) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = node.placementDriver()
@@ -156,7 +188,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      *     <li>Drop send {@link BuildIndexCommand} from the primary replica.</li>
      * </ul>
      */
-    private IgniteImpl prepareBuildIndexToChangePrimaryReplica() throws Exception {
+    private IgniteImpl prepareBuildIndexToChangePrimaryReplica() {
         int nodes = initialNodes();
         assertThat(nodes, greaterThanOrEqualTo(2));
 
@@ -177,7 +209,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         return primary;
     }
 
-    private static ReplicationGroupId replicationGroupId(String tableName, int partitionIndex) {
+    private static ZonePartitionId replicationGroupId(String tableName, int partitionIndex) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         HybridClock clock = node.clock();
@@ -187,11 +219,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
 
-        return enabledColocation() ? new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex)
-                : new TablePartitionId(tableDescriptor.id(), partitionIndex);
+        return  new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex);
     }
 
-    private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
+    private static void changePrimaryReplica(IgniteImpl currentPrimary) {
         IgniteImpl nextPrimary = CLUSTER.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> n != currentPrimary)
@@ -222,6 +253,15 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
+        createTable(replicas, partitions);
+
+        sql(format(
+                "INSERT INTO {} VALUES {}",
+                TABLE_NAME, toValuesString(List.of(1, 1), List.of(2, 2), List.of(3, 3), List.of(4, 4), List.of(5, 5))
+        ));
+    }
+
+    private static void createTable(int replicas, int partitions) {
         sql(format("CREATE ZONE IF NOT EXISTS {} (REPLICAS {}, PARTITIONS {}) STORAGE PROFILES ['{}']",
                 ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
@@ -230,19 +270,19 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) ZONE {}",
                 TABLE_NAME, ZONE_NAME
         ));
-
-        sql(format(
-                "INSERT INTO {} VALUES {}",
-                TABLE_NAME, toValuesString(List.of(1, 1), List.of(2, 2), List.of(3, 3), List.of(4, 4), List.of(5, 5))
-        ));
     }
 
-    private static void createIndex(String indexName) throws Exception {
+    private void createIndex(String indexName) {
         // We execute this operation asynchronously, because some tests block network messages, which makes the underlying code
         // stuck with timeouts. We don't need to wait for the operation to complete, as we wait for the necessary invariants further
         // below.
         CLUSTER.aliveNode().sql()
-                .executeAsync(null, format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
+                .executeAsync(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to create index", ex);
+                    }
+                });
 
         waitForIndex(indexName);
     }
@@ -252,13 +292,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      *
      * @param indexName Name of an index to wait for.
      */
-    private static void waitForIndex(String indexName) throws InterruptedException {
-        assertTrue(waitForCondition(
+    private static void waitForIndex(String indexName) {
+        await().atMost(10, SECONDS).until(
                 () -> CLUSTER.runningNodes()
                         .map(TestWrappers::unwrapIgniteImpl)
                         .map(node -> getIndexDescriptor(node, indexName))
-                        .allMatch(Objects::nonNull),
-                10_000)
+                        .allMatch(Objects::nonNull)
         );
     }
 
@@ -291,7 +330,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         };
     }
 
-    private static void checkIndexBuild(int partitions, int replicas, String indexName) throws Exception {
+    private static void checkIndexBuild(int partitions, int replicas, String indexName) {
         Map<Integer, Set<String>> nodesWithBuiltIndexesByPartitionId = waitForIndexBuild(TABLE_NAME, indexName);
 
         // Check that the number of nodes with built indexes is equal to the number of replicas.
@@ -305,7 +344,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             );
         }
 
-        assertTrue(waitForCondition(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME), 10_000));
+        await().atMost(10, SECONDS).until(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME));
 
         waitForReadTimestampThatObservesMostRecentCatalog();
     }
@@ -336,23 +375,21 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         int indexId = indexId(indexName);
 
         CLUSTER.runningNodes().forEach(node -> {
-            try {
-                InternalTable internalTable = internalTable(node, tableName);
+            InternalTable internalTable = internalTable(node, tableName);
 
-                for (Entry<Integer, Set<String>> entry : partitionIdToNodes.entrySet()) {
-                    // Let's check if there is a node in the partition assignments.
-                    if (!entry.getValue().contains(node.name())) {
-                        continue;
-                    }
-
-                    IndexStorage index = internalTable.storage().getIndex(entry.getKey(), indexId);
-
-                    assertNotNull(index, String.format("No index %d for partition %d", indexId, entry.getKey()));
-
-                    assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, SECONDS.toMillis(10)));
+            for (Entry<Integer, Set<String>> entry : partitionIdToNodes.entrySet()) {
+                // Let's check if there is a node in the partition assignments.
+                if (!entry.getValue().contains(node.name())) {
+                    continue;
                 }
-            } catch (InterruptedException e) {
-                throw new RuntimeException("Node operation failed: node=" + node.name(), e);
+
+                IndexStorage index = internalTable.storage().getIndex(entry.getKey(), indexId);
+
+                assertNotNull(index, String.format("No index %d for partition %d", indexId, entry.getKey()));
+
+                await().atMost(10, SECONDS)
+                        .pollInterval(10, MILLISECONDS)
+                        .until(() -> index.getNextRowIdToBuild() == null);
             }
         });
 
@@ -371,9 +408,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         HybridTimestamp now = node.clock().now();
 
         for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-            var tableGroupId = replicationGroupId(tableName, partitionId);
+            var zonePartitionId = replicationGroupId(tableName, partitionId);
 
-            CompletableFuture<TokenizedAssignments> assignmentsFuture = placementDriver.getAssignments(tableGroupId, now);
+            CompletableFuture<TokenizedAssignments> assignmentsFuture = placementDriver.getAssignments(zonePartitionId, now);
 
             assertThat(assignmentsFuture, willCompleteSuccessfully());
 
@@ -411,9 +448,19 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param node Node.
      * @param indexName Index name.
      */
-    private static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
+    static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
         HybridClock clock = node.clock();
         CatalogManager catalogManager = node.catalogManager();
         return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
+    }
+
+    private static void unColocateLeaderFromPrimaryReplica(ZonePartitionId groupId, IgniteImpl currentPrimary) throws Exception {
+        String newLeaderNodeName = collectAssignments(TABLE_NAME).get(groupId.partitionId())
+                .stream()
+                .filter(name -> !Objects.equals(name, currentPrimary.name()))
+                .findAny()
+                .orElseThrow();
+
+        CLUSTER.transferLeadershipTo(CLUSTER.nodeIndex(newLeaderNodeName), groupId);
     }
 }

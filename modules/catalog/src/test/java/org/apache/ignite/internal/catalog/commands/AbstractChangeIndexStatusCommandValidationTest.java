@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.util.List;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -76,7 +76,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
         int version = 1;
 
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 version,
                 new CatalogTableDescriptor[]{
                         table(tableId, id++, id++, id++, columnName)
@@ -88,7 +88,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
                                 tableId,
                                 false,
                                 invalidPreviousIndexStatus,
-                                List.of(columnName),
+                                IntList.of(0),
                                 false
                         )
                 },

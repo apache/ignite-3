@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readByteValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readDoubleValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readFloatValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readIntValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readLongValue;
+import static org.apache.ignite.internal.util.TupleTypeCastUtils.readShortValue;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,6 +35,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
@@ -96,7 +104,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.columnIndex(columnName);
         }
 
-        int binaryTupleIndex = binaryTupleIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName);
 
         return binaryTupleIndex < 0 ? -1 : publicIndex(binaryTupleIndex);
     }
@@ -108,7 +116,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.valueOrDefault(columnName, defaultValue);
         }
 
-        int binaryTupleIndex = binaryTupleIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName);
 
         return binaryTupleIndex < 0
                 || publicIndex(binaryTupleIndex) < 0
@@ -124,7 +132,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return tuple.value(columnName);
         }
 
-        int binaryTupleIndex = binaryTupleIndex(columnName, null);
+        int binaryTupleIndex = binaryTupleIndex(columnName);
 
         if (binaryTupleIndex < 0 || publicIndex(binaryTupleIndex) < 0) {
             throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
@@ -149,113 +157,191 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(String columnName) {
-        return tuple != null
-                ? tuple.booleanValue(columnName)
-                : binaryTuple.booleanValue(validateSchemaColumnType(columnName, ColumnType.BOOLEAN));
+        if (tuple != null) {
+            return tuple.booleanValue(columnName);
+        }
+
+        int binaryTupleIndex = validateSchemaColumnType(columnName, ColumnType.BOOLEAN);
+
+        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
+
+        return binaryTuple.booleanValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(int columnIndex) {
-        return tuple != null
-                ? tuple.booleanValue(columnIndex)
-                : binaryTuple.booleanValue(validateSchemaColumnType(columnIndex, ColumnType.BOOLEAN));
+        if (tuple != null) {
+            return tuple.booleanValue(columnIndex);
+        }
+
+        int binaryTupleIndex = validateSchemaColumnType(columnIndex, ColumnType.BOOLEAN);
+
+        IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
+
+        return binaryTuple.booleanValue(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        return tuple != null
-                ? tuple.byteValue(columnName)
-                : binaryTuple.byteValue(validateSchemaColumnType(columnName, ColumnType.INT8));
+        if (tuple != null) {
+            return tuple.byteValue(columnName);
+        }
+
+        int binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readByteValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return tuple != null
-                ? tuple.byteValue(columnIndex)
-                : binaryTuple.byteValue(validateSchemaColumnType(columnIndex, ColumnType.INT8));
+        if (tuple != null) {
+            return tuple.byteValue(columnIndex);
+        }
+
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readByteValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        return tuple != null
-                ? tuple.shortValue(columnName)
-                : binaryTuple.shortValue(validateSchemaColumnType(columnName, ColumnType.INT16));
+        if (tuple != null) {
+            return tuple.shortValue(columnName);
+        }
+
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readShortValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return tuple != null
-                ? tuple.shortValue(columnIndex)
-                : binaryTuple.shortValue(validateSchemaColumnType(columnIndex, ColumnType.INT16));
+        if (tuple != null) {
+            return tuple.shortValue(columnIndex);
+        }
+
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readShortValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        return tuple != null
-                ? tuple.intValue(columnName)
-                : binaryTuple.intValue(validateSchemaColumnType(columnName, ColumnType.INT32));
+        if (tuple != null) {
+            return tuple.intValue(columnName);
+        }
+
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readIntValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return tuple != null
-                ? tuple.intValue(columnIndex)
-                : binaryTuple.intValue(validateSchemaColumnType(columnIndex, ColumnType.INT32));
+        if (tuple != null) {
+            return tuple.intValue(columnIndex);
+        }
+
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readIntValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        return tuple != null
-                ? tuple.longValue(columnName)
-                : binaryTuple.longValue(validateSchemaColumnType(columnName, ColumnType.INT64));
+        if (tuple != null) {
+            return tuple.longValue(columnName);
+        }
+
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readLongValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return tuple != null
-                ? tuple.longValue(columnIndex)
-                : binaryTuple.longValue(validateSchemaColumnType(columnIndex, ColumnType.INT64));
+        if (tuple != null) {
+            return tuple.longValue(columnIndex);
+        }
+
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readLongValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        return tuple != null
-                ? tuple.floatValue(columnName)
-                : binaryTuple.floatValue(validateSchemaColumnType(columnName, ColumnType.FLOAT));
+        if (tuple != null) {
+            return tuple.floatValue(columnName);
+        }
+
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readFloatValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return tuple != null
-                ? tuple.floatValue(columnIndex)
-                : binaryTuple.floatValue(validateSchemaColumnType(columnIndex, ColumnType.FLOAT));
+        if (tuple != null) {
+            return tuple.floatValue(columnIndex);
+        }
+
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readFloatValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        return tuple != null
-                ? tuple.doubleValue(columnName)
-                : binaryTuple.doubleValue(validateSchemaColumnType(columnName, ColumnType.DOUBLE));
+        if (tuple != null) {
+            return tuple.doubleValue(columnName);
+        }
+
+        var binaryTupleIndex = resolveBinaryTupleIndexByColumnName(columnName);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readDoubleValue(binaryTuple, binaryTupleIndex, actualType, columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return tuple != null
-                ? tuple.doubleValue(columnIndex)
-                : binaryTuple.doubleValue(validateSchemaColumnType(columnIndex, ColumnType.DOUBLE));
+        if (tuple != null) {
+            return tuple.doubleValue(columnIndex);
+        }
+
+        Objects.checkIndex(columnIndex, columnCount);
+        int binaryTupleIndex = binaryTupleIndex(columnIndex);
+        ColumnType actualType = schemaColumnType(binaryTupleIndex);
+
+        return readDoubleValue(binaryTuple, binaryTupleIndex, actualType, columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -454,30 +540,20 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         return publicIndex;
     }
 
-    private int binaryTupleIndex(String columnName, @Nullable ColumnType type) {
-        var binaryTupleIndex = binaryTupleIndex(columnName);
+    private int validateSchemaColumnType(String columnName, ColumnType type) {
+        var index = binaryTupleIndex(columnName);
 
-        if (binaryTupleIndex < 0) {
-            return binaryTupleIndex;
+        if (index < 0) {
+            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
         if (type != null) {
-            ColumnType actualType = schemaColumnType(binaryTupleIndex);
+            ColumnType actualType = schemaColumnType(index);
 
             if (type != actualType) {
                 throw new ClassCastException("Column with name '" + columnName + "' has type " + actualType
                         + " but " + type + " was requested");
             }
-        }
-
-        return binaryTupleIndex;
-    }
-
-    private int validateSchemaColumnType(String columnName, ColumnType type) {
-        var index = binaryTupleIndex(columnName, type);
-
-        if (index < 0) {
-            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
         }
 
         return index;
@@ -565,6 +641,16 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             default:
                 throw new IllegalStateException("Unsupported type: " + type);
         }
+    }
+
+    private int resolveBinaryTupleIndexByColumnName(String columnName) {
+        int binaryTupleIndex = binaryTupleIndex(columnName);
+
+        if (binaryTupleIndex < 0) {
+            throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
+        }
+
+        return binaryTupleIndex;
     }
 
     @Override

@@ -23,6 +23,8 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
+apply from: "$rootDir/buildscripts/utils.gradle"
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -82,6 +84,12 @@ def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     classpath = files(new File("../lib/*"))
     outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3'
+    defaultJvmOpts += [
+        '--add-opens=java.base/java.lang=ALL-UNNAMED',
+        '-Xmx256m',
+        '-XX:TieredStopAtLevel=1',
+        '-XX:+UseSerialGC'
+    ]
 }
 
 def windowsCliStartScript = tasks.register('windowsCliStartScript', Copy) {
@@ -174,6 +182,7 @@ ospackage {
     packageDescription "This package will install Apache Ignite CLI"
     os LINUX
     user 'root'
+    release getCommitNum()
 
     into(linuxTokens.INSTALL_DIR) {
         from "$buildDir/linux/start.sh"

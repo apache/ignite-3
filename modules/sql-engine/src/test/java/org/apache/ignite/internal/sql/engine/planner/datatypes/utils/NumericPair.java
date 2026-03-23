@@ -173,7 +173,6 @@ public enum NumericPair implements TypePair {
         this.second = second;
     }
 
-
     @Override
     public NativeType first() {
         return first;

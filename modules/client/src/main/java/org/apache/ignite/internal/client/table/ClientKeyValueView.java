@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getColocationHash;
+import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;
@@ -28,11 +30,14 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -62,8 +67,8 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -118,7 +123,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -149,7 +154,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -169,7 +174,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL),
                 defaultValue,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -188,13 +193,24 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyMapCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_GET_ALL,
-                (s, w, n) -> keySer.writeRecs(tx, keys, s, w, n, TuplePart.KEY),
-                this::readGetAllResponse,
-                Collections.emptyMap(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), keys),
-                tx);
+        List<Transaction> txns = new ArrayList<>();
+
+        MapFunction<K, Map<K, V>> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
+
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_GET_ALL,
+                    (s, w, n) -> keySer.writeRecs(tx0, batch, s, w, n, TuplePart.KEY),
+                    this::readGetAllResponse,
+                    Collections.emptyMap(),
+                    provider,
+                    tx0);
+        };
+
+        return tbl.splitAndRun(keys, clo, new HashMap<>(), (agg, cur) -> {
+            agg.putAll(cur);
+            return agg;
+        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry), txns);
     }
 
     /** {@inheritDoc} */
@@ -212,7 +228,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -231,12 +247,21 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return trueCompletedFuture();
         }
 
-        return tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                (s, w, n) -> keySer.writeRecs(tx, keys, s, w, n, TuplePart.KEY),
-                r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), keys),
-                tx);
+        List<Transaction> txns = new ArrayList<>();
+
+        MapFunction<K, Boolean> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
+
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                    (s, w, n) -> keySer.writeRecs(tx0, batch, s, w, n, TuplePart.KEY),
+                    r -> r.in().unpackBoolean(),
+                    provider,
+                    tx0);
+        };
+
+        return tbl.splitAndRun(keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
+                (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry), txns);
     }
 
     /** {@inheritDoc} */
@@ -256,7 +281,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_UPSERT,
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -280,19 +305,28 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
-        return tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w, n) -> {
-                    writeSchemaAndTx(s, w, n, tx);
-                    w.out().packInt(pairs.size());
+        MapFunction<Entry<K, V>, Void> clo = (batch, provider, txRequired) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_UPSERT_ALL,
+                    (s, w, n) -> {
+                        writeSchemaAndTx(s, w, n, tx);
+                        w.out().packInt(batch.size());
 
-                    for (Entry<K, V> e : pairs.entrySet()) {
-                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
-                    }
-                },
-                r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), pairs.keySet()),
-                tx);
+                        for (Entry<K, V> e : batch) {
+                            writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        }
+                    },
+                    r -> null,
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(keySer.mapper(), pairs.keySet().iterator().next()), false);
+        }
+
+        return tbl.splitAndRun(pairs.entrySet(), clo, null, (agg, cur) -> null,
+                (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry.getKey()));
     }
 
     /** {@inheritDoc} */
@@ -321,7 +355,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -353,7 +387,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -374,7 +408,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_INSERT,
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -386,8 +420,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return sync(removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return sync(removeExactAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -399,13 +433,13 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_DELETE,
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(val, valSer.mapper().targetType());
@@ -414,7 +448,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -438,13 +472,24 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyCollectionCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_DELETE_ALL,
-                (s, w, n) -> keySer.writeRecs(tx, keys, s, w, n, TuplePart.KEY),
-                (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
-                Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), keys),
-                tx);
+        MapFunction<K, Collection<K>> clo = (batch, provider, txRequired) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_DELETE_ALL,
+                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()), false);
+        }
+
+        return tbl.splitAndRun(keys, clo, new HashSet<>(), (agg, cur) -> {
+            agg.addAll(cur);
+            return agg;
+        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
 
     @Override
@@ -474,7 +519,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -504,7 +549,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> keySer.writeRec(tx, key, s, w, n, TuplePart.KEY),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -516,10 +561,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, V oldVal, V newVal) {
+    public boolean replaceExact(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
 
-        return sync(replaceAsync(tx, key, oldVal, newVal));
+        return sync(replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -533,13 +578,13 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_REPLACE,
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(oldVal, valSer.mapper().targetType());
@@ -553,7 +598,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     writeKeyValueRaw(s, w, key, newVal);
                 },
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -583,7 +628,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -615,7 +660,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w, n) -> writeKeyValue(s, w, n, tx, key, val),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), key),
+                getPartitionAwarenessProvider(keySer.mapper(), key),
                 tx);
     }
 
@@ -704,16 +749,18 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
-                        int colCount = del ? s.keyColumns().length : s.columns().length;
+                        ClientColumn[] columns = del ? s.keyColumns() : s.columns();
 
                         noValueSet.clear();
-                        var builder = new BinaryTupleBuilder(colCount);
+                        var builder = new BinaryTupleBuilder(columns.length);
                         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
-                        keyMarsh.writeObject(e.getKey(), writer);
-
-                        if (!del) {
-                            valMarsh.writeObject(e.getValue(), writer);
+                        for (var column : columns) {
+                            if (column.key()) {
+                                keyMarsh.writeField(e.getKey(), writer, column.keyIndex());
+                            } else {
+                                valMarsh.writeField(e.getValue(), writer, column.valIndex());
+                            }
                         }
 
                         w.out().packBinaryTuple(builder, noValueSet);
@@ -727,16 +774,15 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <E, P, R, A> CompletableFuture<Void> streamData(
+    public <E, P, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<P, A, R> receiver,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, P> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

@@ -42,7 +42,9 @@ template<typename K, typename V>
 class key_value_view;
 
 /**
- * Key-Value view interface provides methods to access table records in form of separate key and value parts.
+ * @brief Key-Value view interface for table.
+ *
+ * Provides methods to access table records in form of separate key and value parts.
  */
 template<>
 class key_value_view<ignite_tuple, ignite_tuple> {
@@ -482,7 +484,9 @@ private:
 };
 
 /**
- * Key-Value view interface provides methods to access table records in form of separate key and value parts.
+ * @brief Key-Value view interface for table.
+ *
+ * Provides methods to access table records in form of separate key and value parts.
  */
 template<typename K, typename V>
 class key_value_view {

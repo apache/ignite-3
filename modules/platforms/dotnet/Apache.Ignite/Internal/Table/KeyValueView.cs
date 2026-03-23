@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,6 +74,10 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<bool> ContainsAsync(ITransaction? transaction, TK key) =>
         await _recordView.ContainsKeyAsync(transaction, ToKv(key)).ConfigureAwait(false);
+
+    /// <inheritdoc/>
+    public async Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<TK> keys) =>
+        await _recordView.ContainsAllKeysAsync(transaction, keys.Select(static x => ToKv(x))).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>
@@ -148,6 +153,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         .Select(static x => x.Val);
 
     /// <inheritdoc/>
+    [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
     public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
         var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options, _recordView.Table.Socket.Configuration.Configuration);
@@ -166,18 +172,18 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
+        ReceiverDescriptor<TPayload, TArg, TResult> receiver,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor<TArg, TResult> receiver,
         TArg receiverArg,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
         where TPayload : notnull =>
         _recordView.StreamDataAsync(
             data,
+            receiver,
             src => ToKv(keySelector(src)),
             payloadSelector,
-            receiver,
             receiverArg,
             options,
             cancellationToken);

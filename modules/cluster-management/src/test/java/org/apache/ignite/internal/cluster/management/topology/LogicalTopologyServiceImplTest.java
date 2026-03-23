@@ -28,8 +28,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -75,7 +75,7 @@ class LogicalTopologyServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void delegatesValidatedNodesOnLeader() {
-        CompletableFuture<Set<ClusterNode>> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Set<InternalClusterNode>> snapshotFuture = new CompletableFuture<>();
 
         when(cmgManager.validatedNodes()).thenReturn(snapshotFuture);
 

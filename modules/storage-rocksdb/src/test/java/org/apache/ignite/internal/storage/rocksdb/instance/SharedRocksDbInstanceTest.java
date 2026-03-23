@@ -53,7 +53,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -72,6 +72,8 @@ import org.rocksdb.RocksDBException;
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class SharedRocksDbInstanceTest extends IgniteAbstractTest {
+    private static final String NODE_NAME = "test";
+
     private RocksDbStorageEngine engine;
 
     private RocksDbStorageProfile storageProfile;
@@ -87,7 +89,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
             ScheduledExecutorService scheduledExecutor
     ) throws Exception {
         engine = new RocksDbStorageEngine(
-                "test",
+                NODE_NAME,
                 storageConfiguration,
                 workDir,
                 mock(LogSyncer.class),
@@ -97,7 +99,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
 
         engine.start();
 
-        var profileConfig = (RocksDbProfileView) storageConfiguration.profiles().get("default").value();
+        var profileConfig = (RocksDbProfileConfiguration) storageConfiguration.profiles().get("default");
 
         storageProfile = new RocksDbStorageProfile(profileConfig);
 
@@ -116,7 +118,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     }
 
     private SharedRocksDbInstance createDb() throws Exception {
-        return new SharedRocksDbInstanceCreator(mock(FailureProcessor.class)).create(engine, storageProfile, workDir);
+        return new SharedRocksDbInstanceCreator(mock(FailureProcessor.class), NODE_NAME).create(engine, storageProfile, workDir);
     }
 
     @Test

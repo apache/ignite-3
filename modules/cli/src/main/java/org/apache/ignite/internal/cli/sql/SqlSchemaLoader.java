@@ -59,7 +59,6 @@ public class SqlSchemaLoader {
         return new SqlSchema(schema);
     }
 
-
     private Set<String> loadColumns(String schemaName, String tableName) {
         Set<String> columns = new HashSet<>();
         try (ResultSet rs = metadataSupplier.getMetaData().getColumns(null, schemaName, tableName, null)) {

@@ -17,7 +17,7 @@
 
 /**
  * This package contains RAFT command handlers that is used by
- * {@link org.apache.ignite.internal.table.distributed.raft.PartitionListener} aka table raft processor.
+ * {@link org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor} aka table raft processor.
  */
 
 package org.apache.ignite.internal.table.distributed.raft.handlers;

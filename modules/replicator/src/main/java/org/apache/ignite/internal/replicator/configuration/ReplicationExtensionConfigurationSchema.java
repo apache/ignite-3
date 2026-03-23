@@ -28,4 +28,8 @@ import org.apache.ignite.internal.configuration.ClusterConfigurationSchema;
 public class ReplicationExtensionConfigurationSchema extends ClusterConfigurationSchema {
     @ConfigValue
     public ReplicationConfigurationSchema replication;
+
+    @ConfigValue
+    @Deprecated
+    public StorageUpdateConfigurationSchema storageUpdate;
 }

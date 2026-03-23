@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
-
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -28,12 +26,14 @@ import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -56,7 +56,16 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
 
     /** Enumeration of supported modification operations. */
     public enum Operation {
-        PUT
+        INSERT(SqlKind.INSERT, TableModify.Operation.INSERT),
+        DELETE(SqlKind.DELETE, TableModify.Operation.DELETE);
+
+        private final SqlKind kind;
+        private final TableModify.Operation op;
+
+        Operation(SqlKind kind, TableModify.Operation op) {
+            this.kind = kind;
+            this.op = op;
+        }
     }
 
     private final RelOptTable table;
@@ -87,9 +96,12 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
         this.expressions = expressions;
     }
 
+    public Operation operation() {
+        return operation;
+    }
+
     @Override public RelDataType deriveRowType() {
-        return RelOptUtil.createDmlRowType(
-                SqlKind.INSERT, getCluster().getTypeFactory());
+        return RelOptUtil.createDmlRowType(operation.kind, getCluster().getTypeFactory());
     }
 
     /** {@inheritDoc} */
@@ -125,8 +137,7 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
 
     @Override public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
-                .itemIf("table", table.getQualifiedName(), !forExplain(pw))
-                .itemIf("table", table, forExplain(pw))
+                .item("table", table.getQualifiedName())
                 .item("operation", operation)
                 .item("expressions", expressions);
     }
@@ -145,5 +156,20 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
      */
     public List<RexNode> expressions() {
         return expressions;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (operation == Operation.DELETE) {
+            writer.addKeyExpression(expressions);
+        } else {
+            assert operation == Operation.INSERT : operation;
+
+            writer.addSourceExpressions(expressions);
+        }
+
+        return writer
+                .addTable(table)
+                .addModifyOperationType(operation.op);
     }
 }

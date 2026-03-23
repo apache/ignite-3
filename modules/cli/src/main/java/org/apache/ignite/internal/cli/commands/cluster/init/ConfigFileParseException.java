@@ -23,7 +23,6 @@ public class ConfigFileParseException extends RuntimeException {
         super(message);
     }
 
-
     public ConfigFileParseException(String message, Throwable cause) {
         super(message, cause);
     }

@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Internal.Linq;
 using Sql;
 using Transactions;
 
@@ -65,6 +67,17 @@ public interface IKeyValueView<TK, TV> : IDataStreamerTarget<KeyValuePair<TK, TV
     /// The task result is <c>true</c> if a value exists for the specified key, and <c>false</c> otherwise.
     /// </returns>
     Task<bool> ContainsAsync(ITransaction? transaction, TK key);
+
+    /// <summary>
+    /// Determines if the table contains entries for all specified keys.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="keys">Keys.</param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result is <c>true</c> if values exist for all specified keys, and <c>false</c> otherwise.
+    /// </returns>
+    Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<TK> keys);
 
     /// <summary>
     /// Puts a value with a given key.
@@ -211,5 +224,6 @@ public interface IKeyValueView<TK, TV> : IDataStreamerTarget<KeyValuePair<TK, TV
     /// <param name="transaction">Optional transaction.</param>
     /// <param name="options">Options.</param>
     /// <returns><see cref="IQueryable{T}"/>.</returns>
+    [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
     IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
 }

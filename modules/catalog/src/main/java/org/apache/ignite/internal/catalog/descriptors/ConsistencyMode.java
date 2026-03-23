@@ -46,7 +46,6 @@ public enum ConsistencyMode {
         return id;
     }
 
-
     static {
         for (ConsistencyMode mode : values()) {
             assert VALS[mode.id] == null : "Found duplicate id " + mode.id;

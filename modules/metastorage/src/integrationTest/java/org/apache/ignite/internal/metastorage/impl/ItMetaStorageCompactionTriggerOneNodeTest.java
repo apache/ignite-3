@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.BAR_KEY;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.FOO_KEY;
@@ -26,11 +28,11 @@ import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.creat
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.latestKeyRevision;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.InitParametersBuilder;
@@ -42,7 +44,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** For {@link MetaStorageCompactionTrigger} testing for single node case. */
@@ -61,7 +62,6 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25229")
     void testCompactionAfterRestartNode() throws Exception {
         IgniteImpl node = aliveNode();
 
@@ -72,7 +72,8 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
 
         // Let's wait until the compaction on revision of FOO_KEY creation happens.
         long fooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
-        assertTrue(waitForCondition(() -> metaStorageManager.getCompactionRevisionLocally() >= fooRevision, 10, 1_000));
+        await().timeout(1, SECONDS).pollInterval(10, MILLISECONDS)
+                .until(metaStorageManager::getCompactionRevisionLocally, is(greaterThanOrEqualTo(fooRevision)));
 
         log.info("Latest revision for key: [key={}, revision={}]", FOO_KEY, fooRevision);
 
@@ -83,8 +84,6 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
         long latestFooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
         long latestCompactionRevision = metaStorageManager.getCompactionRevisionLocally();
-        // Let's change the properties before restarting so that a new scheduled compaction does not start after the node starts.
-        changeCompactionProperties(node, Long.MAX_VALUE, Long.MAX_VALUE);
 
         IgniteImpl restartedNode = restartNode();
 
@@ -92,8 +91,9 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
 
         // Let's make sure that after the restart the correct revision of the compaction is restored and the compaction itself will be at
         // the latest compaction revision.
-        assertEquals(latestCompactionRevision, restartedMetaStorageManager.getCompactionRevisionLocally());
-        assertTrue(waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(cluster, FOO_KEY, latestFooRevision), 10, 1_000));
+        assertThat(restartedMetaStorageManager.getCompactionRevisionLocally(), is(greaterThanOrEqualTo(latestCompactionRevision)));
+        await().timeout(1, SECONDS).pollInterval(10, MILLISECONDS)
+                .until(() -> allNodesContainSingleRevisionForKeyLocally(cluster, FOO_KEY, latestFooRevision));
     }
 
     private IgniteImpl aliveNode() {

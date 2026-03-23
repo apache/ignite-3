@@ -131,6 +131,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
     private CatalogTableColumnDescriptor createNewTableColumn(CatalogTableColumnDescriptor origin) {
         return new CatalogTableColumnDescriptor(
+                origin.id(),
                 origin.name(),
                 Objects.requireNonNullElse(type, origin.type()),
                 Objects.requireNonNullElse(nullable, origin.nullable()),

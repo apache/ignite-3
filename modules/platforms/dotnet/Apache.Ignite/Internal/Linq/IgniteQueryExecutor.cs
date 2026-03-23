@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 using Common;
 using Ignite.Sql;
@@ -33,8 +34,14 @@ using Sql;
 /// <summary>
 /// Fields query executor.
 /// </summary>
+[RequiresUnreferencedCode(TrimWarning)]
 internal sealed class IgniteQueryExecutor : IQueryExecutor
 {
+    /// <summary>
+    /// AOT and trimming warning.
+    /// </summary>
+    internal const string TrimWarning = "LINQ provider does not support trimming and AOT scenarios. Use SQL queries instead.";
+
     private readonly Sql _sql;
     private readonly ITransaction? _transaction;
     private readonly QueryableOptions? _options;
@@ -132,8 +139,10 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, selectorOptions),
-            queryData.Parameters)
+            meta => ResultSelector.Get<T>(meta, queryModel.SelectClause.Selector, selectorOptions),
+            rowReaderArg: null,
+            queryData.Parameters,
+            CancellationToken.None)
             .ConfigureAwait(false);
 
         return resultSet;

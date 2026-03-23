@@ -51,11 +51,9 @@ public class PruningMetadataSerializationTest extends BaseIgniteAbstractTest {
     @Test
     public void test() throws Exception {
 
-
         RexBuilder rexBuilder = Commons.rexBuilder();
         RexNode lit1 = rexBuilder.makeLiteral("1");
         RexNode lit2 = rexBuilder.makeLiteral(true);
-
 
         Long2ObjectMap<PartitionPruningColumns> map = new Long2ObjectOpenHashMap<>();
 

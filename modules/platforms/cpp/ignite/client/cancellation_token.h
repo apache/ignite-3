@@ -26,8 +26,10 @@ namespace ignite
 {
 
 /**
- * Cancellation token is an object that is issued by cancel_handle and can be used by an operation or a resource
- * to observe a signal to terminate it.
+ * @brief Execution cancellation token.
+ *
+ * Cancellation token is an object that is issued by @ref ignite::cancel_handle and can be used by an operation
+ * or a resource to observe a signal to terminate it.
  */
 class cancellation_token
 {

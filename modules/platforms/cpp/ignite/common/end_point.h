@@ -23,7 +23,7 @@
 namespace ignite {
 
 /**
- * Connection end point structure.
+ * @brief Connection end point structure.
  */
 struct end_point {
     // Default

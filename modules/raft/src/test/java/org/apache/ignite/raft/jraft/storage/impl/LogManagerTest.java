@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -91,7 +91,7 @@ public class LogManagerTest extends BaseStorageTest {
         final LogManagerOptions opts = new LogManagerOptions();
 
         NodeOptions nodeOptions = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));
@@ -104,7 +104,7 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
         opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("test", "TestLogManagerDisruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 1024,
                 () -> new LogManagerImpl.StableClosureEvent(),
                 1,

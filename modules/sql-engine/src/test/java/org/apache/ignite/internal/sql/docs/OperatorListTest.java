@@ -266,11 +266,13 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.MAX);
         ops.add(SqlStdOperatorTable.ANY_VALUE);
         ops.add(SqlStdOperatorTable.SINGLE_VALUE);
+        ops.internal(IgniteSqlOperatorTable.SAME_VALUE);
         ops.internal(SqlStdOperatorTable.FILTER);
 
         ops.add(SqlStdOperatorTable.EVERY);
         ops.add(SqlStdOperatorTable.SOME);
 
+        ops.add(SqlStdOperatorTable.GROUPING);
         ops.internal(SqlInternalOperators.LITERAL_AGG);
 
         return ops;
@@ -314,6 +316,9 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(IgniteSqlOperatorTable.GREATEST2, "GREATEST");
         ops.add(IgniteSqlOperatorTable.LEAST2, "LEAST");
 
+        ops.add(IgniteSqlOperatorTable.FIND_PREFIX, "$FIND_PREFIX");
+        ops.add(IgniteSqlOperatorTable.NEXT_GREATER_PREFIX, "$NEXT_GREATER_PREFIX");
+
         // Other functions and operators.
         ops.add(SqlStdOperatorTable.CAST).sig("(<any> AS <type>)");
         ops.add(SqlLibraryOperators.INFIX_CAST, "::").sig("<any>::<type>");
@@ -336,8 +341,10 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.internal(SqlStdOperatorTable.NULLS_LAST);
         ops.internal(SqlStdOperatorTable.DESC);
 
-        // Ignite
+        // Context variable functions.
+        ops.add(SqlStdOperatorTable.CURRENT_USER);
 
+        // Ignite
         ops.add(IgniteSqlOperatorTable.TYPEOF);
         ops.add(IgniteSqlOperatorTable.RAND_UUID);
         ops.add(IgniteSqlOperatorTable.SYSTEM_RANGE);

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.exec.RemoteFragmentExecutionException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -75,6 +76,9 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
 
         mappers.add(unchecked(InternalCompilerException.class,
                 err -> new SqlException(Common.INTERNAL_ERR, "Expression compiler error. " + err.getMessage(), err)));
+
+        mappers.add(unchecked(TxControlInsideExternalTxNotSupportedException.class,
+                err -> new SqlException(err.traceId(), err.code(), err.getMessage(), err)));
 
         return mappers;
     }

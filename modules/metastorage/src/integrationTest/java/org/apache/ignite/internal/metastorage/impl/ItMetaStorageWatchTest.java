@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -87,8 +90,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -112,18 +115,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static SystemDistributedConfiguration systemConfiguration;
+    private SystemDistributedConfiguration systemConfiguration;
 
     @InjectExecutorService
-    private static ScheduledExecutorService scheduledExecutorService;
+    private ScheduledExecutorService scheduledExecutorService;
 
-    private static class Node {
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    private class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
         private final ClusterService clusterService;
@@ -149,16 +158,17 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(basePath.resolve("raft"));
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
 
-            components.add(partitionsLogStorageFactory);
+            components.add(partitionsLogStorageManager);
 
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     raftGroupEventsClientListener
             );
@@ -183,13 +193,17 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 
-            LogStorageFactory cmgLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+            LogStorageManager cmgLogStorageManager =
+                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
-            components.add(cmgLogStorageFactory);
+            components.add(cmgLogStorageManager);
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
+
+            MetricManager metricManager = new NoOpMetricManager();
+
+            components.add(metricManager);
 
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -201,8 +215,10 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             components.add(cmgManager);
@@ -218,15 +234,15 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(basePath.resolve("storage"));
 
-            LogStorageFactory msLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     metastorageWorkDir.raftLogPath()
             );
 
-            components.add(msLogStorageFactory);
+            components.add(msLogStorageManager);
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -246,15 +262,21 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     storage,
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
+                    metricManager,
                     systemConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
         }
 
-        void start() {
-            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
+        CompletableFuture<Void> start() {
+            var context = new ComponentContext();
+
+            return startAsync(context, components)
+                    .thenCompose(v -> cmgManager.joinFuture())
+                    .thenCompose(v -> metaStorageManager.startAsync(context))
+                    .thenCompose(v -> metaStorageManager.recoveryFinishedFuture())
+                    .thenCompose(v -> cmgManager.onJoinReady());
         }
 
         String name() {
@@ -277,24 +299,19 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
     }
 
-    private TestInfo testInfo;
-
-    @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
-
     private final List<Node> nodes = new ArrayList<>();
 
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) {
-        this.testInfo = testInfo;
+    public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
+        startCluster(testInfo, 3);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.parallelStream().map(node -> node::stop));
     }
 
-    private void startCluster(int size) throws NodeStoppingException {
+    private void startCluster(TestInfo testInfo, int size) throws NodeStoppingException {
         List<NetworkAddress> localAddresses = findLocalAddresses(10_000, 10_000 + nodes.size() + size);
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
@@ -303,20 +320,13 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> nodes.add(new Node(clusterService, workDir)));
 
-        nodes.parallelStream().forEach(Node::start);
+        CompletableFuture<?>[] startFutures = nodes.parallelStream().map(Node::start).toArray(CompletableFuture[]::new);
 
         String name = nodes.get(0).name();
 
         nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
 
-        for (Node node : nodes) {
-            assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
-            assertThat(node.metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
-        }
-
-        for (Node node : nodes) {
-            assertThat(node.metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
-        }
+        assertThat(allOf(startFutures), willCompleteSuccessfully());
     }
 
     @Test
@@ -361,11 +371,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     }
 
     private void testWatches(BiConsumer<Node, CountDownLatch> registerWatchAction) throws Exception {
-        int numNodes = 3;
-
-        startCluster(numNodes);
-
-        var latch = new CountDownLatch(numNodes);
+        var latch = new CountDownLatch(nodes.size());
 
         for (Node node : nodes) {
             registerWatchAction.accept(node, latch);
@@ -391,12 +397,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
      */
     @Test
     void testReplayUpdates() throws Exception {
-        int numNodes = 3;
-
-        startCluster(numNodes);
-
-        var exactLatch = new CountDownLatch(numNodes);
-        var prefixLatch = new CountDownLatch(numNodes);
+        var exactLatch = new CountDownLatch(nodes.size());
+        var prefixLatch = new CountDownLatch(nodes.size());
 
         for (Node node : nodes) {
             node.metaStorageManager.registerExactWatch(new ByteArray("foo"), event -> {
@@ -456,10 +458,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
      */
     @Test
     void updatesAreReplayedWithCorrectTimestamps() throws Exception {
-        int numNodes = 3;
-
-        startCluster(numNodes);
-
         List<RevisionAndTimestamp> seenRevisionsAndTimestamps = new CopyOnWriteArrayList<>();
 
         for (Node node : nodes) {
@@ -480,7 +478,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         nodes.forEach(node -> assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully()));
 
-        assertTrue(waitForCondition(() -> seenRevisionsAndTimestamps.size() == numNodes * 2, TimeUnit.SECONDS.toMillis(10)));
+        assertTrue(waitForCondition(() -> seenRevisionsAndTimestamps.size() == nodes.size() * 2, TimeUnit.SECONDS.toMillis(10)));
 
         // Each revision must be accompanied with the same timestamp on each node.
         Set<RevisionAndTimestamp> revsAndTssSet = new HashSet<>(seenRevisionsAndTimestamps);

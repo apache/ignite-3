@@ -25,6 +25,8 @@
 namespace ignite {
 
 /**
+ * @brief Provides context related to broadcast compute.
+ *
  * Broadcast execution control object, provides information about the broadcast execution process and result.
  */
 class broadcast_execution {

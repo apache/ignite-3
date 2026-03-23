@@ -18,11 +18,15 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -34,6 +38,9 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -46,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client async result set.
  */
-class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
+public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Channel. */
     private final ClientChannel ch;
 
@@ -63,7 +70,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     private final long affectedRows;
 
     /** Metadata. */
-    private final ResultSetMetadata metadata;
+    private final @Nullable ResultSetMetadata metadata;
+
+    private final @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata;
 
     /** Marshaller. Not null when object mapping is used. */
     @Nullable
@@ -73,31 +82,69 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Nullable
     private final Mapper<T> mapper;
 
-    /** Rows. */
-    private volatile List<T> rows;
-
-    /** More pages flag. */
-    private volatile boolean hasMorePages;
+    /** Current page. */
+    @Nullable
+    private volatile Page<T> page;
 
     /** Closed flag. */
     private volatile boolean closed;
+
+    /** Prefetched next page future. */
+    private volatile CompletableFuture<Page<T>> nextPageFut;
+
+    /** ID of the resource that holds the next cursor, can be {@code null} if current result set is the last one. */
+    @Nullable
+    private final Long nextResultResourceId;
+
+    /** Future that holds the next result set, can be {@code null} if the current result set is the last one. */
+    @Nullable
+    private final CompletableFuture<ClientAsyncResultSet<T>> nextResultFuture;
+
+    /** A flag indicating whether the next result set already was requested or not. */
+    private final AtomicBoolean nextResultSetRetrieved = new AtomicBoolean();
 
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Used to create marshaller in case result is for query and {@code mapper} is provided.
      * @param in Unpacker.
      * @param mapper Mapper.
+     * @param partitionAwarenessEnabled Whether partitions awareness is enabled, hence response may contain related metadata.
+     * @param sqlDirectMappingSupported Whether direct mapping is supported, hence response may contain additional metadata.
+     * @param sqlMultiStatementsSupported Whether iteration over the results of script execution is supported.
      */
-    ClientAsyncResultSet(ClientChannel ch, MarshallersProvider marshallers, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
+    ClientAsyncResultSet(
+            ClientChannel ch,
+            MarshallersProvider marshallers,
+            ClientMessageUnpacker in,
+            @Nullable Mapper<T> mapper,
+            boolean partitionAwarenessEnabled,
+            boolean sqlDirectMappingSupported,
+            boolean sqlMultiStatementsSupported
+    ) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
         hasRowSet = in.unpackBoolean();
-        hasMorePages = in.unpackBoolean();
+        var hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? ClientResultSetMetadata.read(in) : null;
+        metadata = ClientResultSetMetadata.read(in);
+
+        if (partitionAwarenessEnabled && !in.tryUnpackNil()) {
+            partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in, sqlDirectMappingSupported);
+        } else {
+            partitionAwarenessMetadata = null;
+        }
+
+        if (sqlMultiStatementsSupported && !in.tryUnpackNil()) {
+            nextResultResourceId = in.unpackLong();
+            nextResultFuture = new CompletableFuture<>();
+        } else {
+            nextResultResourceId = null;
+            nextResultFuture = null;
+        }
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
@@ -105,7 +152,17 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                 : null;
 
         if (hasRowSet) {
-            readRows(in);
+            assert metadata != null : "Metadata must be present when row set is available";
+            List<T> rows = readRows(in, metadata, marshaller, mapper);
+            page = new Page<>(rows, hasMorePages);
+
+            if (hasMorePages) {
+                assert resourceId != null : "Resource id must be present when more pages are available";
+                nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
+            } else {
+                // When last page is fetched, server closes the cursor.
+                closed = true;
+            }
         }
     }
 
@@ -119,6 +176,47 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public boolean hasRowSet() {
         return hasRowSet;
+    }
+
+    /**
+     * Returns flag indicating whether the current result set is the result of
+     * a multi-statement query and this statement is not the last one.
+     */
+    public boolean hasNextResultSet() {
+        return nextResultResourceId != null;
+    }
+
+    /**
+     * Retrieves the next result set of a multi-statement query.
+     *
+     * @return Next result set.
+     * @throws NoSuchElementException if the query has no more statements to execute.
+     */
+    public CompletableFuture<ClientAsyncResultSet<T>> nextResultSet() {
+        if (nextResultResourceId == null) {
+            return CompletableFuture.failedFuture(new NoSuchElementException("Query has no more results"));
+        }
+
+        assert nextResultFuture != null;
+
+        if (!nextResultSetRetrieved.compareAndSet(false, true)) {
+            return nextResultFuture;
+        }
+
+        ch.<ClientAsyncResultSet<T>>serviceAsync(ClientOp.SQL_CURSOR_NEXT_RESULT_SET,
+                        w -> w.out().packLong(nextResultResourceId),
+                        r -> new ClientAsyncResultSet<>(
+                                r.clientChannel(), null, r.in(), null, false, false, true
+                        ))
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        nextResultFuture.completeExceptionally(e);
+                    } else {
+                        nextResultFuture.complete(r);
+                    }
+                });
+
+        return nextResultFuture;
     }
 
     /** {@inheritDoc} */
@@ -139,7 +237,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     public Iterable<T> currentPage() {
         requireResultSet();
 
-        return rows;
+        Page<T> p = page;
+        assert p != null : "Page must be present when row set is available";
+        return p.rows;
     }
 
     /** {@inheritDoc} */
@@ -147,50 +247,90 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     public int currentPageSize() {
         requireResultSet();
 
-        return rows.size();
+        Page<T> p = page;
+        assert p != null : "Page must be present when row set is available";
+        return p.rows.size();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
+    public synchronized CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
         if (closed || !hasMorePages()) {
             return CompletableFuture.failedFuture(new CursorClosedException());
         }
 
+        // Swap the page to prefetched and prefetch the next one.
+        return nextPageFut.thenApply(p -> {
+            synchronized (this) {
+                page = p;
+
+                if (p.hasMorePages) {
+                    assert resourceId != null : "Resource id must be present when more pages are available";
+                    nextPageFut = fetchNextPageInternal(ch, resourceId, marshaller, mapper, metadata);
+                } else {
+                    // When last page is fetched, server closes the cursor.
+                    closed = true;
+                }
+            }
+
+            return this;
+        });
+    }
+
+    private static <T> CompletableFuture<Page<T>> fetchNextPageInternal(
+            ClientChannel ch,
+            long resourceId,
+            @Nullable Marshaller marshaller,
+            @Nullable Mapper<T> mapper,
+            @Nullable ResultSetMetadata metadata) {
         return ch.serviceAsync(
                 ClientOp.SQL_CURSOR_NEXT_PAGE,
                 w -> w.out().packLong(resourceId),
                 r -> {
-                    readRows(r.in());
-                    hasMorePages = r.in().unpackBoolean();
+                    assert metadata != null : "Metadata must be present when row set is available";
+                    List<T> rows = readRows(r.in(), metadata, marshaller, mapper);
+                    boolean hasMorePages = r.in().unpackBoolean();
 
-                    if (!hasMorePages) {
-                        // When last page is fetched, server closes the cursor.
-                        closed = true;
-                    }
-
-                    return this;
+                    return new Page<>(rows, hasMorePages);
                 });
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return resourceId != null && hasMorePages;
+        Page<T> p = page;
+        return p != null && p.hasMorePages;
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public synchronized CompletableFuture<Void> closeAsync() {
         if (resourceId == null || closed) {
             return nullCompletedFuture();
         }
 
         closed = true;
 
-        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null);
+        var nextPageFut0 = nextPageFut;
+
+        if (nextPageFut0 != null) {
+            // If there is a prefetch ongoing, wait for it to complete.
+            // It might be the last page which closes the cursor on the server side.
+            return nextPageFut0
+                    .thenApply(p -> p.hasMorePages)
+                    .exceptionally(t -> true) // Fetch failed, assume the cursor is still open (e.g. cancelled query).
+                    .thenCompose(needsClose -> needsClose ? closeAsyncInternal(ch, resourceId) : nullCompletedFuture())
+                    .thenApply(ignore -> null);
+        } else {
+            return closeAsyncInternal(ch, resourceId)
+                    .thenApply(ignore -> null);
+        }
+    }
+
+    @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
     }
 
     private void requireResultSet() {
@@ -199,7 +339,11 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
     }
 
-    private void readRows(ClientMessageUnpacker in) {
+    private static <T> List<T> readRows(
+            ClientMessageUnpacker in,
+            ResultSetMetadata metadata,
+            @Nullable Marshaller marshaller,
+            @Nullable Mapper<?> mapper) {
         int size = in.unpackInt();
         int rowSize = metadata.columns().size();
 
@@ -227,69 +371,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             }
         }
 
-        rows = Collections.unmodifiableList(res);
-    }
-
-    private static Object readValue(BinaryTupleReader in, int idx, ColumnMetadata col) {
-        if (in.hasNullValue(idx)) {
-            return null;
-        }
-
-        switch (col.type()) {
-            case BOOLEAN:
-                return in.byteValue(idx) != 0;
-
-            case INT8:
-                return in.byteValue(idx);
-
-            case INT16:
-                return in.shortValue(idx);
-
-            case INT32:
-                return in.intValue(idx);
-
-            case INT64:
-                return in.longValue(idx);
-
-            case FLOAT:
-                return in.floatValue(idx);
-
-            case DOUBLE:
-                return in.doubleValue(idx);
-
-            case DECIMAL:
-                return in.decimalValue(idx, col.scale());
-
-            case DATE:
-                return in.dateValue(idx);
-
-            case TIME:
-                return in.timeValue(idx);
-
-            case DATETIME:
-                return in.dateTimeValue(idx);
-
-            case TIMESTAMP:
-                return in.timestampValue(idx);
-
-            case UUID:
-                return in.uuidValue(idx);
-
-            case STRING:
-                return in.stringValue(idx);
-
-            case BYTE_ARRAY:
-                return in.bytesValue(idx);
-
-            case PERIOD:
-                return in.periodValue(idx);
-
-            case DURATION:
-                return in.durationValue(idx);
-
-            default:
-                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
-        }
+        return Collections.unmodifiableList(res);
     }
 
     private static <T> Marshaller marshaller(ResultSetMetadata metadata, MarshallersProvider marshallers, Mapper<T> mapper) {
@@ -315,5 +397,38 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         var schema = new ClientSchema(0, schemaColumns, marshallers);
         return schema.getMarshaller(mapper);
+    }
+
+    private static CompletableFuture<Object> closeAsyncInternal(ClientChannel ch, long resourceId) {
+        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null)
+                .exceptionally(t -> {
+                    Throwable cause = unwrapCause(t);
+
+                    if (cause instanceof IgniteException) {
+                        IgniteException igniteEx = (IgniteException) cause;
+
+                        if (igniteEx.code() == Client.RESOURCE_NOT_FOUND_ERR) {
+                            throw new IgniteException(
+                                    Client.RESOURCE_NOT_FOUND_ERR,
+                                    "Failed to find cursor with id: " + resourceId + ". Cursor might have been closed concurrently.",
+                                    cause);
+                        } else if (cause instanceof IgniteClientConnectionException) {
+                            // Connection lost - cursor is closed on the server side.
+                            return null;
+                        }
+                    }
+
+                    throw new IgniteException(Common.INTERNAL_ERR, "Failed to close SQL cursor: " + t.getMessage(), t);
+                });
+    }
+
+    private static class Page<T> {
+        private final List<T> rows;
+        private final boolean hasMorePages;
+
+        Page(List<T> rows, boolean hasMorePages) {
+            this.rows = rows;
+            this.hasMorePages = hasMorePages;
+        }
     }
 }

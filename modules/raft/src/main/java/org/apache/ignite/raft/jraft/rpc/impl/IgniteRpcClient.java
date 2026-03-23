@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +28,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -136,7 +135,7 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     public void send(PeerId peerId, Object request, CompletableFuture<Message> fut, long timeout) {
-        ClusterNode targetNode = service.topologyService().getByConsistentId(peerId.getConsistentId());
+        InternalClusterNode targetNode = service.topologyService().getByConsistentId(peerId.getConsistentId());
 
         if (targetNode == null) {
             // PeerUnavailableException will force a retry by the enclosing components.

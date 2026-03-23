@@ -22,6 +22,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Compute;
+using Executor;
 using Ignite.Compute;
 using Ignite.Marshalling;
 using Ignite.Table;
@@ -43,7 +45,7 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
-    private static readonly JobDescriptor<JobInfo, object?> JobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "$JobRunnerJob")
+    private static readonly JobDescriptor<JobInfo, object?> JobRunnerJob = new(JavaJobs.PlatformTestNodeRunner + "$JobRunnerJob")
     {
         ArgMarshaller = new JsonMarshaller<JobInfo>()
     };
@@ -132,7 +134,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
 
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
-        StringAssert.StartsWith(".NET job failed: Failed to load type 'Apache.Ignite.Tests.Compute.DotNetJobs+EchoJob", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Failed to load type 'Apache.Ignite.Tests.Common.Compute.DotNetJobs+EchoJob", ex.Message);
         StringAssert.Contains("Could not load file or assembly 'Apache.Ignite.Tests", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
@@ -151,8 +153,8 @@ public class PlatformComputeTests : IgniteTestsBase
 
         StringAssert.Contains(
             "System.ArithmeticException: Test exception: arg" +
-            $"{Environment.NewLine}   at Apache.Ignite.Tests.Compute.DotNetJobs.ErrorJob.Throw(Object arg)" +
-            $"{Environment.NewLine}   at Apache.Ignite.Tests.Compute.DotNetJobs.ErrorJob.ExecuteAsync",
+            $"{Environment.NewLine}   at Apache.Ignite.Tests.Common.Compute.DotNetJobs.ErrorJob.Throw(Object arg)" +
+            $"{Environment.NewLine}   at Apache.Ignite.Tests.Common.Compute.DotNetJobs.ErrorJob.ExecuteAsync",
             ex.InnerException?.Message);
     }
 
@@ -287,9 +289,22 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual("Job executor type 'DotNetSidecar' is not supported by the server.", ex.Message);
     }
 
+    [Test]
+    public void TestNewerDotnetVersionAssembly()
+    {
+        var ex = Assert.ThrowsAsync<IgniteException>(async() => await ExecJobAsync(DotNetJobUtils.NewerDotNetJob, "test"));
+
+        StringAssert.StartsWith(
+            ".NET job failed: Failed to load type 'NewerDotnetJobs.EchoJob, NewerDotnetJobs' " +
+            "because it depends on a newer .NET runtime version (required: 10, current: 8",
+            ex.Message);
+
+        Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
+    }
+
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
-        var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
+        var nodeName = JavaJobs.PlatformTestNodeRunner + suffix;
 
         var nodes = await Client.GetClusterNodesAsync();
         return nodes.First(n => n.Name == nodeName);

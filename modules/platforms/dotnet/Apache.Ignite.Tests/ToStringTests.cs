@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Ignite.Sql;
 using Ignite.Table;
 using NUnit.Framework;
 
@@ -31,10 +32,11 @@ public class ToStringTests
 {
     private static readonly List<Type> PublicFacingTypes = GetPublicFacingTypes().ToList();
 
-    private static readonly HashSet<Type> ExcludedTypes = new()
-    {
+    private static readonly HashSet<Type> ExcludedTypes =
+    [
         typeof(RetryReadPolicy), // Inherits from RetryReadPolicy
-    };
+        typeof(IgniteDbConnectionStringBuilder)
+    ];
 
     [Test]
     public void TestAllPublicFacingTypesHaveConsistentToString()

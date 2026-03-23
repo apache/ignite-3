@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map.Entry;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -31,14 +35,18 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.RowMeta;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -91,17 +99,39 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private final LockByRowId lockByRowId;
 
+    private final BooleanSupplier shouldReleaseSupplier;
+
     /** Amount of cursors that opened and still do not close. */
     private final AtomicInteger pendingCursors = new AtomicInteger();
 
     public TestMvPartitionStorage(int partitionId) {
-        this.partitionId = partitionId;
-        this.lockByRowId = new LockByRowId();
+        this(partitionId, new LockByRowId());
     }
 
     public TestMvPartitionStorage(int partitionId, LockByRowId lockByRowId) {
+        this(partitionId, lockByRowId, () -> false);
+    }
+
+    /**
+     * This constructor allows for creating a test partition storage with custom lock release behavior,
+     * which is useful for testing scenarios where lock contention needs to be simulated (e.g., during
+     * rebalancing or when other operations need to acquire locks held by long-running operations like GC).
+     *
+     * @param partitionId Partition ID.
+     * @param lockByRowId Shared lock manager for row-level locking.
+     * @param shouldReleaseSupplier Supplier that determines when locks should be released. When this supplier
+     *        returns {@code true}, operations holding locks (like GC vacuum) should exit early to allow
+     *        other operations to proceed. See
+     *        {@link Locker#shouldRelease()} for more details.
+     */
+    public TestMvPartitionStorage(
+            int partitionId,
+            LockByRowId lockByRowId,
+            BooleanSupplier shouldReleaseSupplier
+    ) {
         this.partitionId = partitionId;
         this.lockByRowId = lockByRowId;
+        this.shouldReleaseSupplier = shouldReleaseSupplier;
     }
 
     private static class VersionChain implements GcEntry {
@@ -109,7 +139,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         private final @Nullable BinaryRow row;
         private final @Nullable HybridTimestamp ts;
         private final @Nullable UUID txId;
-        private final @Nullable Integer commitTableId;
+        private final @Nullable Integer commitZoneId;
         private final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
@@ -118,7 +148,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 @Nullable BinaryRow row,
                 @Nullable HybridTimestamp ts,
                 @Nullable UUID txId,
-                @Nullable Integer commitTableId,
+                @Nullable Integer commitZoneId,
                 int commitPartitionId,
                 @Nullable VersionChain next
         ) {
@@ -126,17 +156,17 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             this.row = row;
             this.ts = ts;
             this.txId = txId;
-            this.commitTableId = commitTableId;
+            this.commitZoneId = commitZoneId;
             this.commitPartitionId = commitPartitionId;
             this.next = next;
         }
 
-        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable Integer commitTableId,
+        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable Integer commitZoneId,
                 int commitPartitionId, @Nullable VersionChain next) {
-            return new VersionChain(rowId, row, null, txId, commitTableId, commitPartitionId, next);
+            return new VersionChain(rowId, row, null, txId, commitZoneId, commitPartitionId, next);
         }
 
-        static VersionChain forCommitted(RowId rowId, @Nullable HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
+        static VersionChain forCommitted(RowId rowId, HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
             return new VersionChain(rowId, uncommittedVersionChain.row, timestamp, null, null,
                     ReadResult.UNDEFINED_COMMIT_PARTITION_ID, uncommittedVersionChain.next);
         }
@@ -172,7 +202,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         if (locker != null) {
             return closure.execute(locker);
         } else {
-            locker = new LocalLocker(lockByRowId);
+            locker = new TestStorageLocker();
 
             THREAD_LOCAL_LOCKER.set(locker);
 
@@ -231,32 +261,44 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable BinaryRow addWrite(
+    public synchronized AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException {
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitZoneId=" + commitZoneId + ", commitPartitionId=" + commitPartitionId;
+
         checkStorageClosed();
 
-        BinaryRow[] res = {null};
+        AddWriteResult[] addWriteResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    throw new TxIdMismatchException(txId, versionChain.txId);
+                    addWriteResult[0] = AddWriteResult.txMismatch(versionChain.txId, latestCommitTimestamp(versionChain));
+
+                    return versionChain;
                 }
 
-                res[0] = versionChain.row;
+                addWriteResult[0] = AddWriteResult.success(versionChain.row);
 
-                return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
+                return VersionChain.forWriteIntent(rowId, row, txId, commitZoneId, commitPartitionId, versionChain.next);
             }
 
-            return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
+            addWriteResult[0] = AddWriteResult.success(null);
+
+            return VersionChain.forWriteIntent(rowId, row, txId, commitZoneId, commitPartitionId, versionChain);
         });
 
-        return res[0];
+        AddWriteResult res = addWriteResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitZoneId=" + commitZoneId + ", commitPartitionId=" + commitPartitionId;
+
+        return res;
     }
 
     @Override
@@ -324,17 +366,29 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void addWriteCommitted(
+    public synchronized AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null)
+                + ", commitTimestamp=" + commitTimestamp;
+
         checkStorageClosed();
+
+        AddWriteCommittedResult[] addWriteCommittedResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.isWriteIntent()) {
-                throw new StorageException("Write intent exists for " + rowId);
+                addWriteCommittedResult[0] = AddWriteCommittedResult.writeIntentExists(
+                        versionChain.txId,
+                        latestCommitTimestamp(versionChain)
+                );
+
+                return versionChain;
             }
+
+            addWriteCommittedResult[0] = AddWriteCommittedResult.success();
 
             return resolveCommittedVersionChain(new VersionChain(
                     rowId,
@@ -346,6 +400,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     versionChain
             ));
         });
+
+        AddWriteCommittedResult res = addWriteCommittedResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", commitTimestamp=" + commitTimestamp;
+
+        return res;
     }
 
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
@@ -433,7 +493,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 // We *only* have a write-intent, return it.
                 BinaryRow binaryRow = cur.row;
 
-                return ReadResult.createFromWriteIntent(cur.rowId, binaryRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null);
+                return ReadResult.createFromWriteIntent(cur.rowId, binaryRow, cur.txId, cur.commitZoneId, cur.commitPartitionId, null);
             }
 
             // Move to first commit.
@@ -451,7 +511,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     versionChain.rowId,
                     versionChain.row,
                     versionChain.txId,
-                    versionChain.commitTableId,
+                    versionChain.commitZoneId,
                     versionChain.commitPartitionId, fillLastCommittedTs && next != null ? next.ts : null
             );
         }
@@ -479,7 +539,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     chainHead.rowId,
                     binaryRow,
                     chainHead.txId,
-                    chainHead.commitTableId,
+                    chainHead.commitZoneId,
                     chainHead.commitPartitionId,
                     firstCommit.ts);
         }
@@ -597,20 +657,80 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        assert THREAD_LOCAL_LOCKER.get() != null;
+    public @Nullable RowId highestRowId() throws StorageException {
+        checkStorageClosedOrInProcessOfRebalance();
 
-        try {
-            VersionChain versionChain = gcQueue.first();
+        return map.floorKey(RowId.highestRowId(partitionId));
+    }
 
-            if (versionChain.ts.compareTo(lowWatermark) > 0) {
-                return null;
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        List<RowMeta> result = new ArrayList<>();
+        RowId currentLowerBound = lowerBoundInclusive;
+        for (int i = 0; i < limit; i++) {
+            RowMeta row = closestRow(currentLowerBound);
+
+            if (row == null || row.rowId().compareTo(upperBoundInclusive) > 0) {
+                break;
             }
 
-            return versionChain;
-        } catch (NoSuchElementException e) {
+            result.add(row);
+            currentLowerBound = row.rowId().increment();
+
+            if (currentLowerBound == null) {
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    private @Nullable RowMeta closestRow(RowId lowerBound) throws StorageException {
+        Entry<RowId, VersionChain> entry = map.ceilingEntry(lowerBound);
+        if (entry == null) {
             return null;
         }
+
+        VersionChain versionChain = entry.getValue();
+
+        HybridTimestamp newestCommitTimestamp = null;
+
+        if (versionChain.isWriteIntent() && versionChain.next != null) {
+            newestCommitTimestamp = versionChain.next.ts;
+        }
+
+        return new RowMeta(
+                versionChain.rowId,
+                versionChain.txId,
+                versionChain.commitZoneId,
+                versionChain.commitPartitionId,
+                newestCommitTimestamp
+        );
+    }
+
+    @Override
+    public synchronized List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        if (count <= 0) {
+            return List.of();
+        }
+
+        var res = new ArrayList<GcEntry>(count);
+
+        Iterator<VersionChain> it = gcQueue.iterator();
+
+        for (int i = 0; i < count && it.hasNext(); i++) {
+            VersionChain next = it.next();
+
+            if (next.ts.compareTo(lowWatermark) > 0) {
+                break;
+            }
+
+            res.add(next);
+        }
+
+        return res;
     }
 
     @Override
@@ -688,6 +808,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return estimatedSize;
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return Cursor.fromBareIterator(emptyIterator());
     }
 
     @Override
@@ -849,5 +974,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         return locker != null && locker.isLocked(rowId);
+    }
+
+    private static @Nullable HybridTimestamp latestCommitTimestamp(VersionChain chain) {
+        VersionChain next = chain.next;
+
+        return next == null ? null : next.ts;
+    }
+
+    private class TestStorageLocker extends LocalLocker {
+        private TestStorageLocker() {
+            super(lockByRowId);
+        }
+
+        @Override
+        public boolean shouldRelease() {
+            return shouldReleaseSupplier.getAsBoolean();
+        }
     }
 }

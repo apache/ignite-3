@@ -21,12 +21,14 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -80,24 +82,25 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.KeyValueTestUtils;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -157,6 +160,7 @@ public class PlatformTestNodeRunner {
                     + "  \"clientConnector\":{\"port\": 10942,\"idleTimeoutMillis\":6000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
+                    + "    \"listenAddresses\": [\"127.0.0.1\"],\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
@@ -169,6 +173,7 @@ public class PlatformTestNodeRunner {
                     + "  \"clientConnector\":{\"port\": 10943,\"idleTimeoutMillis\":6000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
+                    + "    \"listenAddresses\": [\"127.0.0.1\"],\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
@@ -191,6 +196,7 @@ public class PlatformTestNodeRunner {
                     + "    }\n"
                     + "  },\n"
                     + "  \"network\": {\n"
+                    + "    \"listenAddresses\": [\"127.0.0.1\"],\n"
                     + "    \"port\":3346,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
@@ -218,6 +224,7 @@ public class PlatformTestNodeRunner {
                     + "    }\n"
                     + "  },\n"
                     + "  \"network\": {\n"
+                    + "    \"listenAddresses\": [\"127.0.0.1\"],\n"
                     + "    \"port\":3347,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
@@ -299,6 +306,8 @@ public class PlatformTestNodeRunner {
                     return TestIgnitionManager.start(nodeName, config, basePath.resolve(nodeName));
                 })
                 .collect(toList());
+
+        nodes.forEach(server -> ((IgniteServerImpl) server).igniteImpl().useStaticPartitionCountCalculator(DEFAULT_PARTITION_COUNT));
 
         IgniteServer metaStorageNode = nodes.get(0);
 
@@ -531,6 +540,10 @@ public class PlatformTestNodeRunner {
         );
     }
 
+    private static void createDefaultZone(IgniteImpl ignite) {
+        DistributionZonesTestUtil.createDefaultZone(ignite.catalogManager());
+    }
+
     /**
      * Gets the thin client port.
      *
@@ -569,7 +582,7 @@ public class PlatformTestNodeRunner {
     private static class CreateTableJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
-            context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
+            context.ignite().sql().execute("CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
             return completedFuture(tableName);
         }
@@ -582,7 +595,7 @@ public class PlatformTestNodeRunner {
     private static class DropTableJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
-            context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
+            context.ignite().sql().execute("DROP TABLE " + tableName + "");
 
             return completedFuture(tableName);
         }
@@ -713,7 +726,7 @@ public class PlatformTestNodeRunner {
             List<String> colocationColumns = columns.stream().map(Column::name).collect(toList());
             var schema = new SchemaDescriptor(1, columns, colocationColumns, null);
 
-            var marsh = new TupleMarshallerImpl(schema);
+            var marsh = KeyValueTestUtils.createMarshaller(schema);
 
             Row row = marsh.marshal(tuple);
 
@@ -859,14 +872,47 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
+    private static class MarshallerReceiver implements DataStreamerReceiver<Nested, MyArg, MyResult> {
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> payloadMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> argumentMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+
+        @Override
+        public CompletableFuture<List<MyResult>> receive(List<Nested> page, DataStreamerReceiverContext ctx, MyArg arg) {
+            List<MyResult> results = new ArrayList<>(page.size());
+
+            for (Nested item : page) {
+                MyResult res = new MyResult();
+                res.data = arg.name + "_" + arg.id;
+                res.nested = item;
+
+                results.add(res);
+            }
+
+            return completedFuture(results);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class PartitionJob implements ComputeJob<Long, Integer> {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
             Table table = context.ignite().tables().table(TABLE_NAME);
             Tuple key = Tuple.create().set("key", id);
-            Partition partition = table.partitionManager().partitionAsync(key).join();
+            Partition partition = table.partitionDistribution().partitionAsync(key).join();
 
-            return completedFuture(((HashPartition) partition).partitionId());
+            return completedFuture((int) partition.id());
         }
     }
 
@@ -874,7 +920,7 @@ public class PlatformTestNodeRunner {
     private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
         @Override
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Integer, Void>builder()
                             .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
                             .nodes(Set.of(node))
@@ -885,7 +931,7 @@ public class PlatformTestNodeRunner {
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 
@@ -946,7 +992,7 @@ public class PlatformTestNodeRunner {
         @Override
         public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
             if (arg == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             arg.price = arg.price.add(BigDecimal.ONE);
@@ -1022,8 +1068,7 @@ public class PlatformTestNodeRunner {
                     .options(jobOpts)
                     .build();
 
-            ClusterNode targetNode = context.ignite()
-                    .clusterNodes()
+            ClusterNode targetNode = context.ignite().cluster().nodes()
                     .stream()
                     .filter(n -> n.id().equals(arg.nodeId))
                     .findFirst()

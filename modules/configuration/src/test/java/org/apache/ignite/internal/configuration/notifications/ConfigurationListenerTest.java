@@ -77,7 +77,6 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -278,7 +277,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -370,7 +369,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -466,7 +465,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -565,7 +564,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -628,7 +627,6 @@ public class ConfigurationListenerTest {
      * Tests notifications validity when a named list element is renamed and then updated a sub-element of the renamed element.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21101")
     public void namedListNodeOnRenameAndThenUpdateSubElement() throws Exception {
         config.change(parent ->
                 parent.changeChildren(elements -> elements.create("name", element -> {
@@ -657,7 +655,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -712,7 +710,7 @@ public class ConfigurationListenerTest {
                 .update("foo")
                 .get(1, SECONDS);
 
-        assertEquals(List.of("parent", "elements", "rename"), log);
+        assertEquals(List.of("parent", "children", "rename", "parent", "children", "update"), log);
     }
 
 
@@ -753,7 +751,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -1588,22 +1586,6 @@ public class ConfigurationListenerTest {
     }
 
     @Test
-    void testNotifyCurrentConfigurationListeners() throws Exception {
-        AtomicBoolean invokeListener = new AtomicBoolean();
-
-        config.listen(configListener(ctx -> {
-            invokeListener.set(true);
-
-            assertNull(ctx.oldValue());
-            assertNotNull(ctx.newValue());
-        }));
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertTrue(invokeListener.get());
-    }
-
-    @Test
     void testIncreaseNotificationCount() throws Exception {
         long notificationCount = registry.notificationCount();
 
@@ -1612,10 +1594,6 @@ public class ConfigurationListenerTest {
         config.child().str().update(randomUuid()).get(1, SECONDS);
 
         assertEquals(notificationCount + 1, registry.notificationCount());
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test
@@ -1628,10 +1606,6 @@ public class ConfigurationListenerTest {
         config.child().str().update(currentValue).get(1, SECONDS);
 
         assertEquals(notificationCount + 1, registry.notificationCount());
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test

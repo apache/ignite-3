@@ -224,6 +224,17 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
     private static Stream<Arguments> argsDyn() {
         Map<DatetimePair, Arguments> diff = new EnumMap<>(DatetimePair.class);
 
+        // TIME 0
+
+        diff.put(DatetimePair.TIME_0_TIME_0, forTypePair(DatetimePair.TIME_0_TIME_0)
+                .opMatches(castTo(Types.TIME_0)));
+        diff.put(DatetimePair.TIME_0_TIME_3, forTypePair(DatetimePair.TIME_0_TIME_3)
+                .opMatches(castTo(Types.TIME_0)));
+        diff.put(DatetimePair.TIME_0_TIME_6, forTypePair(DatetimePair.TIME_0_TIME_6)
+                .opMatches(castTo(Types.TIME_0)));
+        diff.put(DatetimePair.TIME_0_TIME_9, forTypePair(DatetimePair.TIME_0_TIME_9)
+                .opMatches(castTo(Types.TIME_0)));
+
         // TIME 3
 
         diff.put(DatetimePair.TIME_3_TIME_3, forTypePair(DatetimePair.TIME_3_TIME_3)
@@ -243,7 +254,7 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
         // TIME 9
 
         diff.put(DatetimePair.TIME_9_TIME_9, forTypePair(DatetimePair.TIME_9_TIME_9)
-                .opMatches(castTo(Types.TIME_9)));
+                .opMatches(ofTypeWithoutCast(Types.TIME_9)));
 
         // TIMESTAMP 0
 
@@ -258,7 +269,6 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
         // TIMESTAMP 3
 
-
         diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_3, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                 .opMatches(castTo(Types.TIMESTAMP_3)));
         diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_6, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_6)
@@ -266,11 +276,17 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
         diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_9)
                 .opMatches(castTo(Types.TIMESTAMP_3)));
 
+        // TIMESTAMP 6
+
+        diff.put(DatetimePair.TIMESTAMP_6_TIMESTAMP_6, forTypePair(DatetimePair.TIMESTAMP_6_TIMESTAMP_6)
+                .opMatches(castTo(Types.TIMESTAMP_6)));
+        diff.put(DatetimePair.TIMESTAMP_6_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_6_TIMESTAMP_9)
+                .opMatches(castTo(Types.TIMESTAMP_6)));
+
         // TIMESTAMP 9
 
         diff.put(DatetimePair.TIMESTAMP_9_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_9)
-                .opMatches(castTo(Types.TIMESTAMP_9)));
-
+                .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)));
 
         // TIMESTAMP LTZ 0
 
@@ -292,10 +308,17 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
         diff.put(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)));
 
+        // TIMESTAMP LTZ 6
+
+        diff.put(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_6, forTypePair(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_6)
+                .opMatches(castTo(Types.TIMESTAMP_WLTZ_6)));
+        diff.put(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_9)
+                .opMatches(castTo(Types.TIMESTAMP_WLTZ_6)));
+
         // TIMESTAMP LTZ 9
 
         diff.put(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9)
-                .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)));
+                .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)));
 
         return args().map(v -> diff.getOrDefault(v.get()[0], v));
     }

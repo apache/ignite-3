@@ -490,7 +490,7 @@ Swagger UI will be available at http://localhost:8082
 ## Release candidate verification
 1. Build all packages (this will also run unit tests and all checks)
     ```shell
-    ./gradlew clean docker distZip allDistZip buildRpm buildDeb
+    ./gradlew clean docker distZip allDistZip buildRpm buildDeb -Pplatforms.enable
     ```
 2. Go to the `packaging/build/distributions` directory which now contains the packaged CLI tool and Ignite
     ```shell

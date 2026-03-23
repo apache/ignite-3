@@ -1,0 +1,47 @@
+ColocatedSortAggregate
+    fieldNames: [O_ORDERPRIORITY, ORDER_COUNT]
+    collation: [O_ORDERPRIORITY ASC]
+    group: [O_ORDERPRIORITY]
+    aggregation: [COUNT()]
+    est: (rows=6751366875)
+  Project
+      fieldNames: [O_ORDERPRIORITY]
+      projection: [O_ORDERPRIORITY]
+      est: (rows=33756834375)
+    HashJoin
+        predicate: =(O_ORDERKEY, L_ORDERKEY)
+        type: inner
+        est: (rows=33756834375)
+      Exchange
+          distribution: single
+          est: (rows=375000)
+        Sort
+            collation: [O_ORDERPRIORITY ASC]
+            est: (rows=375000)
+          IndexScan
+              table: PUBLIC.ORDERS
+              index: O_OD
+              type: SORTED
+              predicate: SEARCH(O_ORDERDATE, Sarg[[1993-07-01..1993-10-01)])
+              searchBounds: [<1993-07-01>..<1993-10-01>)
+              fieldNames: [O_ORDERKEY, O_ORDERDATE, O_ORDERPRIORITY]
+              collation: [O_ORDERDATE ASC]
+              est: (rows=375000)
+      ReduceHashAggregate
+          fieldNames: [L_ORDERKEY]
+          group: [L_ORDERKEY]
+          aggregation: []
+          est: (rows=600121)
+        Exchange
+            distribution: single
+            est: (rows=600121)
+          MapHashAggregate
+              fieldNames: [L_ORDERKEY, _GROUP_ID]
+              group: [L_ORDERKEY]
+              aggregation: []
+              est: (rows=600121)
+            TableScan
+                table: PUBLIC.LINEITEM
+                predicate: <(L_COMMITDATE, L_RECEIPTDATE)
+                fieldNames: [L_ORDERKEY]
+                est: (rows=3000608)

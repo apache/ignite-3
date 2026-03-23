@@ -17,13 +17,21 @@
 
 package org.apache.ignite.internal.replicator;
 
+import java.util.regex.Pattern;
+
 /**
  * A {@link ReplicationGroupId} which corresponds to partition of a partitioned object.
  */
 public interface PartitionGroupId extends ReplicationGroupId {
+    Pattern STRING_REPRESENTATION_PATTERN = Pattern.compile("\\d+_part_\\d+");
+
     /** Returns ID of the partitioned object. */
     int objectId();
 
     /** Returns partition ID. */
     int partitionId();
+
+    static boolean matchesString(String str) {
+        return STRING_REPRESENTATION_PATTERN.matcher(str).matches();
+    }
 }

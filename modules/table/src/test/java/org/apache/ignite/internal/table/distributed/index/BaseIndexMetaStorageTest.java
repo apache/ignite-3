@@ -49,6 +49,9 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -208,7 +211,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
     }
 
     int latestTableVersionFromCatalog(int tableId) {
-        return getTableStrict(catalogManager, tableId, clock.nowLong()).tableVersion();
+        return getTableStrict(catalogManager, tableId, clock.nowLong()).latestSchemaVersion();
     }
 
     void updateTableVersion(String tableName) {

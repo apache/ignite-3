@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -449,6 +450,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /** Unregisters a metastorage compaction revision update listener. */
     void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 
+    /** Registers a notification enqueued listener. */
+    void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener);
+
     /** Explicitly notifies revision update listeners. */
     CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
 
@@ -555,4 +559,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @return Future that's completed when flushing of the data is completed.
      */
     CompletableFuture<Void> flush();
+
+    /**
+     * Returns executor used to execute watches.
+     */
+    Executor watchExecutor();
 }

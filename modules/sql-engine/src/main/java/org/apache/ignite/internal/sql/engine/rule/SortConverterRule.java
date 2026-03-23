@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
@@ -62,41 +60,26 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
     /** {@inheritDoc} */
     @Override
     public void onMatch(RelOptRuleCall call) {
-        final Sort sort = call.rel(0);
+        Sort sort = call.rel(0);
         RelOptCluster cluster = sort.getCluster();
 
-        if (sort.fetch != null || sort.offset != null) {
-            RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                    .replace(sort.getCollation())
-                    .replace(IgniteDistributions.single());
+        RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(sort.getCollation())
+                .replace(IgniteDistributions.single());
 
-            if (sort.collation == RelCollations.EMPTY || sort.fetch == null) {
-                call.transformTo(new IgniteLimit(cluster, traits, convert(sort.getInput(), traits), sort.offset,
-                        sort.fetch));
-            } else {
-                RelNode igniteSort = new IgniteSort(
-                        cluster,
-                        cluster.traitSetOf(IgniteConvention.INSTANCE).replace(sort.getCollation()),
-                        convert(sort.getInput(), cluster.traitSetOf(IgniteConvention.INSTANCE)),
-                        sort.getCollation(),
-                        sort.offset,
-                        sort.fetch
-                );
+        // offset-only case is not supported by SortNode, therefore we need to create
+        // plain Sort and Limit node with offset on top.
+        if (sort.collation == RelCollations.EMPTY || (sort.fetch == null && sort.offset != null)) {
+            call.transformTo(new IgniteLimit(
+                    cluster, traits, convert(sort.getInput(), traits), sort.offset, sort.fetch
+            ));
 
-                call.transformTo(
-                        new IgniteLimit(cluster, traits, convert(igniteSort, traits), sort.offset, sort.fetch),
-                        Map.of(
-                                new IgniteLimit(cluster, traits, convert(sort.getInput(), traits), sort.offset, sort.fetch),
-                                sort
-                        )
-                );
-            }
-        } else {
-            RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(sort.getCollation());
-            RelTraitSet inTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-            RelNode input = convert(sort.getInput(), inTraits);
-
-            call.transformTo(new IgniteSort(cluster, outTraits, input, sort.getCollation()));
+            return;
         }
+
+        call.transformTo(new IgniteSort(
+                cluster, traits, convert(sort.getInput(), traits.replace(RelCollations.EMPTY)),
+                sort.getCollation(), sort.offset, sort.fetch
+        ));
     }
 }

@@ -61,9 +61,13 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
             removeingLearners.add(peer);
         }
 
+        assert request.sequenceToken() != null: "Sequence token is null";
+
+        long sequenceToken = request.sequenceToken();
+
         LOG.info("Receive RemoveLearnersRequest to {} from {}, removing {}.", ctx.node.getNodeId(),
             done.getRpcCtx().getRemoteAddress(), removeingLearners);
-        ctx.node.removeLearners(removeingLearners, status -> {
+        ctx.node.removeLearners(removeingLearners, sequenceToken, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }

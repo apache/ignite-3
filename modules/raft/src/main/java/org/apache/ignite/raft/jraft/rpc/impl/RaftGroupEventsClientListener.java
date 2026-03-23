@@ -25,7 +25,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
 * Listener for Raft group events on client side.
@@ -66,7 +66,7 @@ public class RaftGroupEventsClientListener {
      * @param leader New group leader.
      * @param term Election term.
     */
-    public void onLeaderElected(ReplicationGroupId groupId, ClusterNode leader, long term) {
+    public void onLeaderElected(ReplicationGroupId groupId, InternalClusterNode leader, long term) {
         List<LeaderElectionListener> listeners = leaderElectionListeners.get(groupId);
 
         if (listeners != null) {

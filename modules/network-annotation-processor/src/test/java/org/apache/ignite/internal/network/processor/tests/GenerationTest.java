@@ -20,11 +20,13 @@ package org.apache.ignite.internal.network.processor.tests;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import java.lang.reflect.Field;
 import java.util.List;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
@@ -67,5 +69,19 @@ class GenerationTest extends BaseIgniteAbstractTest {
         reconstructedSubmessage.unmarshal(marshaller, new Object());
 
         assertThat(reconstructedSubmessage.objects(), is(new Object[]{"a", "b"}));
+    }
+
+    @Test
+    void doesNotGenerateSerialVersionUidIfNotRequested() {
+        //noinspection JavaReflectionMemberAccess
+        assertThrows(NoSuchFieldException.class, () -> WithMarshallableImpl.class.getDeclaredField("serialVersionUID"));
+    }
+
+    @Test
+    void generatesSerialVersionUidIfRequested() throws Exception {
+        Field field = StringifierFieldMessageImpl.class.getDeclaredField("serialVersionUID");
+
+        field.setAccessible(true);
+        assertThat(field.get(null), is(9223372036854775807L));
     }
 }

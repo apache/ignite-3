@@ -24,9 +24,11 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using Ignite.Transactions;
 using Internal.Proto;
 using Internal.Transactions;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -46,6 +48,12 @@ public class PartitionAwarenessTests
         new object[] { int.MaxValue - 1, 2 },
         new object[] { int.MinValue, 2 }
     };
+
+    private static readonly object[] KeyNodeCasesWithMapper = KeyNodeCases
+        .Cast<object[]>()
+        .SelectMany(arr => new[] { true, false }.Select(withMapper => (object[])[.. arr, withMapper]))
+        .Cast<object>()
+        .ToArray();
 
     private FakeServer _server1 = null!;
     private FakeServer _server2 = null!;
@@ -205,6 +213,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => recordView.UpsertAllAsync(tx, keys), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllExactAsync(tx, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
     }
 
     [Test]
@@ -239,6 +248,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => recordView.UpsertAllAsync(tx, keys), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllExactAsync(tx, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
     }
 
     [Test]
@@ -276,6 +286,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => kvView.PutAllAsync(tx, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
         await AssertOpOnNode(_ => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
     }
 
@@ -316,13 +327,18 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => kvView.PutAllAsync(tx, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
     }
 
     [Test]
-    public async Task TestCompositeKey()
+    public async Task TestCompositeKey([Values(true, false)] bool withMapper)
     {
         using var client = await GetClient();
-        var view = (await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName))!.GetRecordView<CompositeKey>();
+
+        var table = await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName);
+        var view = withMapper
+            ? table!.GetRecordView(new CompositeKeyMapper())
+            : table!.GetRecordView<CompositeKey>();
 
         await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
 
@@ -337,10 +353,14 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestCustomColocationKey()
+    public async Task TestCustomColocationKey([Values(true, false)] bool withMapper)
     {
         using var client = await GetClient();
-        var view = (await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName))!.GetRecordView<CompositeKey>();
+
+        var table = await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName);
+        var view = withMapper
+            ? table!.GetRecordView(new CompositeKeyMapper())
+            : table!.GetRecordView<CompositeKey>();
 
         // Warm up.
         await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty));
@@ -374,14 +394,17 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    [TestCaseSource(nameof(KeyNodeCasesWithMapper))]
+    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node, bool withMapper)
     {
         using var client = await GetClient();
         var expectedNode = node == 1 ? _server1 : _server2;
         var key = new SimpleKey(keyId);
 
-        var jobTarget = JobTarget.Colocated(FakeServer.ExistingTableName, key);
+        var jobTarget = withMapper
+            ? JobTarget.Colocated(FakeServer.ExistingTableName, key, new SimpleKeyMapper())
+            : JobTarget.Colocated(FakeServer.ExistingTableName, key);
+
         var jobDescriptor = new JobDescriptor<object?, object?>("job");
 
         // Warm up.
@@ -447,7 +470,9 @@ public class PartitionAwarenessTests
         node.ClearOps();
         node2?.ClearOps();
 
-        ITransaction? tx = withTx ? new LazyTransaction(default, 0) : null;
+        ITransaction? tx = withTx
+            ? new LazyTransaction(default, 0, TestUtils.GetConsoleLoggerFactory(LogLevel.None).CreateLogger<LazyTransaction>())
+            : null;
 
         await action(tx);
 
@@ -522,5 +547,24 @@ public class PartitionAwarenessTests
     // ReSharper disable NotAccessedPositionalProperty.Local
     private record CompositeKey(string IdStr, Guid IdGuid);
 
+    private sealed class CompositeKeyMapper : IMapper<CompositeKey>
+    {
+        public void Write(CompositeKey obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            rowWriter.WriteString(obj.IdStr);
+            rowWriter.WriteGuid(obj.IdGuid);
+        }
+
+        public CompositeKey Read(ref RowReader rowReader, IMapperSchema schema) =>
+            new(rowReader.ReadString()!, rowReader.ReadGuid()!.Value);
+    }
+
     private record SimpleKey(int Id);
+
+    private sealed class SimpleKeyMapper : IMapper<SimpleKey>
+    {
+        public void Write(SimpleKey obj, ref RowWriter rowWriter, IMapperSchema schema) => rowWriter.WriteInt(obj.Id);
+
+        public SimpleKey Read(ref RowReader rowReader, IMapperSchema schema) => new(rowReader.ReadInt()!.Value);
+    }
 }

@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 public class MpscSingleThreadExecutorTest {
     private static final IgniteLogger LOG = Loggers.forClass(MpscSingleThreadExecutorTest.class);
 
-    private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true, LOG);
+    private static final ThreadFactory THREAD_FACTORY = IgniteThreadFactory.create("node", "test", true, LOG);
 
     @Test
     public void testExecutorIsShutdownWithoutTask() {

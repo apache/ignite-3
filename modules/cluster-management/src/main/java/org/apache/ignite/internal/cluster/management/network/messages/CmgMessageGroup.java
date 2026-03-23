@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeClusterNameCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -76,6 +77,16 @@ public class CmgMessageGroup {
      * Message type for {@link RefuseJoinMessage}.
      */
     public static final short REFUSE_JOIN = 8;
+
+    /**
+     * Message type for {@link CmgPrepareInitMessage}.
+     */
+    public static final short CMG_PREPARE_INIT = 9;
+
+    /**
+     * Message type for {@link PrepareInitCompleteMessage}.
+     */
+    public static final short PREPARE_INIT_COMPLETE = 10;
 
     /**
      * Message types for RAFT commands.
@@ -135,6 +146,11 @@ public class CmgMessageGroup {
          * Message type for {@link ClusterTag}.
          */
         int CLUSTER_TAG = 62;
+
+        /**
+         * Message type for {@link ChangeClusterNameCommand}.
+         */
+        int CHANGE_CLUSTER_NAME = 63;
 
         /**
          * Do not delete this code for compatibility.

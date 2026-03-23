@@ -81,6 +81,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
     public void setUp() {
         storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
         metaStorageListener = new MetaStorageListener(storage, clock, new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock));
+
+        storage.setIndexAndTerm(1, 1);
     }
 
     @Test
@@ -98,14 +100,14 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 .initiatorTime(clock.now())
                 .build();
 
-        metaStorageListener.onWrite(commandIterator(command));
+        metaStorageListener.onWrite(commandIterator(command, 2, 1));
 
         assertNotNull(lastCommandResult);
         assertTrue((Boolean) lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue.bytes());
 
         // Another call of same command.
-        metaStorageListener.onWrite(commandIterator(command));
+        metaStorageListener.onWrite(commandIterator(command, 3, 1));
         assertNotNull(lastCommandResult);
         assertTrue((Boolean) lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue.bytes());
@@ -130,7 +132,7 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 .initiatorTime(clock.now())
                 .build();
 
-        metaStorageListener.onWrite(commandIterator(command));
+        metaStorageListener.onWrite(commandIterator(command, 2, 1));
 
         StatementResult result = (StatementResult) lastCommandResult;
         assertNotNull(result);
@@ -138,7 +140,7 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         checkValueInStorage(testKey.bytes(), testValue.bytes());
 
         // Another call of same command.
-        metaStorageListener.onWrite(commandIterator(command));
+        metaStorageListener.onWrite(commandIterator(command, 2, 1));
         result = (StatementResult) lastCommandResult;
         assertNotNull(result);
         assertTrue(result.getAsBoolean());
@@ -158,13 +160,13 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 .initiatorTime(clock.now())
                 .build();
 
-        metaStorageListener.onWrite(commandIterator(command0));
+        metaStorageListener.onWrite(commandIterator(command0, 2, 1));
 
         assertNull(lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue0.bytes());
 
         // Another call of same command.
-        metaStorageListener.onWrite(commandIterator(command0));
+        metaStorageListener.onWrite(commandIterator(command0, 3, 1));
         assertNull(lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue0.bytes());
 
@@ -175,7 +177,7 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 .initiatorTime(clock.now())
                 .build();
 
-        metaStorageListener.onWrite(commandIterator(command1));
+        metaStorageListener.onWrite(commandIterator(command1, 4, 1));
 
         assertNull(lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue1.bytes());
@@ -188,22 +190,36 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         assertArrayEquals(testValueExpected, e.value());
     }
 
-    private Iterator<CommandClosure<WriteCommand>> commandIterator(WriteCommand command) {
-        List<CommandClosure<WriteCommand>> closureList = List.of(new TestCommandClosure(command));
+    private Iterator<CommandClosure<WriteCommand>> commandIterator(WriteCommand command, long index, long term) {
+        List<CommandClosure<WriteCommand>> closureList = List.of(new TestCommandClosure(command, index, term));
 
         return closureList.iterator();
     }
 
     private class TestCommandClosure implements CommandClosure<WriteCommand> {
         private final WriteCommand command;
+        private final long index;
+        private final long term;
 
-        private TestCommandClosure(WriteCommand command) {
+        private TestCommandClosure(WriteCommand command, long index, long term) {
             this.command = command;
+            this.index = index;
+            this.term = term;
         }
 
         @Override
         public WriteCommand command() {
             return command;
+        }
+
+        @Override
+        public long index() {
+            return index;
+        }
+
+        @Override
+        public long term() {
+            return term;
         }
 
         @Override

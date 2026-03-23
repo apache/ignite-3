@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -92,11 +93,16 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override
@@ -114,10 +120,14 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override
@@ -142,10 +152,24 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+    public @Nullable RowId highestRowId() throws StorageException {
         assertThreadAllowsToRead();
 
-        return partitionStorage.peek(lowWatermark);
+        return partitionStorage.highestRowId();
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.rowsStartingWith(lowerBoundInclusive, upperBoundInclusive, limit);
+    }
+
+    @Override
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.peek(lowWatermark, count);
     }
 
     @Override
@@ -170,6 +194,13 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     @Override
     public long estimatedSize() {
         return partitionStorage.estimatedSize();
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        assertThreadAllowsToRead();
+
+        return partitionStorage.scanWriteIntents();
     }
 
     @Override

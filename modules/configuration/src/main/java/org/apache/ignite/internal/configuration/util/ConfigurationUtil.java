@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
@@ -64,8 +65,10 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -429,8 +432,8 @@ public class ConfigurationUtil {
      *
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
-    public static void checkConfigurationType(Collection<RootKey<?, ?>> rootKeys, ConfigurationStorage storage) {
-        for (RootKey<?, ?> key : rootKeys) {
+    public static void checkConfigurationType(Collection<RootKey<?, ?, ?>> rootKeys, ConfigurationStorage storage) {
+        for (RootKey<?, ?, ?> key : rootKeys) {
             if (key.type() != storage.type()) {
                 throw new IllegalArgumentException("Invalid root key configuration type [key=" + key
                         + ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
@@ -941,6 +944,81 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Removes {@code null} values that correspond to non-deprecated legacy keys from the configuration tree.
+     *
+     * @param roots Super root.
+     * @param prefixMap Mutable prefix map with updates received from the storage.
+     * @see PublicName#legacyNames()
+     */
+    public static void ignoreLegacyKeys(SuperRoot roots, Map<String, ?> prefixMap) {
+        roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
+            /** Map that correspond to current recursive call. */
+            private Map<String, ?> currentMap = prefixMap;
+
+            @Override
+            protected Object doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
+                if (!isDeprecated) {
+                    currentMap.remove(key);
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitInnerNode(Field field, String key, InnerNode node) {
+                if (!currentMap.containsKey(key)) {
+                    return null;
+                }
+
+                Map<String, ?> prev = currentMap;
+                currentMap = (Map<String, ?>) currentMap.get(key);
+
+                node.traverseChildren(this, true);
+
+                currentMap = prev;
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
+                currentMap.remove(key);
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
+                if (!currentMap.containsKey(key)) {
+                    return null;
+                }
+
+                Map<String, ?> prev = currentMap;
+                currentMap = (Map<String, ? extends Serializable>) currentMap.get(key);
+
+                for (String namedListKey : node.namedListKeys()) {
+                    withTracking(field, node.internalId(namedListKey).toString(), false, false, () -> {
+                        doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
+
+                        return null;
+                    });
+                }
+
+                currentMap = prev;
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
+                currentMap.remove(key);
+
+                return null;
+            }
+        }, true);
+    }
+
+    /**
      * Leaf configuration source.
      */
     public static class LeafConfigurationSource implements ConfigurationSource {
@@ -1038,7 +1116,7 @@ public class ConfigurationUtil {
          */
         private void descendToNamedListNode(NamedListNode<?> node) {
             // This list must be mutable and RandomAccess.
-            var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
+            var orderedKeys = new ArrayList<>(node.namedListKeys());
 
             for (Entry<String, ?> entry : map.entrySet()) {
                 String internalIdStr = entry.getKey();
@@ -1124,6 +1202,7 @@ public class ConfigurationUtil {
                     node.construct(oldKey, new LeafConfigurationSource((Serializable) val), true);
                 }
             }
+            orderedKeys.removeIf(Objects::isNull);
 
             node.reorderKeys(orderedKeys.size() > node.size()
                     ? orderedKeys.subList(0, node.size())

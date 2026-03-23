@@ -57,7 +57,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.ssl.KeystoreLoader;
 import org.apache.ignite.internal.rest.constants.MediaType;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -86,7 +86,7 @@ class WebhookSink implements Sink<WebhookSinkView> {
 
     private final ScheduledExecutorService executorService;
 
-    private long lastSendMillis;
+    private volatile long lastSendMillis;
 
     WebhookSink(WebhookSinkView cfg, EventSerializer serializer, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.cfg = cfg;
@@ -99,7 +99,7 @@ class WebhookSink implements Sink<WebhookSinkView> {
         client = configureClient(cfg);
 
         executorService = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("eventlog-webhook-sink", LOG)
+                IgniteThreadFactory.create(nodeName, "eventlog-webhook-sink", LOG)
         );
 
         executorService.scheduleAtFixedRate(
@@ -139,7 +139,8 @@ class WebhookSink implements Sink<WebhookSinkView> {
         return events;
     }
 
-    public long getLastSendMillis() {
+    @TestOnly
+    long getLastSendMillis() {
         return lastSendMillis;
     }
 

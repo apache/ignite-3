@@ -20,6 +20,7 @@ package org.apache.ignite.migrationtools.cli.configs.commands;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.apache.ignite.migrationtools.cli.configs.calls.ConfigurationConverterCall;
+import org.apache.ignite.migrationtools.cli.exceptions.ErrorLoadingInputConfigurationHandlers;
 import org.apache.ignite.migrationtools.cli.mixins.ClassloaderOption;
 import org.apache.ignite3.internal.cli.commands.BaseCommand;
 import org.apache.ignite3.internal.cli.core.call.CallExecutionPipeline;
@@ -47,12 +48,12 @@ public class ConfigurationConverterCmd extends BaseCommand implements Callable<I
     @CommandLine.Mixin
     private ClassloaderOption classloaderOption;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         var call = new ConfigurationConverterCall();
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new ConfigurationConverterCall.Input(inputFile, locCfgFile, distCfgFile, includeDefaults,
+                .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
+                .input(new ConfigurationConverterCall.Input(inputFile, locCfgFile, distCfgFile, includeDefaults,
                         classloaderOption.clientClassLoader()))
         );
     }

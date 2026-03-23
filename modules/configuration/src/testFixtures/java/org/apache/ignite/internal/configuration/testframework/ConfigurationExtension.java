@@ -22,21 +22,23 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
+import static org.apache.ignite.internal.configuration.testframework.InjectConfiguration.MOCK_ROOT_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.findEx;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.ServiceLoader;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -45,8 +47,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.CompoundModule;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.RootInnerNode;
@@ -58,6 +65,9 @@ import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -87,35 +97,17 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** Key to store {@link ExecutorService} in {@link ExtensionContext.Store}. */
     private static final Object POOL_KEY = new Object();
 
-    private static final List<ConfigurationModule> LOCAL_MODULES = new ArrayList<>();
-    private static final List<ConfigurationModule> DISTRIBUTED_MODULES = new ArrayList<>();
+    private static final ConfigurationModule LOCAL_MODULE;
 
-    /** All {@link ConfigurationExtension} classes in classpath. */
-    private static final List<Class<?>> EXTENSIONS;
-
-    /** All {@link PolymorphicConfigInstance} classes in classpath. */
-    private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
+    private static final ConfigurationModule DISTRIBUTED_MODULE;
 
     static {
-        // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
-        // to avoid configuring extensions manually in every test.
-        ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
+        // Automatically loads all ConfigurationModules presented on the classpath,
+        // so there is no need in manually configuring @InternalConfiguration and @PolymorphicConfigInstance classes in every test.
+        List<ConfigurationModule> modules = CompoundModule.loadAllConfigurationModules(null);
 
-        List<Class<?>> extensions = new ArrayList<>();
-        List<Class<?>> polymorphicExtensions = new ArrayList<>();
-
-        modules.forEach(configurationModule -> {
-            extensions.addAll(configurationModule.schemaExtensions());
-            polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
-            if (configurationModule.type() == LOCAL) {
-                LOCAL_MODULES.add(configurationModule);
-            } else {
-                DISTRIBUTED_MODULES.add(configurationModule);
-            }
-        });
-
-        EXTENSIONS = List.copyOf(extensions);
-        POLYMORPHIC_EXTENSIONS = List.copyOf(polymorphicExtensions);
+        LOCAL_MODULE = CompoundModule.local(modules);
+        DISTRIBUTED_MODULE = CompoundModule.distributed(modules);
     }
 
     @Override
@@ -221,13 +213,14 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
-        List<Class<?>> extensions = EXTENSIONS;
-        List<Class<?>> polymorphicExtensions = POLYMORPHIC_EXTENSIONS;
+        Collection<Class<?>> extensions = configurationModule(annotation.type()).schemaExtensions();
 
         if (annotation.extensions().length > 0) {
             extensions = new ArrayList<>(extensions);
             extensions.addAll(List.of(annotation.extensions()));
         }
+
+        Collection<Class<?>> polymorphicExtensions = configurationModule(annotation.type()).polymorphicSchemaExtensions();
 
         if (annotation.polymorphicExtensions().length > 0) {
             polymorphicExtensions = new ArrayList<>(polymorphicExtensions);
@@ -241,16 +234,14 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         );
 
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
-        RootKey rootKey = mock(RootKey.class, withSettings().lenient());
+        RootKey<?, ?, ?> rootKey = new RootKey<>(rootName(annotation), annotation.type(), schemaClass, false);
 
-        when(rootKey.key()).thenReturn(annotation.rootName().isBlank() ? "mock" : annotation.rootName());
-        when(rootKey.type()).thenReturn(LOCAL);
-        when(rootKey.schemaClass()).thenReturn(schemaClass);
-        when(rootKey.internal()).thenReturn(false);
+        SuperRoot superRoot = createSuperRoot(rootKey, schemaClass, cgen);
 
-        SuperRoot superRoot = new SuperRoot(s -> new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass)));
+        // Use empty object as default.
+        String hoconStr = annotation.value().isBlank() ? rootKey.key() + " : {}" : annotation.value();
 
-        ConfigObject hoconCfg = ConfigFactory.parseString(annotation.value()).root();
+        ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();
 
         HoconConverter.hoconSource(hoconCfg).descend(superRoot);
 
@@ -260,7 +251,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
         ConfigurationUtil.addDefaults(superRoot);
 
-        if (!annotation.name().isEmpty()) {
+        if (!annotation.name().isBlank()) {
             InnerNode root = superRoot.getRoot(rootKey);
 
             root.internalId(UUID.randomUUID());
@@ -268,6 +259,10 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         }
 
         superRoot.makeImmutable();
+
+        ConfigurationValidator validator = configurationValidator(annotation, rootKey, schemaClass, cgen);
+
+        validateConfiguration(validator, superRoot);
 
         // Reference to the super root is required to make DynamicConfigurationChanger#change method atomic.
         var superRootRef = new AtomicReference<>(superRoot);
@@ -291,19 +286,19 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
                     ConfigurationUtil.dropNulls(copy);
 
+                    validateConfiguration(validator, sr, copy);
+
                     if (superRootRef.compareAndSet(sr, copy)) {
                         long storageRevision = storageRevisionCounter.incrementAndGet();
                         long notificationNumber = notificationListenerCounter.incrementAndGet();
 
-                        List<CompletableFuture<?>> futures = new ArrayList<>();
-
-                        futures.addAll(notifyListeners(
+                        Collection<CompletableFuture<?>> futures = notifyListeners(
                                 sr.getRoot(rootKey),
                                 copy.getRoot(rootKey),
                                 (DynamicConfiguration<InnerNode, ?>) cfgRef.get(),
                                 storageRevision,
                                 notificationNumber
-                        ));
+                        );
 
                         return allOf(futures.toArray(CompletableFuture[]::new));
                     }
@@ -313,7 +308,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             }
 
             @Override
-            public InnerNode getRootNode(RootKey<?, ?> rk) {
+            public InnerNode getRootNode(RootKey<?, ?, ?> rk) {
                 return superRootRef.get().getRoot(rk);
             }
 
@@ -348,10 +343,90 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
     private static void patchWithDynamicDefault(ConfigurationType type, SuperRoot superRoot) {
         SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
-        if (type == LOCAL) {
-            LOCAL_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
-        } else {
-            DISTRIBUTED_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+
+        patchIfRootExists(configurationModule(type), rootChange);
+    }
+
+    /**
+     * Patches configuration with dynamic defaults if the required root exists.
+     * Modules may try to access roots that don't exist in a test SuperRoot (when using custom rootName),
+     * in which case the patching is silently skipped.
+     */
+    private static void patchIfRootExists(ConfigurationModule module, SuperRootChange rootChange) {
+        try {
+            module.patchConfigurationWithDynamicDefaults(rootChange);
+        } catch (NoSuchElementException ignored) {
+            // Module tried to access a root that doesn't exist in this SuperRoot - skip
         }
+    }
+
+    private static void validateConfiguration(@Nullable ConfigurationValidator validator, SuperRoot configuration) {
+        if (validator == null) {
+            return;
+        }
+
+        List<ValidationIssue> validationIssues = validator.validate(configuration);
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
+        }
+    }
+
+    private static void validateConfiguration(@Nullable ConfigurationValidator validator, SuperRoot curRoots, SuperRoot changes) {
+        if (validator == null) {
+            return;
+        }
+
+        List<ValidationIssue> validationIssues = validator.validate(curRoots, changes);
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
+        }
+    }
+
+    @Nullable
+    private static ConfigurationValidator configurationValidator(
+            InjectConfiguration annotation,
+            RootKey<?, ?, ?> rootKey,
+            Class<?> schemaClass,
+            ConfigurationAsmGenerator cgen
+    ) {
+        if (!annotation.validate()) {
+            return null;
+        }
+
+        ConfigurationTreeGenerator mockGenerator = mockConfigurationTreeGenerator(rootKey, schemaClass, cgen);
+
+        Set<Validator<?, ?>> validators = configurationModule(annotation.type()).validators();
+
+        return ConfigurationValidatorImpl.withDefaultValidators(mockGenerator, validators);
+    }
+
+    private static SuperRoot createSuperRoot(RootKey<?, ?, ?> rootKey, Class<?> schemaClass, ConfigurationAsmGenerator cgen) {
+        // Accept both "mock" (HOCON convention per @InjectConfiguration docs) and rootKey.key()
+        // (for patchConfigurationWithDynamicDefaults which uses the real root key).
+        return new SuperRoot(s ->
+                s.equals(rootKey.key()) || s.equals(MOCK_ROOT_NAME)
+                        ? new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass))
+                        : null
+        );
+    }
+
+    private static ConfigurationTreeGenerator mockConfigurationTreeGenerator(
+            RootKey<?, ?, ?> rootKey, Class<?> schemaClass, ConfigurationAsmGenerator cgen
+    ) {
+        ConfigurationTreeGenerator generator = mock(ConfigurationTreeGenerator.class);
+
+        when(generator.createSuperRoot()).thenAnswer(invocation -> createSuperRoot(rootKey, schemaClass, cgen));
+
+        return generator;
+    }
+
+    private static ConfigurationModule configurationModule(ConfigurationType type) {
+        return type == LOCAL ? LOCAL_MODULE : DISTRIBUTED_MODULE;
+    }
+
+    private static String rootName(InjectConfiguration annotation) {
+        return annotation.rootName().isBlank() ? MOCK_ROOT_NAME : annotation.rootName();
     }
 }

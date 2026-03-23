@@ -50,7 +50,7 @@ void tables_impl::get_table_async(const qualified_name &name, ignite_callback<st
             writer.write(name.get_schema_name());
             writer.write(name.get_object_name());
         } else {
-            writer.write(name.get_canonical_name());
+            writer.write(name.get_object_name());
         }
     };
 

@@ -75,8 +75,4 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
 
         return Result.proceedAfter(awaitFuture);
     }
-
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
-    }
 }

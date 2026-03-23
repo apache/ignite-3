@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Server socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
+ * Inbound (TCP server) socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
  * <a href="https://man7.org/linux/man-pages/man7/socket.7.html">socket docs</a>.
  */
 @Config

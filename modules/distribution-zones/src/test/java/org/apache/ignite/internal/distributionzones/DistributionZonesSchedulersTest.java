@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ public class DistributionZonesSchedulersTest {
 
     private static StripedScheduledThreadPoolExecutor executor = createZoneManagerExecutor(
             5,
-            new NamedThreadFactory("test-dst-zones-scheduler", LOG)
+            IgniteThreadFactory.create("", "test-dst-zones-scheduler", LOG)
     );
 
     @AfterAll

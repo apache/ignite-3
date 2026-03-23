@@ -1,0 +1,401 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.tx.impl;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
+import org.apache.ignite.internal.util.Lazy;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Helper class that allows to resolve transaction state mainly for the purpose of write intent resolution.
+ */
+public class TransactionStateResolver {
+    private static final IgniteLogger LOG = Loggers.forClass(TransactionStateResolver.class);
+
+    private final IgniteThrottledLogger throttledLogger;
+
+    /** Tx messages factory. */
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
+    //  we will store coordinator as ClusterNode in local tx state map.
+    /** Function that resolves a node consistent ID to a cluster node. */
+    private final ClusterNodeResolver clusterNodeResolver;
+
+    private final PlacementDriverHelper placementDriverHelper;
+
+    private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
+
+    private final TxManager txManager;
+
+    private final ClockService clockService;
+
+    private final MessagingService messagingService;
+
+    /**
+     * Transaction message sender.
+     */
+    private final TxMessageSender txMessageSender;
+
+    private final TxRecoveryEngine txRecoveryEngine;
+
+    private final Lazy<InternalClusterNode> localNode;
+
+    /**
+     * The constructor.
+     *
+     * @param txManager Transaction manager.
+     * @param clockService Clock service.
+     * @param clusterNodeResolver Cluster node resolver.
+     * @param messagingService Messaging service.
+     * @param placementDriverHelper Placement drive helper.
+     * @param txMessageSender Tx message sender.
+     * @param txRecoveryEngine Transaction recovery engine.
+     * @param localNode Local cluster node.
+     * @param throttledLogExecutor Executor for cleaning up the throttled logger's cache.
+     */
+    public TransactionStateResolver(
+            TxManager txManager,
+            ClockService clockService,
+            ClusterNodeResolver clusterNodeResolver,
+            MessagingService messagingService,
+            PlacementDriverHelper placementDriverHelper,
+            TxMessageSender txMessageSender,
+            TxRecoveryEngine txRecoveryEngine,
+            Lazy<InternalClusterNode> localNode,
+            Executor throttledLogExecutor
+    ) {
+        this.txManager = txManager;
+        this.clockService = clockService;
+        this.clusterNodeResolver = clusterNodeResolver;
+        this.messagingService = messagingService;
+        this.placementDriverHelper = placementDriverHelper;
+        this.txMessageSender = txMessageSender;
+        this.txRecoveryEngine = txRecoveryEngine;
+        this.localNode = localNode;
+        this.throttledLogger = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
+    }
+
+    /**
+     * This should be called in order to allow the transaction state resolver to listen to {@link TxStateCoordinatorRequest} messages.
+     */
+    public void start() {
+        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+            if (msg instanceof TxStateCoordinatorRequest) {
+                TxStateCoordinatorRequest req = (TxStateCoordinatorRequest) msg;
+
+                processTxStateRequest(req, sender)
+                        .whenComplete((txStateMeta, e) -> {
+                            if (e != null) {
+                                Throwable cause = unwrapCause(e);
+                                throttledLogger.info(cause.getMessage());
+
+                                // Will cause fallback to commit partition path.
+                                txStateMeta = TxStateMeta.builder(UNKNOWN).build();
+                            }
+
+                            NetworkMessage response = TX_MESSAGES_FACTORY.txStateResponse()
+                                    .txStateMeta(toTransactionMetaMessage(txStateMeta))
+                                    .timestamp(clockService.now())
+                                    .build();
+
+                            messagingService.respond(sender, response, correlationId);
+                        });
+            }
+        });
+    }
+
+    /**
+     * Resolves transaction state locally, if possible, or distributively, if needed.
+     *
+     * @param p Parameters for tx state resolution.
+     * @return Future with the transaction state meta as a result.
+     */
+    public CompletableFuture<TransactionMeta> resolveTxState(TxStateResolutionParameters p) {
+        TxStateMeta localMeta = txManager.stateMeta(p.txId());
+
+        if (localMeta != null && isFinalState(localMeta.txState())) {
+            return completedFuture(localMeta);
+        }
+
+        CompletableFuture<TransactionMeta> future = txStateFutures.compute(p.txId(), (k, v) -> {
+            if (v == null) {
+                v = new CompletableFuture<>();
+
+                resolveDistributiveTxState(p, localMeta, v);
+            }
+
+            return v;
+        });
+
+        future.whenComplete((v, e) -> txStateFutures.remove(p.txId()));
+
+        return future;
+    }
+
+    /**
+     * Resolve the transaction state distributively. This method doesn't process final tx states.
+     *
+     * @param p Parameters for tx state resolution.
+     * @param localMeta Local tx meta.
+     * @param txMetaFuture Tx meta future to complete with the result.
+     */
+    private void resolveDistributiveTxState(
+            TxStateResolutionParameters p,
+            @Nullable TxStateMeta localMeta,
+            CompletableFuture<TransactionMeta> txMetaFuture
+    ) {
+        if (localMeta != null && isFinalState(localMeta.txState())) {
+            throw new IllegalArgumentException("Unexpected tx meta [txId" + p.txId() + ", meta=" + localMeta + ']');
+        }
+
+        if (localMeta == null) {
+            // Fallback to commit partition path, because we don't have coordinator id.
+            resolveTxStateFromCommitPartition(p, txMetaFuture);
+        } else if (localMeta.txState() == PENDING) {
+            resolveTxStateFromTxCoordinator(p, localMeta.txCoordinatorId(), txMetaFuture);
+        } else if (localMeta.txState() == FINISHING) {
+            castToFinishing(p.txId(), localMeta).txFinishFuture().whenComplete((v, e) -> {
+                if (e == null) {
+                    txMetaFuture.complete(v);
+                } else {
+                    txMetaFuture.completeExceptionally(e);
+                }
+            });
+        } else {
+            assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + p.txId() + ", txStateMeta=" + localMeta + ']';
+
+            // Still try to resolve the state from commit partition.
+            resolveTxStateFromCommitPartition(p, txMetaFuture);
+        }
+    }
+
+    private void resolveTxStateFromTxCoordinator(
+            TxStateResolutionParameters p,
+            @Nullable UUID coordinatorId,
+            CompletableFuture<TransactionMeta> txMetaFuture
+    ) {
+        updateLocalTxMapAfterDistributedStateResolved(p.txId(), txMetaFuture);
+
+        InternalClusterNode coordinator = coordinatorId == null ? null : clusterNodeResolver.getById(coordinatorId);
+        if (coordinator == null) {
+            // This means the coordinator node have either left the cluster or restarted.
+            markAbandoned(p.txId());
+
+            resolveTxStateFromCommitPartition(p, txMetaFuture);
+        } else {
+            txMessageSender.resolveTxStateFromCoordinator(p, coordinator)
+                    .whenComplete((response, e) -> {
+                        if (e == null && response.txStateMeta() != null && response.txStateMeta().txState() != UNKNOWN) {
+                            txMetaFuture.complete(response.txStateMeta().asTransactionMeta());
+                        } else {
+                            if (e != null && e.getCause() instanceof RecipientLeftException) {
+                                markAbandoned(p.txId());
+                            }
+
+                            resolveTxStateFromCommitPartition(
+                                    p,
+                                    txMetaFuture
+                            );
+                        }
+                    });
+        }
+    }
+
+    private void resolveTxStateFromCommitPartition(TxStateResolutionParameters p, CompletableFuture<TransactionMeta> txMetaFuture) {
+        updateLocalTxMapAfterDistributedStateResolved(p.txId(), txMetaFuture);
+
+        sendAndRetry(p, txMetaFuture);
+    }
+
+    /**
+     * Marks the transaction as abandoned due to the absence of coordinator.
+     *
+     * @param txId Transaction id.
+     */
+    private void markAbandoned(UUID txId) {
+        txManager.updateTxMeta(txId, stateMeta -> stateMeta != null ? stateMeta.abandoned() : null);
+    }
+
+    private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
+        future.thenAccept(txMeta -> {
+            if (txMeta instanceof TxStateMeta) {
+                txManager.updateTxMeta(txId, old -> (TxStateMeta) txMeta);
+            }
+        });
+    }
+
+    /**
+     * Tries to send a request to primary replica of the replication group.
+     *
+     * @param p Transaction state resolution parameters.
+     * @param resFut Response future.
+     */
+    private void sendAndRetry(
+            TxStateResolutionParameters p,
+            CompletableFuture<TransactionMeta> resFut
+    ) {
+        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(
+                        p.commitGroupId(),
+                        p.awaitCommitPartitionAvailabilityTimeout(),
+                        p.awaitCommitPartitionAvailabilityTimeUnit()
+                )
+                .thenCompose(replicaMeta ->
+                        txMessageSender.resolveTxStateFromCommitPartition(
+                                p,
+                                replicaMeta.getLeaseholder(),
+                                replicaMeta.getStartTime().longValue()
+                        ))
+                .whenComplete((txMeta, e) -> {
+                    if (e == null) {
+                        assert txMeta != null : "Tx State response is null";
+
+                        resFut.complete(txMeta);
+                    } else {
+                        if (e instanceof PrimaryReplicaMissException) {
+                            sendAndRetry(p, resFut);
+                        } else {
+                            resFut.completeExceptionally(e);
+                        }
+                    }
+                });
+    }
+
+    /**
+     * Processes the transaction state requests that are used for coordinator path based write intent resolution. Can't return
+     * {@link TxState#FINISHING}, it waits for actual completion instead.
+     *
+     * @param request Request.
+     * @param sender Sender node.
+     * @return Future that should be completed with transaction state meta.
+     */
+    private CompletableFuture<@Nullable TransactionMeta> processTxStateRequest(
+            TxStateCoordinatorRequest request,
+            InternalClusterNode sender
+    ) {
+        clockService.updateClock(request.readTimestamp());
+
+        UUID txId = request.txId();
+
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+        if (txStateMeta != null) {
+            if (isFinalState(txStateMeta.txState())) {
+                return completedFuture(txStateMeta);
+            } else if (txStateMeta.txState() == FINISHING) {
+                return castToFinishing(request.txId(), txStateMeta).txFinishFuture();
+            } else if (request.readTimestamp() == null || request.readTimestamp().equals(HybridTimestamp.MIN_VALUE)) {
+                // If txn is in non-final state and resolution is requested by RW txn.
+                Long currentConsistencyToken = request.senderCurrentConsistencyToken();
+                ZonePartitionId groupId = request.senderGroupId() == null
+                        ? null
+                        : request.senderGroupId().asZonePartitionId();
+
+                if (currentConsistencyToken != null && groupId != null) {
+                    ZonePartitionId commitPartitionId = txStateMeta.commitPartitionId();
+
+                    if (commitPartitionId == null) {
+                        commitPartitionId = request.commitPartitionId().asZonePartitionId();
+
+                        if (commitPartitionId == null) {
+                            return failedFuture(new IgniteInternalException(
+                                    INTERNAL_ERR,
+                                    format("Commit partition id is absent in transaction meta "
+                                            + "on coordinator [txId={}, txMeta={}, req={}].", txId, txStateMeta)
+                            ));
+                        }
+                    }
+
+                    String commitPartitionNode = commitPartitionNode(commitPartitionId);
+
+                    return txRecoveryEngine.triggerTxRecovery(txId, commitPartitionId, commitPartitionNode, groupId, sender.id());
+                } else {
+                    return failedFuture(new IgniteInternalException(
+                            INTERNAL_ERR,
+                            format("Failed to abort on coordinator a transaction that lost its primary replica's volatile state "
+                                    + "[txId={}, senderCurrentConsistencyToken={}, senderGroupId={}].",
+                                txId,
+                                currentConsistencyToken,
+                                groupId
+                            )
+                    ));
+                }
+            } else {
+                return completedFuture(txStateMeta);
+            }
+        } else {
+            return failedFuture(
+                    new IgniteInternalException(INTERNAL_ERR, format("Transaction meta is absent on coordinator [txId={}].", txId))
+            );
+        }
+    }
+
+    private String commitPartitionNode(ZonePartitionId commitPartitionId) {
+        ReplicaMeta replicaMeta = placementDriverHelper.getCurrentPrimaryReplica(commitPartitionId);
+
+        return replicaMeta == null
+                ? localNode.get().name() // Will be resolved correctly by tx cleanup sender.
+                : replicaMeta.getLeaseholder();
+    }
+
+    private static @Nullable TransactionMetaMessage toTransactionMetaMessage(@Nullable TransactionMeta transactionMeta) {
+        return transactionMeta == null ? null : transactionMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY);
+    }
+}

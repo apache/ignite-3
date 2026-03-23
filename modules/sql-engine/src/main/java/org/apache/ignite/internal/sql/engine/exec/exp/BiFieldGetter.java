@@ -45,7 +45,7 @@ class BiFieldGetter extends CommonFieldGetter {
         }
 
         return Expressions.call(
-                hnd, IgniteMethod.ROW_HANDLER_GET.method(), Expressions.constant(index), row
+                hnd, IgniteMethod.ROW_ACCESSOR_GET.method(), Expressions.constant(index), row
         );
     }
 }

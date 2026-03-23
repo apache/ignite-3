@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
@@ -29,7 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class LogSinkTest extends BaseIgniteAbstractTest {
 
-    @InjectConfiguration
+    @InjectConfiguration(type = DISTRIBUTED)
     private EventLogConfiguration cfg;
 
     private static Path eventlogPath;
@@ -73,7 +74,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         Sink logSink = new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default")
                 .createSink(cfg.sinks().get("logSink").value());
         // And event.
-        Event event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(
+        Event event = IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(
                 EventUser.of("user1", "basicProvider")
         );
 
@@ -93,7 +94,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         assertThat(Files.readAllLines(eventlogPath), hasItem(expectedEventJson));
 
         // When write one more event.
-        Event event2 = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(
+        Event event2 = IgniteEventType.CLIENT_CONNECTION_CLOSED.create(
                 EventUser.of("user2", "basicProvider")
         );
 

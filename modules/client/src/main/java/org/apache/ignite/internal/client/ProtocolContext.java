@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -49,6 +50,9 @@ public class ProtocolContext {
     /** Cluster name. */
     private final String clusterName;
 
+    /** Cluster node product version. */
+    private final IgniteProductVersion nodeProductVersion;
+
     /**
      * Constructor.
      *
@@ -58,6 +62,7 @@ public class ProtocolContext {
      * @param clusterNode Cluster node.
      * @param clusterIds Cluster ids.
      * @param clusterName Cluster name.
+     * @param nodeProductVersion Cluster node product version.
      */
     ProtocolContext(
             ProtocolVersion ver,
@@ -65,7 +70,8 @@ public class ProtocolContext {
             long serverIdleTimeout,
             ClusterNode clusterNode,
             List<UUID> clusterIds,
-            String clusterName
+            String clusterName,
+            IgniteProductVersion nodeProductVersion
     ) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
@@ -73,6 +79,7 @@ public class ProtocolContext {
         this.clusterNode = clusterNode;
         this.clusterIds = clusterIds;
         this.clusterName = clusterName;
+        this.nodeProductVersion = nodeProductVersion;
     }
 
     /**
@@ -147,6 +154,15 @@ public class ProtocolContext {
      */
     public ClusterNode clusterNode() {
         return clusterNode;
+    }
+
+    /**
+     * Returns cluster node product version.
+     *
+     * @return cluster node product version.
+     */
+    public IgniteProductVersion productVersion() {
+        return nodeProductVersion;
     }
 
     /**

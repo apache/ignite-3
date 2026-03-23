@@ -23,6 +23,9 @@ import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.annotation.Filter;
 import io.micronaut.http.filter.HttpServerFilter;
 import io.micronaut.http.filter.ServerFilterChain;
+import io.micronaut.web.router.Router;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -37,14 +40,26 @@ import reactor.core.publisher.Mono;
 @Filter(Filter.MATCH_ALL_PATTERN)
 @Requires(property = "ignite.endpoints.filter-non-initialized", value = "true", defaultValue = "true")
 public class ClusterStateHttpServerFilter implements HttpServerFilter, ResourceHolder {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterStateHttpServerFilter.class);
+
     private RestManager restManager;
 
-    public ClusterStateHttpServerFilter(RestManager restManager) {
+    private final Router router;
+
+    public ClusterStateHttpServerFilter(RestManager restManager, Router router) {
         this.restManager = restManager;
+        this.router = router;
     }
 
     @Override
     public Publisher<MutableHttpResponse<?>> doFilter(HttpRequest<?> request, ServerFilterChain chain) {
+        // If no route matches this path, skip state filtering and let the chain return 404. findAllClosest is the method used in the
+        // RoutingInBoundHandler to find the route.
+        if (router.findAllClosest(request).isEmpty()) {
+            LOG.debug("No route found for request {}, skip availability check", request);
+            return chain.proceed(request);
+        }
+
         return Mono.just(restManager.pathAvailability(request.getPath())).<MutableHttpResponse<?>>flatMap(availability -> {
             if (!availability.isAvailable()) {
                 return Mono.just(HttpProblemResponse.from(

@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 /**
  * Tests to check that rows can be inserted and retrieved through thin client.
  */
-public class ItTablePutGetThinTest extends ItTablePutGetEmbeddedTest {
+public class ItTablePutGetThinTest extends ItTablePutGetBaseTest {
     private static IgniteClient client;
 
     @BeforeAll

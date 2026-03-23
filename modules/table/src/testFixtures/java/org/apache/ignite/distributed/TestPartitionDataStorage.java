@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -25,6 +26,8 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -32,7 +35,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -77,16 +79,6 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void acquirePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to take any lock.
-    }
-
-    @Override
-    public void releasePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to releasetestbala any lock.
-    }
-
-    @Override
     public CompletableFuture<Void> flush(boolean trigger) {
         return partitionStorage.flush(trigger);
     }
@@ -117,14 +109,23 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
-            int commitPartitionId) throws TxIdMismatchException, StorageException {
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
-        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override
@@ -157,8 +158,8 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        return partitionStorage.peek(lowWatermark);
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        return partitionStorage.peek(lowWatermark, count);
     }
 
     @Override

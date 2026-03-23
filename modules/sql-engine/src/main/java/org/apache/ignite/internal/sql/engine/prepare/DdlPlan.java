@@ -23,9 +23,12 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * DdlPlan.
@@ -73,6 +76,24 @@ public class DdlPlan implements QueryPlan {
     @Override
     public ParameterMetadata parameterMetadata() {
         return EMPTY_PARAMETERS;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int numSources() {
+        return 0;
     }
 
     /** {@inheritDoc} */

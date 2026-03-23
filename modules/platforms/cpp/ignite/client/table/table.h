@@ -36,7 +36,7 @@ class tables_impl;
 } // namespace detail
 
 /**
- * Table.
+ * @brief Abstraction for Ignite table.
  */
 class table {
     friend class detail::table_impl;

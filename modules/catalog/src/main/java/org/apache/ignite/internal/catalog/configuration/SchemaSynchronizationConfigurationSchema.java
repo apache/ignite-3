@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
@@ -33,6 +34,7 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
+    @PublicName(legacyNames = "delayDuration")
     public long delayDurationMillis = 500;
 
     /**
@@ -41,6 +43,8 @@ public class SchemaSynchronizationConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
+    // Please pay attention that since maxClockSkewMillis is immutable it's cached in ClockServiceImpl.
     @Immutable
+    @PublicName(legacyNames = "maxClockSkew")
     public long maxClockSkewMillis = 500;
 }

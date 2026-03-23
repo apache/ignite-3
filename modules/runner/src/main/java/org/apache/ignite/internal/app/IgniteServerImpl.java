@@ -19,27 +19,37 @@ package org.apache.ignite.internal.app;
 
 import static java.lang.System.lineSeparator;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryManagerMXBean;
+import java.lang.management.MemoryUsage;
+import java.lang.management.RuntimeMXBean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -78,6 +88,8 @@ public class IgniteServerImpl implements IgniteServer {
             "     ####  ##         /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
             "       ##                  /____/\n"
     };
+
+    private static final Random RANDOM = new Random();
 
     static {
         ErrorGroups.initialize();
@@ -136,7 +148,10 @@ public class IgniteServerImpl implements IgniteServer {
      * Constructs an embedded node.
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}. Must exist
+     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null} if the {@code configString} is
+     *         {@code null}. Must exist if not {@code null}.
+     * @param configString Node configuration in the HOCON format. Must not be {@code null} if the {@code configPath} is
+     *         {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param classLoader The class loader to be used to load provider-configuration files and provider classes, or {@code null} if
      *         the system class loader (or, failing that, the bootstrap class loader) is to be used
@@ -144,7 +159,8 @@ public class IgniteServerImpl implements IgniteServer {
      */
     public IgniteServerImpl(
             String nodeName,
-            Path configPath,
+            @Nullable Path configPath,
+            @Nullable String configString,
             Path workDir,
             @Nullable ClassLoader classLoader,
             Executor asyncContinuationExecutor
@@ -155,10 +171,10 @@ public class IgniteServerImpl implements IgniteServer {
         if (nodeName.isEmpty()) {
             throw new NodeStartException("Node name must not be empty.");
         }
-        if (configPath == null) {
-            throw new NodeStartException("Config path must not be null");
+        if (configPath == null && configString == null) {
+            throw new NodeStartException("Either config path or config string must not be null");
         }
-        if (Files.notExists(configPath)) {
+        if (configPath != null && Files.notExists(configPath)) {
             throw new NodeStartException("Config file doesn't exist");
         }
         if (workDir == null) {
@@ -169,13 +185,39 @@ public class IgniteServerImpl implements IgniteServer {
         }
 
         this.nodeName = nodeName;
-        this.configPath = configPath;
+        this.configPath = configPath != null ? configPath : createConfigFile(configString, workDir);
         this.workDir = workDir;
         this.classLoader = classLoader;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         attachmentLock = new IgniteAttachmentLock(() -> ignite, asyncContinuationExecutor);
         publicIgnite = new RestartProofIgnite(attachmentLock);
+    }
+
+    private static Path createConfigFile(String config, Path workDir) {
+        try {
+            Files.createDirectories(workDir);
+            Path configFile = Files.writeString(getConfigFile(workDir), config);
+            if (!configFile.toFile().setReadOnly()) {
+                throw new NodeStartException("Cannot set read-only flag on node configuration file");
+            }
+            return configFile;
+        } catch (IOException e) {
+            throw new NodeStartException("Cannot write node configuration file", e);
+        }
+    }
+
+    private static Path getConfigFile(Path workDir) {
+        // First try the well-known name
+        Path path = workDir.resolve("ignite-config.conf");
+        if (Files.notExists(path)) {
+            return path;
+        }
+
+        while (Files.exists(path)) {
+            path = workDir.resolve("ignite-config." + RANDOM.nextInt() + ".conf");
+        }
+        return path;
     }
 
     @Override
@@ -210,7 +252,8 @@ public class IgniteServerImpl implements IgniteServer {
             throw new NodeNotStartedException();
         }
         try {
-            return instance.initClusterAsync(parameters.metaStorageNodeNames(),
+            return instance.initClusterAsync(
+                    parameters.metaStorageNodeNames(),
                     parameters.cmgNodeNames(),
                     parameters.clusterName(),
                     parameters.clusterConfiguration()
@@ -227,29 +270,11 @@ public class IgniteServerImpl implements IgniteServer {
 
     @Override
     public CompletableFuture<Void> waitForInitAsync() {
-        IgniteImpl instance = ignite;
-        if (instance == null) {
+        CompletableFuture<Void> joinFuture = this.joinFuture;
+        if (joinFuture == null) {
             throw new NodeNotStartedException();
         }
 
-        CompletableFuture<Void> joinFuture = this.joinFuture;
-        if (joinFuture == null) {
-            try {
-                joinFuture = instance.joinClusterAsync()
-                        .handle((ignite, e) -> {
-                            if (e == null) {
-                                ackSuccessStart();
-
-                                return null;
-                            } else {
-                                throw handleStartException(e);
-                            }
-                        });
-            } catch (Exception e) {
-                throw handleStartException(e);
-            }
-            this.joinFuture = joinFuture;
-        }
         return joinFuture;
     }
 
@@ -394,11 +419,19 @@ public class IgniteServerImpl implements IgniteServer {
 
         logAvailableResources();
 
-        return instance.startAsync().handle((result, throwable) -> {
-            if (throwable != null) {
-                return CompletableFuture.<Void>failedFuture(throwable);
-            }
+        logOsInfo();
 
+        logVmInfo();
+
+        logJvmArguments();
+
+        logAvailableVmMemory();
+
+        logGcConfiguration();
+
+        ackRemoteManagement();
+
+        return instance.startAsync().thenCompose(unused -> {
             synchronized (igniteChangeMutex) {
                 if (shutDown) {
                     LOG.info("A new Ignite instance has started, but a shutdown is requested, so not setting it, stopping it instead "
@@ -407,30 +440,59 @@ public class IgniteServerImpl implements IgniteServer {
                     return instance.stopAsync();
                 }
 
+                LOG.info("Initiating join process [name={}]", nodeName);
+                doWaitForInitAsync(instance);
+
                 LOG.info("Setting Ignite ref to new instance as it has started [name={}]", nodeName);
                 ignite = instance;
             }
 
-            return completedFuture(result);
-        }).thenCompose(identity());
+            return nullCompletedFuture();
+        });
     }
 
-    private static void logAvailableResources() {
-        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
-        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
+    private void doWaitForInitAsync(IgniteImpl instance) {
+        try {
+            joinFuture = instance.joinClusterAsync()
+                    .handle((ignite, e) -> {
+                        if (e == null) {
+                            ackSuccessStart();
+
+                            return null;
+                        } else {
+                            throw handleClusterStartException(e);
+                        }
+                    });
+        } catch (Exception e) {
+            throw handleClusterStartException(e);
+        }
     }
 
-    @Override
-    public void start() {
-        sync(startAsync());
-    }
-
-    private static IgniteException handleStartException(Throwable e) {
+    private static IgniteException handleClusterStartException(Throwable e) {
         if (e instanceof IgniteException) {
             return (IgniteException) e;
         } else {
             return new NodeStartException("Error during node start.", e);
         }
+    }
+
+    @Override
+    public void start() {
+        CompletableFuture<Void> startFuture = startAsync().handle(IgniteServerImpl::handleNodeStartException);
+
+        sync(startFuture);
+    }
+
+    private static Void handleNodeStartException(Void v, Throwable e) {
+        if (e == null) {
+            return v;
+        }
+
+        throwIfError(e);
+
+        sneakyThrow(e);
+
+        return v;
     }
 
     private static void ackSuccessStart() {
@@ -457,14 +519,173 @@ public class IgniteServerImpl implements IgniteServer {
         LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, "Apache Ignite ver. " + version);
     }
 
+    private static void logAvailableResources() {
+        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
+    }
+
+    private static void logOsInfo() {
+        Long jvmPid = null;
+
+        try {
+            jvmPid = ProcessHandle.current().pid();
+        } catch (Throwable ignore) {
+            // No-op.
+        }
+
+        String osName = System.getProperty("os.name");
+        String osVersion = System.getProperty("os.version");
+        String osArch = System.getProperty("os.arch");
+        String osUser = System.getProperty("user.name");
+
+        LOG.info(
+                "OS: [name={}, version={}, arch={}, user={}, pid={}]",
+                osName, osVersion, osArch, osUser, (jvmPid == null ? "N/A" : jvmPid)
+        );
+    }
+
+    private static void logVmInfo() {
+        String jreName = System.getProperty("java.runtime.name");
+        String jreVersion = System.getProperty("java.runtime.version");
+        String jvmVendor = System.getProperty("java.vm.vendor");
+        String jvmName = System.getProperty("java.vm.name");
+        String jvmVersion = System.getProperty("java.vm.version");
+
+        LOG.info(
+                "VM: [jreName={}, jreVersion={}, jvmVendor={}, jvmName={}, jvmVersion={}]",
+                jreName, jreVersion, jvmVendor, jvmName, jvmVersion
+        );
+    }
+
+    private static void logAvailableVmMemory() {
+        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+        MemoryUsage heapMemoryUsage = memoryBean.getHeapMemoryUsage();
+        MemoryUsage nonHeapMemoryUsage = memoryBean.getNonHeapMemoryUsage();
+
+        LOG.info(
+                "VM Memory Configuration: heap [init={}, max={}], non-heap [init={}, max={}]",
+                toHumanReadableMemoryString(heapMemoryUsage.getInit()),
+                toHumanReadableMemoryString(heapMemoryUsage.getMax()),
+                toHumanReadableMemoryString(nonHeapMemoryUsage.getInit()),
+                toHumanReadableMemoryString(nonHeapMemoryUsage.getMax())
+        );
+    }
+
+    private static void logJvmArguments() {
+        RuntimeMXBean runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+        List<String> jvmArgs = runtimeMxBean.getInputArguments();
+
+        LOG.info("VM arguments: {}", String.join(" ", jvmArgs));
+    }
+
+    private static String toHumanReadableMemoryString(long bytes) {
+        String[] suffix = { "KB", "MB", "GB", "TB" };
+        for (int i = suffix.length; i > 0; i--) {
+            int shift = i * 10;
+            long valueInUnits = bytes >> shift;
+            if (valueInUnits > 0) {
+                return valueInUnits + " " + suffix[i - 1];
+            }
+        }
+        return bytes + " B";
+    }
+
+    private static void logGcConfiguration() {
+        List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
+        String gcConfiguration = gcBeans.stream()
+                .map(MemoryManagerMXBean::getName)
+                .collect(Collectors.joining(", "));
+
+        LOG.info("VM GC: {}", gcConfiguration);
+    }
+
+    private static void ackRemoteManagement() {
+        if (LOG.isInfoEnabled()) {
+            boolean jmxEnabled = System.getProperty("com.sun.management.jmxremote") != null;
+
+            if (jmxEnabled) {
+                String jmxMessage = "Remote management[JMX (remote: on, port: {}, auth: {}, ssl: {})]";
+
+                String port = System.getProperty("com.sun.management.jmxremote.port", "<n/a>");
+                boolean authEnabled = Boolean.getBoolean("com.sun.management.jmxremote.authenticate");
+                // By default SSL is enabled, that's why additional check for null is needed.
+                // https://docs.oracle.com/en/java/javase/11/management/monitoring-and-management-using-jmx-technology.html
+                boolean sslEnabled = Boolean.getBoolean("com.sun.management.jmxremote.ssl")
+                        || (System.getProperty("com.sun.management.jmxremote.ssl") == null);
+
+                LOG.info(IgniteStringFormatter.format(jmxMessage, port, onOff(authEnabled), onOff(sslEnabled)));
+            } else {
+                LOG.info("Remote management[JMX (remote: off)]");
+            }
+        }
+    }
+
+    /**
+     * Gets "on" or "off" string for given boolean value.
+     *
+     * @param b Boolean value to convert.
+     * @return Result string.
+     */
+    private static String onOff(boolean b) {
+        return b ? "on" : "off";
+    }
+
     private static void sync(CompletableFuture<Void> future) {
         try {
             future.get();
         } catch (ExecutionException e) {
+            if (hasCause(e, NodeStartException.class)) {
+                sneakyThrow(e.getCause());
+            }
+
             throw sneakyThrow(tryToCopyExceptionWithCause(e));
         } catch (InterruptedException e) {
             throw sneakyThrow(e);
         }
+    }
+
+    private static void throwIfError(Throwable exception) {
+        Error error = unwrapCause(exception, Error.class);
+
+        if (error == null) {
+            return;
+        }
+
+        throwIfExceptionInInitializerError(error);
+
+        throw new NodeStartException(
+                "Error occurred during node start, make sure that classpath and JVM execution arguments are correct.",
+                error
+        );
+    }
+
+    private static void throwIfExceptionInInitializerError(Error error) {
+        ExceptionInInitializerError initializerError = unwrapCause(error, ExceptionInInitializerError.class);
+
+        if (initializerError == null) {
+            return;
+        }
+
+        Throwable initializerErrorCause = initializerError.getCause();
+
+        if (initializerErrorCause == null) {
+            throw new NodeStartException(
+                    "Error during static components initialization with unknown cause, "
+                            + "make sure that classpath and JVM execution arguments are correct.",
+                    initializerError
+            );
+        }
+
+        if (initializerErrorCause instanceof IllegalAccessException) {
+            throw new NodeStartException(
+                    "Error during static components initialization due to illegal code access, check --add-opens JVM execution arguments.",
+                    initializerErrorCause
+            );
+        }
+
+        throw new NodeStartException(
+                "Error during static components initialization, make sure that classpath and JVM execution arguments are correct.",
+                initializerErrorCause
+        );
     }
 
     // TODO: remove after IGNITE-22721 gets resolved.
@@ -499,5 +720,10 @@ public class IgniteServerImpl implements IgniteServer {
         synchronized (restartOrShutdownMutex) {
             return restartFuture;
         }
+    }
+
+    @TestOnly
+    public Path workDir() {
+        return workDir;
     }
 }

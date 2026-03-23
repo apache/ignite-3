@@ -18,27 +18,21 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes a column replacement.
  */
-public class AlterColumnEntry implements UpdateEntry, Fireable {
+public class AlterColumnEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
 
     private final CatalogTableColumnDescriptor column;
@@ -55,6 +49,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     }
 
     /** Returns an id the table to be modified. */
+    @Override
     public int tableId() {
         return tableId;
     }
@@ -80,28 +75,19 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
+        List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
+                .map(source -> {
+                    if (source.name().equals(column.name())) {
+                        return column.clone(source.id());
+                    }
 
-        CatalogTableDescriptor newTable = table.newDescriptor(
-                table.name(),
-                table.tableVersion() + 1,
-                table.columns().stream()
-                        .map(source -> source.name().equals(column.name()) ? column : source)
-                        .collect(toList()),
-                timestamp,
-                table.storageProfile()
-        );
+                    return source;
+                })
+                .collect(toList());
 
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
-                defaultZoneIdOpt(catalog)
-        );
+        return table.copyBuilder()
+                .newColumns(updatedTableColumns);
     }
 
     @Override

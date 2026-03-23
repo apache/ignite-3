@@ -1084,8 +1084,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
-    /** {@inheritDoc} */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Override
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public short readShort() {
         lastFinished = false;
 
@@ -1126,8 +1127,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         return readBoxedValue(this::readShort);
     }
 
-    /** {@inheritDoc} */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Override
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public int readInt() {
         lastFinished = false;
 
@@ -1202,8 +1204,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         return readBoxedValue(this::readInt);
     }
 
-    /** {@inheritDoc} */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Override
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public long readLong() {
         lastFinished = false;
 

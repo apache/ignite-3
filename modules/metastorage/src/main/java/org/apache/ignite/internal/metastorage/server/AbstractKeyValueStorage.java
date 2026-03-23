@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -142,6 +143,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      * Returns {@code true} if the watches have {@link #startWatches started}.
      */
     protected abstract boolean areWatchesStarted();
+
+    @Override
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        watchProcessor.registerNotificationEnqueuedListener(listener);
+    }
 
     @Override
     public Entry get(byte[] key) {
@@ -300,9 +306,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /** Notifies of revision update. */
     protected void notifyRevisionsUpdate() {
-        if (recoveryRevisionListener != null) {
-            // Listener must be invoked only on recovery, after recovery listener must be null.
-            recoveryRevisionListener.onUpdate(createCurrentRevisions());
+        RecoveryRevisionsListener listener = recoveryRevisionListener;
+
+        if (listener != null) {
+            // The listener should be invoked only on recovery, after recovery listener will be null.
+            // Currently, there is a race that allows the listener to be invoked after recovery is complete, but this race is benign
+            // as it will simply lead to a second attempt to complete the recovery future, which will be ignored.
+            listener.onUpdate(createCurrentRevisions());
         }
     }
 
@@ -386,5 +396,10 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             notifyWatchProcessorEventsBeforeStartingWatches = null;
         }
+    }
+
+    @Override
+    public Executor watchExecutor() {
+        return watchProcessor.watchExecutor();
     }
 }

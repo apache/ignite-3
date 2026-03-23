@@ -17,12 +17,13 @@
 
 #pragma once
 
-#include <ignite/odbc/meta/column_meta.h>
-#include <ignite/odbc/query/result_page.h>
+#include "ignite/odbc/query/result_page.h"
+#include "ignite/protocol/sql/column_meta.h"
 
 #include <memory>
 
 #include <cstdint>
+
 
 namespace ignite {
 
@@ -47,7 +48,7 @@ public:
      *
      * @return False if data update required or no more data.
      */
-    bool next(const column_meta_vector &columns) {
+    bool next(const protocol::column_meta_vector &columns) {
         if (!has_data())
             return false;
 

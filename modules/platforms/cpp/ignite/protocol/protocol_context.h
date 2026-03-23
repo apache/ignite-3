@@ -35,6 +35,9 @@ namespace ignite::protocol {
  */
 class protocol_context {
 public:
+    /** Default TCP port. */
+    static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
+
     /**
      * Get protocol version.
      *

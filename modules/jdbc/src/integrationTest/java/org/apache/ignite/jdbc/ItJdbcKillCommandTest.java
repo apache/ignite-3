@@ -29,6 +29,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -78,7 +79,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
     public void killUsingExecuteQueryIsForbidden() throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             //noinspection ThrowableNotThrown
-            assertThrowsSqlException("Invalid SQL statement type.",
+            assertThrowsSqlException("Statement of type \"Kill\" is not allowed in current context",
                     () -> stmt.executeQuery("KILL QUERY '" + UUID.randomUUID() + "'")
             );
         }
@@ -129,16 +130,16 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
         }
     }
 
-    private static void waitUntilRunningQueriesCount(Matcher<Integer> count) {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
-        SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
-        SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(count));
+    private static void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, matcher);
     }
 
     private static List<QueryInfo> runningQueries() {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
-        SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
-        return queryProcessor.runningQueries();
+        return CLUSTER.runningNodes().flatMap(node -> {
+            IgniteImpl ignite = unwrapIgniteImpl(node);
+            SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
+            return queryProcessor.runningQueries().stream();
+        }).collect(Collectors.toList());
     }
 
     @FunctionalInterface

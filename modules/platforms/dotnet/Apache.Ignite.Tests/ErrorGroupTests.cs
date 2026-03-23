@@ -184,8 +184,8 @@ namespace Apache.Ignite.Tests
         public void TestGetGroupNameForUnknownGroupCode()
         {
             // Newer servers may return unknown to us error codes.
-            Assert.AreEqual("UNKNOWN", ErrorGroups.GetGroupName(-1));
-            Assert.AreEqual(ErrorGroups.UnknownGroupName, ErrorGroups.GetGroupName(9999));
+            Assert.AreEqual("UNKNOWN-1", ErrorGroups.GetGroupName(-1));
+            Assert.AreEqual("UNKNOWN9999", ErrorGroups.GetGroupName(9999));
         }
 
         [Test]
@@ -202,6 +202,24 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual("CMN", ex.GroupName);
         }
 
+        [Test]
+        public void TestUnknownErrorCode()
+        {
+            int unknownCode = (999 << 16) | 1;
+            var traceId = Guid.NewGuid();
+            string message = "Error from unknown group";
+
+            var ex = new IgniteException(traceId, unknownCode, message);
+
+            Assert.AreEqual(unknownCode, ex.Code);
+            Assert.AreEqual(999, ex.GroupCode);
+            Assert.AreEqual(1, ex.ErrorCode);
+            Assert.AreEqual(traceId, ex.TraceId);
+            Assert.AreEqual(message, ex.Message);
+            Assert.AreEqual("UNKNOWN-UNKNOWN999-1", ex.CodeAsString);
+            Assert.AreEqual("UNKNOWN999", ex.GroupName);
+        }
+
         private static IEnumerable<(short Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
                 .Select(x => ((short) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
 
@@ -212,7 +230,8 @@ namespace Apache.Ignite.Tests
 
                     return groupClass
                         .GetFields()
-                        .Where(x => x.Name != "GroupCode" && x.Name != "GroupName" && x.Name !="ErrorPrefix")
+                        .Where(x => x.Name != "GroupCode" && x.Name != "GroupName" && x.Name != "ErrorPrefix" &&
+                                    x.GetCustomAttributes(typeof(ObsoleteAttribute), false).Length == 0)
                         .Select(errCode => ((int)errCode.GetValue(null)!, groupCode, errCode.Name));
                 });
     }

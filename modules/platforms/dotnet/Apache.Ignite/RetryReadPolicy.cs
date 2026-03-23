@@ -59,11 +59,13 @@ namespace Apache.Ignite
                 ClientOperationType.ComputeExecuteMapReduce => false,
                 ClientOperationType.SqlExecute => false,
                 ClientOperationType.SqlExecuteScript => false,
+                ClientOperationType.SqlExecuteBatch => false,
                 ClientOperationType.ComputeCancel => false,
                 ClientOperationType.ComputeChangePriority => false,
                 ClientOperationType.ComputeGetStatus => true,
                 ClientOperationType.StreamerBatchSend => false,
                 ClientOperationType.StreamerWithReceiverBatchSend => false,
+                ClientOperationType.TupleContainsAllKeys => true,
                 ClientOperationType.PrimaryReplicasGet => true,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };

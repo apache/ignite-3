@@ -37,10 +37,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -124,7 +124,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     }
 
     @Override
-    public void onLeaderElected(ClusterNode node, long term) {
+    public void onLeaderElected(InternalClusterNode node, long term) {
         LOG.info("New leader is elected for Metastorage, leader {}, term {}", node, term);
 
         electionListeners.forEach(listener -> listener.onLeaderElected(node));
@@ -231,7 +231,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
         @Override
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-            execute(learnerManager::resetLearners);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-26854
+            execute((raftService, term) -> learnerManager.resetLearners(raftService, term, 0));
         }
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.failure;
 
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +34,9 @@ public class FailureContext {
 
     /** Message describing the failure. */
     private final String message;
+
+    /** Unique identifier of this failure context. */
+    private final UUID id = UUID.randomUUID();
 
     /**
      * Creates instance of {@link FailureContext} of {@link FailureType#CRITICAL_ERROR} type.
@@ -102,6 +106,15 @@ public class FailureContext {
      */
     public String message() {
         return message;
+    }
+
+    /**
+     * Returns the unique identifier of this failure context.
+     *
+     * @return Unique identifier.
+     */
+    public UUID id() {
+        return id;
     }
 
     @Override public String toString() {

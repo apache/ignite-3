@@ -20,7 +20,9 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Buffers;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Reflection;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -48,16 +50,20 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="minimumLength">The minimum length of the array.</param>
         /// <returns>An byte array that is at least <paramref name="minimumLength" /> in length.</returns>
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Debug mode, guarded.")]
         public static byte[] Rent(int minimumLength)
         {
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
-            var stackTrace = new StackTrace();
-            var frame = stackTrace.GetFrame(1);
+            if (RuntimeFeature.IsDynamicCodeSupported)
+            {
+                var stackTrace = new StackTrace();
+                var frame = stackTrace.GetFrame(1);
 
-            CurrentlyRentedArrays.TryAdd(bytes, frame!.GetMethod()!);
-            ReturnedArrays.Remove(bytes);
+                CurrentlyRentedArrays.TryAdd(bytes, frame!.GetMethod()!);
+                ReturnedArrays.Remove(bytes);
+            }
 #endif
 
             return bytes;
@@ -70,10 +76,13 @@ namespace Apache.Ignite.Internal.Buffers
         public static void Return(byte[] array)
         {
 #if DEBUG
-            CurrentlyRentedArrays.TryRemove(array, out _);
+            if (RuntimeFeature.IsDynamicCodeSupported)
+            {
+                CurrentlyRentedArrays.TryRemove(array, out _);
 
-            // Will throw when key exists.
-            ReturnedArrays.Add(array, null);
+                // Will throw when key exists.
+                ReturnedArrays.Add(array, null);
+            }
 #endif
 
             ArrayPool<byte>.Shared.Return(array);

@@ -26,7 +26,7 @@
 namespace ignite {
 
 /**
- * SQL result set metadata.
+ * @brief SQL result set metadata.
  */
 class result_set_metadata {
 public:

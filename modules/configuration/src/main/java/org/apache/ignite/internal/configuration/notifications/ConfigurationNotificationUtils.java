@@ -47,10 +47,13 @@ class ConfigurationNotificationUtils {
      *
      * @param dynamicConfig Dynamic configuration.
      * @param nodeName Name of the child node.
-     * @return Dynamic property of a leaf or {@code null} if the leaf does not exist.
+     * @return Dynamic property of a leaf or {@code null} if the leaf does not exist or {@code dynamicConfig} is {@code null}.
      */
-    static @Nullable DynamicProperty<Serializable> dynamicProperty(DynamicConfiguration<InnerNode, ?> dynamicConfig, String nodeName) {
-        return (DynamicProperty<Serializable>) dynamicConfig.members().get(nodeName);
+    static @Nullable DynamicProperty<Serializable> dynamicProperty(
+            @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig,
+            String nodeName
+    ) {
+        return dynamicConfig == null ? null : (DynamicProperty<Serializable>) dynamicConfig.members().get(nodeName);
     }
 
     /**
@@ -58,10 +61,14 @@ class ConfigurationNotificationUtils {
      *
      * @param dynamicConfig Dynamic configuration.
      * @param nodeName Name of the child node.
-     * @return Dynamic configuration of the child node or {@code null} if the child node does not exist.
+     * @return Dynamic configuration of the child node or {@code null} if the child node does not exist or {@code dynamicConfig} is
+     *         {@code null}.
      */
-    static @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig(DynamicConfiguration<InnerNode, ?> dynamicConfig, String nodeName) {
-        return (DynamicConfiguration<InnerNode, ?>) dynamicConfig.members().get(nodeName);
+    static @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig(
+            @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig,
+            String nodeName
+    ) {
+        return dynamicConfig == null ? null : (DynamicConfiguration<InnerNode, ?>) dynamicConfig.members().get(nodeName);
     }
 
     /**
@@ -69,13 +76,14 @@ class ConfigurationNotificationUtils {
      *
      * @param dynamicConfig Dynamic configuration.
      * @param nodeName Name of the child node.
-     * @return Named dynamic configuration of the child node or {@code null} if the child node does not exist.
+     * @return Named dynamic configuration of the child node or {@code null} if the child node does not exist or {@code dynamicConfig} is
+     *         {@code null}.
      */
     static @Nullable NamedListConfiguration<?, InnerNode, ?> namedDynamicConfig(
-            DynamicConfiguration<InnerNode, ?> dynamicConfig,
+            @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig,
             String nodeName
     ) {
-        return (NamedListConfiguration<?, InnerNode, ?>) dynamicConfig.members().get(nodeName);
+        return dynamicConfig == null ? null : (NamedListConfiguration<?, InnerNode, ?>) dynamicConfig.members().get(nodeName);
     }
 
     /**

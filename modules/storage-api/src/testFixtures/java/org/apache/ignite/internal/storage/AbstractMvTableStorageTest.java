@@ -52,12 +52,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -65,7 +67,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
@@ -351,7 +352,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                List.of(new CatalogIndexColumnDescriptor(catalogTableDescriptor.column("STRKEY").id(), ASC_NULLS_LAST)),
                 true
         );
 
@@ -361,7 +362,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                List.of(new CatalogIndexColumnDescriptor(catalogTableDescriptor.column("STRKEY").id(), ASC_NULLS_LAST)),
                 true
         );
 
@@ -405,7 +406,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY"),
+                IntList.of(catalogTableDescriptor.column("STRKEY").id()),
                 true
         );
 
@@ -415,7 +416,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY"),
+                IntList.of(catalogTableDescriptor.column("STRKEY").id()),
                 true
         );
 
@@ -444,7 +445,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
 
         checkForPresenceRows(null, hashIndexStorage2, null, rows);
     }
-
 
     @Test
     public void testHashIndexIndependence() {
@@ -608,6 +608,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
         assertThrows(StorageDestroyedException.class, () -> storage.scanVersions(rowId));
 
         assertThrows(StorageDestroyedException.class, () -> storage.closestRowId(rowId));
+        assertThrows(
+                StorageDestroyedException.class,
+                () -> storage.rowsStartingWith(rowId, RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE)
+        );
+        assertThrows(StorageDestroyedException.class, () -> assertNull(storage.highestRowId()));
     }
 
     @Test
@@ -1559,6 +1564,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
             assertThrows(StorageRebalanceException.class, () -> storage.scanVersions(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scan(clock.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
+            assertThrows(
+                    StorageRebalanceException.class,
+                    () -> storage.rowsStartingWith(rowId, RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE)
+            );
+            assertThrows(StorageRebalanceException.class, () -> storage.highestRowId());
 
             return null;
         });

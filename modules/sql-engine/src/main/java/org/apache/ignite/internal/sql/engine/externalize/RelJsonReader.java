@@ -203,7 +203,13 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public ImmutableBitSet getBitSet(String tag) {
-            return ImmutableBitSet.of(getIntegerList(tag));
+            var list = getIntegerList(tag);
+
+            if (list == null) {
+                return ImmutableBitSet.of();
+            }
+
+            return ImmutableBitSet.of(list);
         }
 
         /** {@inheritDoc} */
@@ -319,7 +325,7 @@ public class RelJsonReader {
             List<String> names =
                     (List<String>) get(fieldsTag);
             return Commons.typeFactory().createStructType(
-                    new AbstractList<Map.Entry<String, RelDataType>>() {
+                    new AbstractList<>() {
                         @Override
                         public Map.Entry<String, RelDataType> get(int index) {
                             return Pair.of(names.get(index),

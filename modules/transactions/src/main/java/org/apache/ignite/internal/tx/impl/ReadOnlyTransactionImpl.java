@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -26,9 +27,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-only implementation of an internal transaction.
@@ -50,7 +51,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
-     * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout The timeout.
      * @param readTimestamp The read timestamp.
      */
@@ -59,12 +59,11 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
-            boolean implicit,
             long timeout,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout);
 
         this.readTimestamp = readTimestamp;
         this.txFuture = txFuture;
@@ -87,7 +86,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken
@@ -96,24 +95,24 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return null;
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+    public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
         return true;
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ZonePartitionId commitPartition() {
         return null;
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, readTimestamp, false, false),
+                finish(true, readTimestamp, false, null),
                 TX_COMMIT_ERR
         );
     }
@@ -121,23 +120,28 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false, false),
+                finish(false, readTimestamp, false, null),
                 TX_ROLLBACK_ERR
         );
     }
 
     @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false, true),
+                finish(false, readTimestamp, false, throwable),
                 TX_ROLLBACK_ERR
         );
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+    public CompletableFuture<Void> finish(
+            boolean commitIntent,
+            HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    ) {
         assert !full : "Read-only transactions cannot be full.";
-        assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
+        assert !(commitIntent && finishReason != null) : "Transaction cannot be committed with an error.";
 
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
@@ -147,9 +151,12 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         txFuture.complete(null);
 
-        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()), timeoutExceeded);
+        ((TxManagerImpl) txManager).onCompleteReadOnlyTransaction(
+                commitIntent,
+                new TxIdAndTimestamp(readTimestamp, id())
+        );
 
-        this.timeoutExceeded = timeoutExceeded;
+        this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
 
         return txFuture;
     }
@@ -161,6 +168,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return finish(false, readTimestamp, false, false);
+        return finish(false, readTimestamp, false, null);
     }
 }

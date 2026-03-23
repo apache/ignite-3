@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.cluster;
 
+import static org.mockito.Mockito.mock;
+
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Replaces;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
+import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.junit.jupiter.api.DisplayName;
 
 /** Tests "cluster init" command in REPL mode. */
@@ -31,5 +36,11 @@ public class ClusterInitReplTest extends ClusterInitTest {
     @Override
     protected int errorExitCode() {
         return 0;
+    }
+
+    @Bean
+    @Replaces(ConnectionHeartBeat.class)
+    public static ConnectionHeartBeat connectionHeartBeat() {
+        return mock(ConnectionHeartBeat.class);
     }
 }

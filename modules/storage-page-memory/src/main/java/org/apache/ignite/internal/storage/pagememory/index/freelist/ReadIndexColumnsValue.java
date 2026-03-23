@@ -18,24 +18,22 @@
 package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
 import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
-import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 
 /**
- * Reads {@link RowVersion#value()} from page-memory.
+ * Reads {@link IndexColumns#valueBuffer()} value from page-memory.
  */
 public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
     @Override
-    protected int valueSizeOffsetInFirstSlot() {
+    protected int valueSizeOffsetInFirstSlot(byte dataType) {
+        assert dataType == IndexColumns.DATA_TYPE;
+
         return IndexColumns.SIZE_OFFSET;
     }
 
     @Override
-    protected int valueOffsetInFirstSlot() {
-        return IndexColumns.VALUE_OFFSET;
-    }
+    protected int valueOffsetInFirstSlot(byte dataType) {
+        assert dataType == IndexColumns.DATA_TYPE;
 
-    @Override
-    protected byte dataType() {
-        return IndexColumns.DATA_TYPE;
+        return IndexColumns.VALUE_OFFSET;
     }
 }

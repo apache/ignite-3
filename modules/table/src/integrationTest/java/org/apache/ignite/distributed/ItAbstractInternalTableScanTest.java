@@ -17,9 +17,12 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -63,20 +67,19 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -100,8 +103,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /** Mock partition storage. */
-    @Mock
-    private MvPartitionStorage mockStorage;
+    @Spy
+    private MvPartitionStorage mockStorage = new TestMvPartitionStorage(0);
 
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
@@ -119,17 +122,17 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     public void setUp(TestInfo testInfo) {
         clusterNodeResolver = new ClusterNodeResolver() {
 
-            private final ClusterNode singleNode = DummyInternalTableImpl.LOCAL_NODE;
+            private final InternalClusterNode singleNode = DummyInternalTableImpl.LOCAL_NODE;
 
             @Override
-            public @Nullable ClusterNode getByConsistentId(String consistentId) {
+            public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
                 return singleNode.name().equals(consistentId)
                         ? singleNode
                         : null;
             }
 
             @Override
-            public @Nullable ClusterNode getById(UUID id) {
+            public @Nullable InternalClusterNode getById(UUID id) {
                 return singleNode.id().equals(id)
                         ? singleNode
                         : null;
@@ -274,9 +277,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertTrue(subscriberFinishedLatch.await(10, TimeUnit.SECONDS), "count=" + subscriberFinishedLatch.getCount());
 
-        assertEquals(gotException.get().getCause().getClass(), NoSuchElementException.class);
+        assertEquals(NoSuchElementException.class, unwrapCause(gotException.get()).getClass());
 
-        validateTxAbortedState(tx);
+        validateTxFinished(tx);
     }
 
     /**
@@ -319,15 +322,14 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
-        assertEquals(gotException.get().getCause().getClass(), StorageException.class);
+        assertEquals(StorageException.class, unwrapCause(gotException.get()).getClass());
 
-        validateTxAbortedState(tx);
+        validateTxFinished(tx);
     }
 
-    protected void validateTxAbortedState(InternalTransaction tx) {
-        if (tx != null) {
-            assertEquals(TxState.ABORTED, tx.state());
-        }
+    protected void validateTxFinished(InternalTransaction tx) {
+        assertNotNull(tx);
+        assertNull(tx.state());
     }
 
     /**
@@ -564,9 +566,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * Resolves primary replica node for given replication group.
      *
      * @param replicationGroupId Desired replication group ID.
-     * @return Primary replica {@link ClusterNode} for the group.
+     * @return Primary replica {@link InternalClusterNode} for the group.
      */
-    protected ClusterNode getPrimaryReplica(ReplicationGroupId replicationGroupId) {
+    protected InternalClusterNode getPrimaryReplica(ReplicationGroupId replicationGroupId) {
         return placementDriver.awaitPrimaryReplica(
                         replicationGroupId,
                         DummyInternalTableImpl.CLOCK.now(),

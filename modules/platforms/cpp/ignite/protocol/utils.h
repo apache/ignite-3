@@ -17,12 +17,10 @@
 
 #pragma once
 
-#include "ignite/common/detail/bytes.h"
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_error.h>
 #include <ignite/common/primitive.h>
 #include <ignite/common/uuid.h>
-#include <ignite/protocol/extension_types.h>
 #include <ignite/tuple/binary_tuple_builder.h>
 #include <ignite/tuple/binary_tuple_parser.h>
 
@@ -76,7 +74,7 @@ template<>
 [[nodiscard]] std::optional<std::int32_t> try_unpack_object(const msgpack_object &object);
 
 /**
- * Try unpack string.
+ * Try to unpack a string.
  *
  * @param object MsgPack object.
  * @return String or @c nullopt if the object is not a string.

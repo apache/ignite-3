@@ -30,9 +30,11 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogSystemViewProvider;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.systemview.api.ClusterSystemView;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -100,8 +102,12 @@ public class IndexColumnsSystemViewProvider implements CatalogSystemViewProvider
     ) {
         List<IndexColumn> columns = new ArrayList<>();
 
-        for (var column : index.columns()) {
-            columns.add(new IndexColumn(container, column.name(), columns.size(), column.collation()));
+        for (CatalogIndexColumnDescriptor indexColumn : index.columns()) {
+            CatalogTableColumnDescriptor column = container.table.columnById(indexColumn.columnId());
+
+            assert column != null;
+
+            columns.add(new IndexColumn(container, column.name(), columns.size(), indexColumn.collation()));
         }
 
         return columns.stream();
@@ -113,8 +119,12 @@ public class IndexColumnsSystemViewProvider implements CatalogSystemViewProvider
     ) {
         List<IndexColumn> columns = new ArrayList<>();
 
-        for (var column : index.columns()) {
-            columns.add(new IndexColumn(container, column, columns.size()));
+        for (int columnId : index.columnIds()) {
+            CatalogTableColumnDescriptor column = container.table.columnById(columnId);
+
+            assert column != null;
+
+            columns.add(new IndexColumn(container, column.name(), columns.size()));
         }
 
         return columns.stream();
@@ -134,6 +144,7 @@ public class IndexColumnsSystemViewProvider implements CatalogSystemViewProvider
         private final String indexName;
 
         private final CatalogIndexDescriptor index;
+        private final CatalogTableDescriptor table;
 
         IndexColumnContainer(
                 CatalogSchemaDescriptor schema,
@@ -148,6 +159,7 @@ public class IndexColumnsSystemViewProvider implements CatalogSystemViewProvider
             this.indexId = index.id();
             this.indexName = index.name();
             this.index = index;
+            this.table = table;
         }
     }
 

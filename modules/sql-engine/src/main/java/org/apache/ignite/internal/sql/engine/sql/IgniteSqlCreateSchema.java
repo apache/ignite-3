@@ -28,11 +28,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code CREATE SCHEMA} statement.
  */
+@DdlBatchAware(group = DdlBatchGroup.CREATE)
 public class IgniteSqlCreateSchema extends SqlCreate {
 
     /** CREATE SCHEMA operator. */
@@ -40,7 +43,7 @@ public class IgniteSqlCreateSchema extends SqlCreate {
 
         /** Constructor. */
         protected Operator(boolean existFlag) {
-            super("CREATE SCHEMA", SqlKind.OTHER_DDL, existFlag);
+            super("CREATE SCHEMA", SqlKind.CREATE_SCHEMA, existFlag);
         }
 
         /** {@inheritDoc} */

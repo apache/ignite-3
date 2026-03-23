@@ -16,26 +16,28 @@
  */
 
 #include "ignite/client/detail/node_connection.h"
+#include "ignite/protocol/heartbeat_timeout.h"
 
 #include <ignite/protocol/messages.h>
 #include <ignite/protocol/utils.h>
 
 namespace ignite::detail {
 
-node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-    std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-    const ignite_client_configuration &cfg)
+node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> &&pool,
+    std::weak_ptr<connection_event_handler> &&event_handler, std::shared_ptr<ignite_logger> &&logger,
+    const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> &&timer_thread)
     : m_id(id)
     , m_pool(std::move(pool))
     , m_event_handler(std::move(event_handler))
     , m_logger(std::move(logger))
-    , m_configuration(cfg) {
-}
+    , m_configuration(cfg)
+    , m_timer_thread(std::move(timer_thread)){}
 
 node_connection::~node_connection() {
-    for (auto &handler : m_request_handlers) {
+    for (auto &req : m_request_handlers) {
         auto handling_res = result_of_operation<void>([&]() {
-            auto res = handler.second->set_error(ignite_error("Connection closed before response was received"));
+            auto handler = req.second.handler;
+            auto res = handler->set_error(ignite_error("Connection closed before response was received"));
             if (res.has_error())
                 m_logger->log_error(
                     "Uncaught user callback exception while handling operation error: " + res.error().what_str());
@@ -49,8 +51,7 @@ bool node_connection::handshake() {
     static constexpr std::int8_t CLIENT_TYPE = 2;
 
     std::map<std::string, std::string> extensions;
-    auto authenticator = m_configuration.get_authenticator();
-    if (authenticator) {
+    if (const auto authenticator = m_configuration.get_authenticator()) {
         extensions.emplace("authn-type", authenticator->get_type());
         extensions.emplace("authn-identity", authenticator->get_identity());
         extensions.emplace("authn-secret", authenticator->get_secret());
@@ -62,6 +63,8 @@ bool node_connection::handshake() {
 }
 
 void node_connection::process_message(bytes_view msg) {
+    m_last_message_ts = std::chrono::steady_clock::now();
+
     protocol::reader reader(msg);
 
     auto req_id = reader.read_int64();
@@ -83,10 +86,12 @@ void node_connection::process_message(bytes_view msg) {
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
 
-    { // Locking scope
+    std::shared_ptr<response_handler> handler{};
+    {
         std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
 
-        auto handler = find_handler_unsafe(req_id);
+        handler = find_handler_unsafe(req_id);
+    }
         if (!handler) {
             m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
             return;
@@ -103,6 +108,8 @@ void node_connection::process_message(bytes_view msg) {
             m_logger->log_error("Uncaught user callback exception: " + result.error().what_str());
         }
 
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
         if (handler->is_handling_complete()) {
             m_request_handlers.erase(req_id);
         }
@@ -110,9 +117,43 @@ void node_connection::process_message(bytes_view msg) {
 }
 
 void node_connection::on_observable_timestamp_changed(int64_t observable_timestamp) const {
-    auto event_handler = m_event_handler.lock();
-    if (event_handler) {
+    if (auto event_handler = m_event_handler.lock()) {
         event_handler->on_observable_timestamp_changed(observable_timestamp);
+    }
+}
+
+void node_connection::send_heartbeat() {
+    auto res = perform_request_wr<void>(
+        protocol::client_operation::HEARTBEAT, [](auto&, auto&){}, [self_weak = weak_from_this()](const auto&) {
+            if (auto self = self_weak.lock()) {
+                self->plan_heartbeat(self->m_heartbeat_interval);
+            }
+        }
+    );
+
+    // We don't care here if we were not able to send a heartbeat due to the connection is dead already.
+    UNUSED_VALUE(res);
+}
+
+void node_connection::on_heartbeat_timeout() {
+    auto idle_for = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - m_last_message_ts);
+
+    if (idle_for > m_heartbeat_interval) {
+        send_heartbeat();
+    } else {
+        auto sleep_for = m_heartbeat_interval - idle_for;
+        plan_heartbeat(sleep_for);
+    }
+}
+
+void node_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
+    if (auto timer_thread = m_timer_thread.lock()) {
+        timer_thread->add(timeout, [self_weak = weak_from_this()] {
+            if (auto self = self_weak.lock()) {
+                self->on_heartbeat_timeout();
+            }
+        });
     }
 }
 
@@ -135,8 +176,19 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     on_observable_timestamp_changed(response.observable_timestamp);
 
+    m_heartbeat_interval = calculate_heartbeat_interval(m_configuration.get_heartbeat_interval(),
+        std::chrono::milliseconds(response.idle_timeout_ms));
+
     m_protocol_context = response.context;
     m_handshake_complete = true;
+
+    if (m_heartbeat_interval.count()) {
+        plan_heartbeat(m_heartbeat_interval);
+    }
+
+    if (m_configuration.get_operation_timeout().count() > 0) {
+        handle_timeouts();
+    }
 
     return {};
 }
@@ -148,7 +200,7 @@ std::shared_ptr<response_handler> node_connection::get_and_remove_handler(std::i
     if (it == m_request_handlers.end())
         return {};
 
-    auto res = std::move(it->second);
+    auto res = std::move(it->second.handler);
     m_request_handlers.erase(it);
 
     return res;
@@ -159,7 +211,45 @@ std::shared_ptr<response_handler> node_connection::find_handler_unsafe(std::int6
     if (it == m_request_handlers.end())
         return {};
 
-    return it->second;
+    return it->second.handler;
+}
+
+void node_connection::handle_timeouts() {
+    auto now = std::chrono::steady_clock::now();
+
+    {
+        std::lock_guard lock(m_request_handlers_mutex);
+
+        for (auto it = m_request_handlers.begin(); it != m_request_handlers.end();) {
+            auto &id = it->first;
+            auto &req = it->second;
+
+            if (req.timeouts_at && *req.timeouts_at < now) {
+                std::string err_msg = "Operation timeout [req_id=" + std::to_string(id) + "]";
+                auto res = req.handler->set_error(ignite_error(error::code::OPERATION_TIMEOUT, err_msg));
+
+                this->m_logger->log_warning(err_msg);
+
+                if (res.has_error())
+                    this->m_logger->log_error(
+                        "Uncaught user callback exception while handling operation error: " + res.error().what_str());
+
+                it = m_request_handlers.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    if (auto timeout = m_configuration.get_operation_timeout(); timeout.count() > 0) {
+        if (auto timer_thread = m_timer_thread.lock()) {
+            timer_thread->add(timeout, [self_weak = weak_from_this()] {
+                if (auto self = self_weak.lock()) {
+                    self->handle_timeouts();
+                }
+            });
+        }
+    }
 }
 
 } // namespace ignite::detail

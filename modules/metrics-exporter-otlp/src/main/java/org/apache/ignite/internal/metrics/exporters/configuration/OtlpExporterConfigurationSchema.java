@@ -23,6 +23,7 @@ import static io.opentelemetry.exporter.otlp.internal.OtlpConfigUtil.PROTOCOL_HT
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Endpoint;
 import org.apache.ignite.configuration.validation.OneOf;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.network.configuration.SslConfigurationValidato
 public class OtlpExporterConfigurationSchema extends ExporterConfigurationSchema {
     /** Export period, in milliseconds. */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "period")
     public long periodMillis = 30_000;
 
     /** String in "host:port" format. */

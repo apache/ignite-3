@@ -38,11 +38,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests to verify validation of {@link CreateTableCommand}.
  */
-@SuppressWarnings({"DataFlowIssue", "ThrowableNotThrown"})
+@SuppressWarnings("ThrowableNotThrown")
 public class CreateTableCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -326,18 +327,37 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @Test
-    void exceptionIsThrownIfZoneNeitherSpecifiedExplicitlyNorDefaultWasSet() {
+    @ParameterizedTest
+    @ValueSource(doubles = {
+            Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, -1, 1.1
+    })
+    void staleRowsFractionShouldBeInValidRange(double staleRowsFraction) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
-
-        CatalogCommand command = fillProperties(builder).zone(null).build();
+        builder = fillProperties(builder)
+                .staleRowsFraction(staleRowsFraction);
 
         assertThrowsWithCause(
-                () -> command.get(new UpdateContext(catalog)),
+                builder::build,
                 CatalogValidationException.class,
-                "The zone is not specified. Please specify zone explicitly or set default one."
+                "Stale rows fraction should be in range [0, 1]."
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {
+            -100, -10, -1
+    })
+    void minStaleRowsCountShouldBeNonNegative(long minStaleRowsCount) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .minStaleRowsCount(minStaleRowsCount);
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Minimal stale rows count should be non-negative."
         );
     }
 
@@ -478,7 +498,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         String zoneName = "testZone";
 
-        Catalog catalog = catalog(createZoneCommand(zoneName, List.of("profile1, profile2")));
+        Catalog catalog = catalogWithDefaultZone(createZoneCommand(zoneName, List.of("profile1, profile2")));
 
         String tableProfile = "profile3";
 
@@ -492,7 +512,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         assertDoesNotThrow(() -> {
             // Let's check the success case.
-            Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
+            Catalog newCatalog = catalogWithDefaultZone(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
 
             command.get(new UpdateContext(newCatalog));
         });

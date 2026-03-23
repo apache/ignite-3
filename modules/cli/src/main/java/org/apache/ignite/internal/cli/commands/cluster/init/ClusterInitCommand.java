@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
+import static org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitConstants.SPINNER_PREFIX;
+import static org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitConstants.SPINNER_UPDATE_INTERVAL_MILLIS;
+import static org.apache.ignite.internal.cli.core.call.CallExecutionPipeline.asyncBuilder;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
+import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -37,16 +40,17 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
 
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
-    private ClusterInitCall call;
+    private ClusterInitCallFactory callFactory;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
+        return runPipeline(asyncBuilder(callFactory)
+                .input(buildCallInput())
+                .enableSpinner(SPINNER_PREFIX)
+                .updateIntervalMillis(SPINNER_UPDATE_INTERVAL_MILLIS)
         );
     }
 

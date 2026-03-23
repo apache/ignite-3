@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.replicator.configuration;
 
+import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_BATCH_SIZE_BYTES;
+
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
@@ -36,5 +39,17 @@ public class ReplicationConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<Class<?>> schemaExtensions() {
         return List.of(ReplicationExtensionConfigurationSchema.class);
+    }
+
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
+        ReplicationExtensionView rootView = superRootChange.viewRoot(ReplicationExtensionConfiguration.KEY);
+        ReplicationExtensionChange rootChange = superRootChange.changeRoot(ReplicationExtensionConfiguration.KEY);
+
+        StorageUpdateView storageUpdateView = rootView.storageUpdate();
+
+        if (storageUpdateView.batchByteLength() != DEFAULT_BATCH_SIZE_BYTES) {
+            rootChange.changeReplication().changeBatchSizeBytes(storageUpdateView.batchByteLength());
+        }
     }
 }

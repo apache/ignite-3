@@ -16,4 +16,13 @@
 # limitations under the License.
 #
 
+preserve_existing_config() {
+  if [ -f "@CONF_DIR@/vars.env" ]; then
+    mkdir -p "@CONF_DIR@/backup"
+    cp -f "@CONF_DIR@/vars.env" "@CONF_DIR@/backup/"
+    cp -f "@CONF_DIR@/ignite-config.conf" "@CONF_DIR@/backup/"
+  fi
+}
+
 source_user_group
+preserve_existing_config

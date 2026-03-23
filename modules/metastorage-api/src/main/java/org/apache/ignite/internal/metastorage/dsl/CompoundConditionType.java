@@ -21,23 +21,31 @@ package org.apache.ignite.internal.metastorage.dsl;
  * Type of compound condition.
  */
 public enum CompoundConditionType {
-    AND,
-    OR;
+    AND(0),
+    OR(1);
 
-    /** Cached array with all enum values. */
-    private static final CompoundConditionType[] VALUES = values();
+    private final int id;
+
+    CompoundConditionType(int id) {
+        this.id = id;
+    }
 
     /**
-     * Returns the enumerated value from its ordinal.
+     * Returns the enumerated value from its id.
      *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
      */
-    public static CompoundConditionType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+    public static CompoundConditionType fromId(int id) throws IllegalArgumentException {
+        switch (id) {
+            case 0: return AND;
+            case 1: return OR;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + id);
         }
+    }
 
-        return VALUES[ordinal];
+    public int id() {
+        return id;
     }
 }

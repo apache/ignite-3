@@ -62,7 +62,57 @@ public enum ProtocolBitmaskFeature {
     /**
      * Piggyback txn start in the first request.
      */
-    TX_PIGGYBACK(7);
+    TX_PIGGYBACK(7),
+
+    /**
+     * Allow txn no-op operations to be enlisted in direct transaction.
+     */
+    TX_ALLOW_NOOP_ENLIST(8),
+
+    /**
+     * Client supports Partition Awareness for SQL queries.
+     */
+    SQL_PARTITION_AWARENESS(9),
+
+    /**
+     * Direct mapping for SQL queries within explicit transactions.
+     */
+    SQL_DIRECT_TX_MAPPING(10),
+
+    /**
+     * Compute task ID for broadcast jobs.
+     */
+    COMPUTE_TASK_ID(11),
+
+    /**
+     * Client supports tx priority option for getAll/containsAll.
+     */
+    TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS(12),
+
+    /**
+     * Thin SQL client supports iteration over the results of script execution.
+     */
+    SQL_MULTISTATEMENT_SUPPORT(13),
+
+    /**
+     * Compute tasks and jobs accept observable timestamp from the client.
+     */
+    COMPUTE_OBSERVABLE_TS(14),
+
+    /**
+     * Send remote writes flag for directly mapped transactions.
+     */
+    TX_DIRECT_MAPPING_SEND_REMOTE_WRITES(15),
+
+    /**
+     * Client supports Partition Awareness for SQL queries with table name in the response metadata.
+     */
+    SQL_PARTITION_AWARENESS_TABLE_NAME(16),
+
+    /**
+     * Send discard requests to directly mapped partitions.
+     */
+    TX_DIRECT_MAPPING_SEND_DISCARD(17);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

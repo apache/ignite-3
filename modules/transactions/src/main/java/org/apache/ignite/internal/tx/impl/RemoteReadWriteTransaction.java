@@ -23,14 +23,13 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +41,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     private static final String EXCEPTION_MSG = "Remote transaction should never be finished directly";
 
     private final UUID txId;
-    private final TablePartitionId commitGroupId;
+    private final ZonePartitionId commitGroupId;
     private final long timeout;
     private final UUID coord;
     private final String localNodeConsistentId;
@@ -59,7 +58,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
      * @param localNode Local node.
      * @param timeout The timeout.
      */
-    RemoteReadWriteTransaction(UUID txId, TablePartitionId commitGroupId, UUID coord, long token, ClusterNode localNode,
+    RemoteReadWriteTransaction(UUID txId, ZonePartitionId commitGroupId, UUID coord, long token, InternalClusterNode localNode,
             long timeout) {
         this.txId = txId;
         this.commitGroupId = commitGroupId;
@@ -90,6 +89,11 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        throw new AssertionError(EXCEPTION_MSG);
+    }
+
+    @Override
     public boolean isReadOnly() {
         return false;
     }
@@ -100,22 +104,22 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return enlistment;
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
         return false;
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ZonePartitionId commitPartition() {
         return commitGroupId;
     }
 
     @Override
-    public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
+    public void enlist(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
         // Validate primary replica.
         if (!localNodeConsistentId.equals(primaryNodeConsistentId)) {
             throw new TransactionException(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, "
@@ -152,8 +156,12 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full,
-            boolean timeoutExceeded) {
+    public CompletableFuture<Void> finish(
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    ) {
         return null;
     }
 

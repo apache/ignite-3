@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 
 class EventLogTest {
     private static final EventUser TEST_USER = EventUser.of("testuser", "basicAuthenticator");
-    private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(TEST_USER);
+    private static final Event TEST_EVENT = IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(TEST_USER);
     private static final String TEST_CHANNEL_NAME = "testChannel";
 
     private EventLog eventLog;
@@ -84,7 +84,7 @@ class EventLogTest {
         assertThat(container, hasItem(TEST_EVENT));
 
         // When log event with a type that is not supported by the channel.
-        Event event = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
+        Event event = IgniteEventType.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
 
         // Then nothing thrown.
         assertDoesNotThrow(() -> eventLog.log(event));
@@ -119,7 +119,7 @@ class EventLogTest {
         assertThat(container, hasItem(TEST_EVENT));
 
         // When log event with a type that is not supported by the channel.
-        Event event = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
+        Event event = IgniteEventType.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
 
         // Then nothing thrown.
         assertDoesNotThrow(() -> eventLog.log(event.getType(), () -> event));
@@ -141,7 +141,7 @@ class EventLogTest {
                 IllegalArgumentException.class,
                 () -> eventLog.log(
                         TEST_EVENT.getType(),
-                        () -> IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER)
+                        () -> IgniteEventType.CLIENT_CONNECTION_CLOSED.create(TEST_USER)
                 )
         );
     }
@@ -169,6 +169,14 @@ class EventLogTest {
                     .filter(channel -> channel.types().contains(igniteEventType))
                     .collect(HashSet::new, Set::add, Set::addAll);
         }
+
+        @Override
+        public void start() {
+        }
+
+        @Override
+        public void stop() {
+        }
     }
 
     private static class TestSinkRegistry implements SinkRegistry {
@@ -193,6 +201,14 @@ class EventLogTest {
                 return Set.of();
             }
             return Set.of(sinks.get(channel));
+        }
+
+        @Override
+        public void start() {
+        }
+
+        @Override
+        public void stop() {
         }
     }
 }

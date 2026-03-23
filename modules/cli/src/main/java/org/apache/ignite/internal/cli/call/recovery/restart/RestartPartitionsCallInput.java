@@ -28,11 +28,11 @@ public class RestartPartitionsCallInput implements CallInput {
 
     private final String zoneName;
 
-    private final String tableName;
-
     private final List<String> nodeNames;
 
     private final List<Integer> partitionIds;
+
+    private final boolean withCleanup;
 
     /** Cluster url. */
     public String clusterUrl() {
@@ -42,11 +42,6 @@ public class RestartPartitionsCallInput implements CallInput {
     /** Returns zone name to restart partitions of. */
     public String zoneName() {
         return zoneName;
-    }
-
-    /** Returns table name to restart partitions of. */
-    public String tableName() {
-        return tableName;
     }
 
     /** IDs of partitions to restart. Empty means "all partitions". */
@@ -59,27 +54,32 @@ public class RestartPartitionsCallInput implements CallInput {
         return nodeNames;
     }
 
+    /** Whether to restart partitions with cleanup. */
+    public boolean withCleanup() {
+        return withCleanup;
+    }
+
     private RestartPartitionsCallInput(
             String clusterUrl,
             String zoneName,
-            String tableName,
             @Nullable List<Integer> partitionIds,
-            @Nullable List<String> nodeNames
+            @Nullable List<String> nodeNames,
+            boolean withCleanup
     ) {
         this.clusterUrl = clusterUrl;
         this.zoneName = zoneName;
-        this.tableName = tableName;
         this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
         this.nodeNames = nodeNames == null ? List.of() : List.copyOf(nodeNames);
+        this.withCleanup = withCleanup;
     }
 
     /** Returns {@link RestartPartitionsCallInput} with specified arguments. */
     public static RestartPartitionsCallInput of(RestartPartitionsMixin restartArgs, String clusterUrl) {
         return builder()
                 .zoneName(restartArgs.zoneName())
-                .tableName(restartArgs.tableName())
                 .partitionIds(restartArgs.partitionIds())
                 .nodeNames(restartArgs.nodeNames())
+                .withCleanup(restartArgs.withCleanup())
                 .clusterUrl(clusterUrl)
                 .build();
     }
@@ -99,13 +99,13 @@ public class RestartPartitionsCallInput implements CallInput {
 
         private String zoneName;
 
-        private String tableName;
-
         @Nullable
         private List<Integer> partitionIds;
 
         @Nullable
         private List<String> nodeNames;
+
+        private boolean withCleanup;
 
         /** Set cluster URL. */
         RestartPartitionsCallInputBuilder clusterUrl(String clusterUrl) {
@@ -116,12 +116,6 @@ public class RestartPartitionsCallInput implements CallInput {
         /** Set name of zone to restart partitions of. */
         RestartPartitionsCallInputBuilder zoneName(String zoneName) {
             this.zoneName = zoneName;
-            return this;
-        }
-
-        /** Set name of table to restart partitions of. */
-        RestartPartitionsCallInputBuilder tableName(String tableName) {
-            this.tableName = tableName;
             return this;
         }
 
@@ -137,9 +131,15 @@ public class RestartPartitionsCallInput implements CallInput {
             return this;
         }
 
+        /** Set whether to restart partitions with cleanup. */
+        RestartPartitionsCallInputBuilder withCleanup(boolean withCleanup) {
+            this.withCleanup = withCleanup;
+            return this;
+        }
+
         /** Build {@link RestartPartitionsCallInput}. */
         RestartPartitionsCallInput build() {
-            return new RestartPartitionsCallInput(clusterUrl, zoneName, tableName, partitionIds, nodeNames);
+            return new RestartPartitionsCallInput(clusterUrl, zoneName, partitionIds, nodeNames, withCleanup);
         }
     }
 }

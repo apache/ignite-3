@@ -34,7 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -259,7 +260,7 @@ public final class InteractiveJobs {
                         case RETURN_WORKER_NAME:
                             return completedFuture(workerNodeName);
                         case RETURN_PARTITION_ID:
-                            return completedFuture(Integer.toString(((HashPartition) context.partition()).partitionId()));
+                            return completedFuture(Long.toString(context.partition().id()));
                         case GET_WORKER_NAME:
                             NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;
@@ -288,17 +289,21 @@ public final class InteractiveJobs {
         }
     }
 
-    public static InteractiveJobApi byNode(ClusterNode clusterNode) {
+    public static InteractiveJobApi byNode(InternalClusterNode clusterNode) {
         return new InteractiveJobApi(clusterNode);
+    }
+
+    public static InteractiveJobApi byNode(ClusterNode clusterNode) {
+        return new InteractiveJobApi(ClusterNodeImpl.fromPublicClusterNode(clusterNode));
     }
 
     /**
      * API for communication with {@link InteractiveJob}.
      */
     public static final class InteractiveJobApi {
-        private final ClusterNode node;
+        private final InternalClusterNode node;
 
-        private InteractiveJobApi(ClusterNode node) {
+        private InteractiveJobApi(InternalClusterNode node) {
             this.node = node;
         }
 

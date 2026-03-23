@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
+using Proto.MsgPack;
 using Table.StreamerReceiverExecutor;
 
 /// <summary>
@@ -31,9 +32,16 @@ using Table.StreamerReceiverExecutor;
 internal static class ComputeJobExecutor
 {
     /// <summary>
+    /// Trim warning.
+    /// </summary>
+    internal const string TrimWarning = "Loads types dynamically.";
+
+    /// <summary>
     /// Compute executor id.
     /// </summary>
     internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
+
+    private static readonly JobLoadContextCache Cache = new JobLoadContextCache();
 
     /// <summary>
     /// Executes compute job.
@@ -42,6 +50,7 @@ internal static class ComputeJobExecutor
     /// <param name="response">Response.</param>
     /// <param name="context">Context.</param>
     /// <returns>Task.</returns>
+    [RequiresUnreferencedCode(TrimWarning)]
     internal static async Task ExecuteJobAsync(
         PooledBuffer request,
         PooledArrayBuffer response,
@@ -55,21 +64,8 @@ internal static class ComputeJobExecutor
             var r = request.GetReader();
             long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
-
-            int cnt = r.ReadInt32();
-            List<string> deploymentUnitPaths = new List<string>(cnt);
-            for (int i = 0; i < cnt; i++)
-            {
-                deploymentUnitPaths.Add(r.ReadString());
-            }
-
-            bool retainDeploymentUnits = r.ReadBoolean();
-
-            if (retainDeploymentUnits)
-            {
-                // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
-                throw new NotSupportedException("Caching deployment units is not supported yet.");
-            }
+            List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(ref r);
+            _ = r.ReadBoolean(); // Retain deployment units.
 
             request.Position += r.Consumed;
 
@@ -77,15 +73,30 @@ internal static class ComputeJobExecutor
         }
     }
 
+    /// <summary>
+    /// Cleans up deployment units.
+    /// </summary>
+    /// <param name="request">Request.</param>
+    /// <returns>Whether units were cleaned up.</returns>
+    internal static async ValueTask<bool> UndeployUnits(PooledBuffer request)
+    {
+        return await Cache.UndeployUnits(Read()).ConfigureAwait(false);
+
+        List<string> Read()
+        {
+            var r = request.GetReader();
+            return ReadDeploymentUnitPaths(ref r);
+        }
+    }
+
+    [RequiresUnreferencedCode(TrimWarning)]
     private static async ValueTask ExecuteJobAsync(
         JobExecuteRequest req,
         PooledBuffer argBuf,
         PooledArrayBuffer resBuf,
         IgniteApiAccessor context)
     {
-        // Unload assemblies after job execution.
-        // TODO IGNITE-25257 Cache deployment units and JobLoadContext - see ComputeJobExecutorBenchmarks, expensive.
-        using JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
+        JobLoadContext jobLoadCtx = await Cache.GetOrAddJobLoadContext(req.DeploymentUnitPaths).ConfigureAwait(false);
 
         resBuf.MessageWriter.Write(0); // Response flags: success.
 
@@ -101,6 +112,20 @@ internal static class ComputeJobExecutor
 
         // TODO IGNITE-25153: Cancellation.
         await jobWrapper.ExecuteAsync(context, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Internal.")]
+    private static List<string> ReadDeploymentUnitPaths(ref MsgPackReader r)
+    {
+        int cnt = r.ReadInt32();
+        List<string> deploymentUnitPaths = new List<string>(cnt);
+
+        for (int i = 0; i < cnt; i++)
+        {
+            deploymentUnitPaths.Add(r.ReadString());
+        }
+
+        return deploymentUnitPaths;
     }
 
     [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "DTO.")]

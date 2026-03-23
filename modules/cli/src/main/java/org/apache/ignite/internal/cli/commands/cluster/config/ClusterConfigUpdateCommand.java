@@ -23,9 +23,8 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCall
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -36,28 +35,27 @@ import picocli.CommandLine.Mixin;
 public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     ClusterConfigUpdateCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot update cluster config"))
+                .input(buildCallInput())
+                .exceptionHandler(createHandler("Cannot update cluster config"))
         );
     }
 
     private ClusterConfigUpdateCallInput buildCallInput() {
         return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .build();
     }
 }

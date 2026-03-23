@@ -18,9 +18,11 @@
 namespace Apache.Ignite.Tests;
 
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Internal.Proto;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IgniteProxy"/>.
@@ -30,7 +32,7 @@ public class IgniteProxyTests : IgniteTestsBase
     [Test]
     public async Task TestBasicProxying()
     {
-        var addr = Client.GetConnections().First().Node.Address;
+        EndPoint addr = Client.GetConnections().First().Node.Address;
         using var proxy = new IgniteProxy(addr, "test");
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(proxy.Endpoint));
 
@@ -39,6 +41,8 @@ public class IgniteProxyTests : IgniteTestsBase
 
         Assert.Greater(tables.Count, 1);
         Assert.IsNotNull(table);
-        Assert.AreEqual(new[] { ClientOp.TablesGetQualified, ClientOp.TableGetQualified }, proxy.ClientOps);
+
+        var ops = proxy.ClientOps.Except([ClientOp.Heartbeat]).ToList();
+        Assert.AreEqual(new[] { ClientOp.TablesGetQualified, ClientOp.TableGetQualified }, ops);
     }
 }

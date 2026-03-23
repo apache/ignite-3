@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
+    using Internal.Linq;
     using Sql;
     using Transactions;
 
@@ -51,6 +53,17 @@ namespace Apache.Ignite.Table
         /// The task result is <c>true</c> if a value exists for the specified key, and <c>false</c> otherwise.
         /// </returns>
         Task<bool> ContainsKeyAsync(ITransaction? transaction, T key);
+
+        /// <summary>
+        /// Determines if the table contains entries for all specified keys.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="keys">Collection of records with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result is <c>true</c> if values exist for all specified keys, and <c>false</c> otherwise.
+        /// </returns>
+        Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<T> keys);
 
         /// <summary>
         /// Gets multiple records by keys.
@@ -215,6 +228,7 @@ namespace Apache.Ignite.Table
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="options">Options.</param>
         /// <returns><see cref="IQueryable{T}"/>.</returns>
+        [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
         IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
     }
 }

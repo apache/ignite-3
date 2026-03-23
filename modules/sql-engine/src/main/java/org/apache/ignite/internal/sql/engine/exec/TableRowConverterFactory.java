@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.BitSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,9 +25,9 @@ import org.jetbrains.annotations.Nullable;
  */
 @FunctionalInterface
 public interface TableRowConverterFactory {
-    TableRowConverter create(@Nullable BitSet requiredColumns);
+    TableRowConverter create(int @Nullable [] projection);
 
-    default TableRowConverter create(BitSet requiredColumns, int partId) {
-        return create(requiredColumns);
+    default TableRowConverter create(int @Nullable [] projection, int partId) {
+        return create(projection);
     }
 }

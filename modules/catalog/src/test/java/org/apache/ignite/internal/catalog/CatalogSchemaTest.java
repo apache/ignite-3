@@ -267,7 +267,6 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         assertNotEquals(publicSchema1.id(), publicSchema2.id());
     }
 
-
     private Catalog latestCatalog() {
         Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 

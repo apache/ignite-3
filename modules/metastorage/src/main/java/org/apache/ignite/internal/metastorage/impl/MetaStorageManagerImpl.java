@@ -76,6 +76,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.NotificationEnqueuedListener;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
@@ -126,7 +128,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
+public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance, WatchProcessorAccess {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
@@ -343,6 +345,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         electionListeners.add(listener);
     }
 
+    /** Registers a notification enqueued listener. */
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        storage.registerNotificationEnqueuedListener(listener);
+    }
+
     private CompletableFuture<?> recover(MetaStorageService service) {
         return inBusyLockAsync(busyLock, () -> {
             service.currentRevisions()
@@ -545,7 +552,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Peer localPeer,
             MetaStorageInfo metaStorageInfo
     ) {
-        MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
+        MetaStorageListener raftListener = new MetaStorageListener(
+                storage,
+                clock,
+                clusterTime,
+                this::onConfigurationCommitted,
+                metaStorageMetricSource::onIdempotentCacheSizeChange
+        );
 
         try {
             return raftMgr.startSystemRaftGroupNodeAndWaitNodeReady(
@@ -658,7 +671,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 LOG.info("Lonely leader has been established, changing voting set to target set: {}", currentState.targetPeers);
 
                 PeersAndLearners newConfig = PeersAndLearners.fromConsistentIds(currentState.targetPeers);
-                raftService.changePeersAndLearners(newConfig, configuration.term())
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                raftService.changePeersAndLearners(newConfig, configuration.term(), 0)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
@@ -808,25 +822,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return nullCompletedFuture();
     }
 
-    private static void cleanupMetaStorageServiceFuture(CompletableFuture<MetaStorageServiceImpl> future) {
-        future.completeExceptionally(new NodeStoppingException());
-
-        if (future.isCancelled() || future.isCompletedExceptionally()) {
-            return;
-        }
-
-        assert future.isDone();
-
-        MetaStorageServiceImpl res = future.join();
-
-        assert res != null;
-
-        res.close();
-    }
-
     @Override
     public long appliedRevision() {
         return appliedRevision;
+    }
+
+    @Override
+    public CompletableFuture<Long> currentRevision() {
+        return metaStorageSvcFut.thenCompose(MetaStorageService::currentRevisions)
+                .thenApply(RevisionsInfo::revision);
     }
 
     @Override
@@ -1116,7 +1120,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private void onRevisionApplied(long revision) {
+    protected void onRevisionApplied(long revision) {
         appliedRevision = revision;
     }
 
@@ -1166,7 +1170,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 RaftNodeId raftNodeId = raftNodeId();
                 PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
 
-                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration, 0);
             }
         });
     }
@@ -1176,16 +1181,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Function<RaftGroupService, CompletableFuture<T>> action
     ) {
         try {
-            RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration);
+            RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration, true);
 
             return action.apply(raftGroupService)
-                    .whenComplete((res, ex) -> {
+                    // This callback should be executed asynchronously due to
+                    // its code might be done under a busyLock of the raftGroupService,
+                    // and so, it results in a deadlock on shutting down the service.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-25787
+                    .whenCompleteAsync((res, ex) -> {
                         if (ex != null) {
                             LOG.error("One-off raft group action on {} failed", ex, raftClientConfiguration);
                         }
 
                         raftGroupService.shutdown();
-                    });
+                    }, ioExecutor);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
@@ -1391,5 +1400,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
         return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.sendCompactionCommand(compactionRevision)));
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark component as stopping.
+     */
+    public void markAsStopping() {
+        metaStorageSvcFut.thenAccept(MetaStorageServiceImpl::markAsStopping);
+    }
+
+    @Override
+    public Executor watchExecutor() {
+        return storage.watchExecutor();
     }
 }

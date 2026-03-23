@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.raft;
 
 import static java.lang.Math.max;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
+import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
 import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STATE_COMMAND;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -40,7 +42,6 @@ import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCom
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.WriteIntentSwitchCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.raft.Command;
@@ -111,6 +112,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
+    private final ClockService clockService;
+
     /** Constructor. */
     public ZonePartitionRaftListener(
             ZonePartitionId zonePartitionId,
@@ -119,13 +122,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             PartitionsSnapshots partitionsSnapshots,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            ClockService clockService
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
         this.partitionsSnapshots = partitionsSnapshots;
         this.txStateStorage = txStatePartitionStorage;
-        this.partitionKey = new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+        this.partitionKey = new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+        this.clockService = clockService;
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
@@ -133,12 +138,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.commandHandlers = new CommandHandlers.Builder()
                 .addHandler(
                         PartitionReplicationMessageGroup.GROUP_TYPE,
-                        Commands.FINISH_TX,
+                        Commands.FINISH_TX_V2,
                         new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager))
                 .addHandler(
                         PartitionReplicationMessageGroup.GROUP_TYPE,
-                        Commands.WRITE_INTENT_SWITCH,
-                        new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager))
+                        Commands.WRITE_INTENT_SWITCH_V2,
+                        new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager, txStatePartitionStorage))
                 .addHandler(
                         TxMessageGroup.GROUP_TYPE,
                         VACUUM_TX_STATE_COMMAND,
@@ -161,13 +166,13 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             try {
                 processWriteCommand(clo);
             } catch (Throwable t) {
-                LOG.error(
-                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                        t,
-                        clo.index(), clo.index(), clo.command()
-                );
-
                 clo.result(t);
+
+                LOG.error(
+                        "Failed to process write command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.term(), clo.command()
+                );
 
                 throw t;
             }
@@ -206,13 +211,39 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                             safeTimestamp
                     );
                 } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
-                } else if (command instanceof SafeTimeSyncCommand) {
-                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
-                } else if (command instanceof PrimaryReplicaChangeCommand) {
-                    result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
+                    CrossTableCommandResult crossTableResult = processCrossTableProcessorsCommand(
+                            command,
+                            commandIndex,
+                            commandTerm,
+                            safeTimestamp
+                    );
+                    result = crossTableResult.result;
 
-                    if (updateLeaseInfoInTxStorage((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm)) {
+                    if (!crossTableResult.hadAnyTableProcessor) {
+                        // We MUST bump information about last updated index+term at least in one storage.
+                        // See a comment in #onWrite() for explanation.
+                        updateTxStateStorageLastAppliedIfNotStale(commandIndex, commandTerm);
+                    }
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    result = handleSafeTimeSyncCommand(commandIndex, commandTerm);
+                } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    PrimaryReplicaChangeCommand cmd = (PrimaryReplicaChangeCommand) command;
+                    LOG.debug("Processing PrimaryReplicaChangeCommand [groupId={}, commandIndex={}, commandTerm={}, "
+                                    + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
+                            partitionKey.toReplicationGroupId(), commandIndex, commandTerm,
+                            cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+
+                    CrossTableCommandResult crossTableResult = processCrossTableProcessorsCommand(
+                            command,
+                            commandIndex,
+                            commandTerm,
+                            safeTimestamp
+                    );
+                    result = crossTableResult.result;
+
+                    if (updateLeaseInfoInTxStorage(cmd, commandIndex, commandTerm)) {
+                        LOG.debug("Updated lease info in tx storage [groupId={}, commandIndex={}, leaseStartTime={}]",
+                                partitionKey.toReplicationGroupId(), commandIndex, cmd.leaseStartTime());
                         result = EMPTY_APPLIED_RESULT;
                     }
                 } else {
@@ -221,7 +252,9 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                             commandHandlers.handler(command.groupType(), command.messageType());
 
                     if (commandHandler == null) {
-                        LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+                        LOG.info("Message type {} is not supported by the zone partition RAFT listener yet", command.getClass());
+
+                        updateTxStateStorageLastAppliedIfNotStale(commandIndex, commandTerm);
 
                         result = EMPTY_APPLIED_RESULT;
                     } else {
@@ -232,10 +265,19 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 if (result.wasApplied()) {
                     // Adjust safe time before completing update to reduce waiting.
                     if (safeTimestamp != null) {
-                        updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
+                        try {
+                            clockService.updateClock(safeTimestamp, false);
+                            safeTimeTracker.update(safeTimestamp, commandIndex, commandTerm, command);
+                        } catch (TrackerClosedException ignored) {
+                            // Ignored.
+                        }
                     }
 
-                    updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
+                    try {
+                        storageIndexTracker.update(commandIndex, null);
+                    } catch (TrackerClosedException ignored) {
+                        // Ignored.
+                    }
                 }
 
                 lastAppliedIndex = max(lastAppliedIndex, commandIndex);
@@ -259,14 +301,14 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @param safeTimestamp Safe timestamp.
      * @return Tuple with the result of the command processing and a flag indicating whether the command was applied.
      */
-    private CommandResult processCrossTableProcessorsCommand(
+    private CrossTableCommandResult processCrossTableProcessorsCommand(
             WriteCommand command,
             long commandIndex,
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
         if (tableProcessors.isEmpty()) {
-            return new CommandResult(null, lastAppliedIndex < commandIndex);
+            return new CrossTableCommandResult(false, new CommandResult(null, commandIndex > lastAppliedIndex));
         }
 
         boolean wasApplied = false;
@@ -277,7 +319,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             wasApplied = wasApplied || r.wasApplied();
         }
 
-        return new CommandResult(null, wasApplied);
+        return new CrossTableCommandResult(true, new CommandResult(null, wasApplied));
     }
 
     /**
@@ -306,10 +348,20 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             LOG.warn("Table processor for table ID {} not found. Command will be ignored: {}",
                     tableId, command.toStringForLightLogging());
 
+            // We MUST bump information about last updated index+term.
+            // See a comment in #onWrite() for explanation.
+            updateTxStateStorageLastAppliedIfNotStale(commandIndex, commandTerm);
+
             return EMPTY_APPLIED_RESULT;
         }
 
         return tableProcessor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
+    }
+
+    private void updateTxStateStorageLastAppliedIfNotStale(long commandIndex, long commandTerm) {
+        if (commandIndex > txStateStorage.lastAppliedIndex()) {
+            txStateStorage.lastApplied(commandIndex, commandTerm);
+        }
     }
 
     private boolean updateLeaseInfoInTxStorage(PrimaryReplicaChangeCommand command, long commandIndex, long commandTerm) {
@@ -347,7 +399,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             this.lastAppliedIndex = max(this.lastAppliedIndex, lastAppliedIndex);
             this.lastAppliedTerm = max(this.lastAppliedTerm, lastAppliedTerm);
 
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, lastAppliedIndex);
+            try {
+                storageIndexTracker.update(lastAppliedIndex, null);
+            } catch (TrackerClosedException ignored) {
+                // Ignored.
+            }
         }
     }
 
@@ -478,14 +534,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
-    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T, Void> tracker,
-            T newValue
-    ) {
-        try {
-            tracker.update(newValue, null);
-        } catch (TrackerClosedException ignored) {
-            // No-op.
+    /**
+     * Returns true if there are no table processors, false otherwise.
+     */
+    public boolean areTableRaftProcessorsEmpty() {
+        synchronized (tableProcessorsStateLock) {
+            return tableProcessors.isEmpty();
         }
     }
 
@@ -497,8 +551,37 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
 
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
+     */
+    private CommandResult handleSafeTimeSyncCommand(long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return EMPTY_NOT_APPLIED_RESULT;
+        }
+
+        // We MUST bump information about last updated index+term.
+        // See a comment in #onWrite() for explanation.
+        updateTxStateStorageLastAppliedIfNotStale(commandIndex, commandTerm);
+
+        return EMPTY_APPLIED_RESULT;
+    }
+
     @TestOnly
     public HybridTimestamp currentSafeTime() {
         return safeTimeTracker.current();
+    }
+
+    private static class CrossTableCommandResult {
+        private final boolean hadAnyTableProcessor;
+        private final CommandResult result;
+
+        private CrossTableCommandResult(boolean hadAnyTableProcessor, CommandResult result) {
+            this.hadAnyTableProcessor = hadAnyTableProcessor;
+            this.result = result;
+        }
     }
 }

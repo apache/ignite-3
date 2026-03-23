@@ -19,6 +19,7 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-code-deployment'
 
@@ -39,10 +40,6 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-schema')
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation libs.awaitility
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-metastorage')
@@ -52,10 +49,12 @@ dependencies {
     testImplementation testFixtures(project(':ignite-failure-handler'))
 
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+
+    testFixturesImplementation project(":ignite-api")
 }

@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -73,6 +74,9 @@ public class AbstractMultiNodeBenchmark {
     protected static IgniteImpl igniteImpl;
 
     @Param({"false"})
+    protected boolean remote;
+
+    @Param({"false"})
     private boolean fsync;
 
     @Nullable
@@ -86,7 +90,7 @@ public class AbstractMultiNodeBenchmark {
     @Setup
     public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
-        if (!remote()) {
+        if (!remote) {
             startCluster();
         }
 
@@ -107,7 +111,7 @@ public class AbstractMultiNodeBenchmark {
         var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " (partitions " + partitionCount()
                 + ", replicas " + replicaCount() + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
 
-        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createZoneStatement)) {
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(createZoneStatement)) {
             // No-op.
         }
     }
@@ -148,7 +152,7 @@ public class AbstractMultiNodeBenchmark {
 
         createTableStatement += "\nZONE " + ZONE_NAME;
 
-        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createTableStatement)) {
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(createTableStatement)) {
             // No-op.
         }
     }
@@ -190,8 +194,12 @@ public class AbstractMultiNodeBenchmark {
         IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
+    public IgniteImpl node(int idx) {
+        return unwrapIgniteImpl(igniteServers.get(idx).api());
+    }
+
     private void startCluster() throws Exception {
-        if (remote()) {
+        if (remote) {
             throw new AssertionError("Can't start the cluster in remote mode");
         }
 
@@ -253,6 +261,17 @@ public class AbstractMultiNodeBenchmark {
         }
     }
 
+    /**
+     * Gets client connector addresses for the specified nodes.
+     *
+     * @return Array of client addresses.
+     */
+    static String[] getServerEndpoints(int clusterNodes) {
+        return IntStream.range(0, clusterNodes)
+                .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
+                .toArray(String[]::new);
+    }
+
     private static String nodeName(int port) {
         return "node_" + port;
     }
@@ -279,9 +298,5 @@ public class AbstractMultiNodeBenchmark {
 
     protected int replicaCount() {
         return CatalogUtils.DEFAULT_REPLICA_COUNT;
-    }
-
-    protected boolean remote() {
-        return false;
     }
 }

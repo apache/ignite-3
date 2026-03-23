@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Primary key that uses hash index. */
 public class TableHashPrimaryKey extends TablePrimaryKey {
@@ -27,8 +28,8 @@ public class TableHashPrimaryKey extends TablePrimaryKey {
      *
      * @param columns List of columns.
      */
-    private TableHashPrimaryKey(List<String> columns) {
-        super(columns);
+    private TableHashPrimaryKey(@Nullable String name, List<String> columns) {
+        super(name, columns);
     }
 
     /** Returns builder to create a primary key that uses a hash index. */
@@ -44,7 +45,7 @@ public class TableHashPrimaryKey extends TablePrimaryKey {
 
     /** Builder to create a primary index that uses a hash index. */
     public static class Builder extends TablePrimaryKeyBuilder<Builder> {
-
+        private @Nullable String name;
         private List<String> columns;
 
         Builder() {
@@ -58,10 +59,17 @@ public class TableHashPrimaryKey extends TablePrimaryKey {
             return this;
         }
 
+        /** {@inheritDoc} */
+        @Override
+        public Builder name(@Nullable String name) {
+            this.name = name;
+            return this;
+        }
+
         /** Crates a primary key that uses a hash index. */
         @Override
         public TableHashPrimaryKey build() {
-            return new TableHashPrimaryKey(columns);
+            return new TableHashPrimaryKey(name, columns);
         }
     }
 }

@@ -60,9 +60,13 @@ public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLear
             addingLearners.add(peer);
         }
 
+        assert request.sequenceToken() != null: "Sequence token is null";
+
+        long sequenceToken = request.sequenceToken();
+
         LOG.info("Receive AddLearnersRequest to {} from {}, adding {}.", ctx.node.getNodeId(),
             done.getRpcCtx().getRemoteAddress(), addingLearners);
-        ctx.node.addLearners(addingLearners, status -> {
+        ctx.node.addLearners(addingLearners, sequenceToken, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }

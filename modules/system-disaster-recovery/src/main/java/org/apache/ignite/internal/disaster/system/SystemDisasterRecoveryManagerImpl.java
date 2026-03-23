@@ -57,12 +57,13 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetastorageGroupMaintenance;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -129,10 +130,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return nullCompletedFuture();
     }
 
-    private void handleResetClusterMessage(ResetClusterMessage message, ClusterNode sender, long correlationId) {
+    private void handleResetClusterMessage(ResetClusterMessage message, InternalClusterNode sender, long correlationId) {
         restartExecutor.execute(() -> {
             storage.saveResetClusterMessage(message);
 
+            // TODO: IGNITE-26396 A node restart might not send a message to the initiator.
             messagingService.respond(sender, successResponseMessage(), correlationId)
                     .thenRunAsync(() -> {
                         if (!thisNodeName.equals(sender.name())) {
@@ -151,7 +153,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return cmgMessagesFactory.successResponseMessage().build();
     }
 
-    private void handleStartMetastorageRepairRequest(ClusterNode sender, long correlationId) {
+    private void handleStartMetastorageRepairRequest(InternalClusterNode sender, long correlationId) {
         metastorageGroupMaintenance.raftNodeIndex()
                 .thenAccept(indexWithTerm -> {
                     storage.saveWitnessedMetastorageRepairClusterId(requiredClusterId());
@@ -174,7 +176,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return requireNonNull(clusterIdSupplier.clusterId(), "No clusterId yet");
     }
 
-    private void handleBecomeMetastorageLeaderMessage(BecomeMetastorageLeaderMessage message, ClusterNode sender, long correlationId) {
+    private void handleBecomeMetastorageLeaderMessage(
+            BecomeMetastorageLeaderMessage message,
+            InternalClusterNode sender,
+            long correlationId
+    ) {
         nullCompletedFuture()
                 .thenRun(() -> {
                     metastorageGroupMaintenance.initiateForcefulVotersChange(message.termBeforeChange(), message.targetVotingSet());
@@ -235,7 +241,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             Collection<String> proposedCmgNodeNames,
             @Nullable Integer metastorageReplicationFactor
     ) {
-        Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
+        Collection<InternalClusterNode> nodesInTopology = topologyService.allMembers();
 
         ensureNoRepetitions(proposedCmgNodeNames);
         ensureContainsThisNodeName(proposedCmgNodeNames);
@@ -247,6 +253,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
+
+        if (metastorageReplicationFactor != null) {
+            ensureNoMgMajorityIsOnline(clusterState, nodesInTopology);
+        }
+
         ResetClusterMessage message = buildResetClusterMessageForReset(
                 proposedCmgNodeNames,
                 clusterState,
@@ -299,15 +310,15 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private void ensureInitConfigApplied() {
         if (!storage.isInitConfigApplied()) {
-            throw new ClusterResetException("Initial configuration is not applied and cannot serve as a cluster reset conductor.");
+            throw new ClusterResetException("Initial configuration is not applied, so the node cannot serve as a cluster reset conductor.");
         }
     }
 
     private static void ensureAllProposedCmgNodesAreInTopology(
             Collection<String> proposedCmgNodeNames,
-            Collection<ClusterNode> nodesInTopology
+            Collection<InternalClusterNode> nodesInTopology
     ) {
-        Set<String> namesOfNodesInTopology = nodesInTopology.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> namesOfNodesInTopology = nodesInTopology.stream().map(InternalClusterNode::name).collect(toSet());
 
         Set<String> notInTopology = new HashSet<>(proposedCmgNodeNames);
         notInTopology.removeAll(namesOfNodesInTopology);
@@ -319,7 +330,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private static void ensureReplicationFactorFitsTopologyIfGiven(
             @Nullable Integer metastorageReplicationFactor,
-            Collection<ClusterNode> nodesInTopology
+            Collection<InternalClusterNode> nodesInTopology
     ) {
         if (metastorageReplicationFactor != null && metastorageReplicationFactor > nodesInTopology.size()) {
             throw new ClusterResetException(
@@ -336,11 +347,29 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return clusterState;
     }
 
+    private void ensureNoMgMajorityIsOnline(ClusterState clusterState, Collection<InternalClusterNode> nodesInTopology) {
+        Set<String> namesOfNodesInTopology = nodesInTopology.stream()
+                .map(InternalClusterNode::name)
+                .collect(toSet());
+
+        Set<String> nodes = new HashSet<>(clusterState.metaStorageNodes());
+        nodes.retainAll(namesOfNodesInTopology);
+
+        int majority = majoritySizeFor(clusterState.metaStorageNodes().size());
+        if (nodes.size() >= majority) {
+            throw new ClusterResetException(String.format(
+                    "Majority repair is rejected because majority of Metastorage nodes are online [metastorageNodes=%s, onlineNodes=%s].",
+                    clusterState.metaStorageNodes(),
+                    namesOfNodesInTopology
+            ));
+        }
+    }
+
     private ResetClusterMessage buildResetClusterMessageForReset(
             Collection<String> proposedCmgNodeNames,
             ClusterState clusterState,
             @Nullable Integer metastorageReplicationFactor,
-            Collection<ClusterNode> nodesInTopology
+            Collection<InternalClusterNode> nodesInTopology
     ) {
         List<UUID> formerClusterIds = new ArrayList<>(requireNonNullElse(clusterState.formerClusterIds(), new ArrayList<>()));
         formerClusterIds.add(clusterState.clusterTag().clusterId());
@@ -356,18 +385,18 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         if (metastorageReplicationFactor != null) {
             builder.metastorageReplicationFactor(metastorageReplicationFactor);
             builder.conductor(thisNodeName);
-            builder.participatingNodes(nodesInTopology.stream().map(ClusterNode::name).collect(toSet()));
+            builder.participatingNodes(nodesInTopology.stream().map(InternalClusterNode::name).collect(toSet()));
         }
 
         return builder.build();
     }
 
     private Map<String, CompletableFuture<NetworkMessage>> sendResetClusterMessageTo(
-            Collection<ClusterNode> nodesInTopology,
+            Collection<InternalClusterNode> nodesInTopology,
             ResetClusterMessage message
     ) {
         Map<String, CompletableFuture<NetworkMessage>> responseFutures = new HashMap<>();
-        for (ClusterNode node : nodesInTopology) {
+        for (InternalClusterNode node : nodesInTopology) {
             responseFutures.put(node.name(), messagingService.invoke(node, message, 10_000));
         }
         return responseFutures;
@@ -408,7 +437,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .filter(CompletableFutures::isCompletedSuccessfully)
                 .count();
 
-        return successes >= (futuresFromNewCmg.size() + 1) / 2;
+        return successes >= majoritySizeFor(futuresFromNewCmg.size());
+    }
+
+    private static int majoritySizeFor(int votingMembersCount) {
+        return votingMembersCount / 2 + 1;
     }
 
     private static String errorMessageForNotEnoughSuccesses(
@@ -452,7 +485,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             throw new MigrateException("Migration can only happen from old cluster to new one, not the other way around");
         }
 
-        Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
+        Collection<InternalClusterNode> nodesInTopology = topologyService.allMembers();
 
         ResetClusterMessage message = buildResetClusterMessageForMigrate(targetClusterState);
 
@@ -522,6 +555,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
             thread.setName(threadNamePrefix + thread.getId());
             thread.setDaemon(true);
+            thread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
 
             thread.start();
         }

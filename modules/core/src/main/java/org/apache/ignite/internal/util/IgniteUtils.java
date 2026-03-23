@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -41,13 +42,16 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,6 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,12 +70,15 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -85,7 +93,6 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 
@@ -97,6 +104,9 @@ public class IgniteUtils {
 
     /** Indicates that assertions are enabled. */
     private static final boolean assertionsEnabled = IgniteUtils.class.desiredAssertionStatus();
+
+    /** Alphanumeric with underscore regexp pattern. */
+    private static final Pattern ALPHANUMERIC_UNDERSCORE_PATTERN = Pattern.compile("^[a-zA-Z_0-9]+$");
 
     /**
      * Gets the current monotonic time in milliseconds. This is the amount of milliseconds which passed from an arbitrary moment in the
@@ -122,10 +132,19 @@ public class IgniteUtils {
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
 
-    /**
-     * Root package for JMX MBeans.
-     */
+    /** Root package for JMX MBeans. */
     private static final String JMX_MBEAN_PACKAGE = "org.apache.ignite";
+
+    /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
+    public static final String JMX_METRIC_GROUP_TYPE = "metrics";
+
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
+    public static final String NULL_TO_PRIMITIVE_ERROR_MESSAGE =
+            "The value of field at index {} is null and cannot be converted to a primitive data type.";
+
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
+    public static final String NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE =
+            "The value of field '{}' is null and cannot be converted to a primitive data type.";
 
     /**
      * Get JDK version.
@@ -217,6 +236,17 @@ public class IgniteUtils {
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
         return new HashMap<>(capacity(expSize));
+    }
+
+    /**
+     * Creates new {@link HashSet} with expected size.
+     *
+     * @param expSize Expected size of the created set.
+     * @param <E> the type of elements maintained by this set.
+     * @return New map.
+     */
+    public static <E> HashSet<E> newHashSet(int expSize) {
+        return new HashSet<>(capacity(expSize));
     }
 
     /**
@@ -827,7 +857,6 @@ public class IgniteUtils {
         }
     }
 
-
     /**
      * Stops workers from given collection and waits for their completion.
      *
@@ -858,9 +887,9 @@ public class IgniteUtils {
      * @param fn Function to run.
      * @param <T> Type of returned value from {@code fn}.
      * @return Result of the provided function.
-     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteBusyLock#enterBusy()} failed.
      */
-    public static <T> T inBusyLock(IgniteSpinBusyLock busyLock, Supplier<T> fn) {
+    public static <T> T inBusyLock(IgniteBusyLock busyLock, Supplier<T> fn) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -877,9 +906,9 @@ public class IgniteUtils {
      * @param busyLock Component's busy lock.
      * @param fn Function to run.
      * @return Result of the provided function.
-     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteBusyLock#enterBusy()} failed.
      */
-    public static int inBusyLock(IgniteSpinBusyLock busyLock, IntSupplier fn) {
+    public static int inBusyLock(IgniteBusyLock busyLock, IntSupplier fn) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -895,9 +924,9 @@ public class IgniteUtils {
      *
      * @param busyLock Component's busy lock.
      * @param fn Runnable to run.
-     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteSpinBusyLock#enterBusy()} failed.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if {@link IgniteBusyLock#enterBusy()} failed.
      */
-    public static void inBusyLock(IgniteSpinBusyLock busyLock, Runnable fn) {
+    public static void inBusyLock(IgniteBusyLock busyLock, Runnable fn) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -915,9 +944,9 @@ public class IgniteUtils {
      * @param busyLock Component's busy lock.
      * @param fn Function to run.
      * @return Future returned from the {@code fn}, or future with the {@link NodeStoppingException} if
-     *         {@link IgniteSpinBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
+     *         {@link IgniteBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
      */
-    public static <T> CompletableFuture<T> inBusyLockAsync(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
+    public static <T> CompletableFuture<T> inBusyLockAsync(IgniteBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -932,13 +961,13 @@ public class IgniteUtils {
     }
 
     /**
-     * Method that runs the provided {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just
+     * Method that runs the provided {@code fn} in {@code busyLock} if {@link IgniteBusyLock#enterBusy()} succeed. Otherwise it just
      * silently returns.
      *
      * @param busyLock Component's busy lock.
      * @param fn Runnable to run.
      */
-    public static void inBusyLockSafe(IgniteSpinBusyLock busyLock, Runnable fn) {
+    public static void inBusyLockSafe(IgniteBusyLock busyLock, Runnable fn) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -1023,15 +1052,63 @@ public class IgniteUtils {
     }
 
     /**
-     * Produce new MBean name according to received group and name.
+     * Constructs JMX object name with the given properties.
      *
-     * @param group pkg:group=value part of MBean name.
-     * @param name pkg:name=value part of MBean name.
-     * @return new ObjectName.
-     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     * @param nodeName Ignite node name.
+     * @param group Name of the group.
+     * @param name Name of mbean.
+     *
+     * @return JMX object name.
+     * @throws MalformedObjectNameException Thrown in case of any errors.
      */
-    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
-        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
+    public static ObjectName makeMbeanName(
+            @Nullable String nodeName,
+            @Nullable String group,
+            String name
+    ) throws MalformedObjectNameException {
+        var sb = new StringBuilder(JMX_MBEAN_PACKAGE + ':');
+
+        if (nodeName != null && !nodeName.isEmpty()) {
+            sb.append("nodeName=").append(nodeName).append(',');
+        }
+
+        sb.append("type=").append(JMX_METRIC_GROUP_TYPE).append(',');
+
+        if (group != null && !group.isEmpty()) {
+            sb.append("group=").append(escapeObjectNameValue(group)).append(',');
+
+            if (name.startsWith(group)) {
+                name = name.substring(group.length() + 1);
+            }
+        }
+
+        sb.append("name=").append(escapeObjectNameValue(name));
+
+        return new ObjectName(sb.toString());
+    }
+
+    /**
+     * Escapes the given string to be used as a value in the ObjectName syntax.
+     *
+     * @param s A string to be escape.
+     * @return An escaped string.
+     */
+    private static String escapeObjectNameValue(String s) {
+        if (alphanumericUnderscore(s)) {
+            return s;
+        }
+
+        return '\"' + s.replaceAll("[\\\\\"?*]", "\\\\$0") + '\"';
+    }
+
+    /**
+     * Returns {@code true} when the given string contains only alphanumeric and underscore symbols, {@code false} otherwise.
+     *
+     * @param s String to check.
+     * @return {@code true} if given string contains only alphanumeric and underscore symbols.
+     */
+    public static boolean alphanumericUnderscore(String s) {
+        return ALPHANUMERIC_UNDERSCORE_PATTERN.matcher(s).matches();
     }
 
     /**
@@ -1110,50 +1187,45 @@ public class IgniteUtils {
     }
 
     /**
-     * Retries operation until it succeeds or fails with exception that is different than the given.
+     * Retries operation until it succeeds or timeout occurs.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
-     *         stopped.
+     * @param timeout Timeout in milliseconds.
      * @param executor Executor to make retry in.
      * @return Future that is completed when operation is successful or failed with other exception than the given.
      */
-    public static <T> CompletableFuture<T> retryOperationUntilSuccess(
+    public static <T> CompletableFuture<T> retryOperationUntilSuccessOrTimeout(
             Supplier<CompletableFuture<T>> operation,
-            Function<Throwable, Boolean> stopRetryCondition,
+            long timeout,
             Executor executor
     ) {
-        CompletableFuture<T> fut = new CompletableFuture<>();
+        CompletableFuture<T> futureWithTimeout = new CompletableFuture<T>().orTimeout(timeout, TimeUnit.MILLISECONDS);
 
-        retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor);
+        retryOperationUntilSuccessOrFutureDone(operation, futureWithTimeout, executor);
 
-        return fut;
+        return futureWithTimeout;
     }
 
     /**
-     * Retries operation until it succeeds or fails with exception that is different than the given.
+     * Retries operation until it succeeds or provided future is done.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
-     *         stopped.
+     * @param future Future to track.
      * @param executor Executor to make retry in.
-     * @param fut Future that is completed when operation is successful or failed with other exception than the given.
      */
-    public static <T> void retryOperationUntilSuccess(
+    private static <T> void retryOperationUntilSuccessOrFutureDone(
             Supplier<CompletableFuture<T>> operation,
-            Function<Throwable, Boolean> stopRetryCondition,
-            CompletableFuture<T> fut,
+            CompletableFuture<T> future,
             Executor executor
     ) {
+
         operation.get()
                 .whenComplete((res, e) -> {
-                    if (e == null) {
-                        fut.complete(res);
-                    } else {
-                        if (stopRetryCondition.apply(e)) {
-                            fut.completeExceptionally(e);
+                    if (!future.isDone()) {
+                        if (e == null) {
+                            future.complete(res);
                         } else {
-                            executor.execute(() -> retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor));
+                            executor.execute(() -> retryOperationUntilSuccessOrFutureDone(operation, future, executor));
                         }
                     }
                 });
@@ -1246,6 +1318,58 @@ public class IgniteUtils {
         }
     }
 
+    /**
+     * Makes array from the given arguments, if any argument is an array itself, its elements are added into result instead of it.
+     *
+     * @param arguments Arguments.
+     * @return Flat array.
+     */
+    public static Object[] flatArray(Object... arguments) {
+        List<Object> list = new ArrayList<>();
+
+        for (Object arg : arguments) {
+            if (arg != null && arg.getClass().isArray()) {
+                int length = Array.getLength(arg);
+                for (int i = 0; i < length; i++) {
+                    list.add(Array.get(arg, i));
+                }
+            } else {
+                list.add(arg);
+            }
+        }
+
+        return list.toArray();
+    }
+
+    /**
+     * Schedules the provided operation to be retried after the specified delay.
+     *
+     * @param operation Operation.
+     * @param delay Delay.
+     * @param unit Time unit of the delay.
+     * @param executor Executor to schedule the retry in.
+     * @return Future that is completed when the operation is successful or failed with an exception.
+     */
+    public static <T> CompletableFuture<T> scheduleRetry(
+            Callable<CompletableFuture<T>> operation,
+            long delay,
+            TimeUnit unit,
+            ScheduledExecutorService executor
+    ) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+
+        executor.schedule(() -> operation.call()
+                .whenComplete((res, e) -> {
+                    if (e == null) {
+                        future.complete(res);
+                    } else {
+                        future.completeExceptionally(e);
+                    }
+                }), delay, unit);
+
+        return future;
+    }
+
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
@@ -1273,20 +1397,6 @@ public class IgniteUtils {
      */
     public static CompletableFuture<Void> startAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
         return startAsync(componentContext, components.stream());
-    }
-
-    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
-        return allOf(components
-                .filter(Objects::nonNull)
-                .map(igniteComponent -> {
-                    try {
-                        return igniteComponent.stopAsync(componentContext);
-                    } catch (Throwable e) {
-                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
-                        return failedFuture(e);
-                    }
-                })
-                .toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -1317,7 +1427,7 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
-        return stopAsync(componentContext, Stream.of(components));
+        return stopAsync(componentContext, Arrays.asList(components));
     }
 
     /**
@@ -1328,7 +1438,25 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
-        return stopAsync(componentContext, components.stream());
+        try {
+            closeAll(components.stream().filter(Objects::nonNull).map(c -> c::beforeNodeStop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        CompletableFuture<?>[] stopFutures = components.stream()
+                .filter(Objects::nonNull)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.stopAsync(componentContext);
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(stopFutures);
     }
 
     /**
@@ -1363,5 +1491,42 @@ public class IgniteUtils {
             // let's switch: false negative can produce assertion errors.
             return true;
         }
+    }
+
+    /** Throws the {@link NullPointerException} if the provided tuple has a {@code null} value at the specified index. */
+    public static void ensureNotNull(InternalTuple tuple, int fieldIndex, int displayIndex) {
+        if (tuple.hasNullValue(fieldIndex)) {
+            throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, displayIndex));
+        }
+    }
+
+    /** Throws the {@link NullPointerException} if the provided tuple has a {@code null} value at the specified index. */
+    public static void ensureNotNull(InternalTuple tuple, int fieldIndex, String fieldName) {
+        if (tuple.hasNullValue(fieldIndex)) {
+            throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
+        }
+    }
+
+    /**
+     * Creates a comparator of lists that compares them lexicographically using the provided comparator for list elements.
+     *
+     * @param comparator Comparator for list elements.
+     * @param <T> Type of list's elements.
+     * @return Comparator of lists.
+     */
+    public static <T> Comparator<List<T>> lexicographicListComparator(Comparator<? super T> comparator) {
+        return (l, r) -> {
+            int length = Math.min(l.size(), r.size());
+
+            for (int i = 0; i < length; i++) {
+                int cmp = comparator.compare(l.get(i), r.get(i));
+
+                if (cmp != 0) {
+                    return cmp;
+                }
+            }
+
+            return Integer.compare(l.size(), r.size());
+        };
     }
 }

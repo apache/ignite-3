@@ -49,8 +49,8 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly ILogger _logger;
 
-        /** Endpoints with corresponding hosts - from configuration. */
-        private readonly IReadOnlyList<SocketEndpoint> _endpoints;
+        /** Observable timestamp. */
+        private readonly HybridTimestampTracker _observableTimestamp;
 
         /** Cluster node unique name to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsByName = new();
@@ -61,6 +61,16 @@ namespace Apache.Ignite.Internal
             "CA2213:DisposableFieldsShouldBeDisposed",
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
+
+        /** Socket connection lock. */
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA2213:DisposableFieldsShouldBeDisposed",
+            Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
+        private readonly SemaphoreSlim _initEndpointsLock = new(1);
+
+        /** Endpoints with corresponding hosts - from configuration. */
+        private volatile IReadOnlyList<SocketEndpoint> _endpoints = [];
 
         /** Disposed flag. */
         private volatile bool _disposed;
@@ -74,9 +84,6 @@ namespace Apache.Ignite.Internal
 
         /** Local index for round-robin balancing within this FailoverSocket. */
         private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
-
-        /** Observable timestamp. */
-        private long _observableTimestamp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
@@ -93,9 +100,12 @@ namespace Apache.Ignite.Internal
             }
 
             _logger = logger;
-            _endpoints = GetIpEndPoints(configuration.Configuration).ToList();
 
+            ClientId = Guid.NewGuid();
+            ClientIdString = ClientId.ToString();
             Configuration = configuration;
+
+            _observableTimestamp = configuration.ObservableTimestamp;
         }
 
         /// <summary>
@@ -111,12 +121,17 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the observable timestamp.
         /// </summary>
-        public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
+        public long ObservableTimestamp => _observableTimestamp.Value;
 
         /// <summary>
         /// Gets the client ID.
         /// </summary>
-        public Guid ClientId { get; } = Guid.NewGuid();
+        public Guid ClientId { get; }
+
+        /// <summary>
+        /// Gets the client ID.
+        /// </summary>
+        public string ClientIdString { get; }
 
         /// <summary>
         /// Gets a value indicating whether the socket is disposed.
@@ -135,11 +150,15 @@ namespace Apache.Ignite.Internal
 
             var socket = new ClientFailoverSocket(configuration, logger);
 
+            await socket.InitEndpointsAsync().ConfigureAwait(false);
             await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
             _ = socket.ConnectAllSockets();
+
+            // Re-resolve DNS names in the background periodically.
+            _ = socket.ReResolveDnsPeriodically();
 
             return socket;
         }
@@ -156,12 +175,14 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(
                     clientOp,
@@ -169,7 +190,8 @@ namespace Apache.Ignite.Internal
                     request,
                     preferredNode,
                     retryPolicyOverride: null,
-                    expectNotifications)
+                    expectNotifications,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             return buffer;
@@ -184,14 +206,48 @@ namespace Apache.Ignite.Internal
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="retryPolicyOverride">Retry policy.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
-        public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
+        public async Task<ClientResponse> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
             IRetryPolicy? retryPolicyOverride = null,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default) =>
+            await DoOutInOpAndGetSocketAsync(
+                clientOp,
+                tx,
+                request,
+                static (_, request0) => request0,
+                preferredNode,
+                retryPolicyOverride,
+                expectNotifications,
+                cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// Performs an in-out operation and returns the socket along with the response.
+        /// </summary>
+        /// <param name="clientOp">Operation.</param>
+        /// <param name="tx">Transaction.</param>
+        /// <param name="arg">Argument.</param>
+        /// <param name="requestWriter">Request writer.</param>
+        /// <param name="preferredNode">Preferred node.</param>
+        /// <param name="retryPolicyOverride">Retry policy.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <typeparam name="TArg">Arg type.</typeparam>
+        /// <returns>Response data and socket.</returns>
+        public async Task<ClientResponse> DoOutInOpAndGetSocketAsync<TArg>(
+            ClientOp clientOp,
+            Transaction? tx,
+            TArg arg,
+            Func<ClientSocket, TArg, PooledArrayBuffer?> requestWriter,
+            PreferredNode preferredNode = default,
+            IRetryPolicy? retryPolicyOverride = null,
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             if (tx != null)
             {
@@ -201,17 +257,23 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
-                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
-                return (buffer, tx.Socket);
+                using var request = requestWriter(tx.Socket, arg);
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications, cancellationToken).ConfigureAwait(false);
+                return new ClientResponse(buffer, tx.Socket);
             }
 
             return await DoWithRetryAsync(
-                (clientOp, request, expectNotifications),
+                (clientOp, requestWriter, arg, expectNotifications, cancellationToken),
                 static (_, arg) => arg.clientOp,
                 async static (socket, arg) =>
                 {
-                    var res = await socket.DoOutInOpAsync(arg.clientOp, arg.request, arg.expectNotifications).ConfigureAwait(false);
-                    return (Buffer: res, Socket: socket);
+                    PooledBuffer res = await socket.DoOutInOpAsync(
+                        clientOp: arg.clientOp,
+                        request: arg.requestWriter(socket, arg.arg),
+                        expectNotifications: arg.expectNotifications,
+                        cancellationToken: arg.cancellationToken).ConfigureAwait(false);
+
+                    return new ClientResponse(Buffer: res, Socket: socket);
                 },
                 preferredNode,
                 retryPolicyOverride)
@@ -270,8 +332,10 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         public void Dispose()
         {
+            _initEndpointsLock.Wait();
             _socketLock.Wait();
 
             try
@@ -285,12 +349,20 @@ namespace Apache.Ignite.Internal
 
                 foreach (var endpoint in _endpoints)
                 {
-                    endpoint.Socket?.Dispose();
+                    try
+                    {
+                        endpoint.Socket?.Dispose();
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogFailedSocketDispose(e);
+                    }
                 }
             }
             finally
             {
                 _socketLock.Release();
+                _initEndpointsLock.Release();
             }
         }
 
@@ -300,9 +372,10 @@ namespace Apache.Ignite.Internal
         /// <returns>Active connections.</returns>
         public IList<IConnectionInfo> GetConnections()
         {
-            var res = new List<IConnectionInfo>(_endpoints.Count);
+            var endpoints = _endpoints;
+            var res = new List<IConnectionInfo>(endpoints.Count);
 
-            foreach (var endpoint in _endpoints)
+            foreach (var endpoint in endpoints)
             {
                 if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
                 {
@@ -326,6 +399,7 @@ namespace Apache.Ignite.Internal
 
                 if (Interlocked.CompareExchange(ref _assignmentTimestamp, value: timestamp, comparand: oldTimestamp) == oldTimestamp)
                 {
+                    ScheduleReResolveDns();
                     return;
                 }
             }
@@ -334,19 +408,20 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
         {
-            // Atomically update the observable timestamp to max(newTs, curTs).
-            while (true)
+            var prevVal = _observableTimestamp.GetAndUpdate(timestamp);
+            if (prevVal < timestamp)
             {
-                var current = Interlocked.Read(ref _observableTimestamp);
-                if (current >= timestamp)
-                {
-                    return;
-                }
+                _logger.LogObservableTsUpdatedTrace(prev: prevVal, current: timestamp);
+            }
+        }
 
-                if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
-                {
-                    return;
-                }
+        /// <inheritdoc/>
+        void IClientSocketEventListener.OnDisconnect(Exception? ex)
+        {
+            if (ex is IgniteClientConnectionException)
+            {
+                // Connection failed => potential topology change.
+                ScheduleReResolveDns();
             }
         }
 
@@ -356,9 +431,10 @@ namespace Apache.Ignite.Internal
         /// <returns>Active sockets.</returns>
         internal IEnumerable<ClientSocket> GetSockets()
         {
-            var res = new List<ClientSocket>(_endpoints.Count);
+            var endpoints = _endpoints;
+            var res = new List<ClientSocket>(endpoints.Count);
 
-            foreach (var endpoint in _endpoints)
+            foreach (var endpoint in endpoints)
             {
                 if (endpoint.Socket is { IsDisposed: false })
                 {
@@ -367,6 +443,91 @@ namespace Apache.Ignite.Internal
             }
 
             return res;
+        }
+
+        private async Task<bool> InitEndpointsAsync(int lockWaitTimeoutMs = Timeout.Infinite)
+        {
+            bool lockAcquired = await _initEndpointsLock.WaitAsync(lockWaitTimeoutMs).ConfigureAwait(false);
+            if (!lockAcquired)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (_disposed)
+                {
+                    return false;
+                }
+
+                HashSet<SocketEndpoint> newEndpoints = await GetIpEndPointsAsync(Configuration.Configuration).ConfigureAwait(false);
+                IReadOnlyList<SocketEndpoint> oldEndpoints = _endpoints;
+
+                var resList = new List<SocketEndpoint>(newEndpoints.Count);
+                List<SocketEndpoint>? removed = null;
+
+                // Retain existing sockets for endpoints that are still present.
+                foreach (var oldEndpoint in oldEndpoints)
+                {
+                    if (newEndpoints.Remove(oldEndpoint))
+                    {
+                        oldEndpoint.IsAbandoned = false; // Revive if it was abandoned before.
+                        resList.Add(oldEndpoint);
+                    }
+                    else
+                    {
+                        removed ??= new List<SocketEndpoint>();
+                        removed.Add(oldEndpoint);
+
+                        // Lock to avoid concurrent reconnect of abandoned endpoint.
+                        await _socketLock.WaitAsync().ConfigureAwait(false);
+
+                        try
+                        {
+                            var oldSock = oldEndpoint.Socket;
+                            if (oldSock == null || oldSock.IsDisposed)
+                            {
+                                // Disconnected old endpoint. Throw away.
+                                if (oldSock != null)
+                                {
+                                    _endpointsByName.TryRemove(
+                                        new KeyValuePair<string, SocketEndpoint>(oldSock.ConnectionContext.ClusterNode.Name, oldEndpoint));
+                                }
+
+                                continue;
+                            }
+                        }
+                        finally
+                        {
+                            _socketLock.Release();
+                        }
+
+                        // Mark as abandoned but keep the socket alive for existing operations.
+                        oldEndpoint.IsAbandoned = true;
+                        resList.Add(oldEndpoint);
+                    }
+                }
+
+                if (_logger.IsEnabled(LogLevel.Trace) && (newEndpoints.Count > 0 || removed != null))
+                {
+                    var addedStr = newEndpoints.Select(e => e.EndPointString).StringJoin();
+                    var removedStr = removed?.Select(e => e.EndPointString).StringJoin();
+
+                    _logger.LogEndpointListUpdatedTrace(addedStr, removedStr ?? string.Empty);
+                }
+
+                // Add remaining endpoints that were not known before.
+                resList.AddRange(newEndpoints);
+
+                // Apply the new endpoint list.
+                _endpoints = resList;
+
+                return newEndpoints.Count > 0;
+            }
+            finally
+            {
+                _initEndpointsLock.Release();
+            }
         }
 
         /// <summary>
@@ -405,59 +566,22 @@ namespace Apache.Ignite.Internal
             return await GetNextSocketAsync().ConfigureAwait(false);
         }
 
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            var tasks = new List<Task>(_endpoints.Count);
-
             while (!_disposed)
             {
-                tasks.Clear();
-
-                foreach (var endpoint in _endpoints)
-                {
-                    try
-                    {
-                        var connectTask = ConnectAsync(endpoint);
-                        if (connectTask.IsCompleted)
-                        {
-                            continue;
-                        }
-
-                        tasks.Add(connectTask.AsTask());
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
-                    }
-                }
+                var endpoints = _endpoints;
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(tasks.Count);
+                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(endpoints.Count);
                 }
 
-                // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
-                int failed = 0;
-                foreach (var task in tasks)
-                {
-                    try
-                    {
-                        await task.ConfigureAwait(false);
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
-                        failed++;
-                    }
-                }
+                var failed = await ConnectAllSocketsInnerAsync(endpoints).ConfigureAwait(false);
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
+                    _logger.LogSecondaryConnectionsEstablishedDebug(endpoints.Count - failed, failed);
                 }
 
                 if (Configuration.Configuration.ReconnectInterval <= TimeSpan.Zero)
@@ -469,6 +593,77 @@ namespace Apache.Ignite.Internal
                 await Task.Delay(Configuration.Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
+
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Secondary connection errors can be ignored.")]
+        private async Task<int> ConnectAllSocketsInnerAsync(IReadOnlyList<SocketEndpoint> endpoints)
+        {
+            int failed = 0;
+
+            foreach (var endpoint in endpoints)
+            {
+                if (endpoint.IsAbandoned)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await ConnectAsync(endpoint).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
+                    failed++;
+                }
+            }
+
+            return failed;
+        }
+
+        private async Task ReResolveDnsPeriodically()
+        {
+            var interval = Configuration.Configuration.ReResolveAddressesInterval;
+
+            if (interval <= TimeSpan.Zero)
+            {
+                // Re-resolve is disabled.
+                return;
+            }
+
+            while (!_disposed)
+            {
+                await Task.Delay(interval).ConfigureAwait(false);
+                await ReResolveDns().ConfigureAwait(false);
+            }
+        }
+
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Re-resolve errors are logged and skipped.")]
+        private async Task ReResolveDns()
+        {
+            try
+            {
+                // Skip if another operation is in progress.
+                var changed = await InitEndpointsAsync(lockWaitTimeoutMs: 1).ConfigureAwait(false);
+
+                if (changed)
+                {
+                    await ConnectAllSocketsInnerAsync(_endpoints).ConfigureAwait(false);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogErrorWhileReResolvingDnsWarn(e, e.Message);
+            }
+        }
+
+        private void ScheduleReResolveDns() =>
+            ThreadPool.QueueUserWorkItem(static thisSock => _ = thisSock.ReResolveDns(), this, false);
 
         /// <summary>
         /// Throws if disposed.
@@ -483,15 +678,21 @@ namespace Apache.Ignite.Internal
         {
             List<Exception>? errors = null;
             var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
+            var endpoints = _endpoints;
 
-            for (var i = 0; i < _endpoints.Count; i++)
+            for (var i = 0; i < endpoints.Count; i++)
             {
-                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
-                var endPoint = _endpoints[idx];
+                var idx = Math.Abs(startIdx + i) % endpoints.Count;
+                var endPoint = endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
                 {
                     return endPoint.Socket;
+                }
+
+                if (endPoint.IsAbandoned)
+                {
+                    continue;
                 }
 
                 try
@@ -518,11 +719,12 @@ namespace Apache.Ignite.Internal
         private ClientSocket? GetNextSocketWithoutReconnect()
         {
             var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
+            var endpoints = _endpoints;
 
-            for (var i = 0; i < _endpoints.Count; i++)
+            for (var i = 0; i < endpoints.Count; i++)
             {
-                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
-                var endPoint = _endpoints[idx];
+                var idx = Math.Abs(startIdx + i) % endpoints.Count;
+                var endPoint = endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
                 {
@@ -547,9 +749,18 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                ThrowIfDisposed();
+
                 if (endpoint.Socket?.IsDisposed == false)
                 {
                     return endpoint.Socket;
+                }
+
+                if (endpoint.IsAbandoned)
+                {
+                    throw new IgniteClientConnectionException(
+                        ErrorGroups.Client.Connection,
+                        $"Endpoint {endpoint.EndPoint} is abandoned and cannot be used for new connections.");
                 }
 
                 var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, this).ConfigureAwait(false);
@@ -567,9 +778,12 @@ namespace Apache.Ignite.Internal
                         $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterIds.StringJoin()}");
                 }
 
-                endpoint.Socket = socket;
-
+                // First update mapping, then set socket:
+                // - GetConnections does not lock and should not return connections that are not in the map.
+                // - GetSocketAsync uses a lock and will not see a null/old socket.
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+
+                endpoint.Socket = socket;
 
                 return socket;
             }
@@ -582,33 +796,41 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the endpoints: all combinations of IP addresses and ports according to configuration.
         /// </summary>
-        private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
+        private async Task<HashSet<SocketEndpoint>> GetIpEndPointsAsync(IgniteClientConfiguration cfg)
         {
-            // Metric collection tools expect numbers and strings, don't pass Guid.
-            var clientId = ClientId.ToString();
+            var res = new HashSet<SocketEndpoint>(new SocketEndpointComparer());
 
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
                 Debug.Assert(host != null, "host != null"); // Checked by GetEndpoints.
 
-                foreach (var ip in GetIps(host))
+                IPAddress[] ips = await GetIpsAsync(host).ConfigureAwait(false);
+
+                foreach (var ip in ips)
                 {
-                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, clientId);
+                    res.Add(new SocketEndpoint(new IPEndPoint(ip, e.Port), host, ClientIdString));
                 }
             }
+
+            return res;
         }
 
         /// <summary>
-        /// Gets IP address list from a given host.
+        /// Gets an IP address list from a given host.
         /// When host is an IP already - parses it. Otherwise, resolves DNS name to IPs.
         /// </summary>
-        private IEnumerable<IPAddress> GetIps(string host, bool suppressExceptions = false)
+        private async Task<IPAddress[]> GetIpsAsync(string host, bool suppressExceptions = false)
         {
             try
             {
                 // GetHostEntry accepts IPs, but TryParse is a more efficient shortcut.
-                return IPAddress.TryParse(host, out var ip) ? new[] { ip } : Dns.GetHostEntry(host).AddressList;
+                if (IPAddress.TryParse(host, out var ip))
+                {
+                    return [ip];
+                }
+
+                return await Configuration.DnsResolver.GetHostAddressesAsync(host).ConfigureAwait(false);
             }
             catch (SocketException e)
             {
@@ -616,7 +838,7 @@ namespace Apache.Ignite.Internal
 
                 if (suppressExceptions)
                 {
-                    return Enumerable.Empty<IPAddress>();
+                    return [];
                 }
 
                 throw;

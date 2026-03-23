@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -47,12 +48,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -63,15 +66,13 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.raft.storage.impl.VolatileRaftMetaStorage;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.ReverseIterator;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -101,7 +102,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        var addr = new NetworkAddress("localhost", PORT);
+        var addr = new NetworkAddress("127.0.0.1", PORT);
 
         clusterService = clusterService(testInfo, PORT, new StaticNodeFinder(List.of(addr)));
 
@@ -118,9 +119,9 @@ public class ItLozaTest extends IgniteAbstractTest {
             allComponents.add(loza);
         }
 
-        new ReverseIterator<>(allComponents).forEachRemaining(c -> {
-            assertThat(c.stopAsync(componentContext), willCompleteSuccessfully());
-        });
+        Collections.reverse(allComponents);
+
+        IgniteUtils.stopAsync(componentContext, allComponents);
     }
 
     /**
@@ -130,7 +131,7 @@ public class ItLozaTest extends IgniteAbstractTest {
      */
     private RaftGroupService startClient(
             TestReplicationGroupId groupId,
-            ClusterNode node,
+            InternalClusterNode node,
             RaftGroupOptionsConfigurer groupOptionsConfigurer) throws Exception {
         RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
 
@@ -157,7 +158,10 @@ public class ItLozaTest extends IgniteAbstractTest {
      * Tests that RaftGroupServiceImpl uses shared executor for retrying RaftGroupServiceImpl#sendWithRetry().
      */
     @Test
-    public void testRaftServiceUsingSharedExecutor(@InjectConfiguration RaftConfiguration raftConfiguration) throws Exception {
+    public void testRaftServiceUsingSharedExecutor(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration
+    ) throws Exception {
         ClusterService spyService = spy(clusterService);
 
         MessagingService messagingServiceMock = spy(spyService.messagingService());
@@ -168,19 +172,19 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
-        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 spyService.nodeName(),
                 partitionsWorkDir.raftLogPath()
         );
 
         RaftGroupOptionsConfigurer partitionsConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.metaPath());
 
-        allComponents.add(partitionsLogStorageFactory);
+        allComponents.add(partitionsLogStorageManager);
 
-        assertThat(partitionsLogStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageManager.startAsync(componentContext), willCompleteSuccessfully());
 
-        loza = TestLozaFactory.create(spyService, raftConfiguration, new HybridClockImpl());
+        loza = TestLozaFactory.create(spyService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -195,7 +199,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                     })
                     // finally call the real method
                     .doCallRealMethod()
-                    .when(messagingServiceMock).invoke(any(ClusterNode.class), any(), anyLong());
+                    .when(messagingServiceMock).invoke(any(InternalClusterNode.class), any(), anyLong());
 
             RaftGroupService client = startClient(
                     new TestReplicationGroupId(Integer.toString(i)),
@@ -206,7 +210,7 @@ public class ItLozaTest extends IgniteAbstractTest {
             assertThat(client.refreshLeader(), willCompleteSuccessfully());
 
             verify(messagingServiceMock, times(3 * (i + 1)))
-                    .invoke(any(ClusterNode.class), any(), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(), anyLong());
         }
     }
 
@@ -217,30 +221,32 @@ public class ItLozaTest extends IgniteAbstractTest {
     @RepeatedTest(100)
     void testVolatileAndPersistentGroupsOnSameStripe(
             @InjectConfiguration("mock.logStripesCount=1")
-            RaftConfiguration raftConfiguration
+            RaftConfiguration raftConfiguration,
+            @InjectConfiguration
+            SystemLocalConfiguration systemLocalConfiguration
     ) throws Exception {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.nodeName(),
                 partitionsWorkDir.raftLogPath()
         );
 
-        allComponents.add(logStorageFactory);
+        allComponents.add(logStorageManager);
 
-        assertThat(logStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
+        assertThat(logStorageManager.startAsync(componentContext), willCompleteSuccessfully());
 
-        loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
         String nodeName = clusterService.nodeName();
 
-        var volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("spill"));
+        var volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("spill"));
 
-        assertThat(volatileLogStorageFactoryCreator.startAsync(componentContext), willCompleteSuccessfully());
+        assertThat(volatileLogStorageManagerCreator.startAsync(componentContext), willCompleteSuccessfully());
 
-        allComponents.add(volatileLogStorageFactoryCreator);
+        allComponents.add(volatileLogStorageManagerCreator);
 
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(nodeName));
 
@@ -250,7 +256,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         LogStorageBudgetView volatileCfg = raftConfiguration.volatileRaft().logStorageBudget().value();
 
-        LogStorageFactory volatileLogStorageFactory = volatileLogStorageFactoryCreator.factory(volatileCfg);
+        LogStorageManager volatileLogStorageManager = volatileLogStorageManagerCreator.manager(volatileCfg);
 
         // Start two Raft nodes: one backed by a volatile storage and the other - by "shared" persistent storage.
         var volatileRaftNodeId = new RaftNodeId(new TestReplicationGroupId("volatile"), peer);
@@ -261,7 +267,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                 raftGroupListener,
                 RaftGroupEventsListener.noopLsnr,
                 RaftGroupOptions.forVolatileStores()
-                        .setLogStorageFactory(volatileLogStorageFactory)
+                        .setLogStorageManager(volatileLogStorageManager)
                         .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage())
                         .serverDataPath(partitionsWorkDir.metaPath())
         );
@@ -274,7 +280,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                 raftGroupListener,
                 RaftGroupEventsListener.noopLsnr,
                 RaftGroupOptions.forPersistentStores()
-                        .setLogStorageFactory(logStorageFactory)
+                        .setLogStorageManager(logStorageManager)
                         .serverDataPath(partitionsWorkDir.metaPath())
         );
 
@@ -305,20 +311,23 @@ public class ItLozaTest extends IgniteAbstractTest {
     }
 
     @Test
-    void destroysRaftNodeStorages(@InjectConfiguration RaftConfiguration raftConfiguration) throws Exception {
+    void destroysRaftNodeStorages(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration
+    ) throws Exception {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.nodeName(),
                 partitionsWorkDir.raftLogPath()
         );
-        logStorageFactory = spy(logStorageFactory);
+        logStorageManager = spy(logStorageManager);
 
-        allComponents.add(logStorageFactory);
+        allComponents.add(logStorageManager);
 
-        assertThat(logStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
+        assertThat(logStorageManager.startAsync(componentContext), willCompleteSuccessfully());
 
-        loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -331,7 +340,7 @@ public class ItLozaTest extends IgniteAbstractTest {
         var nodeId = new RaftNodeId(replicationGroupId, peer);
 
         RaftGroupOptionsConfigurer configurer = RaftGroupOptionsConfigHelper.configureProperties(
-                logStorageFactory,
+                logStorageManager,
                 partitionsWorkDir.metaPath()
         );
 
@@ -355,7 +364,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         loza.destroyRaftNodeStorages(nodeId, configurer);
 
-        verify(logStorageFactory).destroyLogStorage(groupUri);
+        verify(logStorageManager).destroyLogStorage(groupUri);
         assertFalse(Files.exists(groupRaftStoragesPath));
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator.configuration;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -30,29 +31,37 @@ public class ReplicationConfigurationSchema {
     /** Default value for {@link #idleSafeTimePropagationDurationMillis}. */
     public static final long DEFAULT_IDLE_SAFE_TIME_PROP_DURATION = TimeUnit.SECONDS.toMillis(1);
 
+    /** Default value for {@link #batchSizeBytes}. */
+    public static final int DEFAULT_BATCH_SIZE_BYTES = 8192;
+
     /** Idle safe time propagation duration (ms) for partitions. */
     @Value(hasDefault = true)
     @Range(min = 0)
     // TODO: IGNITE-19792 - make @Immutable when it gets being handled property for distributed config.
+    @PublicName(legacyNames = "idleSafeTimePropagationDuration")
     public long idleSafeTimePropagationDurationMillis = DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 
     /** Replication request processing timeout.  */
     @Value(hasDefault = true)
     @Range(min = 1000)
+    @PublicName(legacyNames = "rpcTimeout")
     public long rpcTimeoutMillis = TimeUnit.SECONDS.toMillis(60);
 
     /** The interval in milliseconds that is used in the beginning of lease granting process. */
     @Value(hasDefault = true)
     @Range(min = 5000)
+    @PublicName(legacyNames = "leaseAgreementAcceptanceTimeLimit")
     public long leaseAgreementAcceptanceTimeLimitMillis = 120_000;
 
     /** Lease holding interval. */
     @Value(hasDefault = true)
     @Range(min = 2000, max = 120000)
+    @PublicName(legacyNames = "leaseExpirationInterval")
     public long leaseExpirationIntervalMillis = 5_000;
 
     @Value(hasDefault = true)
     @Range(max = 10_000)
+    @PublicName(legacyNames = "replicaOperationRetryInterval")
     public int replicaOperationRetryIntervalMillis = 10;
 
     /**
@@ -60,5 +69,5 @@ public class ReplicationConfigurationSchema {
      **/
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int batchSizeBytes = 8192;
+    public int batchSizeBytes = DEFAULT_BATCH_SIZE_BYTES;
 }

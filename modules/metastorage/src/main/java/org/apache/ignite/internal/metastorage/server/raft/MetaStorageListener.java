@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -75,7 +76,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     /** Constructor. */
     @TestOnly
     public MetaStorageListener(KeyValueStorage storage, HybridClock clock, ClusterTimeImpl clusterTime) {
-        this(storage, clock, clusterTime, newConfig -> {});
+        this(storage, clock, clusterTime, newConfig -> {}, a -> {});
     }
 
     /** Constructor. */
@@ -83,12 +84,13 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
             KeyValueStorage storage,
             HybridClock clock,
             ClusterTimeImpl clusterTime,
-            Consumer<RaftGroupConfiguration> onConfigurationCommitted
+            Consumer<RaftGroupConfiguration> onConfigurationCommitted,
+            IntConsumer idempotentCacheSizeListener
     ) {
         this.storage = storage;
         this.onConfigurationCommitted = onConfigurationCommitted;
 
-        writeHandler = new MetaStorageWriteHandler(storage, clock, clusterTime);
+        writeHandler = new MetaStorageWriteHandler(storage, clock, clusterTime, idempotentCacheSizeListener);
     }
 
     @Override
@@ -202,7 +204,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     }
 
     @Override
-    public boolean onBeforeApply(Command command) {
+    public Command onBeforeApply(Command command) {
         return writeHandler.beforeApply(command);
     }
 

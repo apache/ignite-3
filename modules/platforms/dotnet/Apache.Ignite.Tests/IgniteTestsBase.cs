@@ -21,11 +21,13 @@ namespace Apache.Ignite.Tests
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common;
+    using Common.Table;
     using Ignite.Table;
     using Internal.Proto;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
-    using Table;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Base class for client tests.
@@ -34,33 +36,6 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "TBL1";
-        protected const int TablePartitionCount = 10;
-
-        protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
-        protected const string TableAllColumnsNotNullName = "TBL_ALL_COLUMNS_NOT_NULL";
-        protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
-
-        protected const string TableInt8Name = "TBL_INT8";
-        protected const string TableBoolName = "TBL_BOOLEAN";
-        protected const string TableInt16Name = "TBL_INT16";
-        protected const string TableInt32Name = "TBL_INT32";
-        protected const string TableInt64Name = "TBL_INT64";
-        protected const string TableFloatName = "TBL_FLOAT";
-        protected const string TableDoubleName = "TBL_DOUBLE";
-        protected const string TableDecimalName = "TBL_DECIMAL";
-        protected const string TableStringName = "TBL_STRING";
-        protected const string TableDateName = "TBL_DATE";
-        protected const string TableDateTimeName = "TBL_DATETIME";
-        protected const string TableTimeName = "TBL_TIME";
-        protected const string TableTimestampName = "TBL_TIMESTAMP";
-        protected const string TableNumberName = "TBL_NUMBER";
-        protected const string TableBytesName = "TBL_BYTE_ARRAY";
-
-        protected const string KeyCol = "key";
-
-        protected const string ValCol = "val";
-
         protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
@@ -69,11 +44,20 @@ namespace Apache.Ignite.Tests
 
         private TestEventListener _eventListener = null!;
 
+        private ConsoleLogger _logger = null!;
+
         static IgniteTestsBase()
         {
+            JavaServer.SetLogCallback(TestContext.Progress.WriteLine);
+
             ServerNode = JavaServer.StartAsync().GetAwaiter().GetResult();
 
             AppDomain.CurrentDomain.ProcessExit += (_, _) => ServerNode.Dispose();
+        }
+
+        protected IgniteTestsBase(bool useMapper = false)
+        {
+            UseMapper = useMapper;
         }
 
         protected static int ServerPort => ServerNode.Port;
@@ -96,27 +80,49 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!;
 
+        protected bool UseMapper { get; }
+
+        protected ConsoleLogger Logger => _logger;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
             _eventListener = new TestEventListener();
+            _logger = new ConsoleLogger(LogLevel.Trace);
 
-            Client = await IgniteClient.StartAsync(GetConfig());
+            Client = await IgniteClient.StartAsync(GetConfig(_logger));
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
-            PocoView = Table.GetRecordView<Poco>();
+            PocoView = UseMapper ? Table.GetRecordView(new PocoMapper()) : Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            PocoAllColumnsNullableView = UseMapper
+                ? tableAllColumns!.GetRecordView(new PocoAllColumnsNullableMapper())
+                : tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
 
             var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
-            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsBigDecimalView = tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
+
+            PocoAllColumnsView = UseMapper
+                ? tableAllColumnsNotNull!.GetRecordView(new PocoAllColumnsMapper())
+                : tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
+
+            PocoAllColumnsBigDecimalView = UseMapper
+                ? tableAllColumnsNotNull.GetRecordView(new PocoAllColumnsBigDecimalMapper())
+                : tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
-            PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
-            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
+
+            PocoAllColumnsSqlView = UseMapper
+                ? tableAllColumnsSql!.GetRecordView(new PocoAllColumnsSqlMapper())
+                : tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
+
+            PocoAllColumnsSqlNullableView = UseMapper
+                ? tableAllColumnsSql.GetRecordView(new PocoAllColumnsSqlNullableMapper())
+                : tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
+
+            _logger.Flush();
         }
 
         [OneTimeTearDown]
@@ -130,11 +136,13 @@ namespace Apache.Ignite.Tests
             CheckPooledBufferLeak();
 
             _eventListener.Dispose();
+            _logger.Dispose();
         }
 
         [SetUp]
         public void SetUp()
         {
+            _logger.Flush();
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
             TestUtils.CheckByteArrayPoolLeak();
         }
@@ -142,12 +150,17 @@ namespace Apache.Ignite.Tests
         [TearDown]
         public void TearDown()
         {
+            // Flush here so events from all threads are captured as current test output.
+            _logger.Flush();
+
             Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
 
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
 
             CheckPooledBufferLeak();
+
+            _logger.Flush();
 
             Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
@@ -180,30 +193,35 @@ namespace Apache.Ignite.Tests
 
         protected static ValPoco GetValPoco(string? val) => new() { Val = val };
 
-        protected static IgniteClientConfiguration GetConfig() => new()
+        protected static IgniteClientConfiguration GetConfig(ILoggerFactory? loggerFactory = null) => new()
         {
             Endpoints =
             {
                 "127.0.0.1:" + ServerNode.Port,
                 "127.0.0.1:" + (ServerNode.Port + 1)
             },
-            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            LoggerFactory = loggerFactory ?? TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
-        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
+        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies, ILoggerFactory loggerFactory) =>
             new(proxies.Select(x => x.Endpoint).ToArray())
             {
-                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+                LoggerFactory = loggerFactory
             };
 
         protected List<IgniteProxy> GetProxies()
         {
+            // Ensure the client is connected to all configured endpoints.
+            Client.WaitForConnections(Client.Configuration.Endpoints.Count);
+
             var proxies = Client.GetConnections().Select(c => new IgniteProxy(c.Node.Address, c.Node.Name)).ToList();
 
             _disposables.AddRange(proxies);
 
             return proxies;
         }
+
+        protected void AddDisposable(IDisposable disposable) => _disposables.Add(disposable);
 
         private void CheckPooledBufferLeak()
         {

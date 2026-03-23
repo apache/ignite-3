@@ -37,6 +37,10 @@ class ScriptItemExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>>
             ),
             new Transition(
                     ExecutionPhase.CURSOR_INITIALIZATION,
+                    query -> ExecutionPhase.CURSOR_PUBLICATION
+            ),
+            new Transition(
+                    ExecutionPhase.CURSOR_PUBLICATION,
                     query -> ExecutionPhase.EXECUTING
             )
     );

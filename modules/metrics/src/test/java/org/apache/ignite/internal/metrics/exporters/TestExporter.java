@@ -20,24 +20,28 @@ package org.apache.ignite.internal.metrics.exporters;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.MetricProvider;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestExporterView;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple test exporter with 1 configuration parameter and "started" flag.
  */
-public class TestExporter extends BasicMetricExporter<TestExporterView> {
+public class TestExporter extends BasicMetricExporter {
 
     private volatile boolean started = false;
 
     private volatile int port;
 
     @Override
-    public void start(MetricProvider metricsProvider, TestExporterView configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public void start(
+            MetricProvider metricsProvider,
+            ExporterView configuration,
+            Supplier<UUID> clusterIdSupplier,
+            String nodeName
+    ) {
         super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
 
-        port = configuration.port();
+        port = ((TestExporterView) configuration).port();
 
         started = true;
     }
@@ -53,20 +57,8 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
     }
 
     @Override
-    public synchronized void reconfigure(@Nullable TestExporterView newValue) {
-        super.reconfigure(newValue);
-
-        port = configuration().port();
-    }
-
-    @Override
-    public void addMetricSet(MetricSet metricSet) {
-
-    }
-
-    @Override
-    public void removeMetricSet(String metricSetName) {
-
+    public void reconfigure(ExporterView newValue) {
+        port = ((TestExporterView) newValue).port();
     }
 
     public boolean isStarted() {

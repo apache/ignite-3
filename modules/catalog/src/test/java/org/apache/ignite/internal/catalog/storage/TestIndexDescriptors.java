@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,7 +35,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 final class TestIndexDescriptors {
 
     private static CatalogIndexColumnDescriptor column(String name, CatalogColumnCollation collation) {
+        //noinspection removal
         return new CatalogIndexColumnDescriptor(name, collation);
+    }
+
+    private static CatalogIndexColumnDescriptor column(int columnId, CatalogColumnCollation collation) {
+        return new CatalogIndexColumnDescriptor(columnId, collation);
     }
 
     /**
@@ -49,6 +55,8 @@ final class TestIndexDescriptors {
             case 1:
             case 2:
                 return sortedIndicesV0(state);
+            case 3:
+                return sortedIndicesV3(state);
             default:
                 throw new IllegalArgumentException("Unexpected CatalogSortedIndexDescriptor version: " + version);
         }
@@ -83,11 +91,42 @@ final class TestIndexDescriptors {
         return list;
     }
 
+    private static List<CatalogSortedIndexDescriptor> sortedIndicesV3(TestDescriptorState state) {
+        List<CatalogSortedIndexDescriptor> list = new ArrayList<>();
+
+        for (var unique : new boolean[]{true, false}) {
+            for (var indexStatus : CatalogIndexStatus.values()) {
+                for (var isCreatedWithTable : new boolean[]{false, true}) {
+                    List<CatalogIndexColumnDescriptor> columns = Arrays.asList(
+                            column(0, CatalogColumnCollation.ASC_NULLS_FIRST),
+                            column(1, CatalogColumnCollation.ASC_NULLS_LAST),
+                            column(2, CatalogColumnCollation.DESC_NULLS_FIRST),
+                            column(3, CatalogColumnCollation.DESC_NULLS_LAST)
+                    );
+                    Collections.shuffle(columns, state.random());
+
+                    list.add(new CatalogSortedIndexDescriptor(
+                            state.id(),
+                            state.name("SORTED_IDX"),
+                            1000 + list.size(),
+                            unique,
+                            indexStatus,
+                            columns,
+                            isCreatedWithTable));
+                }
+            }
+        }
+
+        return list;
+    }
+
     static List<CatalogHashIndexDescriptor> hashIndices(TestDescriptorState state, int version) {
         switch (version) {
             case 1:
             case 2:
                 return hashIndicesV0(state);
+            case 3:
+                return hashIndicesV3(state);
             default:
                 throw new IllegalArgumentException("Unexpected CatalogSortedIndexDescriptor version: " + version);
         }
@@ -101,6 +140,30 @@ final class TestIndexDescriptors {
                 for (var isCreatedWithTable : new boolean[]{false, true}) {
                     List<String> columns = Arrays.asList("C1", "C2");
                     Collections.shuffle(columns, state.random());
+
+                    //noinspection removal
+                    list.add(new CatalogHashIndexDescriptor(
+                            state.id(),
+                            state.name("HASH_IDX"),
+                            1000 + list.size(),
+                            unique,
+                            indexStatus,
+                            columns,
+                            isCreatedWithTable));
+                }
+            }
+        }
+
+        return list;
+    }
+
+    private static List<CatalogHashIndexDescriptor> hashIndicesV3(TestDescriptorState state) {
+        List<CatalogHashIndexDescriptor> list = new ArrayList<>();
+
+        for (var unique : new boolean[]{true, false}) {
+            for (var indexStatus : CatalogIndexStatus.values()) {
+                for (var isCreatedWithTable : new boolean[]{false, true}) {
+                    IntList columns = IntList.of(0, 1);
 
                     list.add(new CatalogHashIndexDescriptor(
                             state.id(),

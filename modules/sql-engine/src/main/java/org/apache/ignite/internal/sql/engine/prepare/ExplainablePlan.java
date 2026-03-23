@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+
 /**
  * Denotes a query plan that can be explained, i.e. converted to a human-readable
  * string representation.
@@ -24,4 +26,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 public interface ExplainablePlan extends QueryPlan {
     /** Returns human readable string representation of current query plan. */
     String explain();
+
+    /** Returns rel representation. */
+    IgniteRel getRel();
 }

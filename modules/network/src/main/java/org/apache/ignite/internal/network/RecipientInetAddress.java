@@ -28,6 +28,8 @@ import org.jetbrains.annotations.Nullable;
  * node.
  */
 class RecipientInetAddress {
+    private static final RecipientInetAddress SELF = new RecipientInetAddress(null);
+
     private final @Nullable InetSocketAddress address;
 
     private RecipientInetAddress(@Nullable InetSocketAddress address) {
@@ -42,28 +44,37 @@ class RecipientInetAddress {
     /**
      * Creates new instance of {@link RecipientInetAddress}.
      *
-     * @param localAddress Internet address of the current ignite node.
+     * @param localBindAddress Internet address to which current ignite node bound (it may be the 'any local' address aka wildcard).
      * @param recipientAddress Recipient network address.
+     * @param localIpAddresses Container of local IP addresses of this node.
      */
-    static RecipientInetAddress create(InetSocketAddress localAddress, NetworkAddress recipientAddress) {
-        if (localAddress.getPort() != recipientAddress.port()) {
+    static RecipientInetAddress create(
+            InetSocketAddress localBindAddress,
+            NetworkAddress recipientAddress,
+            LocalIpAddresses localIpAddresses
+    ) {
+        if (localBindAddress.getPort() != recipientAddress.port()) {
             return new RecipientInetAddress(createResolved(recipientAddress));
         }
 
         // For optimization, we will check the addresses without resolving the address of the target node.
-        if (Objects.equals(localAddress.getHostName(), recipientAddress.host())) {
-            return new RecipientInetAddress(null);
+        if (Objects.equals(localBindAddress.getHostName(), recipientAddress.host())) {
+            return SELF;
         }
 
         InetSocketAddress resolvedRecipientAddress = createResolved(recipientAddress);
         InetAddress recipientInetAddress = resolvedRecipientAddress.getAddress();
 
-        if (Objects.equals(localAddress.getAddress(), recipientInetAddress)) {
-            return new RecipientInetAddress(null);
+        if (Objects.equals(localBindAddress.getAddress(), recipientInetAddress)) {
+            return SELF;
         }
 
         if (recipientInetAddress.isAnyLocalAddress() || recipientInetAddress.isLoopbackAddress()) {
-            return new RecipientInetAddress(null);
+            return SELF;
+        }
+
+        if (localIpAddresses.isLocal(recipientInetAddress)) {
+            return SELF;
         }
 
         return new RecipientInetAddress(resolvedRecipientAddress);

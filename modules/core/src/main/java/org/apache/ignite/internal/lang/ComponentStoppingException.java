@@ -20,6 +20,8 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.UUID;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,7 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * This is different from {@link NodeStoppingException} as {@link ComponentStoppingException} might mean that just the component is stopped,
  * not the whole node.
  */
-public class ComponentStoppingException extends IgniteInternalCheckedException {
+public class ComponentStoppingException extends IgniteInternalCheckedException implements RetriableTransactionException,
+        RetriableReplicaRequestException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 

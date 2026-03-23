@@ -96,7 +96,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                         + "partitions 3, "
                         + "nodes filter '(\"US\" || \"EU\") && \"SSD\"', "
                         + "distribution algorithm 'test_Distribution', "
-                        + "auto adjust 1, "
                         + "auto scale up 2, "
                         + "auto scale down 3, "
                         + "consistency mode 'HIGH_AVAILABILITY') "
@@ -112,7 +111,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
@@ -123,7 +121,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                 + "PARTITIONS 3, "
                 + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
                 + "DISTRIBUTION ALGORITHM 'test_Distribution', "
-                + "AUTO ADJUST 1, "
                 + "AUTO SCALE UP 2, "
                 + "AUTO SCALE DOWN 3, "
                 + "CONSISTENCY MODE 'HIGH_AVAILABILITY') "
@@ -337,7 +334,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                         + "REPLICAS 2, "
                         + "QUORUM SIZE 2, "
                         + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
-                        + "AUTO ADJUST 1, "
                         + "AUTO SCALE UP 2, "
                         + "AUTO SCALE DOWN 3)"
         );
@@ -351,7 +347,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.QUORUM_SIZE, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, 3);
 
@@ -359,7 +354,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                 + "(REPLICAS 2, "
                 + "QUORUM SIZE 2, "
                 + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
-                + "AUTO ADJUST 1, "
                 + "AUTO SCALE UP 2, "
                 + "AUTO SCALE DOWN 3)";
         expectUnparsed(alterZoneSet, expectedStmt);

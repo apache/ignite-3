@@ -31,19 +31,22 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.typesafe.config
 
+    testAnnotationProcessor libs.auto.service
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation libs.auto.service.annotations
+    testImplementation libs.junit.testkit
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.typesafe.config
-    testFixturesImplementation libs.hamcrest.core
+}
+
+// Exclude tests from inner static classes that use JUnit Platform Test Kit.
+test {
+    filter {
+        excludeTestsMatching "*ConfigurationExtensionTest\$*"
+    }
 }

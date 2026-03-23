@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.ReplacementMode.CLOCK;
+
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 
 /**
  * Tests for the {@link ClockPageReplacementPolicy}.
  */
 public class ClockPageReplacementTest extends AbstractPageReplacementTest {
     @Override
-    protected String replacementMode() {
-        return CLOCK_REPLACEMENT_MODE;
+    protected ReplacementMode replacementMode() {
+        return CLOCK;
     }
 }

@@ -28,7 +28,7 @@ public enum TxState {
     /**
      * Active transaction that is in progress.
      */
-    PENDING,
+    PENDING(0),
 
     /**
      * Transaction can be put in this state on a transaction coordinator or a commit partition on a start of finalization process
@@ -37,35 +37,42 @@ public enum TxState {
      * commit partition on a coordinator, or finishes the transaction recovery on a commit partition. This state can be also seen locally
      * on data nodes if they are colocated with the coordinator or the commit partition.
      */
-    FINISHING,
+    FINISHING(1),
 
     /**
      * Aborted (rolled back) transaction.
      */
-    ABORTED,
+    ABORTED(2),
 
     /**
      * Committed transaction.
      */
-    COMMITTED,
+    COMMITTED(3),
 
     /**
      * State that is assigned to a transaction due to absence of coordinator. It is temporary and can be changed to
      * {@link TxState#COMMITTED} or {@link TxState#ABORTED} after recovery or successful write intent resolution.
      */
-    ABANDONED;
+    ABANDONED(4),
+
+    /**
+     * Unknown transaction state. It may be used during transaction state resolution, shouldn't be used for either volatile
+     * or persistent transaction meta. It means that the state of the sought transaction is not found on current node
+     * or unrecoverable from current storage state, and it's possible if there is no corresponding committed version,
+     * so the write intent that triggered this resolution should be ignored.
+     * Any transitions from or to this state are forbidden.
+     */
+    UNKNOWN(5);
 
     private static final boolean[][] TRANSITION_MATRIX = {
-            { false, true,  true, true,  true,  true },
-            { false, true,  true,  true,  true,  true },
-            { false, false, false, true,  true,  true },
-            { false, false, false, true,  false, false },
-            { false, false, false, false, true,  false },
-            { false,  false,  true,  true,  true,  true }
+            { false, true,  true,  true,  true,  true,  false },
+            { false, true,  true,  true,  true,  true,  false },
+            { false, false, false, true,  true,  true,  false },
+            { false, false, false, true,  false, false, false },
+            { false, false, false, false, true,  false, false },
+            { false, false, true,  true,  true,  true,  false },
+            { false, false, false, false, false, false, false }
     };
-
-    /** Cached array with all enum values. */
-    private static final TxState[] VALUES = values();
 
     /**
      * Checks whether the state is final, i.e. no transition from this state is allowed.
@@ -93,17 +100,32 @@ public enum TxState {
         return TRANSITION_MATRIX[beforeOrd][afterOrd];
     }
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static TxState fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
+    private final int id;
 
-        return VALUES[ordinal];
+    TxState(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Returns the enumerated value from its id.
+     *
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
+     */
+    public static TxState fromId(int id) throws IllegalArgumentException {
+        switch (id) {
+            case 0: return PENDING;
+            case 1: return FINISHING;
+            case 2: return ABORTED;
+            case 3: return COMMITTED;
+            case 4: return ABANDONED;
+            case 5: return UNKNOWN;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + id);
+        }
+    }
+
+    public int id() {
+        return id;
     }
 }

@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -40,6 +42,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
@@ -50,11 +53,13 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -651,6 +656,45 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertDoesNotThrow(fut::join);
     }
 
+    @Test
+    public void testSqlRoutesRequestToPrimaryNode() throws InterruptedException {
+        int tableId = 100500;
+        String name = "DUMMY";
+
+        // Lease start time must be the same on both servers.
+        long leaseStartTime = server.clock().nowLong();
+
+        prepareServer(server, tableId, name, leaseStartTime);
+        prepareServer(server2, tableId, name, leaseStartTime);
+
+        executeSql(null, 0);
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            executeSql(null, 0);
+
+            return ((ClientSql) client2.sql()).partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready);
+        }, 2_000));
+
+        assertOpOnNode(nodeKey0, null, tx -> executeSql(tx, 0L));
+        assertOpOnNode(nodeKey1, null, tx -> executeSql(tx, 1L));
+        assertOpOnNode(nodeKey2, null, tx -> executeSql(tx, 2L));
+        assertOpOnNode(nodeKey3, null, tx -> executeSql(tx, 3L));
+    }
+
+    private void prepareServer(FakeIgnite server, int tableId, String name, long leaseStartTime) {
+        initPrimaryReplicas(server.placementDriver(), null, leaseStartTime, tableId);
+
+        createTable(server, tableId, name);
+
+        ((FakeIgniteQueryProcessor) server.queryEngine()).setDataAccessListener((nodeName) -> lastOpServerName = nodeName);
+    }
+
+    private void executeSql(@Nullable Transaction tx, long id) {
+        try (ResultSet<?> ignored = client2.sql().execute(tx, format("SELECT SINGLE COLUMN PA", DEFAULT_TABLE), id)) {
+            // no-op
+        }
+    }
+
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Transaction> op) {
         assertOpOnNodeNoTx(expectedNode, expectedOp, op);
         assertOpOnNodeWithTx(expectedNode, expectedOp, op);
@@ -707,21 +751,29 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPrimaryReplicas(@Nullable List<String> replicas) {
-        long leaseStartTime = new HybridClockImpl().nowLong();
+        // Lease start time must be the same on both servers.
+        long leaseStartTime = testServer.clock().nowLong();
 
         initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
         initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
     }
 
     private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas, long leaseStartTime) {
+        initPrimaryReplicas(placementDriver, replicas, leaseStartTime, nextTableId.get() - 1);
+    }
+
+    private static void initPrimaryReplicas(
+            FakePlacementDriver placementDriver,
+            @Nullable List<String> replicas,
+            long leaseStartTime,
+            int tableId
+    ) {
         if (replicas == null) {
             replicas = defaultReplicas();
         }
 
-        int currentTableId = nextTableId.get() - 1;
-
         placementDriver.returnError(false);
-        placementDriver.setReplicas(replicas, currentTableId, zoneId(currentTableId), leaseStartTime);
+        placementDriver.setReplicas(replicas, tableId, zoneId(tableId), leaseStartTime);
     }
 
     private static int zoneId(int tableId) {
@@ -755,7 +807,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

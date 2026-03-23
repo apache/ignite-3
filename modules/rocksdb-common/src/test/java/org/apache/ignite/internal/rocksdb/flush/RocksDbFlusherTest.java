@@ -71,6 +71,7 @@ class RocksDbFlusherTest extends IgniteAbstractTest {
 
         flusher = new RocksDbFlusher(
                 "RocksDbFlusherTest",
+                "test",
                 new IgniteSpinBusyLock(),
                 sameThreadExecutor,
                 Runnable::run,

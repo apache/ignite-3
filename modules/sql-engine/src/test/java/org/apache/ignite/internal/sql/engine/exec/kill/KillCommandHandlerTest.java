@@ -46,6 +46,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.sql.engine.message.CancelOperationRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
@@ -130,7 +130,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
         assertThat(cmdHandler.handle(killCommand), willBe(true));
 
         verify(messagingService, never())
-                .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
     }
 
     private static KillCommand newCmd(CancellableOperationType type) {
@@ -147,7 +147,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
         assertThat(cmdHandler.handle(killCommand), willBe(true));
 
         verify(messagingService, times(TOPOLOGY.size() - 1))
-                .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
     }
 
     @Test
@@ -165,7 +165,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
         );
 
         verify(messagingService, never())
-                .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
     }
 
     @Test
@@ -221,7 +221,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
             assertThat(suppressed.getCause().getMessage(), equalTo(expected[1].getMessage()));
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
-                    .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
         }
 
         // One remote node reports error, other remote node returns TRUE.
@@ -242,7 +242,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
             assertThat(cmdHandler.handle(killCommand), willBe(true));
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
-                    .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
         }
     }
 
@@ -274,7 +274,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
             );
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
-                    .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
         }
 
         // One remote node reports error, other remote node returns TRUE.
@@ -301,7 +301,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
             assertThat(cmdHandler.handle(killCommand), willBe(true));
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
-                    .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong());
         }
     }
 
@@ -310,15 +310,15 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
     }
 
     private KillCommandHandler createCommandHandler(Function<String, Boolean> respHnd, long timeout) {
-        ClusterNode initiator = node(0);
+        InternalClusterNode initiator = node(0);
 
         messagingService = mock(MessagingService.class);
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
 
-        when(messagingService.invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(CancelOperationRequest.class), anyLong()))
                 .thenAnswer(invocation -> {
                     return CompletableFuture.supplyAsync(() -> {
-                        String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
+                        String nodeName = ((InternalClusterNode) invocation.getArgument(0)).name();
 
                         assertThat("Initiator shouldn't send messages to himself",
                                 nodeName, not(Matchers.equalTo(initiator.name())));
@@ -337,7 +337,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
         return new KillCommandHandler(TOPOLOGY.get(0).name(), topologyService, messagingService);
     }
 
-    private static ClusterNode node(int idx) {
+    private static InternalClusterNode node(int idx) {
         return TOPOLOGY.get(idx);
     }
 

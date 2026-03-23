@@ -18,24 +18,24 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexMetaInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -55,6 +55,8 @@ public class PartitionReplicaBuildIndexProcessor {
 
     private final CatalogService catalogService;
 
+    private final TxManager txManager;
+
     /** Listener for {@link CatalogEvent#INDEX_BUILDING}. */
     private final EventListener<CatalogEventParameters> listener = this::onIndexBuilding;
 
@@ -66,18 +68,21 @@ public class PartitionReplicaBuildIndexProcessor {
      * @param tableId Table ID.
      * @param indexMetaStorage Index meta storage.
      * @param catalogService Catalog service.
+     * @param txManager tx manager to retrieve label for logging.
      */
     PartitionReplicaBuildIndexProcessor(
             IgniteSpinBusyLock busyLock,
             int tableId,
             IndexMetaStorage indexMetaStorage,
-            CatalogService catalogService
+            CatalogService catalogService,
+            TxManager txManager
     ) {
         this.busyLock = busyLock;
         this.tableId = tableId;
         this.indexMetaStorage = indexMetaStorage;
         this.txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
         this.catalogService = catalogService;
+        this.txManager = txManager;
 
         prepareIndexBuilderTxRwOperationTracker();
     }
@@ -109,7 +114,7 @@ public class PartitionReplicaBuildIndexProcessor {
             // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
             // otherwise there may be races/errors and the index will not be able to start building.
             if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
-                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
+                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId(), txManager);
             }
         }
     }
@@ -123,14 +128,10 @@ public class PartitionReplicaBuildIndexProcessor {
     }
 
     private void prepareIndexBuilderTxRwOperationTracker() {
-        // Expected to be executed on the metastore thread.
-        CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId);
+        // Expected to be executed on the metastore notification chain or on node start (when Catalog does not change).
+        IndexMeta indexMeta = latestIndexMetaInBuildingStatus(catalogService, indexMetaStorage, tableId);
 
-        if (indexDescriptor != null) {
-            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
-
-            assert indexMeta != null : indexDescriptor.id();
-
+        if (indexMeta != null) {
             txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexMeta.statusChange(REGISTERED).catalogVersion());
         }
 

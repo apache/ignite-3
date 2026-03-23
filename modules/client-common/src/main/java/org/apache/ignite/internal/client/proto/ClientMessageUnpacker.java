@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.proto;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -72,7 +73,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @return Excetion.
      */
     private static MessageSizeException overflowU32Size(int u32) {
-        long lv = (long) (u32 & 0x7fffffff) + 0x80000000L;
+        long lv = (u32 & 0x7fffffff) + 0x80000000L;
         return new MessageSizeException(lv);
     }
 
@@ -83,7 +84,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @param b        Actual format.
      * @return Exception to throw.
      */
-    private static MessagePackException unexpected(String expected, byte b) {
+    private MessagePackException unexpected(String expected, byte b) {
         MessageFormat format = MessageFormat.valueOf(b);
 
         if (format == MessageFormat.NEVER_USED) {
@@ -91,7 +92,20 @@ public class ClientMessageUnpacker implements AutoCloseable {
         } else {
             String name = format.getValueType().name();
             String typeName = name.charAt(0) + name.substring(1).toLowerCase();
-            return new MessageTypeException(String.format("Expected %s, but got %s (%02x)", expected, typeName, b));
+
+            // Convert all bytes from the start of the buffer to the current position to a string for debugging
+            ByteBuf slice = buf.slice(0, buf.readerIndex());
+
+            int maxBufSliceLen = 256;
+            if (slice.readableBytes() > maxBufSliceLen) {
+                slice = slice.slice(slice.readableBytes() - maxBufSliceLen, maxBufSliceLen);
+            }
+
+            String bufContent = ByteBufUtil.hexDump(slice);
+            int problemPos = buf.readerIndex() - 1;
+
+            return new MessageTypeException(
+                    String.format("Expected %s, but got %s (%02x) at pos %s: '%s'", expected, typeName, b, problemPos, bufContent));
         }
     }
 
@@ -686,6 +700,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         return new UUID(buf.readLongLE(), buf.readLongLE());
+    }
+
+    /**
+     * Reads an UUID.
+     *
+     * @return UUID value.
+     * @throws MessageTypeException when type is not UUID.
+     * @throws MessageSizeException when size is not correct.
+     */
+    public @Nullable UUID unpackUuidNullable() {
+        return tryUnpackNil() ? null : unpackUuid();
     }
 
     /**

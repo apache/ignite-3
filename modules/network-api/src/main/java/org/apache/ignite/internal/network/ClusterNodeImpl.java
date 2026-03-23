@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Representation of a node in a cluster.
  */
-public class ClusterNodeImpl implements ClusterNode {
+public class ClusterNodeImpl implements InternalClusterNode {
     /** Local ID assigned to the node instance. The ID changes between restarts. */
     private final UUID id;
 
@@ -39,6 +39,10 @@ public class ClusterNodeImpl implements ClusterNode {
     /** Metadata of this node. */
     @Nullable
     private final NodeMetadata nodeMetadata;
+
+    public static ClusterNodeImpl fromPublicClusterNode(ClusterNode node) {
+        return new ClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata());
+    }
 
     /**
      * Constructor.
@@ -85,6 +89,11 @@ public class ClusterNodeImpl implements ClusterNode {
     @Nullable
     public NodeMetadata nodeMetadata() {
         return nodeMetadata;
+    }
+
+    @Override
+    public ClusterNode toPublicNode() {
+        return new PublicClusterNodeImpl(id, name, address, nodeMetadata);
     }
 
     @Override

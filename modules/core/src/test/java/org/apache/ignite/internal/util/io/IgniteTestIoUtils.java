@@ -76,8 +76,8 @@ public final class IgniteTestIoUtils {
      * @param off Offset.
      */
     public static int getIntByByteLittleEndian(byte[] arr, int off) {
-        return ((int) arr[off] & 0xff) | ((int) arr[off + 1] & 0xff) << 8
-                | ((int) arr[off + 2] & 0xff) << 16 | ((int) arr[off + 3] & 0xff) << 24;
+        return (arr[off] & 0xff) | (arr[off + 1] & 0xff) << 8
+                | (arr[off + 2] & 0xff) << 16 | (arr[off + 3] & 0xff) << 24;
     }
 
     /**
@@ -92,9 +92,12 @@ public final class IgniteTestIoUtils {
     /**
      * Gets long value from byte array assuming that value stored in little-endian byte order.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param arr Byte array.
      * @param off Offset.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public static long getLongByByteLittleEndian(byte[] arr, int off) {
         return ((long) arr[off] & 0xff) | ((long) arr[off + 1] & 0xff) << 8 | ((long) arr[off + 2] & 0xff) << 16
                 | ((long) arr[off + 3] & 0xff) << 24 | ((long) arr[off + 4] & 0xff) << 32 | ((long) arr[off + 5] & 0xff) << 40

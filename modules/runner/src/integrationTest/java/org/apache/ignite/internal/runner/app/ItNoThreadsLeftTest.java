@@ -57,6 +57,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     /** One node cluster configuration. */
     private static final String NODE_CONFIGURATION =
             "ignite {\n"
+            + "  network.listenAddresses: [127.0.0.1],\n"
             + "  network.port: 3344,\n"
             + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
             + "}";
@@ -115,7 +116,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     private static Table createTable(Ignite node, String tableName) {
-        node.sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT,"
+        node.sql().execute("CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT,"
                 + " valstr VARCHAR NOT NULL DEFAULT 'default')");
 
         return node.tables().table(tableName);

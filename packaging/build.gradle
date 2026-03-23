@@ -20,6 +20,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.docker)
     alias(libs.plugins.checksum)
+    alias(libs.plugins.license)
 }
 
 java {
@@ -27,6 +28,8 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+import com.github.jk1.license.render.InventoryHtmlReportRenderer
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
@@ -35,6 +38,7 @@ configurations {
     cliArtifacts
     cliZip
     dbZip
+    dotNetClient
     release
     localDefaults
 }
@@ -45,10 +49,14 @@ dependencies {
     cliArtifacts project(':ignite-cli')
     cliZip project(path: ':packaging-cli', configuration: 'cliZip')
     dbZip project(path: ':packaging-db', configuration: 'dbZip')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     release project(path: ':packaging-cli', configuration: 'cliRelease')
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
     release project(path: ':platforms', configuration: 'platformsRelease')
+    release project(path: ':packaging-dotnet-client', configuration: 'dotNetClientRelease')
+    release project(path: ':packaging-java-client', configuration: 'javaClientRelease')
+    release project(path: ':migration-tools-packaging-cli', configuration: 'cliRelease')
     localDefaults project(path: ':packaging-db', configuration: 'localDefaults')
 }
 
@@ -61,6 +69,7 @@ def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     classpath = files 'lib/*'
     outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3'
+    defaultJvmOpts += ['--add-opens=java.base/java.lang=ALL-UNNAMED', '-Xmx256m']
 }
 
 def tokens = [
@@ -74,18 +83,157 @@ def tokens = [
         ADD_OPENS           : project.addOpens.join(' ')
 ]
 
+def defaultJreModules = [
+        'java.base',
+        'java.compiler',
+        'java.datatransfer',
+        'java.desktop',
+        'java.instrument',
+        'java.logging',
+        'java.management',
+        'java.management.rmi',
+        'java.naming',
+        'java.net.http',
+        'java.prefs',
+        'java.rmi',
+        'java.scripting',
+        'java.se',
+        'java.security.jgss',
+        'java.security.sasl',
+        'java.smartcardio',
+        'java.sql',
+        'java.sql.rowset',
+        'java.transaction.xa',
+        'java.xml',
+        'java.xml.crypto',
+        'jdk.accessibility',
+        'jdk.charsets',
+        'jdk.crypto.cryptoki',
+        'jdk.dynalink',
+        'jdk.graal.compiler',
+        'jdk.graal.compiler.management',
+        'jdk.httpserver',
+        'jdk.incubator.vector',
+        'jdk.internal.vm.ci',
+        'jdk.jdwp.agent',
+        'jdk.jfr',
+        'jdk.jsobject',
+        'jdk.localedata',
+        'jdk.management',
+        'jdk.management.agent',
+        'jdk.management.jfr',
+        'jdk.naming.dns',
+        'jdk.naming.rmi',
+        'jdk.net',
+        'jdk.nio.mapmode',
+        'jdk.sctp',
+        'jdk.security.auth',
+        'jdk.security.jgss',
+        'jdk.unsupported',
+        'jdk.xml.dom',
+        'jdk.zipfs'
+]
+
+def jreModules = new HashSet<>(defaultJreModules)
+project.addOpens.each { openArg ->
+    def normalized = openArg.replaceFirst(/^--add-opens=/, '')
+    def moduleName = normalized.split('/')[0]
+    if (moduleName) {
+        jreModules.add(moduleName)
+    }
+}
+
+ext.docker_jre_modules = jreModules.toList()
+
 def replaceVars = tasks.register('replaceVars', Copy) {
-    from "$rootDir/packaging/common/linux"
+    from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
+    from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
 }
 
-ext.docker_image_name = "apacheignite/ignite"
+ext.docker_image_name = "apacheignite/ignite:${project.projectVersion.toString()}"
+ext.docker_cli_image_name = "apacheignite/ignite-cli:${project.projectVersion.toString()}"
+
+// CLI-only Docker image tasks (defined before main docker block so they can be referenced)
+def dockerCliPrepare = tasks.register('dockerCliPrepare', Copy) {
+    dependsOn cliStartScript
+
+    into "$buildDir/docker-cli"
+
+    into('dist/cli') {
+        into('') {
+            from "$rootDir/LICENSE"
+            from "$rootDir/NOTICE"
+            from "$rootDir/assembly/README.md"
+        }
+        into('bin') {
+            fileMode 0755
+            from cliStartScript
+        }
+        into('lib') {
+            from configurations.cliArtifacts
+        }
+    }
+
+    into('') {
+        from 'docker/Dockerfile.cli'
+    }
+}
+
+def dockerCli = tasks.register('dockerCli', Exec) {
+    dependsOn dockerCliPrepare
+
+    workingDir "$buildDir/docker-cli"
+
+    def imageTag = project.docker_cli_image_name
+    def dockerArgs = ['docker', 'buildx', 'build', '-f', 'Dockerfile.cli', '-t', imageTag]
+
+    if (project.hasProperty('target_platform')) {
+        dockerArgs.addAll(['--platform', project.properties["target_platform"]])
+    }
+
+    dockerArgs.add('.')
+
+    commandLine dockerArgs
+
+    doFirst {
+        logger.lifecycle("Building CLI Docker image: ${imageTag}")
+    }
+}
+
+def dockerCliPush = tasks.register('dockerCliPush', Exec) {
+    dependsOn dockerCli
+
+    def imageTag = project.docker_cli_image_name
+    commandLine 'docker', 'push', imageTag
+
+    doFirst {
+        logger.lifecycle("Pushing CLI Docker image: ${imageTag}")
+    }
+}
 
 docker {
     name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+    buildArgs(
+        [
+            JRE_MODULES: project.docker_jre_modules.join(',')
+        ]
+    )
+
+    if (project.hasProperty('target_platform')) {
+        platform project.properties["target_platform"]
+        buildx true
+    }
+
+    if (project.hasProperty('docker_push')) {
+        load false
+        push true
+    } else {
+        load true
+    }
 
     copySpec.into 'dist', {
         into('') {
@@ -113,6 +261,9 @@ docker {
                 from "$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME"
                 from "$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME"
             }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
+            }
         }
         into('cli') {
             into('') {
@@ -132,6 +283,29 @@ docker {
 }
 
 dockerPrepare.dependsOn replaceVars
+
+// Make 'docker' task also build CLI image, and push it when docker_push is set
+tasks.named('docker') {
+    dependsOn dockerCli
+    if (project.hasProperty('docker_push')) {
+        finalizedBy dockerCliPush
+    }
+}
+
+// Task to update docker-compose.yml with current project version
+tasks.register('updateVersion') {
+    description = 'Updates docker-compose.yml with the current project version'
+    group = 'versioning'
+
+    doLast {
+        def composeFile = file('docker/docker-compose.yml')
+        def content = composeFile.text
+        def pattern = 'image: apacheignite/ignite:\\$\\{IGNITE3_VERSION:-[^}]+\\}'
+        def replacement = 'image: apacheignite/ignite:\\${IGNITE3_VERSION:-' + project.version + '}'
+        composeFile.text = content.replaceAll(pattern, replacement)
+        logger.lifecycle("Updated docker-compose.yml to version ${project.version}")
+    }
+}
 
 // create an uber zip with all distributions
 // This task cannot be converted to lazy configuration due to some weird incompatibility with distribution plugin
@@ -183,4 +357,12 @@ def prepareRelease = tasks.register('prepareRelease', Copy) {
     include '*.rpm', '*.deb', '*.changes'
     include '*.jar'
     into file("$buildDir/release")
+}
+
+licenseReport {
+    configurations = ['dbArtifacts', 'cliArtifacts']
+    excludeBoms = true
+    renderers = [new InventoryHtmlReportRenderer()]
+    allowedLicensesFile = new File("$rootDir/check-rules/allowed-licenses.json")
+    filters = [new LicenseBundleNormalizer()]
 }

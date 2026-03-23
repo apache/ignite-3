@@ -23,12 +23,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.annotations.WithSetter;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.raft.WriteCommand;
 
-/** State machine command to build a table index. */
-@Transferable(PartitionReplicationMessageGroup.Commands.BUILD_INDEX)
-public interface BuildIndexCommand extends WriteCommand, CatalogVersionAware, TableAwareCommand {
+/**
+ * State machine command to build a table index.
+ *
+ * <p>This command is replaced with {@link BuildIndexCommandV2} and only exists in the source code for backward compatibility.</p>
+ */
+@Transferable(Commands.BUILD_INDEX_V1)
+public interface BuildIndexCommand extends WriteCommand, CatalogVersionAware {
     /** Returns index ID. */
     int indexId();
 

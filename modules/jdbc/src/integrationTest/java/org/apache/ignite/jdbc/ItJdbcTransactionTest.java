@@ -32,8 +32,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.TxManager;
+import org.awaitility.Awaitility;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -284,8 +286,6 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void transactionIsRolledBackOnDisconnect() throws SQLException {
-        TxManager txManager = unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
-
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
 
@@ -293,11 +293,11 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 int updateCount = stmt.executeUpdate("INSERT INTO test VALUES (0, '0'), (1, '1'), (2, '2')");
 
                 assertThat(updateCount, is(3));
-                assertThat(txManager.pending(), is(1));
+                expectPendingTransactions(is(1));
             }
         }
 
-        assertThat(txManager.pending(), is(0));
+        expectPendingTransactions(is(0));
 
         try (Connection conn = DriverManager.getConnection(URL)) {
             assertThat(rowsCount(conn), is(0));
@@ -309,28 +309,25 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void transactionIsRolledBackOnDisconnectDuringQueryExecution() throws Exception {
-        TxManager txManager = unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
         CompletableFuture<?> updateFuture;
 
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
 
-            assertThat(txManager.pending(), is(0));
+            expectPendingTransactions(is(0));
 
             try (Statement stmt = conn.createStatement()) {
                 updateFuture = IgniteTestUtils.runAsync(
                         () -> stmt.executeUpdate("INSERT INTO test(id) SELECT x FROM system_range(0, 10000000000)")
                 );
 
-                boolean txStarted = IgniteTestUtils.waitForCondition(() -> txManager.pending() == 1, 5_000);
-                assertThat(txStarted, is(true));
+                waitUntilPendingTransactions(is(1));
             }
         }
 
         assertThat(updateFuture, willThrowFast(SQLException.class));
 
-        boolean txFinished = IgniteTestUtils.waitForCondition(() -> txManager.pending() == 0, 5_000);
-        assertThat(txFinished, is(true));
+        waitUntilPendingTransactions(is(0));
 
         try (Connection conn = DriverManager.getConnection(URL)) {
             assertThat(rowsCount(conn), is(0));
@@ -404,6 +401,18 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 return rs.getInt(1);
             }
         }
+    }
+
+    private static void waitUntilPendingTransactions(Matcher<Integer> matcher) {
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(
+                () -> expectPendingTransactions(matcher)
+        );
+    }
+
+    private static void expectPendingTransactions(Matcher<Integer> matcher) {
+        int pending = CLUSTER.runningNodes().mapToInt(node -> unwrapIgniteImpl(node).txManager().pending()).sum();
+
+        assertThat(pending, matcher);
     }
 
     @FunctionalInterface

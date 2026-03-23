@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-import java.util.function.Function;
-
 /** Pipeline that executes a call. */
 @FunctionalInterface
 public interface CallExecutionPipeline<I extends CallInput, T> {
@@ -32,9 +30,7 @@ public interface CallExecutionPipeline<I extends CallInput, T> {
     }
 
     /** Builder helper method. */
-    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(
-            Function<ProgressTracker, AsyncCall<I, T>> callFactory
-    ) {
+    static <I extends CallInput, T> AsyncCallExecutionPipelineBuilder<I, T> asyncBuilder(AsyncCallFactory<I, T> callFactory) {
         return new AsyncCallExecutionPipelineBuilder<>(callFactory);
     }
 

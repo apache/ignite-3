@@ -60,7 +60,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta() override;
+    const protocol::column_meta_vector *get_meta() override;
 
     /**
      * Fetch next result row to application buffers.
@@ -93,7 +93,7 @@ public:
     bool is_data_available() const override;
 
     /**
-     * Get number of rows affected by the statement.
+     * Get the number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
@@ -135,7 +135,7 @@ private:
     /** Fetched flag. */
     bool m_fetched{false};
 
-    /** Has result set. */
+    /** Flag indicating whether there is a result set. */
     bool m_has_result_set{false};
 
     /** Fetched metadata. */
@@ -145,7 +145,7 @@ private:
     table_meta_vector::iterator m_cursor;
 
     /** Columns metadata. */
-    column_meta_vector m_columns_meta;
+    protocol::column_meta_vector m_columns_meta;
 };
 
 } // namespace ignite

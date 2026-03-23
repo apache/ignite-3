@@ -23,9 +23,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
@@ -36,7 +35,6 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,7 +57,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -96,7 +93,6 @@ import org.junit.jupiter.api.Timeout;
  * Replica lifecycle test.
  */
 @Timeout(60)
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
@@ -195,13 +191,15 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     void testAlterReplicaTriggerDefaultZone() throws Exception {
         startCluster(3);
 
+        assertEquals(3, cluster.size());
+
         Node node = getNode(0);
 
         CatalogManager catalogManager = node.catalogManager;
 
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        DistributionZonesTestUtil.createDefaultZone(catalogManager);
 
-        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+        CatalogZoneDescriptor defaultZone = catalogManager.latestCatalog().defaultZone();
 
         MetaStorageManager metaStorageManager = node.metaStorageManager;
 
@@ -508,8 +506,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
                 Node node = cluster.get(0);
 
-                int catalogVersion = node.catalogManager.latestCatalogVersion();
-                long timestamp = node.catalogManager.catalog(catalogVersion).time();
+                long timestamp = node.catalogManager.latestCatalog().time();
 
                 node.metaStorageManager.put(
                         stablePartAssignmentsKey(partId),
@@ -731,8 +728,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         // Check that the storages close method was triggered
         verify(internalTable.storage())
                 .close();
-        verify(internalTable.txStateStorage())
-                .close();
     }
 
     @Test
@@ -753,6 +748,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         assertThat(
                 node.partitionReplicaLifecycleManager.stopPartitionInternal(
                         zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
                         AFTER_REPLICA_STOPPED,
                         -1L,
                         replicaWasStopped -> {}
@@ -762,7 +758,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Tables must not be stopped on partition replica stop.
         verify(internalTable.storage(), never()).close();
-        verify(internalTable.txStateStorage(), never()).close();
     }
 
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {
@@ -818,8 +813,6 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         verify(internalTable.storage(), never())
                 .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), never())
-                .destroyTxStateStorage(partitionId);
     }
 
     private static void checkDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
@@ -827,16 +820,5 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), never())
-                .destroyTxStateStorage(partitionId);
-    }
-
-    @Test
-    public void enabledColocationTest() {
-        assertTrue(enabledColocation());
-        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString());
-        assertFalse(enabledColocation());
-        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString());
-        assertTrue(enabledColocation());
     }
 }

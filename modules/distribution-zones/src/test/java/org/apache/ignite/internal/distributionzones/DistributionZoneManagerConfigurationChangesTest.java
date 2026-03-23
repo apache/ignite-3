@@ -61,8 +61,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
         topology.putNode(NODE_1);
 
         assertLogicalTopology(nodes, keyValueStorage);
-
-        assertDataNodesFromLogicalNodesInStorage(getDefaultZone().id(), nodes, keyValueStorage);
     }
 
     @ParameterizedTest
@@ -73,21 +71,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
         int zoneId = getZoneId(ZONE_NAME);
 
         assertZonesKeysInMetaStorage(zoneId, nodes);
-    }
-
-    @ParameterizedTest
-    @EnumSource(ConsistencyMode.class)
-    void testZoneDeleteRemovesMetaStorageKey(ConsistencyMode consistencyMode) throws Exception {
-        createZone(ZONE_NAME, consistencyMode);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesFromLogicalNodesInStorage(zoneId, nodes, keyValueStorage);
-
-        dropZone(ZONE_NAME);
-
-        // Data nodes should be removed from meta storage
-        assertZonesKeysInMetaStorage(zoneId, null, false);
     }
 
     @ParameterizedTest

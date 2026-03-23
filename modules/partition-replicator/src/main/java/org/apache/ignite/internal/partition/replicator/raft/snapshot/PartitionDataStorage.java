@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -31,7 +35,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -40,9 +43,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Provides access to MV (multi-version) data of a table partition.
  *
- * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite(RowId)}
- * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
- * {@link #acquirePartitionSnapshotsReadLock()}.
+ * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite}
+ * and {@link #commitWrite}) and TX data storage MUST be invoked under a lock acquired using
+ * {@link PartitionSnapshots#acquireReadLock()}.
  *
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
@@ -67,16 +70,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#runConsistently(WriteClosure)
      */
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
-
-    /**
-     * Acquires the read lock on partition snapshots.
-     */
-    void acquirePartitionSnapshotsReadLock();
-
-    /**
-     * Releases the read lock on partition snapshots.
-     */
-    void releasePartitionSnapshotsReadLock();
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
@@ -134,41 +127,58 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
-     * In details:
-     * - if there is no uncommitted version, a new uncommitted version is added
-     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
-     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
      *
-     * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li>If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li>If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * </ul>
      *
-     * @param rowId Row id.
-     * @param row Table row to update. Key only row means value removal.
-     * @param txId Transaction id.
-     * @param commitTableId Commit table id.
-     * @param commitPartitionId Commit partitionId.
-     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
-     *     exists before this call
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param rowId Row ID.
+     * @param row Table row to update. {@code null} means value removal.
+     * @param txId Transaction ID.
+     * @param commitZoneId Commit zone ID.
+     * @param commitPartitionId Commit partition ID.
+     * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)
+     * @see MvPartitionStorage#addWrite
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException;
+    AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) throws StorageException;
 
     /**
-     * Write and commit the row in one step.
+     * Creates a committed version.
      *
-     * @param rowId Row id.
-     * @param row Row (null to remove existing)
-     * @param commitTs Commit timestamp.
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new committed version is added.</li>
+     * <li>If there is an uncommitted version, nothing will happen.</li>
+     * </ul>
+     *
+     * @param rowId Row ID.
+     * @param row Table row to update. Key only row means value removal.
+     * @param commitTimestamp Timestamp to associate with committed value.
+     * @return Result of add write intent committed.
+     * @throws StorageException If failed to write data to the storage.
+     * @see MvPartitionStorage#addWriteCommitted
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
+    AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
+     * <p>This must be called under a lock acquired using {@link PartitionSnapshots#acquireReadLock()}.
      *
      * @param rowId Row ID.
      * @param txId Transaction ID that abort write intent.
@@ -181,7 +191,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
+     * <p>This must be called under a lock acquired using {@link PartitionSnapshots#acquireReadLock()}.
      *
      * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
@@ -227,11 +237,11 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
 
     /**
-     * Returns the head of GC queue.
+     * Returns entries from the queue starting from the head.
      *
-     * @see MvPartitionStorage#peek(HybridTimestamp)
+     * @see MvPartitionStorage#peek
      */
-    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+    List<GcEntry> peek(HybridTimestamp lowWatermark, int count);
 
     /**
      * Delete GC entry from the GC queue and corresponding version chain.

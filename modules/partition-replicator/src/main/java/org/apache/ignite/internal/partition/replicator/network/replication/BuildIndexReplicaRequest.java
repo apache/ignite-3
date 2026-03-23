@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -40,4 +41,7 @@ public interface BuildIndexReplicaRequest extends PrimaryReplicaRequest, TableAw
 
     /** Returns {@code true} if this batch is the last one. */
     boolean finish();
+
+    /** IDs of transactions (to which write intents in this batch belong) that are known to have been aborted. */
+    Set<UUID> abortedTransactionIds();
 }

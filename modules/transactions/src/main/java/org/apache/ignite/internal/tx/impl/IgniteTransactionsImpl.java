@@ -54,6 +54,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
                 ? InternalTxOptions.defaults()
                 : InternalTxOptions.builder()
                         .timeoutMillis(options.timeoutMillis())
+                        .txLabel(options.label())
                         .build();
 
         return txManager.beginExplicit(observableTimestampTracker, options != null && options.readOnly(), internalTxOptions);
@@ -72,7 +73,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      * @return The started transaction.
      */
     public InternalTransaction beginImplicit(boolean readOnly) {
-        return txManager.beginImplicit(observableTimestampTracker, readOnly);
+        return txManager.beginImplicit(observableTimestampTracker, readOnly, null);
     }
 
     @TestOnly

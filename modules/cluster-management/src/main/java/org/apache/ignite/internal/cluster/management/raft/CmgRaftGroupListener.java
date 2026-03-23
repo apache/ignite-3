@@ -35,8 +35,10 @@ import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterIdStore;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeClusterNameCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -56,12 +58,13 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -87,6 +90,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
+
     /**
      * Creates a new instance.
      *
@@ -103,7 +108,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             ValidationManager validationManager,
             LongConsumer onLogicalTopologyChanged,
             ClusterIdStore clusterIdStore,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
@@ -111,6 +117,12 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
         this.clusterIdStore = clusterIdStore;
         this.failureProcessor = failureProcessor;
+        this.onConfigurationCommittedListener = onConfigurationCommittedListener;
+    }
+
+    @Override
+    public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
+        onConfigurationCommittedListener.accept(config);
     }
 
     @Override
@@ -183,7 +195,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 } else if (command instanceof JoinRequestCommand) {
                     ValidationResult response = validateNode((JoinRequestCommand) command);
 
-                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                    clo.result(response.isValid()
+                            ? null
+                            : new ValidationErrorResponse(response.errorDescription(), response.isInvalidNodeConfig()));
                 } else if (command instanceof JoinReadyCommand) {
                     ValidationResult response = completeValidation((JoinReadyCommand) command);
 
@@ -192,7 +206,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                         onLogicalTopologyChanged.accept(clo.term());
                     }
 
-                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                    clo.result(response.isValid()
+                            ? null
+                            : new ValidationErrorResponse(response.errorDescription(), response.isInvalidNodeConfig()));
                 } else if (command instanceof NodesLeaveCommand) {
                     removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
@@ -201,6 +217,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                     clo.result(null);
                 } else if (command instanceof ChangeMetaStorageInfoCommand) {
                     changeMetastorageNodes((ChangeMetaStorageInfoCommand) command);
+
+                    clo.result(null);
+                } else if (command instanceof ChangeClusterNameCommand) {
+                    changeClusterName((ChangeClusterNameCommand) command);
 
                     clo.result(null);
                 }
@@ -232,11 +252,11 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         } else {
             ValidationResult validationResult = ValidationManager.validateState(
                     state,
-                    command.node().asClusterNode(),
                     command.clusterState()
             );
 
-            return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
+            return validationResult.isValid() ? state
+                    : new ValidationErrorResponse(validationResult.errorDescription(), validationResult.isInvalidNodeConfig());
         }
     }
 
@@ -259,7 +279,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         LogicalNode logicalNode = logicalNodeFromClusterNodeMessage(command.node());
 
-        return validationManager.validateNode(storageManager.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
+        return validationManager.validateNode(storageManager.getClusterState(), logicalNode, command.clusterTag());
     }
 
     private ValidationResult completeValidation(JoinReadyCommand command) {
@@ -282,7 +302,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private static LogicalNode logicalNodeFromClusterNodeMessage(ClusterNodeMessage message) {
-        ClusterNode node = message.asClusterNode();
+        InternalClusterNode node = message.asClusterNode();
 
         return new LogicalNode(
                 node,
@@ -293,7 +313,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
-        Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
+        Set<InternalClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         // Nodes will be removed from a topology, so it is safe to set nodeAttributes to the default value
         Set<LogicalNode> logicalNodes = nodes.stream()
@@ -304,8 +324,30 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         validationManager.removeValidatedNodes(logicalNodes);
 
         if (LOG.isInfoEnabled()) {
-            LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));
+            LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(InternalClusterNode::name).collect(toList()));
         }
+    }
+
+    private void changeClusterName(ChangeClusterNameCommand command) {
+        ClusterState existingState = storageManager.getClusterState();
+
+        assert existingState != null : "Cluster state was not initialized when got " + command;
+
+        ClusterTag newTag = cmgMessagesFactory.clusterTag()
+                .clusterName(command.clusterName())
+                .clusterId(existingState.clusterTag().clusterId())
+                .build();
+
+        ClusterState newState = cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.copyOf(existingState.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(existingState.metaStorageNodes()))
+                .version(existingState.version())
+                .clusterTag(newTag)
+                .initialClusterConfiguration(existingState.initialClusterConfiguration())
+                .formerClusterIds(existingState.formerClusterIds())
+                .build();
+
+        storageManager.putClusterState(newState);
     }
 
     private void changeMetastorageNodes(ChangeMetaStorageInfoCommand command) {

@@ -33,11 +33,12 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -81,7 +82,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet reqColumns
+            @Nullable ImmutableIntList reqColumns
     ) {
         super(cluster, traitSet, hints, table, names, proj, cond, reqColumns);
 
@@ -183,5 +184,17 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
      */
     public List<SearchBounds> searchBounds() {
         return searchBounds;
+    }
+
+    @Override
+    public IgniteRelWriter explainAttributes(IgniteRelWriter writer) {
+        super.explainAttributes(writer)
+                .addIndex(idxName, type);
+
+        if (searchBounds != null) {
+            writer.addSearchBounds(searchBounds);
+        }
+
+        return writer;
     }
 }

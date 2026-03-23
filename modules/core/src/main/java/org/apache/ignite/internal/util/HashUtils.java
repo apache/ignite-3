@@ -174,7 +174,6 @@ public class HashUtils {
         return hashInternal(data, seed);
     }
 
-
     /**
      * Generates 64-bit hash from the long value.
      *
@@ -364,12 +363,15 @@ public class HashUtils {
     /**
      * Generates 64-bit hash from the byte array with the given offset, length and seed.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param data   The input byte array.
      * @param offset The first element of array.
      * @param length The length of array.
      * @param seed   The initial seed value.
      * @return The 64-bit hash.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private static long hashInternal(byte[] data, int offset, int length, long seed) {
         long h1 = seed;
         long h2 = seed;
@@ -479,12 +481,15 @@ public class HashUtils {
     /**
      * Generates 64-bit hash from the ByteBuffer with the given offset, length and seed.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param data   The input ByteBuffer.
      * @param offset The first element of array.
      * @param length The length of array.
      * @param seed   The initial seed value.
      * @return The 64-bit hash.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private static long hashInternal(ByteBuffer data, int offset, int length, long seed) {
         long h1 = seed;
         long h2 = seed;
@@ -602,10 +607,13 @@ public class HashUtils {
     /**
      * Gets the little-endian long from 8 bytes starting at the specified index.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param data  The data.
      * @param index The index.
      * @return The little-endian long.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private static long getLittleEndianLong(byte[] data, int index) {
         return (((long) data[index] & 0xff))
                 | (((long) data[index + 1] & 0xff) << 8)

@@ -22,7 +22,6 @@
 #include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/common/detail/string_utils.h"
-#include "ignite/odbc/type_traits.h"
 
 namespace {
 
@@ -83,7 +82,7 @@ sql_result table_metadata_query::execute() {
     return result;
 }
 
-const column_meta_vector *table_metadata_query::get_meta() {
+const protocol::column_meta_vector *table_metadata_query::get_meta() {
     return &m_columns_meta;
 }
 

@@ -41,7 +41,7 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) {
+    public void destroyPartitionStorage(int partitionId) {
         TxStatePartitionStorage storage = storages.remove(partitionId);
 
         if (storage != null) {

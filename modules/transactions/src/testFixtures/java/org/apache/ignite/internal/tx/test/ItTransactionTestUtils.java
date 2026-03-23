@@ -20,8 +20,9 @@ package org.apache.ignite.internal.tx.test;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,22 +35,22 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.tx.impl.IgniteAbstractTransactionImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -72,10 +73,7 @@ public class ItTransactionTestUtils {
     public static Set<String> partitionAssignment(IgniteImpl node, PartitionGroupId grpId) {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
-        ByteArray stableAssignmentKey =
-                enabledColocation()
-                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) grpId)
-                        : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) grpId);
+        ByteArray stableAssignmentKey = stablePartAssignmentsKey((ZonePartitionId) grpId);
 
         CompletableFuture<Entry> assignmentEntryFut = metaStorageManager.get(stableAssignmentKey);
 
@@ -103,13 +101,49 @@ public class ItTransactionTestUtils {
      */
     public static int partitionIdForTuple(IgniteImpl node, String tableName, Tuple tuple, @Nullable Transaction tx) {
         TableImpl table = table(node, tableName);
-        RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
 
-        CompletableFuture<BinaryRowEx> rowFut = view.tupleToBinaryRow(tx, tuple);
-        assertThat(rowFut, willCompleteSuccessfully());
-        BinaryRowEx row = rowFut.join();
+        BinaryRowEx row = tupleToBinaryRow(node, tableName, tuple, tx, false);
 
         return table.internalTable().partitionId(row);
+    }
+
+    /**
+     * Calculate the partition id on which the given tuple would be placed.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @param tuple Data tuple.
+     * @param tx Transaction, if present.
+     * @param keyOnly If should serialize only key columns of the tuple.
+     * @return Binary row.
+     */
+    public static BinaryRowEx tupleToBinaryRow(IgniteImpl node, String tableName, Tuple tuple, @Nullable Transaction tx, boolean keyOnly) {
+        TableImpl table = table(node, tableName);
+        RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
+
+        CompletableFuture<BinaryRowEx> rowFut = view.tupleToBinaryRow(tx, tuple, keyOnly);
+        assertThat(rowFut, willCompleteSuccessfully());
+
+        return rowFut.join();
+    }
+
+    /**
+     * Calculate the partition id on which the given tuple would be placed.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @param row Data row.
+     * @param tx Transaction, if present.
+     * @return Tuple.
+     */
+    public static Tuple binaryRowToTuple(IgniteImpl node, String tableName, BinaryRow row, @Nullable Transaction tx) {
+        TableImpl table = table(node, tableName);
+        RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
+
+        CompletableFuture<Tuple> tupleFut = view.binaryRowToTuple(tx, row);
+        assertThat(tupleFut, willCompleteSuccessfully());
+
+        return tupleFut.join();
     }
 
     /**
@@ -143,9 +177,7 @@ public class ItTransactionTestUtils {
             int partId = partitionIdForTuple(node, tableName, t, tx);
             partitionIds.add(partId);
 
-            PartitionGroupId grpId = enabledColocation()
-                    ? new ZonePartitionId(zoneId(node, tableName), partId)
-                    : new TablePartitionId(tableId(node, tableName), partId);
+            ZonePartitionId grpId = new ZonePartitionId(zoneId(node, tableName), partId);
 
             if (primary) {
                 ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, grpId);
@@ -214,7 +246,7 @@ public class ItTransactionTestUtils {
      * @return Transaction id.
      */
     public static UUID txId(Transaction tx) {
-        return ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id();
+        return ((IgniteAbstractTransactionImpl) unwrapIgniteTransaction(tx)).id();
     }
 
     /**
@@ -224,7 +256,7 @@ public class ItTransactionTestUtils {
      * @param replicationGrpId Replication group.
      * @return Primary replica meta.
      */
-    public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId replicationGrpId) {
+    public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ZonePartitionId replicationGrpId) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 replicationGrpId,
                 node.clock().now(),
@@ -235,6 +267,23 @@ public class ItTransactionTestUtils {
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
         return primaryReplicaFut.join();
+    }
+
+    /**
+     * Returns partition replica listener instance from the given node for the given partition and table.
+     *
+     * @param node Ignite node.
+     * @param groupId Group id.
+     * @param tableId Table id.
+     * @return Partition replica listener.
+     */
+    public static PartitionReplicaListener partitionReplicaListener(IgniteImpl node, ZonePartitionId groupId, int tableId) {
+        CompletableFuture<Replica> replicaFut = node.replicaManager().replica(groupId);
+        assertThat(replicaFut, willSucceedFast());
+        Replica replica = replicaFut.join();
+
+        ZonePartitionReplicaListener listener = (ZonePartitionReplicaListener) replica.listener();
+        return (PartitionReplicaListener) listener.tableReplicaProcessors().get(tableId);
     }
 
     /**

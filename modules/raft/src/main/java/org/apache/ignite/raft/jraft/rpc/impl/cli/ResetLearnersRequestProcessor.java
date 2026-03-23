@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -26,8 +28,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * ResetLearners request processor.
@@ -63,9 +63,13 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
             newLearners.add(peer);
         }
 
+        assert request.sequenceToken() != null: "Sequence token is null";
+
+        long sequenceToken = request.sequenceToken();
+
         LOG.info("Receive ResetLearnersRequest to {} from {}, resetting into {}.", ctx.node.getNodeId(),
             done.getRpcCtx().getRemoteAddress(), newLearners);
-        ctx.node.resetLearners(newLearners, status -> {
+        ctx.node.resetLearners(newLearners, sequenceToken, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }

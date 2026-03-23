@@ -17,16 +17,19 @@
 
 package org.apache.ignite.table.mapper;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.catalog.annotations.Column;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
@@ -114,12 +117,20 @@ public final class MapperBuilder<T> {
         }
 
         try {
-            type.getDeclaredConstructor();
-
-            return type;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+            boolean isRecord = RecordSupport.isRecord(type);
+            if (!isRecord) {
+                try {
+                    type.getDeclaredConstructor();
+                } catch (NoSuchMethodException e) {
+                    throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+                }
+            }
+        } catch (IllegalAccessException e) {
+            // Alternatively, we can skip the check instead of raising the error.
+            throw new RuntimeException("Could not check if the provided class is a record", e);
         }
+
+        return type;
     }
 
     /**
@@ -134,23 +145,31 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Ensures a field name is valid and a field with the specified name exists.
+     * Ensures a field name is valid and a field with the specified name exists in the class hierarchy.
      *
      * @param fieldName Field name.
      * @return Field name for chaining.
      * @throws IllegalArgumentException If a field is {@code null} or if the class has no declared field with the given name.
      */
     private String requireValidField(String fieldName) {
-        try {
-            if (fieldName == null || targetType.getDeclaredField(fieldName) == null) {
-                throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
-            }
-        } catch (NoSuchFieldException e) {
-            throw new IllegalArgumentException(
-                    String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
+        if (fieldName == null) {
+            throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
         }
 
-        return fieldName;
+        Class<?> currType = targetType;
+        do {
+            try {
+                currType.getDeclaredField(fieldName);
+                return fieldName;
+            } catch (NoSuchFieldException ignored) {
+                // Intentionally left blank.
+            }
+
+            currType = currType.getSuperclass();
+        } while (currType != Object.class && currType != null);
+
+        throw new IllegalArgumentException(
+                String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
     }
 
     /**
@@ -170,7 +189,7 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(String fieldName, String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
-        String colName0 = IgniteNameUtils.parseIdentifier(columnName);
+        String colName0 = parseIdentifier(columnName);
 
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
@@ -182,7 +201,7 @@ public final class MapperBuilder<T> {
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
             if (columnToFields.put(
-                    IgniteNameUtils.parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
+                    parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
                     requireValidField(fieldColumnPairs[i])) != null
             ) {
                 throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
@@ -229,7 +248,7 @@ public final class MapperBuilder<T> {
     public <ObjectT, ColumnT> MapperBuilder<T> convert(String columnName, TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
-        if (columnConverters.put(IgniteNameUtils.parseIdentifier(columnName), converter) != null) {
+        if (columnConverters.put(parseIdentifier(columnName), converter) != null) {
             throw new IllegalArgumentException("Column converter already exists: " + columnName);
         }
 
@@ -274,12 +293,12 @@ public final class MapperBuilder<T> {
         }
 
         if (automapFlag) {
-            Arrays.stream(targetType.getDeclaredFields())
+            getAllFields(targetType).stream()
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                     .map(MapperBuilder::getColumnToFieldMapping)
                     .filter(entry -> !fields.contains(entry.getValue()))
                     // Ignore manually mapped fields/columns.
-                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey(), entry.getValue()));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
@@ -288,11 +307,18 @@ public final class MapperBuilder<T> {
     private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
         String fldName = fld.getName();
         var column = fld.getAnnotation(Column.class);
-        if (column == null) {
-            return new SimpleEntry<>(fldName, fldName);
-        } else {
-            var columnName = column.value().isEmpty() ? fldName : column.value();
-            return new SimpleEntry<>(columnName, fldName);
+        var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
+        return new SimpleEntry<>(parseIdentifier(columnName), fldName);
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     */
+    private static List<Field> getAllFields(Class<?> clazz) {
+        var result = new ArrayList<Field>();
+        for (Class<?> current = clazz; current != Object.class; current = current.getSuperclass()) {
+            Collections.addAll(result, current.getDeclaredFields());
         }
+        return result;
     }
 }

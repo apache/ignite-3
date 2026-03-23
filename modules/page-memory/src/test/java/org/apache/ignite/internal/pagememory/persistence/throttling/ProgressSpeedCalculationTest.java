@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.is;
 
 import org.junit.jupiter.api.Test;
 
-
 /**
  * Tests for {@link ProgressSpeedCalculation}.
  */

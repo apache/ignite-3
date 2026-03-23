@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.coercion;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -32,12 +34,12 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -152,7 +154,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                 byte res;
 
                 do {
-                    res = (byte) (((byte) SqlTestUtils.generateValueByType(type, 0, 0)));
+                    res = (((byte) SqlTestUtils.generateValueByType(type, 0, 0)));
                 } while (res == 0);
 
                 return res;
@@ -222,17 +224,20 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
 
     static ClusterWrapper testCluster(TypePair typePair, DataProvider<Object[]> dataProvider) {
         TestCluster cluster = TestBuilders.cluster().nodes("N1")
-                .addTable().name("T")
-                .addKeyColumn("id", NativeTypes.INT32)
-                .addColumn("C1", typePair.first())
-                .addColumn("C2", typePair.second())
-                .end()
                 .defaultAssignmentsProvider(tableName -> (partNum, includeBackups) -> IntStream.range(0, partNum)
                         .mapToObj(part -> List.of("N1"))
                         .collect(Collectors.toList())
                 )
                 .defaultDataProvider(tableName -> TestBuilders.tableScan(dataProvider))
                 .build();
+
+        cluster.start();
+        cluster.node("N1").initSchema(
+                format("CREATE TABLE t (id INT PRIMARY KEY, c1 {}, c2 {})",
+                        native2relationalType(Commons.typeFactory(), typePair.first()),
+                        native2relationalType(Commons.typeFactory(), typePair.second())
+                )
+        );
 
         return new ClusterWrapper(cluster);
     }
@@ -242,8 +247,6 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
 
         ClusterWrapper(TestCluster cluster) {
             this.cluster = cluster;
-
-            cluster.start();
         }
 
         void process(String sql, Matcher<Object> resultMatcher) {

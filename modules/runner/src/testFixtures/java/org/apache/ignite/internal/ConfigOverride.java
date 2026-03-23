@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
@@ -28,6 +29,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD})
+@Repeatable(ConfigOverrides.class)
 public @interface ConfigOverride {
     /** Node index. {@code -1} by default, which means that the override is applied to all nodes. */
     int nodeIndex() default -1;

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.framework.DataProvider.fromCollection;
 import static org.apache.ignite.internal.sql.engine.framework.TestBuilders.tableScan;
+import static org.apache.ignite.internal.sql.engine.metadata.IgniteMdSelectivity.COMPARISON_SELECTIVITY;
+import static org.apache.ignite.internal.sql.engine.metadata.IgniteMdSelectivity.IS_NOT_NULL_SELECTIVITY;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
 
 import java.util.List;
@@ -29,8 +31,10 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,6 +45,8 @@ public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest 
     private static final int CATALOG_SALES_SIZE = 1_441_548;
     private static final int CATALOG_RETURNS_SIZE = 144_067;
     private static final int DATE_DIM_SIZE = 73_049;
+
+    private static final String SELECT = "SELECT /*+ DISABLE_RULE('JoinCommuteRule') */ * ";
 
     private static final TestCluster CLUSTER = TestBuilders.cluster()
             .nodes("N1")
@@ -71,10 +77,25 @@ public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest 
         CLUSTER.stop();
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16493 Decorrelation after subquery rewrite")
+    @Test
+    void joinByPrimaryKeysSemi() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_sales"
+                + " WHERE EXISTS ("
+                + "     SELECT 1 FROM catalog_returns "
+                + "         WHERE cs_item_sk = cr_item_sk AND cs_order_number = cr_order_number"
+                + ")"
+        )
+                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE)))
+                .check();
+    }
+
     @Test
     void joinByPrimaryKeys() {
         assertQuery(NODE, ""
-                + "SELECT *"
+                + SELECT
                 + "  FROM catalog_sales"
                 + "      ,catalog_returns"
                 + "  WHERE cs_item_sk = cr_item_sk"
@@ -83,24 +104,118 @@ public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest 
                 .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE)))
                 .check();
 
-        // Defined by IgniteMdSelectivity.guessSelectivity.
-        double isNotNullPredicateFactor = 0.9;
         assertQuery(NODE, ""
-                + "SELECT *"
+                + SELECT
                 + "  FROM catalog_sales"
                 + "      ,catalog_returns"
                 + "  WHERE cs_item_sk = cr_item_sk"
                 + "    AND cs_order_number = cr_order_number"
                 + "    AND cs_promo_sk IS NOT NULL"
         )
-                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE * isNotNullPredicateFactor)))
+                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE * IS_NOT_NULL_SELECTIVITY)))
+                .check();
+    }
+
+    @Test
+    void joinByPrimaryKeysLeft() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_sales LEFT JOIN catalog_returns ON"
+                + "  cs_item_sk = cr_item_sk AND cs_order_number = cr_order_number"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_SALES_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_sales LEFT JOIN catalog_returns"
+                + "  ON cs_item_sk = cr_item_sk"
+                + "    AND cs_order_number = cr_order_number"
+                + "    AND cs_promo_sk IS NOT NULL"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_SALES_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_sales LEFT JOIN catalog_returns"
+                + "  ON cs_item_sk = cr_item_sk"
+                + "    AND cs_order_number = cr_order_number"
+                + "    AND cr_order_number > 1"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_SALES_SIZE)))
+                .check();
+    }
+
+    @Test
+    void joinByPrimaryKeysRight() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns RIGHT JOIN catalog_sales ON"
+                + "  cs_item_sk = cr_item_sk AND cs_order_number = cr_order_number"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_SALES_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns RIGHT JOIN catalog_sales"
+                + "  ON cs_item_sk = cr_item_sk"
+                + "    AND cs_order_number = cr_order_number"
+                + "    AND cs_promo_sk IS NOT NULL"
+        )
+                .matches(nodeRowCount("NestedLoopJoin", CoreMatchers.is(CATALOG_SALES_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns RIGHT JOIN catalog_sales"
+                + "  ON cs_item_sk = cr_item_sk"
+                + "    AND cs_order_number = cr_order_number"
+                + "    AND cr_order_number > 1"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_SALES_SIZE)))
+                .check();
+    }
+
+    @Test
+    void joinByPrimaryKeysFull() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns FULL OUTER JOIN catalog_sales ON"
+                + "  cs_item_sk = cr_item_sk AND cs_order_number = cr_order_number"
+        )
+                .matches(nodeRowCount("HashJoin", approximatelyEqual((int) ((CATALOG_SALES_SIZE + CATALOG_RETURNS_SIZE)
+                        * (1.0 - (0.15 * 0.15))))))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns FULL OUTER JOIN catalog_sales"
+                + "  ON cs_item_sk = cr_item_sk"
+                + "    AND cs_order_number = cr_order_number"
+                + "    AND cs_promo_sk IS NOT NULL"
+        )
+                .matches(nodeRowCount("NestedLoopJoin", approximatelyEqual((int) ((CATALOG_SALES_SIZE + CATALOG_RETURNS_SIZE)
+                        * (1.0 - (0.15 * 0.15 * 0.9))))))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns FULL OUTER JOIN catalog_sales"
+                + "  ON cs_item_sk = cr_item_sk"
+                + "    AND cs_order_number = cr_order_number"
+                + "    AND cr_order_number > 1"
+        )
+                .matches(nodeRowCount("NestedLoopJoin", approximatelyEqual((int) ((CATALOG_SALES_SIZE + CATALOG_RETURNS_SIZE)
+                        * (1.0 - (0.15 * 0.15 * 0.5))))))
                 .check();
     }
 
     @Test
     void joinByForeignKey() {
         assertQuery(NODE, ""
-                + "SELECT *"
+                + SELECT
                 + "  FROM catalog_returns"
                 + "      ,date_dim"
                 + "  WHERE cr_returned_date_sk = d_date_sk"
@@ -109,15 +224,92 @@ public class JoinRowCountEstimationTest extends BaseRowsProcessedEstimationTest 
                 .check();
 
         // Defined by IgniteMdSelectivity.guessSelectivity.
-        double greaterPredicateFactor = 0.5;
         assertQuery(NODE, ""
-                + "SELECT *"
+                + SELECT
                 + "  FROM date_dim"
                 + "      ,catalog_returns"
                 + "  WHERE cr_returned_date_sk = d_date_sk"
                 + "    AND d_moy > 6"
         )
-                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE * greaterPredicateFactor)))
+                .matches(nodeRowCount("HashJoin", approximatelyEqual(CATALOG_RETURNS_SIZE * COMPARISON_SELECTIVITY)))
+                .check();
+    }
+
+    @Test
+    void joinByForeignKeyLeft() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns LEFT JOIN date_dim ON"
+                + "  cr_returned_date_sk = d_date_sk"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_RETURNS_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM date_dim LEFT JOIN catalog_returns ON"
+                + "  cr_returned_date_sk = d_date_sk"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_RETURNS_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns LEFT JOIN date_dim ON"
+                + "  cr_returned_date_sk = d_date_sk"
+                + "     AND cr_return_quantity > 6"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_RETURNS_SIZE)))
+                .check();
+    }
+
+    @Test
+    void joinByForeignKeyRight() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM catalog_returns RIGHT JOIN date_dim ON"
+                + "  cr_returned_date_sk = d_date_sk"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_RETURNS_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM date_dim RIGHT JOIN catalog_returns ON"
+                + "  cr_returned_date_sk = d_date_sk"
+        )
+                .matches(nodeRowCount("HashJoin", CoreMatchers.is(CATALOG_RETURNS_SIZE)))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM date_dim RIGHT JOIN catalog_returns ON"
+                + "  cr_returned_date_sk = d_date_sk"
+                + "     AND cr_return_quantity > 6"
+        )
+                .matches(nodeRowCount("NestedLoopJoin", CoreMatchers.is(CATALOG_RETURNS_SIZE)))
+                .check();
+    }
+
+    @Test
+    void joinByForeignKeyFull() {
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM date_dim FULL OUTER JOIN catalog_returns ON"
+                + "  cr_returned_date_sk = d_date_sk"
+        )
+                .matches(nodeRowCount("HashJoin", approximatelyEqual((int) ((DATE_DIM_SIZE + CATALOG_RETURNS_SIZE)
+                        * (1.0 - (0.15))))))
+                .check();
+
+        assertQuery(NODE, ""
+                + SELECT
+                + "  FROM date_dim FULL OUTER JOIN catalog_returns ON"
+                + "  cr_returned_date_sk = d_date_sk"
+                + "     AND cr_return_quantity > 6"
+        )
+                .matches(nodeRowCount("NestedLoopJoin", approximatelyEqual((int) ((DATE_DIM_SIZE + CATALOG_RETURNS_SIZE)
+                        * (1.0 - (0.15 * 0.5))))))
                 .check();
     }
 }

@@ -26,7 +26,6 @@
 
 #include <ignite/common/ignite_result.h>
 
-#include <future>
 #include <memory>
 
 namespace ignite::detail {
@@ -64,7 +63,6 @@ public:
     /**
      * Start client.
      *
-     * @param timeout Timeout.
      * @param callback Callback.
      */
     void start(std::function<void(ignite_result<void>)> callback) { m_connection->start_async(std::move(callback)); }

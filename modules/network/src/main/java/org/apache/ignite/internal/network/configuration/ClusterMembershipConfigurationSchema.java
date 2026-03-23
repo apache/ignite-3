@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -28,11 +29,13 @@ import org.apache.ignite.configuration.annotation.Value;
 public class ClusterMembershipConfigurationSchema {
     /** Periodic membership data sync interval. */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "membershipSyncInterval")
     public final int membershipSyncIntervalMillis = 30_000;
 
     /** Failure detector ping interval. */
     @Value(hasDefault = true)
-    public final int failurePingIntervalMillis = 1_000;
+    @PublicName(legacyNames = "failurePingInterval")
+    public final int failurePingIntervalMillis = 2_000;
 
     /** ScaleCube-specific configuration. */
     @ConfigValue

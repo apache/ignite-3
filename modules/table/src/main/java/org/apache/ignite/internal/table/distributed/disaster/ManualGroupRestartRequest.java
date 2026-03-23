@@ -17,26 +17,45 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignments;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.MULTI_NODE;
+import static org.apache.ignite.internal.table.distributed.disaster.GroupUpdateRequestHandler.getAliveNodesWithData;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.NotEnoughAliveNodesException;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
-class ManualGroupRestartRequest implements DisasterRecoveryRequest {
+class ManualGroupRestartRequest implements MultiNodeDisasterRecoveryRequest {
     private final UUID operationId;
 
     private final int zoneId;
-
-    private final int tableId;
 
     private final Set<Integer> partitionIds;
 
@@ -44,20 +63,27 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private final long assignmentsTimestamp;
 
+    private final boolean cleanUp;
+
+    // Nullable for requests created before coordinator field introduction.
+    private final @Nullable String coordinator;
+
     ManualGroupRestartRequest(
             UUID operationId,
             int zoneId,
-            int tableId,
             Set<Integer> partitionIds,
             Set<String> nodeNames,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            boolean cleanUp,
+            @Nullable String coordinator
     ) {
         this.operationId = operationId;
         this.zoneId = zoneId;
-        this.tableId = tableId;
         this.partitionIds = Set.copyOf(partitionIds);
         this.nodeNames = Set.copyOf(nodeNames);
         this.assignmentsTimestamp = assignmentsTimestamp;
+        this.cleanUp = cleanUp;
+        this.coordinator = coordinator;
     }
 
     @Override
@@ -75,14 +101,11 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         return MULTI_NODE;
     }
 
-    public int tableId() {
-        return tableId;
-    }
-
     public Set<Integer> partitionIds() {
         return partitionIds;
     }
 
+    @Override
     public Set<String> nodeNames() {
         return nodeNames;
     }
@@ -91,41 +114,224 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         return assignmentsTimestamp;
     }
 
+    public boolean cleanUp() {
+        return cleanUp;
+    }
+
+    @Override
+    public @Nullable String coordinator() {
+        return coordinator;
+    }
+
+    @Override
+    public MultiNodeDisasterRecoveryRequest updateCoordinator(String newCoordinatorName) {
+        return new ManualGroupRestartRequest(
+                operationId,
+                zoneId,
+                partitionIds,
+                nodeNames,
+                assignmentsTimestamp,
+                cleanUp,
+                newCoordinatorName
+        );
+    }
+
     @Override
     public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision, HybridTimestamp timestamp) {
-        if (!nodeNames.isEmpty() && !nodeNames.contains(disasterRecoveryManager.localNode().name())) {
-            return nullCompletedFuture();
-        }
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            if (!nodeNames.isEmpty() && !nodeNames.contains(disasterRecoveryManager.localNode().name())) {
+                return nullCompletedFuture();
+            }
 
-        var restartFutures = new ArrayList<CompletableFuture<?>>();
+            Catalog catalog = disasterRecoveryManager.catalogManager.activeCatalog(timestamp.longValue());
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
-        disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
-            ReplicationGroupId replicationGroupId = raftNodeId.groupId();
+            var restartFutures = new ArrayList<CompletableFuture<?>>();
 
-            if (replicationGroupId instanceof TablePartitionId) {
-                TablePartitionId groupId = (TablePartitionId) replicationGroupId;
+            disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
+                ReplicationGroupId replicationGroupId = raftNodeId.groupId();
 
-                if (groupId.tableId() == tableId && partitionIds.contains(groupId.partitionId())) {
-                    restartFutures.add(disasterRecoveryManager.tableManager.restartPartition(groupId, revision, assignmentsTimestamp));
-                }
-            } else {
-                if (replicationGroupId instanceof ZonePartitionId) {
-                    ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
-
-                    if (groupId.zoneId() == zoneId && partitionIds.contains(groupId.partitionId())) {
+                if (shouldProcessPartition(replicationGroupId, zoneDescriptor)) {
+                    if (cleanUp) {
                         restartFutures.add(
-                                disasterRecoveryManager.partitionReplicaLifecycleManager.restartPartition(
-                                        groupId,
+                                createRestartWithCleanupFuture(
+                                        disasterRecoveryManager,
+                                        replicationGroupId,
                                         revision,
-                                        assignmentsTimestamp
+                                        zoneDescriptor,
+                                        catalog
                                 )
                         );
+                    } else {
+                        restartFutures.add(createRestartFuture(disasterRecoveryManager, replicationGroupId, revision));
                     }
                 }
+            });
+
+            return restartFutures.isEmpty() ? nullCompletedFuture() : allOf(restartFutures.toArray(CompletableFuture[]::new));
+        });
+    }
+
+    private boolean shouldProcessPartition(ReplicationGroupId replicationGroupId, CatalogZoneDescriptor zoneDescriptor) {
+        Set<Integer> partitionIdsToCheck = partitionIds.isEmpty()
+                ? Arrays.stream(AssignmentUtil.partitionIds(zoneDescriptor.partitions())).boxed().collect(Collectors.toSet())
+                : partitionIds;
+
+        assert !(replicationGroupId instanceof TablePartitionId) :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType = ZonePartitionId].";
+
+        // Besides ZonePartitionId we may also retrieve CmgGroupId or MetastorageGroupId
+        if (replicationGroupId instanceof ZonePartitionId) {
+            ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
+
+            return groupId.zoneId() == zoneId && partitionIdsToCheck.contains(groupId.partitionId());
+        } else {
+            return false;
+        }
+    }
+
+    private CompletableFuture<?> createRestartFuture(
+            DisasterRecoveryManager disasterRecoveryManager,
+            ReplicationGroupId replicationGroupId,
+            long revision
+    ) {
+        assert replicationGroupId instanceof ZonePartitionId :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType = ZonePartitionId].";
+
+        return disasterRecoveryManager.partitionReplicaLifecycleManager.restartPartition(
+                (ZonePartitionId) replicationGroupId,
+                revision,
+                assignmentsTimestamp
+        );
+    }
+
+    private CompletableFuture<?> createCleanupRestartFuture(
+            DisasterRecoveryManager disasterRecoveryManager,
+            ReplicationGroupId replicationGroupId,
+            long revision
+    ) {
+        assert replicationGroupId instanceof ZonePartitionId :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType = ZonePartitionId].";
+
+        return disasterRecoveryManager.partitionReplicaLifecycleManager.restartPartitionWithCleanUp(
+                (ZonePartitionId) replicationGroupId,
+                revision,
+                assignmentsTimestamp
+        );
+    }
+
+    private CompletableFuture<?> createRestartWithCleanupFuture(
+            DisasterRecoveryManager disasterRecoveryManager,
+            ReplicationGroupId replicationGroupId,
+            long revision,
+            CatalogZoneDescriptor zoneDescriptor,
+            Catalog catalog
+    ) {
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            if (zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
+                if (zoneDescriptor.replicas() >= 2) {
+                    return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
+                } else {
+                    return notEnoughAliveNodes();
+                }
+            } else {
+                if (zoneDescriptor.replicas() <= 2) {
+                    return notEnoughAliveNodes();
+                }
+
+                return enoughAliveNodesToRestartWithCleanUp(
+                        disasterRecoveryManager,
+                        revision,
+                        replicationGroupId,
+                        zoneDescriptor,
+                        catalog
+                ).thenCompose(enoughNodes -> {
+                    if (enoughNodes) {
+                        return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
+                    } else {
+                        return notEnoughAliveNodes();
+                    }
+                });
             }
         });
+    }
 
-        return restartFutures.isEmpty() ? nullCompletedFuture() : allOf(restartFutures.toArray(CompletableFuture[]::new));
+    private static <U> CompletableFuture<U> notEnoughAliveNodes() {
+        return CompletableFuture.failedFuture(new NotEnoughAliveNodesException());
+    }
+
+    private static CompletableFuture<Boolean> enoughAliveNodesToRestartWithCleanUp(
+            DisasterRecoveryManager disasterRecoveryManager,
+            long msRevision,
+            ReplicationGroupId replicationGroupId,
+            CatalogZoneDescriptor zoneDescriptor,
+            Catalog catalog
+    ) {
+        assert replicationGroupId instanceof ZonePartitionId :
+                "Unexpected type of replication group identifier [class=" + replicationGroupId.getClass().getSimpleName()
+                        + ", value=" + replicationGroupId
+                        + ", requiredType = ZonePartitionId].";
+
+        ZonePartitionId zonePartitionId = (ZonePartitionId) replicationGroupId;
+
+        return checkPartitionAliveNodes(
+                disasterRecoveryManager,
+                zonePartitionId,
+                zoneDescriptor,
+                catalog,
+                msRevision,
+                zoneState(),
+                zoneStableAssignments(
+                        disasterRecoveryManager.metaStorageManager,
+                        zonePartitionId.zoneId(),
+                        new int[]{zonePartitionId.partitionId()}
+                )
+        );
+    }
+
+    private static <T extends PartitionGroupId> CompletableFuture<Boolean> checkPartitionAliveNodes(
+            DisasterRecoveryManager disasterRecoveryManager,
+            T partitionGroupId,
+            CatalogZoneDescriptor zoneDescriptor,
+            Catalog catalog,
+            long msRevision,
+            Function<LocalPartitionStateMessage, T> keyExtractor,
+            CompletableFuture<Map<Integer, Assignments>> stableAssignments
+    ) {
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            Set<String> aliveNodesConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toSet());
+
+            CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture =
+                    disasterRecoveryManager.localPartitionStatesInternal(
+                            Set.of(zoneDescriptor.name()),
+                            emptySet(),
+                            Set.of(partitionGroupId.partitionId()),
+                            catalog,
+                            keyExtractor
+                    );
+
+            return localStatesFuture.thenCombine(stableAssignments, (localPartitionStatesMap, currentAssignments) -> {
+                return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+                    LocalPartitionStateMessageByNode localPartitionStateMessageByNode = localPartitionStatesMap.get(partitionGroupId);
+
+                    Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
+                    Set<Assignment> currentStableAssignments = currentAssignments.get(partitionGroupId.partitionId()).nodes();
+
+                    Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentStableAssignments, partAssignments);
+
+                    return aliveStableNodes.size() > (zoneDescriptor.replicas() / 2 + 1);
+                });
+            });
+        });
     }
 
     @Override

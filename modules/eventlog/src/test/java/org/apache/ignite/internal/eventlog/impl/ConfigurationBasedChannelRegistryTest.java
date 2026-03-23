@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
 
-    @InjectConfiguration
+    @InjectConfiguration(type = DISTRIBUTED)
     private EventLogConfiguration cfg;
 
     private ConfigurationBasedChannelRegistry registry;
@@ -51,6 +53,12 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
                 cfg,
                 new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default"))
         );
+        registry.start();
+    }
+
+    @AfterEach
+    void tearDown() {
+        registry.stop();
     }
 
     @Test

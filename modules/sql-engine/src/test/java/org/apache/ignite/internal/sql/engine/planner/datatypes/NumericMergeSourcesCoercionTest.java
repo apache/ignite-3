@@ -97,7 +97,6 @@ public class NumericMergeSourcesCoercionTest extends BaseTypeCoercionTest {
         checkIncludesAllNumericTypePairs(argsDyn());
     }
 
-
     private static Stream<Arguments> argsForMergeWithColumnAsValue() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)

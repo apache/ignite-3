@@ -49,7 +49,6 @@ import org.junit.jupiter.api.Test;
 public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     private DeployFiles files;
 
-
     @BeforeEach
     public void generateDummy() {
         files = new DeployFiles(workDir);
@@ -281,5 +280,23 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         startNode(2);
 
         smallUnit.waitUnitClean(igniteImpl(2));
+    }
+
+    @Test
+    public void testZipDeploy() {
+        String id = "test";
+        Unit unit = files.deployAndVerifyFlatZip(id, Version.parseVersion("1.1.0"), igniteImpl(1));
+
+        Unit unit2 = files.deployAndVerifyTreeZip(id, Version.parseVersion("1.1.1"), igniteImpl(1));
+
+        UnitStatuses status = buildStatus(id, unit, unit2);
+
+        await().timeout(2, SECONDS)
+                .pollDelay(500, MILLISECONDS)
+                .until(() -> igniteImpl(2).deployment().clusterStatusesAsync(), willBe(List.of(status)));
+
+        IgniteImpl cmg = igniteImpl(0);
+        unit.waitUnitReplica(cmg);
+        unit2.waitUnitReplica(cmg);
     }
 }

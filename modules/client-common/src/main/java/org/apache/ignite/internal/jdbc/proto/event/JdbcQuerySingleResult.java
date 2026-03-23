@@ -55,7 +55,6 @@ public class JdbcQuerySingleResult extends Response {
 
     private long updateCnt = -1;
 
-
     /**
      * Constructor.
      */

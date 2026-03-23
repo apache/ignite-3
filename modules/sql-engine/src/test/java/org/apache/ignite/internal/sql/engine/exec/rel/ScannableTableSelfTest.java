@@ -20,7 +20,12 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
+import static org.apache.ignite.internal.testframework.matchers.DelegatingMatcher.has;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,8 +33,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -40,7 +43,6 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -53,31 +55,32 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.type.StructNativeType;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -122,27 +125,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         ResultCollector collector = tester.tableScan(partitionId, consistencyToken, tx);
 
-        if (tx.isReadOnly()) {
-            HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+        TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
+        InternalClusterNode clusterNode = tx.clusterNode();
 
-            verify(internalTable).scan(partitionId, tx.id(), timestamp, clusterNode, tx.coordinatorId());
-        } else {
-            ClusterNode clusterNode = tx.clusterNode();
-
-            verify(internalTable).scan(
-                    partitionId,
-                    tx.id(),
-                    tx.commitPartition(),
-                    tx.coordinatorId(),
-                    new PrimaryReplica(clusterNode, consistencyToken),
-                    null,
-                    null,
-                    null,
-                    0,
-                    null
-            );
-        }
+        verify(internalTable).scan(
+                partitionId,
+                clusterNode,
+                OperationContext.create(txContext)
+        );
 
         data.sendRows();
         data.done();
@@ -196,48 +186,32 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         condition.setLower(lower, lowerValue);
         condition.setUpper(upper, upperValue);
 
-        int flags = condition.toFlags();
-
         ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
-        if (tx.isReadOnly()) {
-            HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+        InternalClusterNode clusterNode = tx.isReadOnly() ? tx.clusterNode() : ctx.localNode();
+        TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(timestamp),
-                    eq(clusterNode),
-                    eq(indexId),
-                    condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
-                    condition.upperValue != null ? any(BinaryTuplePrefix.class) : isNull(),
-                    eq(flags),
-                    isNull(),
-                    eq(tx.coordinatorId())
-            );
-        } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
+        ArgumentCaptor<IndexScanCriteria.Range> criteriaCaptor = ArgumentCaptor.forClass(IndexScanCriteria.Range.class);
 
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(tx.commitPartition()),
-                    any(UUID.class),
-                    eq(primaryReplica),
-                    eq(indexId),
-                    condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
-                    condition.upperValue != null ? any(BinaryTuplePrefix.class) : isNull(),
-                    eq(flags),
-                    isNull()
-            );
-        }
+        verify(internalTable).scan(
+                eq(partitionId),
+                eq(clusterNode),
+                eq(indexId),
+                criteriaCaptor.capture(),
+                eq(OperationContext.create(txContext))
+        );
 
         input.sendRows();
         input.done();
 
         collector.expectRow(binaryRow);
         collector.expectCompleted();
+
+        assertThat(criteriaCaptor.getValue(), Matchers.allOf(
+                has(IndexScanCriteria.Range::lowerBound, (lowerValue == null) ? nullValue() : instanceOf(BinaryTuplePrefix.class)),
+                has(IndexScanCriteria.Range::upperBound, (upperValue == null) ? nullValue() : instanceOf(BinaryTuplePrefix.class)),
+                has(IndexScanCriteria.Range::flags, Matchers.is(condition.toFlags()))
+        ));
     }
 
     private static Stream<Arguments> indexScanParameters() {
@@ -263,8 +237,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -276,38 +249,18 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
-        if (tx.isReadOnly()) {
-            HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+        InternalClusterNode clusterNode = tx.isReadOnly() ? tx.clusterNode() : ctx.localNode();
+        TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(timestamp),
-                    eq(clusterNode),
-                    eq(indexId),
-                    nullable(BinaryTuplePrefix.class),
-                    nullable(BinaryTuplePrefix.class),
-                    anyInt(),
-                    eq(tester.requiredFields),
-                    eq(tx.coordinatorId())
-            );
-        } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
+        OperationContext operationContext = OperationContext.create(txContext);
 
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(tx.commitPartition()),
-                    any(UUID.class),
-                    eq(primaryReplica),
-                    eq(indexId),
-                    nullable(BinaryTuplePrefix.class),
-                    nullable(BinaryTuplePrefix.class),
-                    anyInt(),
-                    eq(tester.requiredFields)
-            );
-        }
+        verify(internalTable).scan(
+                eq(partitionId),
+                eq(clusterNode),
+                eq(indexId),
+                any(IndexScanCriteria.Range.class),
+                eq(operationContext)
+        );
 
         input.sendRows();
         input.done();
@@ -326,8 +279,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -365,7 +317,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         // Bound columns != input columns.
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
-        AssertionError err = assertThrows(AssertionError.class,
+        IllegalStateException err = assertThrows(IllegalStateException.class,
                 () -> tester.indexScan(partitionId, consistencyToken, tx, indexId, condition));
         assertEquals("Invalid range condition", err.getMessage());
 
@@ -394,50 +346,32 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
-        ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
+        ArgumentCaptor<IndexScanCriteria.Range> criteriaCaptor = ArgumentCaptor.forClass(IndexScanCriteria.Range.class);
 
         ResultCollector collector = tester.indexScan(partitionId, consistencyToken, tx, indexId, condition);
 
-        if (tx.isReadOnly()) {
-            HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+        InternalClusterNode clusterNode = tx.isReadOnly() ? tx.clusterNode() : ctx.localNode();
+        TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(timestamp),
-                    eq(clusterNode),
-                    eq(indexId),
-                    prefix.capture(),
-                    nullable(BinaryTuplePrefix.class),
-                    anyInt(),
-                    eq(tester.requiredFields),
-                    eq(tx.coordinatorId())
-            );
-        } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
-
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(tx.commitPartition()),
-                    any(UUID.class),
-                    eq(primaryReplica),
-                    eq(indexId),
-                    prefix.capture(),
-                    nullable(BinaryTuplePrefix.class),
-                    anyInt(),
-                    eq(tester.requiredFields)
-            );
-        }
+        verify(internalTable).scan(
+                eq(partitionId),
+                eq(clusterNode),
+                eq(indexId),
+                criteriaCaptor.capture(),
+                eq(OperationContext.create(txContext))
+        );
 
         input.sendRows();
         input.done();
 
         collector.expectCompleted();
 
-        BinaryTuplePrefix lowerBound = prefix.getValue();
+        BinaryTuplePrefix lowerBound = criteriaCaptor.getValue().lowerBound();
+        assertNotNull(lowerBound);
         assertEquals(2, lowerBound.elementCount());
+
+        assertNull(criteriaCaptor.getValue().upperBound());
+        assertEquals(GREATER_OR_EQUAL, criteriaCaptor.getValue().flags());
     }
 
     /**
@@ -456,39 +390,30 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         int indexId = 3;
         Object[] key = {1};
 
+        ArgumentCaptor<IndexScanCriteria.Lookup> criteriaCaptor = ArgumentCaptor.forClass(IndexScanCriteria.Lookup.class);
+
         ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
 
-        if (tx.isReadOnly()) {
-            verify(internalTable).lookup(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(tx.readTimestamp()),
-                    eq(tx.clusterNode()),
-                    eq(indexId),
-                    any(BinaryTuple.class),
-                    isNull(),
-                    eq(tx.coordinatorId())
-            );
-        } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
+        InternalClusterNode clusterNode = tx.isReadOnly() ? tx.clusterNode() : ctx.localNode();
+        TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            verify(internalTable).lookup(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    any(),
-                    any(UUID.class),
-                    eq(primaryReplica),
-                    eq(indexId),
-                    any(BinaryTuple.class),
-                    isNull()
-            );
-        }
+        verify(internalTable).scan(
+                eq(partitionId),
+                eq(clusterNode),
+                eq(indexId),
+                criteriaCaptor.capture(),
+                eq(OperationContext.create(txContext))
+        );
 
         input.sendRows();
         input.done();
 
         collector.expectRow(binaryRow);
         collector.expectCompleted();
+
+        BinaryTuple exactKey = criteriaCaptor.getValue().key();
+        assertNotNull(exactKey);
+        assertEquals(1, exactKey.elementCount());
     }
 
     /**
@@ -501,8 +426,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -511,31 +435,16 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
 
-        if (tx.isReadOnly()) {
-            verify(internalTable).lookup(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(tx.readTimestamp()),
-                    eq(tx.clusterNode()),
-                    eq(indexId),
-                    any(BinaryTuple.class),
-                    eq(null),
-                    eq(tx.coordinatorId())
-            );
-        } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), consistencyToken);
+        InternalClusterNode clusterNode = tx.isReadOnly() ? tx.clusterNode() : ctx.localNode();
+        TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            verify(internalTable).lookup(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    any(),
-                    any(UUID.class),
-                    eq(primaryReplica),
-                    eq(indexId),
-                    any(BinaryTuple.class),
-                    eq(null)
-            );
-        }
+        verify(internalTable).scan(
+                eq(partitionId),
+                eq(clusterNode),
+                eq(indexId),
+                any(IndexScanCriteria.Lookup.class),
+                eq(OperationContext.create(txContext))
+        );
 
         input.sendRows();
         input.done();
@@ -586,7 +495,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final RowCollectingTableRowConverter rowConverter;
 
-        BitSet requiredFields;
+        int[] requiredFields;
 
         Tester(TestInput input) {
             this.input = input;
@@ -598,30 +507,22 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
 
-            if (tx.isReadOnly()) {
-                doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class), any(UUID.class));
-            } else {
-                doAnswer(invocation -> input.publisher).when(internalTable).scan(
-                        anyInt(),
-                        any(UUID.class),
-                        any(TablePartitionId.class),
-                        any(UUID.class),
-                        any(PrimaryReplica.class),
-                        isNull(),
-                        isNull(),
-                        isNull(),
-                        eq(0),
-                        isNull()
-                );
-            }
+            InternalClusterNode clusterNode = tx.isReadOnly() ? tx.clusterNode() : ctx.localNode();
+            TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            doAnswer(invocation -> input.publisher).when(internalTable).scan(
+                    anyInt(),
+                    eq(clusterNode),
+                    eq(OperationContext.create(txContext))
+            );
+
+            RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
 
             Publisher<Object[]> publisher = scannableTable.scan(
                     ctx,
-                    new PartitionWithConsistencyToken(partitionId, consistencyToken), rowFactory, null
+                    new PartitionWithConsistencyToken(partitionId, consistencyToken),
+                    rowFactory,
+                    null
             );
 
             return new ResultCollector(publisher, rowConverter);
@@ -637,35 +538,19 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
+            when(ctx.rowAccessor()).thenReturn(ArrayRowHandler.INSTANCE);
 
-            if (tx.isReadOnly()) {
-                doAnswer(i -> input.publisher).when(internalTable).scan(
-                        anyInt(),
-                        any(UUID.class),
-                        any(HybridTimestamp.class),
-                        any(ClusterNode.class),
-                        any(Integer.class),
-                        nullable(BinaryTuplePrefix.class),
-                        nullable(BinaryTuplePrefix.class),
-                        anyInt(),
-                        nullable(BitSet.class),
-                        any(UUID.class));
-            } else {
-                doAnswer(i -> input.publisher).when(internalTable).scan(
-                        anyInt(),
-                        any(UUID.class),
-                        any(TablePartitionId.class),
-                        any(UUID.class),
-                        any(PrimaryReplica.class),
-                        any(Integer.class),
-                        nullable(BinaryTuplePrefix.class),
-                        nullable(BinaryTuplePrefix.class),
-                        anyInt(),
-                        nullable(BitSet.class));
-            }
+            TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            doAnswer(i -> input.publisher).when(internalTable).scan(
+                    anyInt(),
+                    any(InternalClusterNode.class),
+                    anyInt(),
+                    any(IndexScanCriteria.Range.class),
+                    eq(OperationContext.create(txContext))
+            );
+
+            RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
             List<String> indexColumns = input.getIndexColumns();
 
@@ -687,31 +572,18 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
+            when(ctx.rowAccessor()).thenReturn(ArrayRowHandler.INSTANCE);
 
-            if (tx.isReadOnly()) {
-                doAnswer(i -> input.publisher).when(internalTable).lookup(
-                        anyInt(),
-                        any(UUID.class),
-                        any(HybridTimestamp.class),
-                        any(ClusterNode.class),
-                        any(Integer.class),
-                        nullable(BinaryTuple.class),
-                        nullable(BitSet.class),
-                        any(UUID.class));
-            } else {
-                doAnswer(i -> input.publisher).when(internalTable).lookup(
-                        anyInt(),
-                        any(UUID.class),
-                        any(TablePartitionId.class),
-                        any(UUID.class),
-                        any(PrimaryReplica.class),
-                        any(Integer.class),
-                        nullable(BinaryTuple.class),
-                        nullable(BitSet.class));
-            }
+            TxContext txContext = tx.isReadOnly() ? TxContext.readOnly(tx) : TxContext.readWrite(tx, consistencyToken);
 
-            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
+            doAnswer(i -> input.publisher).when(internalTable).scan(
+                    anyInt(),
+                    any(InternalClusterNode.class),
+                    any(Integer.class),
+                    any(IndexScanCriteria.Lookup.class),
+                    eq(OperationContext.create(txContext)));
+
+            RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(
@@ -739,7 +611,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final RelDataType rowType;
 
-        final RowSchema rowSchema;
+        final StructNativeType rowSchema;
 
         final BitSet indexColumns = new BitSet();
 
@@ -749,17 +621,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         TestInput(int columnCount) {
             Builder builder = new Builder(TYPE_FACTORY);
-            RowSchema.Builder rowSchema = RowSchema.builder();
-
             for (int i = 1; i <= columnCount; i++) {
                 builder.add("C" + i, SqlTypeName.INTEGER);
-                rowSchema.addField(NativeTypes.INT32);
             }
 
             indexColumns.set(0);
 
             rowType = builder.build();
-            this.rowSchema = rowSchema.build();
+            this.rowSchema = TypeUtils.convertStructuredType(rowType);
         }
 
         void addRow(BinaryRow row) {

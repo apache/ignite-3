@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Sql;
 
 using Ignite.Sql;
+using Ignite.Table.Mapper;
 
 /// <summary>
 /// Column metadata.
@@ -29,4 +30,4 @@ using Ignite.Sql;
 /// <param name="Nullable">Whether column is nullable.</param>
 /// <param name="Origin">Origin.</param>
 internal sealed record ColumnMetadata(string Name, ColumnType Type, int Precision, int Scale, bool Nullable, IColumnOrigin? Origin)
-    : IColumnMetadata;
+    : IColumnMetadata, IMapperColumn;

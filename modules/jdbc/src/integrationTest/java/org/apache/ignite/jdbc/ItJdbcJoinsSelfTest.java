@@ -42,6 +42,8 @@ public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testJoin() throws Exception {
+        assertEquals(3, initialNodes(), "This test requires 3 nodes cluster");
+
         stmt.executeUpdate("CREATE TABLE PUBLIC.PERSON"
                 + " (ID INT, NAME VARCHAR(64), AGE INT, CITY_ID DOUBLE, PRIMARY KEY (NAME));");
         stmt.executeUpdate("CREATE TABLE PUBLIC.MEDICAL_INFO"

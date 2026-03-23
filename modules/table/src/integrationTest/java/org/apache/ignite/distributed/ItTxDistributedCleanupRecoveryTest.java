@@ -47,13 +47,13 @@ public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
     @BeforeEach
     @Override
     public void before() throws Exception {
-        // The value of 3 is less than the allowed number of cleanup retries.
         setDefaultRetryCount(3);
 
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemLocalConfiguration,
                 systemDistributedConfiguration,
                 workDir,
                 nodes(),
@@ -74,10 +74,11 @@ public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
             DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
             messagingService.dropMessages((s, networkMessage) -> {
                 if (networkMessage instanceof TxCleanupMessage && defaultRetryCount.getAndDecrement() > 0) {
-                    logger().info("Dropping cleanup request: {}", networkMessage);
+                    logger().info("Dropping cleanup request [message={}].", networkMessage);;
 
                     return true;
                 }
+
                 return false;
             });
         });

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -39,7 +38,7 @@ public class PartitionWithConsistencyToken {
      * @param partId partition number
      * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public PartitionWithConsistencyToken(int partId, Long enlistmentConsistencyToken) {
+    public PartitionWithConsistencyToken(int partId, long enlistmentConsistencyToken) {
         this.partId = partId;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
@@ -62,7 +61,6 @@ public class PartitionWithConsistencyToken {
         return enlistmentConsistencyToken;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -75,15 +73,18 @@ public class PartitionWithConsistencyToken {
         return partId == that.partId && enlistmentConsistencyToken == that.enlistmentConsistencyToken;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(partId, enlistmentConsistencyToken);
+        int result = 1;
+
+        result = 31 * result + partId;
+        result = 31 * result + Long.hashCode(enlistmentConsistencyToken);
+
+        return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(PartitionWithConsistencyToken.class, this);
     }
 }

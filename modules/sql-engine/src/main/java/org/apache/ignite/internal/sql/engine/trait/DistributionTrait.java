@@ -65,8 +65,16 @@ public final class DistributionTrait implements IgniteDistribution {
 
     private final ImmutableIntList keys;
 
+    private final boolean affinityFlag;
+
+    private final int tableId;
+
+    private final int zoneId;
+
+    private final String label;
+
     /**
-     * Constructor.
+     * Constructor non-hash distributions.
      *
      * @param function Distribution function.
      */
@@ -76,17 +84,48 @@ public final class DistributionTrait implements IgniteDistribution {
         this.function = function;
 
         keys = ImmutableIntList.of();
+        affinityFlag = false;
+        tableId = -1;
+        zoneId = -1;
+        label = function.name();
     }
 
     /**
-     * Constructor.
+     * Constructor for hash distribution.
      *
      * @param keys     Distribution keys.
      * @param function Distribution function.
      */
     DistributionTrait(List<Integer> keys, DistributionFunction function) {
+        this(keys, -1, -1, function.name(), function, false);
+    }
+
+    /**
+     * Constructor for affinity distribution.
+     *
+     * @param keys     Distribution keys.
+     * @param function Distribution function.
+     */
+    DistributionTrait(List<Integer> keys, int tableId, int zoneId, String label, DistributionFunction function) {
+        this(keys, tableId, zoneId, label, function, true);
+    }
+
+    private DistributionTrait(
+            List<Integer> keys,
+            int tableId,
+            int zoneId,
+            String label,
+            DistributionFunction function,
+            boolean affinityFlag
+    ) {
+        assert function.type() == HASH_DISTRIBUTED;
+
         this.keys = ImmutableIntList.copyOf(keys);
         this.function = function;
+        this.tableId = tableId;
+        this.zoneId = zoneId;
+        this.label = label;
+        this.affinityFlag = affinityFlag;
     }
 
     /** {@inheritDoc} */
@@ -107,6 +146,26 @@ public final class DistributionTrait implements IgniteDistribution {
         return keys;
     }
 
+    @Override
+    public boolean isTableDistribution() {
+        return affinityFlag;
+    }
+
+    @Override
+    public int tableId() {
+        return tableId;
+    }
+
+    @Override
+    public int zoneId() {
+        return zoneId;
+    }
+
+    @Override
+    public String label() {
+        return label;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void register(RelOptPlanner planner) {
@@ -122,7 +181,12 @@ public final class DistributionTrait implements IgniteDistribution {
         if (o instanceof DistributionTrait) {
             DistributionTrait that = (DistributionTrait) o;
 
-            return Objects.equals(function, that.function) && Objects.equals(keys, that.keys);
+            return Objects.equals(function, that.function)
+                    && Objects.equals(keys, that.keys)
+                    && affinityFlag == that.affinityFlag
+                    && tableId == that.tableId
+                    && zoneId == that.zoneId
+                    && Objects.equals(label, that.label);
         }
 
         return false;
@@ -131,13 +195,15 @@ public final class DistributionTrait implements IgniteDistribution {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(function, keys);
+        return Objects.hash(function, keys, zoneId, tableId);
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return function.name() + (function.type() == HASH_DISTRIBUTED ? keys : "");
+        return function.name()
+                + (function.type() == HASH_DISTRIBUTED ? keys : "")
+                + (isTableDistribution() ? "[zoneId=" + zoneId + ", tableId=" + tableId + ']' : "");
     }
 
     /** {@inheritDoc} */
@@ -166,7 +232,9 @@ public final class DistributionTrait implements IgniteDistribution {
         if (getType() == other.getType()) {
             return getType() != HASH_DISTRIBUTED
                     || (Objects.equals(keys, other.keys)
-                    && DistributionFunction.satisfy(function, other.function));
+                    && affinityFlag == other.affinityFlag
+                    && zoneId == other.zoneId
+                    && Objects.equals(function, other.function));
         }
 
         if (other.getType() == RANDOM_DISTRIBUTED) {
@@ -191,7 +259,9 @@ public final class DistributionTrait implements IgniteDistribution {
 
         List<Integer> res = Mappings.apply2((Mapping) mapping, keys);
 
-        return IgniteDistributions.hash(ImmutableIntList.copyOf(res), function);
+        return affinityFlag
+                ? IgniteDistributions.affinity(res, tableId, zoneId, label)
+                : IgniteDistributions.hash(res, function);
     }
 
     /** {@inheritDoc} */
@@ -210,6 +280,22 @@ public final class DistributionTrait implements IgniteDistribution {
 
             if (cmp == 0) {
                 cmp = function.name().compareTo(distribution.function().name());
+            }
+
+            if (cmp == 0) {
+                cmp = Boolean.compare(affinityFlag, distribution.isTableDistribution());
+            }
+
+            if (cmp == 0 && affinityFlag) {
+                cmp = Integer.compare(zoneId, distribution.zoneId());
+
+                if (cmp == 0) {
+                    cmp = Integer.compare(tableId, distribution.tableId());
+                }
+
+                if (cmp == 0) {
+                    cmp = label.compareTo(distribution.label());
+                }
             }
 
             return cmp;

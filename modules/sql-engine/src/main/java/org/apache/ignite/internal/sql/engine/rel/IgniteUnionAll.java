@@ -82,7 +82,8 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     /** {@inheritDoc} */
     @Override
     public Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
-        // Union node erases collation. TODO union all using merge sort algorythm
+        // Union node erases collation.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28155 union all using merge sort algorythm.
 
         return Pair.of(nodeTraits.replace(RelCollations.EMPTY),
                 Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY)));
@@ -110,7 +111,8 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     /** {@inheritDoc} */
     @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
-        // Union node erases collation. TODO union all using merge sort algorythm
+        // Union node erases collation.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28155 union all using merge sort algorythm.
 
         return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
                 Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY))));

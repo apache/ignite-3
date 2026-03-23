@@ -146,6 +146,7 @@ class WorkDirectoryExtensionTest {
         private static Path workDir;
 
         @BeforeEach
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         void setUp(@WorkDirectory Path anotherWorkDir) {
             fail("Should not reach here");
         }
@@ -275,6 +276,7 @@ class WorkDirectoryExtensionTest {
             assertTrue(Files.exists(file2));
 
             IgniteUtils.deleteIfExists(file1.getParent());
+            IgniteUtils.deleteIfExists(file2.getParent());
         }
 
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
@@ -308,6 +310,7 @@ class WorkDirectoryExtensionTest {
             assertTrue(Files.exists(file2));
 
             IgniteUtils.deleteIfExists(file1.getParent());
+            IgniteUtils.deleteIfExists(file2.getParent());
         }
 
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")

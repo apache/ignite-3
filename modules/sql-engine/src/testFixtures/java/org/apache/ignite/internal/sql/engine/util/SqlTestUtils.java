@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.QueryCancelledException.CANCEL_MSG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
@@ -43,6 +44,8 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -52,6 +55,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -63,9 +67,12 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -125,6 +132,7 @@ public class SqlTestUtils {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.UUID);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.PERIOD, null);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DURATION, null);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.STRUCT, null);
 
         for (ColumnType value : ColumnType.values()) {
             assert COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.containsKey(value) : "absent type is " + value;
@@ -585,12 +593,84 @@ public class SqlTestUtils {
     /**
      * Waits until the number of running queries matches the specified matcher.
      *
-     * @param queryProcessor Query processor.
+     * @param cluster Cluster.
      * @param matcher Matcher to check the number of running queries.
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
-    public static void waitUntilRunningQueriesCount(SqlQueryProcessor queryProcessor, Matcher<Integer> matcher) {
-        //noinspection TestOnlyProblems
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries().size(), matcher));
+    public static void waitUntilRunningQueriesCount(Cluster cluster, Matcher<Integer> matcher) {
+        ToIntFunction<Ignite> queriesCountPerNode = node ->
+                ((SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine()).runningQueries().size();
+
+        Awaitility.await().timeout(5, TimeUnit.SECONDS)
+                .until(() -> cluster.runningNodes().mapToInt(queriesCountPerNode).sum(), matcher);
+    }
+
+    /**
+     * Waits until the number of queries in given phase matches the specified matcher.
+     *
+     * @param queryProcessor The query processor to derive list of running queries.
+     * @param phase The {@link ExecutionPhase} of the interest.
+     * @param matcher THe matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    public static void waitUntilQueriesInPhaseCount(SqlQueryProcessor queryProcessor, ExecutionPhase phase, Matcher<Integer> matcher) {
+        Awaitility.await().until(
+                () -> (int) queryProcessor.runningQueries().stream()
+                        .filter(queryInfo -> queryInfo.phase() == phase)
+                        .count(),
+                matcher
+        );
+    }
+
+    /**
+     * Trims milliseconds of a source temporal-type object to the target precision.
+     *
+     * @param type Source type.
+     * @param source Source temporal object.
+     * @param precision Target precision.
+     * @return Temporal object with the adjusted number of nanoseconds.
+     */
+    public static Temporal adjustTemporalPrecision(ColumnType type, Temporal source, int precision) {
+        switch (type) {
+            case TIME: {
+                LocalTime time = (LocalTime) source;
+
+                return time.withNano(adjustNanos(time.getNano(), precision));
+            }
+
+            case DATETIME: {
+                LocalDateTime dt = (LocalDateTime) source;
+
+                return dt.withNano(adjustNanos(dt.getNano(), precision));
+            }
+
+            case TIMESTAMP: {
+                Instant dt = (Instant) source;
+
+                return dt.with(ChronoField.NANO_OF_SECOND, adjustNanos(dt.getNano(), precision));
+            }
+
+            default:
+                throw new IllegalStateException("Unexpected type: " + type);
+        }
+    }
+
+    /**
+     * Trims number of nanoseconds according to the specified precision.
+     *
+     * <p>Note: the maximum supported precision is 3.
+     *
+     * @param nanos Number of nanoseconds.
+     * @param precision Desired precision.
+     * @return Adjusted number of nanoseconds.
+     */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static int adjustNanos(int nanos, int precision) {
+        long millis = TimeUnit.NANOSECONDS.toMillis(nanos);
+
+        int d = 3 - Math.min(3, precision);
+        long adjustedMillis = (millis / (long) Math.pow(10, d)) * (long) Math.pow(10, d);
+
+        return (int) TimeUnit.MILLISECONDS.toNanos(adjustedMillis);
     }
 }

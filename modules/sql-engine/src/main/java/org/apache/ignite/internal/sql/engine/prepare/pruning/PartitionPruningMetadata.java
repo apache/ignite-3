@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.io.Serializable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,6 +42,11 @@ public class PartitionPruningMetadata implements Serializable {
 
     /** Constructor. */
     public PartitionPruningMetadata(Long2ObjectMap<PartitionPruningColumns> data) {
+        for (long id : data.keySet()) {
+            if (id == -1) {
+                throw new IllegalArgumentException("sourceId has not been set: " + data);
+            }
+        }
         this.data = Long2ObjectMaps.unmodifiable(data);
     }
 
@@ -57,5 +64,23 @@ public class PartitionPruningMetadata implements Serializable {
     @Override
     public String toString() {
         return S.toString(PartitionPruningMetadata.class, this, "data", data);
+    }
+
+    /**
+     * Returns a subset of this metadata that uses the given tables.
+     *
+     * @param tables Tables.
+     * @return Metadata.
+     */
+    public PartitionPruningMetadata subset(Long2ObjectMap<IgniteTable> tables) {
+        Long2ObjectMap<PartitionPruningColumns> out = new Long2ObjectOpenHashMap<>();
+
+        for (Long2ObjectMap.Entry<PartitionPruningColumns> e : data.long2ObjectEntrySet()) {
+            if (tables.containsKey(e.getLongKey())) {
+                out.put(e.getLongKey(), e.getValue());
+            }
+        }
+
+        return new PartitionPruningMetadata(out);
     }
 }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
@@ -39,7 +39,7 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      * @param usedColumns Participating columns numeration.
      * @return Row type.
      */
-    RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
+    RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableIntList usedColumns);
 
     /** Returns type of the row excluding all {@link ColumnDescriptor#hidden() hidden} columns. */
     RelDataType rowTypeSansHidden();
@@ -64,4 +64,14 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      * @return Actual count of columns.
      */
     int columnsCount();
+
+    /**
+     * Returns {@code true} if table has hidden columns, {@code false} otherwise.
+     */
+    boolean hasHiddenColumns();
+
+    /**
+     * Returns {@code true} if table has virtual columns, {@code false} otherwise.
+     */
+    boolean hasVirtualColumns();
 }

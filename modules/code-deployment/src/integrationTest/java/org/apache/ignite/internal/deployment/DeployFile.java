@@ -29,10 +29,13 @@ class DeployFile {
 
     private final int replicaTimeout;
 
-    DeployFile(Path file, long expectedSize, int replicaTimeout) throws IOException {
+    private final boolean zip;
+
+    DeployFile(Path file, boolean zip, long expectedSize, int replicaTimeout) throws IOException {
         this.file = file;
         this.expectedSize = expectedSize;
         this.replicaTimeout = replicaTimeout;
+        this.zip = zip;
         ensureExists();
     }
 
@@ -44,6 +47,10 @@ class DeployFile {
 
     Path file() {
         return file;
+    }
+
+    boolean zip() {
+        return zip;
     }
 
     long expectedSize() {

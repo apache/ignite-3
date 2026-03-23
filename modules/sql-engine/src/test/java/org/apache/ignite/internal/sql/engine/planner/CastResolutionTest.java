@@ -62,7 +62,10 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static final Set<String> FRACTIONAL_NAMES = FRACTIONAL_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
 
-    private static final Set<String> EXACT_NUMERIC = EXACT_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
+    private static final Set<String> EXACT_NUMERIC = EXACT_TYPES.stream()
+            .filter(t -> !SqlTypeName.UNSIGNED_TYPES.contains(t))
+            .map(SqlTypeName::getName)
+            .collect(Collectors.toSet());
 
     private static final Set<String> CHAR_NAMES = CHAR_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
 
@@ -305,7 +308,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static String makeUsableIntervalFromType(String typeName) {
         if (typeName.toLowerCase().contains("interval")) {
-            return typeName.replace("_", " 1 ");
+            return typeName.replace("_", " '1' ");
         }
 
         return makeSpaceName(typeName);

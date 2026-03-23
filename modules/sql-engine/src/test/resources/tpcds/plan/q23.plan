@@ -1,0 +1,712 @@
+Limit
+    fetch: 100
+    est: (rows=2)
+  ColocatedSortAggregate
+      fieldNames: [EXPR$0]
+      collation: []
+      group: []
+      aggregation: [SUM(SALES)]
+      est: (rows=2)
+    UnionAll
+        est: (rows=103008)
+      Project
+          fieldNames: [SALES]
+          projection: [*(CS_QUANTITY, CS_LIST_PRICE)]
+          est: (rows=68716)
+        HashJoin
+            predicate: =(CS_ITEM_SK, ITEM_SK)
+            type: inner
+            est: (rows=68716)
+          HashJoin
+              predicate: =(CS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+              type: inner
+              est: (rows=148218)
+            HashJoin
+                predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                type: inner
+                est: (rows=159852)
+              Exchange
+                  distribution: single
+                  est: (rows=1441548)
+                TableScan
+                    table: PUBLIC.CATALOG_SALES
+                    fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_ITEM_SK, CS_QUANTITY, CS_LIST_PRICE]
+                    est: (rows=1441548)
+              Exchange
+                  distribution: single
+                  est: (rows=8100)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: AND(=(D_YEAR, 2000), =(D_MOY, 3))
+                    fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                    est: (rows=8100)
+            Project
+                fieldNames: [C_CUSTOMER_SK]
+                projection: [C_CUSTOMER_SK]
+                est: (rows=288040)
+              NestedLoopJoin
+                  predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
+                  type: inner
+                  est: (rows=288040)
+                ColocatedHashAggregate
+                    fieldNames: [C_CUSTOMER_SK, SSALES]
+                    group: [C_CUSTOMER_SK]
+                    aggregation: [SUM($f1)]
+                    est: (rows=576081)
+                  Project
+                      fieldNames: [C_CUSTOMER_SK, $f1]
+                      projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                      est: (rows=2880404)
+                    HashJoin
+                        predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                        type: inner
+                        est: (rows=2880404)
+                      Exchange
+                          distribution: single
+                          est: (rows=2880404)
+                        TableScan
+                            table: PUBLIC.STORE_SALES
+                            fieldNames: [SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                            est: (rows=2880404)
+                      Exchange
+                          distribution: single
+                          est: (rows=100000)
+                        TableScan
+                            table: PUBLIC.CUSTOMER
+                            fieldNames: [C_CUSTOMER_SK]
+                            est: (rows=100000)
+                ColocatedHashAggregate
+                    fieldNames: [TPCDS_CMAX]
+                    group: []
+                    aggregation: [MAX(CSALES)]
+                    est: (rows=1)
+                  Project
+                      fieldNames: [CSALES]
+                      projection: [CSALES]
+                      est: (rows=534156)
+                    ColocatedHashAggregate
+                        fieldNames: [C_CUSTOMER_SK, CSALES]
+                        group: [C_CUSTOMER_SK]
+                        aggregation: [SUM($f1)]
+                        est: (rows=534156)
+                      Project
+                          fieldNames: [C_CUSTOMER_SK, $f1]
+                          projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                          est: (rows=2670780)
+                        HashJoin
+                            predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                            type: inner
+                            est: (rows=2670780)
+                          HashJoin
+                              predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                              type: inner
+                              est: (rows=2670780)
+                            Exchange
+                                distribution: single
+                                est: (rows=2880404)
+                              TableScan
+                                  table: PUBLIC.STORE_SALES
+                                  fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                                  est: (rows=2880404)
+                            Exchange
+                                distribution: single
+                                est: (rows=67733)
+                              TableScan
+                                  table: PUBLIC.DATE_DIM
+                                  predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                                  fieldNames: [D_DATE_SK, D_YEAR]
+                                  est: (rows=67733)
+                          Exchange
+                              distribution: single
+                              est: (rows=100000)
+                            TableScan
+                                table: PUBLIC.CUSTOMER
+                                fieldNames: [C_CUSTOMER_SK]
+                                est: (rows=100000)
+          ColocatedHashAggregate
+              group: [ITEM_SK]
+              aggregation: []
+              est: (rows=1303341)
+            Project
+                fieldNames: [ITEM_SK]
+                projection: [ITEM_SK]
+                est: (rows=651670)
+              Filter
+                  predicate: >(CNT, 4)
+                  est: (rows=651670)
+                ColocatedHashAggregate
+                    fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE, CNT]
+                    group: [ITEMDESC, ITEM_SK, SOLDDATE]
+                    aggregation: [COUNT()]
+                    est: (rows=1303341)
+                  Project
+                      fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE]
+                      projection: [SUBSTR(I_ITEM_DESC, 1, 30), I_ITEM_SK, D_DATE]
+                      est: (rows=2670780)
+                    HashJoin
+                        predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                        type: inner
+                        est: (rows=2670780)
+                      HashJoin
+                          predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                          type: inner
+                          est: (rows=2670780)
+                        Exchange
+                            distribution: single
+                            est: (rows=2880404)
+                          TableScan
+                              table: PUBLIC.STORE_SALES
+                              fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK]
+                              est: (rows=2880404)
+                        Exchange
+                            distribution: single
+                            est: (rows=67733)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                              fieldNames: [D_DATE_SK, D_DATE, D_YEAR]
+                              est: (rows=67733)
+                      Exchange
+                          distribution: single
+                          est: (rows=18000)
+                        TableScan
+                            table: PUBLIC.ITEM
+                            fieldNames: [I_ITEM_SK, I_ITEM_DESC]
+                            est: (rows=18000)
+      Project
+          fieldNames: [SALES]
+          projection: [*(WS_QUANTITY, WS_LIST_PRICE)]
+          est: (rows=34292)
+        HashJoin
+            predicate: =(WS_ITEM_SK, ITEM_SK)
+            type: inner
+            est: (rows=34292)
+          HashJoin
+              predicate: =(WS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+              type: inner
+              est: (rows=73966)
+            HashJoin
+                predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                type: inner
+                est: (rows=79772)
+              Exchange
+                  distribution: single
+                  est: (rows=719384)
+                TableScan
+                    table: PUBLIC.WEB_SALES
+                    fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_QUANTITY, WS_LIST_PRICE]
+                    est: (rows=719384)
+              Exchange
+                  distribution: single
+                  est: (rows=8100)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: AND(=(D_YEAR, 2000), =(D_MOY, 3))
+                    fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                    est: (rows=8100)
+            Project
+                fieldNames: [C_CUSTOMER_SK]
+                projection: [C_CUSTOMER_SK]
+                est: (rows=288040)
+              NestedLoopJoin
+                  predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
+                  type: inner
+                  est: (rows=288040)
+                ColocatedHashAggregate
+                    fieldNames: [C_CUSTOMER_SK, SSALES]
+                    group: [C_CUSTOMER_SK]
+                    aggregation: [SUM($f1)]
+                    est: (rows=576081)
+                  Project
+                      fieldNames: [C_CUSTOMER_SK, $f1]
+                      projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                      est: (rows=2880404)
+                    HashJoin
+                        predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                        type: inner
+                        est: (rows=2880404)
+                      Exchange
+                          distribution: single
+                          est: (rows=2880404)
+                        TableScan
+                            table: PUBLIC.STORE_SALES
+                            fieldNames: [SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                            est: (rows=2880404)
+                      Exchange
+                          distribution: single
+                          est: (rows=100000)
+                        TableScan
+                            table: PUBLIC.CUSTOMER
+                            fieldNames: [C_CUSTOMER_SK]
+                            est: (rows=100000)
+                ColocatedHashAggregate
+                    fieldNames: [TPCDS_CMAX]
+                    group: []
+                    aggregation: [MAX(CSALES)]
+                    est: (rows=1)
+                  Project
+                      fieldNames: [CSALES]
+                      projection: [CSALES]
+                      est: (rows=534156)
+                    ColocatedHashAggregate
+                        fieldNames: [C_CUSTOMER_SK, CSALES]
+                        group: [C_CUSTOMER_SK]
+                        aggregation: [SUM($f1)]
+                        est: (rows=534156)
+                      Project
+                          fieldNames: [C_CUSTOMER_SK, $f1]
+                          projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                          est: (rows=2670780)
+                        HashJoin
+                            predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                            type: inner
+                            est: (rows=2670780)
+                          HashJoin
+                              predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                              type: inner
+                              est: (rows=2670780)
+                            Exchange
+                                distribution: single
+                                est: (rows=2880404)
+                              TableScan
+                                  table: PUBLIC.STORE_SALES
+                                  fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                                  est: (rows=2880404)
+                            Exchange
+                                distribution: single
+                                est: (rows=67733)
+                              TableScan
+                                  table: PUBLIC.DATE_DIM
+                                  predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                                  fieldNames: [D_DATE_SK, D_YEAR]
+                                  est: (rows=67733)
+                          Exchange
+                              distribution: single
+                              est: (rows=100000)
+                            TableScan
+                                table: PUBLIC.CUSTOMER
+                                fieldNames: [C_CUSTOMER_SK]
+                                est: (rows=100000)
+          ColocatedHashAggregate
+              group: [ITEM_SK]
+              aggregation: []
+              est: (rows=1303341)
+            Project
+                fieldNames: [ITEM_SK]
+                projection: [ITEM_SK]
+                est: (rows=651670)
+              Filter
+                  predicate: >(CNT, 4)
+                  est: (rows=651670)
+                ColocatedHashAggregate
+                    fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE, CNT]
+                    group: [ITEMDESC, ITEM_SK, SOLDDATE]
+                    aggregation: [COUNT()]
+                    est: (rows=1303341)
+                  Project
+                      fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE]
+                      projection: [SUBSTR(I_ITEM_DESC, 1, 30), I_ITEM_SK, D_DATE]
+                      est: (rows=2670780)
+                    HashJoin
+                        predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                        type: inner
+                        est: (rows=2670780)
+                      HashJoin
+                          predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                          type: inner
+                          est: (rows=2670780)
+                        Exchange
+                            distribution: single
+                            est: (rows=2880404)
+                          TableScan
+                              table: PUBLIC.STORE_SALES
+                              fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK]
+                              est: (rows=2880404)
+                        Exchange
+                            distribution: single
+                            est: (rows=67733)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                              fieldNames: [D_DATE_SK, D_DATE, D_YEAR]
+                              est: (rows=67733)
+                      Exchange
+                          distribution: single
+                          est: (rows=18000)
+                        TableScan
+                            table: PUBLIC.ITEM
+                            fieldNames: [I_ITEM_SK, I_ITEM_DESC]
+                            est: (rows=18000)
+----
+Sort
+    collation: [C_LAST_NAME ASC, C_FIRST_NAME ASC, SALES ASC]
+    fetch: 100
+    est: (rows=100)
+  UnionAll
+      est: (rows=37083)
+    ColocatedSortAggregate
+        fieldNames: [C_LAST_NAME, C_FIRST_NAME, SALES]
+        collation: [C_LAST_NAME ASC, C_FIRST_NAME ASC]
+        group: [C_LAST_NAME, C_FIRST_NAME]
+        aggregation: [SUM($f2)]
+        est: (rows=24738)
+      Project
+          fieldNames: [C_LAST_NAME, C_FIRST_NAME, $f2]
+          projection: [C_LAST_NAME, C_FIRST_NAME, *(CS_QUANTITY, CS_LIST_PRICE)]
+          est: (rows=68716)
+        HashJoin
+            predicate: =(CS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+            fieldNames: [C_CUSTOMER_SK, C_FIRST_NAME, C_LAST_NAME, CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_ITEM_SK, CS_QUANTITY, CS_LIST_PRICE, D_DATE_SK, D_YEAR, D_MOY, C_CUSTOMER_SK$0, ITEM_SK]
+            type: inner
+            est: (rows=68716)
+          Exchange
+              distribution: single
+              est: (rows=100000)
+            Sort
+                collation: [C_LAST_NAME ASC, C_FIRST_NAME ASC]
+                est: (rows=100000)
+              TableScan
+                  table: PUBLIC.CUSTOMER
+                  fieldNames: [C_CUSTOMER_SK, C_FIRST_NAME, C_LAST_NAME]
+                  est: (rows=100000)
+          HashJoin
+              predicate: =(CS_ITEM_SK, ITEM_SK)
+              type: inner
+              est: (rows=68716)
+            HashJoin
+                predicate: =(CS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+                type: inner
+                est: (rows=148218)
+              HashJoin
+                  predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=159852)
+                Exchange
+                    distribution: single
+                    est: (rows=1441548)
+                  TableScan
+                      table: PUBLIC.CATALOG_SALES
+                      fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_ITEM_SK, CS_QUANTITY, CS_LIST_PRICE]
+                      est: (rows=1441548)
+                Exchange
+                    distribution: single
+                    est: (rows=8100)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: AND(=(D_YEAR, 2000), =(D_MOY, 3))
+                      fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                      est: (rows=8100)
+              Project
+                  fieldNames: [C_CUSTOMER_SK]
+                  projection: [C_CUSTOMER_SK]
+                  est: (rows=288040)
+                NestedLoopJoin
+                    predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
+                    type: inner
+                    est: (rows=288040)
+                  ColocatedHashAggregate
+                      fieldNames: [C_CUSTOMER_SK, SSALES]
+                      group: [C_CUSTOMER_SK]
+                      aggregation: [SUM($f1)]
+                      est: (rows=576081)
+                    Project
+                        fieldNames: [C_CUSTOMER_SK, $f1]
+                        projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                        est: (rows=2880404)
+                      HashJoin
+                          predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                          type: inner
+                          est: (rows=2880404)
+                        Exchange
+                            distribution: single
+                            est: (rows=2880404)
+                          TableScan
+                              table: PUBLIC.STORE_SALES
+                              fieldNames: [SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                              est: (rows=2880404)
+                        Exchange
+                            distribution: single
+                            est: (rows=100000)
+                          TableScan
+                              table: PUBLIC.CUSTOMER
+                              fieldNames: [C_CUSTOMER_SK]
+                              est: (rows=100000)
+                  ColocatedHashAggregate
+                      fieldNames: [TPCDS_CMAX]
+                      group: []
+                      aggregation: [MAX(CSALES)]
+                      est: (rows=1)
+                    Project
+                        fieldNames: [CSALES]
+                        projection: [CSALES]
+                        est: (rows=534156)
+                      ColocatedHashAggregate
+                          fieldNames: [C_CUSTOMER_SK, CSALES]
+                          group: [C_CUSTOMER_SK]
+                          aggregation: [SUM($f1)]
+                          est: (rows=534156)
+                        Project
+                            fieldNames: [C_CUSTOMER_SK, $f1]
+                            projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                            est: (rows=2670780)
+                          HashJoin
+                              predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                              type: inner
+                              est: (rows=2670780)
+                            HashJoin
+                                predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                                type: inner
+                                est: (rows=2670780)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=2880404)
+                                TableScan
+                                    table: PUBLIC.STORE_SALES
+                                    fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                                    est: (rows=2880404)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=67733)
+                                TableScan
+                                    table: PUBLIC.DATE_DIM
+                                    predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                                    fieldNames: [D_DATE_SK, D_YEAR]
+                                    est: (rows=67733)
+                            Exchange
+                                distribution: single
+                                est: (rows=100000)
+                              TableScan
+                                  table: PUBLIC.CUSTOMER
+                                  fieldNames: [C_CUSTOMER_SK]
+                                  est: (rows=100000)
+            ColocatedHashAggregate
+                group: [ITEM_SK]
+                aggregation: []
+                est: (rows=1303341)
+              Project
+                  fieldNames: [ITEM_SK]
+                  projection: [ITEM_SK]
+                  est: (rows=651670)
+                Filter
+                    predicate: >(CNT, 4)
+                    est: (rows=651670)
+                  ColocatedHashAggregate
+                      fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE, CNT]
+                      group: [ITEMDESC, ITEM_SK, SOLDDATE]
+                      aggregation: [COUNT()]
+                      est: (rows=1303341)
+                    Project
+                        fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE]
+                        projection: [SUBSTR(I_ITEM_DESC, 1, 30), I_ITEM_SK, D_DATE]
+                        est: (rows=2670780)
+                      HashJoin
+                          predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                          type: inner
+                          est: (rows=2670780)
+                        HashJoin
+                            predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                            type: inner
+                            est: (rows=2670780)
+                          Exchange
+                              distribution: single
+                              est: (rows=2880404)
+                            TableScan
+                                table: PUBLIC.STORE_SALES
+                                fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK]
+                                est: (rows=2880404)
+                          Exchange
+                              distribution: single
+                              est: (rows=67733)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                                fieldNames: [D_DATE_SK, D_DATE, D_YEAR]
+                                est: (rows=67733)
+                        Exchange
+                            distribution: single
+                            est: (rows=18000)
+                          TableScan
+                              table: PUBLIC.ITEM
+                              fieldNames: [I_ITEM_SK, I_ITEM_DESC]
+                              est: (rows=18000)
+    ColocatedHashAggregate
+        fieldNames: [C_LAST_NAME, C_FIRST_NAME, SALES]
+        group: [C_LAST_NAME, C_FIRST_NAME]
+        aggregation: [SUM($f2)]
+        est: (rows=12345)
+      Project
+          fieldNames: [C_LAST_NAME, C_FIRST_NAME, $f2]
+          projection: [C_LAST_NAME, C_FIRST_NAME, *(WS_QUANTITY, WS_LIST_PRICE)]
+          est: (rows=34292)
+        HashJoin
+            predicate: =(WS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+            fieldNames: [C_CUSTOMER_SK, C_FIRST_NAME, C_LAST_NAME, WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_QUANTITY, WS_LIST_PRICE, D_DATE_SK, D_YEAR, D_MOY, C_CUSTOMER_SK$0, ITEM_SK]
+            type: inner
+            est: (rows=34292)
+          Exchange
+              distribution: single
+              est: (rows=100000)
+            TableScan
+                table: PUBLIC.CUSTOMER
+                fieldNames: [C_CUSTOMER_SK, C_FIRST_NAME, C_LAST_NAME]
+                est: (rows=100000)
+          HashJoin
+              predicate: =(WS_ITEM_SK, ITEM_SK)
+              type: inner
+              est: (rows=34292)
+            HashJoin
+                predicate: =(WS_BILL_CUSTOMER_SK, C_CUSTOMER_SK)
+                type: inner
+                est: (rows=73966)
+              HashJoin
+                  predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=79772)
+                Exchange
+                    distribution: single
+                    est: (rows=719384)
+                  TableScan
+                      table: PUBLIC.WEB_SALES
+                      fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_QUANTITY, WS_LIST_PRICE]
+                      est: (rows=719384)
+                Exchange
+                    distribution: single
+                    est: (rows=8100)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: AND(=(D_YEAR, 2000), =(D_MOY, 3))
+                      fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                      est: (rows=8100)
+              Project
+                  fieldNames: [C_CUSTOMER_SK]
+                  projection: [C_CUSTOMER_SK]
+                  est: (rows=288040)
+                NestedLoopJoin
+                    predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
+                    type: inner
+                    est: (rows=288040)
+                  ColocatedHashAggregate
+                      fieldNames: [C_CUSTOMER_SK, SSALES]
+                      group: [C_CUSTOMER_SK]
+                      aggregation: [SUM($f1)]
+                      est: (rows=576081)
+                    Project
+                        fieldNames: [C_CUSTOMER_SK, $f1]
+                        projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                        est: (rows=2880404)
+                      HashJoin
+                          predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                          type: inner
+                          est: (rows=2880404)
+                        Exchange
+                            distribution: single
+                            est: (rows=2880404)
+                          TableScan
+                              table: PUBLIC.STORE_SALES
+                              fieldNames: [SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                              est: (rows=2880404)
+                        Exchange
+                            distribution: single
+                            est: (rows=100000)
+                          TableScan
+                              table: PUBLIC.CUSTOMER
+                              fieldNames: [C_CUSTOMER_SK]
+                              est: (rows=100000)
+                  ColocatedHashAggregate
+                      fieldNames: [TPCDS_CMAX]
+                      group: []
+                      aggregation: [MAX(CSALES)]
+                      est: (rows=1)
+                    Project
+                        fieldNames: [CSALES]
+                        projection: [CSALES]
+                        est: (rows=534156)
+                      ColocatedHashAggregate
+                          fieldNames: [C_CUSTOMER_SK, CSALES]
+                          group: [C_CUSTOMER_SK]
+                          aggregation: [SUM($f1)]
+                          est: (rows=534156)
+                        Project
+                            fieldNames: [C_CUSTOMER_SK, $f1]
+                            projection: [C_CUSTOMER_SK, *(SS_QUANTITY, SS_SALES_PRICE)]
+                            est: (rows=2670780)
+                          HashJoin
+                              predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+                              type: inner
+                              est: (rows=2670780)
+                            HashJoin
+                                predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                                type: inner
+                                est: (rows=2670780)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=2880404)
+                                TableScan
+                                    table: PUBLIC.STORE_SALES
+                                    fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_QUANTITY, SS_SALES_PRICE]
+                                    est: (rows=2880404)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=67733)
+                                TableScan
+                                    table: PUBLIC.DATE_DIM
+                                    predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                                    fieldNames: [D_DATE_SK, D_YEAR]
+                                    est: (rows=67733)
+                            Exchange
+                                distribution: single
+                                est: (rows=100000)
+                              TableScan
+                                  table: PUBLIC.CUSTOMER
+                                  fieldNames: [C_CUSTOMER_SK]
+                                  est: (rows=100000)
+            ColocatedHashAggregate
+                group: [ITEM_SK]
+                aggregation: []
+                est: (rows=1303341)
+              Project
+                  fieldNames: [ITEM_SK]
+                  projection: [ITEM_SK]
+                  est: (rows=651670)
+                Filter
+                    predicate: >(CNT, 4)
+                    est: (rows=651670)
+                  ColocatedHashAggregate
+                      fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE, CNT]
+                      group: [ITEMDESC, ITEM_SK, SOLDDATE]
+                      aggregation: [COUNT()]
+                      est: (rows=1303341)
+                    Project
+                        fieldNames: [ITEMDESC, ITEM_SK, SOLDDATE]
+                        projection: [SUBSTR(I_ITEM_DESC, 1, 30), I_ITEM_SK, D_DATE]
+                        est: (rows=2670780)
+                      HashJoin
+                          predicate: =(SS_ITEM_SK, I_ITEM_SK)
+                          type: inner
+                          est: (rows=2670780)
+                        HashJoin
+                            predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                            type: inner
+                            est: (rows=2670780)
+                          Exchange
+                              distribution: single
+                              est: (rows=2880404)
+                            TableScan
+                                table: PUBLIC.STORE_SALES
+                                fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK]
+                                est: (rows=2880404)
+                          Exchange
+                              distribution: single
+                              est: (rows=67733)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: SEARCH(D_YEAR, Sarg[2000, 2001, 2002, 2003])
+                                fieldNames: [D_DATE_SK, D_DATE, D_YEAR]
+                                est: (rows=67733)
+                        Exchange
+                            distribution: single
+                            est: (rows=18000)
+                          TableScan
+                              table: PUBLIC.ITEM
+                              fieldNames: [I_ITEM_SK, I_ITEM_DESC]
+                              est: (rows=18000)

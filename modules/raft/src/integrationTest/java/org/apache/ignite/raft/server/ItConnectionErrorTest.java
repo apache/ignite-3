@@ -21,18 +21,22 @@ import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -41,11 +45,11 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.server.counter.CounterListener;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,8 +64,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
     private List<LogInspector> logInspectors;
 
+    private final Map<Class<?>, Map<String, AtomicInteger>> perClassCounters = new ConcurrentHashMap<>();
+
     @BeforeEach
     public void setUp() throws Exception {
+        perClassCounters.clear();
+
         startCluster();
 
         logInspectors = startLogInspectors();
@@ -72,13 +80,32 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         stopLogInspectors(logInspectors);
     }
 
+    // Otherwise, the leader elected after the start of two nodes may log an exception about the impossibility of reaching the third
+    // starting node, which is expected in essence, but is not taken into account in the test verification invariants.
+    // The flow is following:
+    // 1. NodeA (5003) starts.
+    // 2. NodeB (5004) starts.
+    // 3. Leader is elected, let's say that NodeA is a leader.
+    // 4. Because NodeC(5005) startup hangs a bit, leader ping message to NodeC may fail and in a rare unfortunate event will be accumulated
+    //   by log inspector.
+    // 5. NodeC starts.
+    // 6. NodeB stops.
+    // 7. Leader failed to send message to B which is expected.
+    // As a result there are two connectivity related records in log from step 4 and step 7. However within test we expect only one from
+    //   step 7.
+    // In case of two nodes in the group, situation explained in step 4 becomes impossible, thus we use 2 nodes only.
+    @Override
+    protected int nodesCount() {
+        return 2;
+    }
+
     /**
      * Starts a cluster for the test.
      *
      * @throws Exception If failed.
      */
     private void startCluster() throws Exception {
-        for (int i = 0; i < NODES; i++) {
+        for (int i = 0; i < nodesCount(); i++) {
 
             int finalI = i;
             startServer(i, raftServer -> {
@@ -88,7 +115,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
                 RaftGroupOptions groupOptions = groupOptions(raftServer);
 
-                groupOptions.setLogStorageFactory(logStorageFactories.get(finalI));
+                groupOptions.setLogStorageManager(logStorageFactories.get(finalI));
                 groupOptions.serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(
@@ -115,22 +142,24 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
         int nodeToStop = whetherStopLeader
                 ? leaderIndex
-                : range(0, NODES).filter(i -> i != leaderIndex).findFirst().orElseThrow();
+                : range(0, nodesCount()).filter(i -> i != leaderIndex).findFirst().orElseThrow();
 
         stopServer(nodeToStop);
 
         // Wait for some time for log spam.
         Thread.sleep(3_000);
 
-        for (LogInspector logInspector : logInspectors) {
-            assertTrue(
-                    logInspector.timesMatched().min().orElseThrow() < 2,
-                    logInspector.loggerName() + " has written to the log more than 1 time."
-            );
-        }
+        perClassCounters.forEach((cls, instances) -> {
+            boolean correct = instances.values().stream()
+                    .filter(v -> v.get() > 1)
+                    .findAny()
+                    .isEmpty();
+
+            assertTrue(correct, cls.getName() + " has been written to the log more than 1 time.");
+        });
     }
 
-    private static List<LogInspector> startLogInspectors() {
+    private List<LogInspector> startLogInspectors() {
         List<LogInspector> logInspectors = new ArrayList<>();
 
         logInspectors.add(logInspector(ReplicatorGroupImpl.class, "Fail to check replicator connection"));
@@ -145,8 +174,22 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         return logInspectors;
     }
 
-    private static LogInspector logInspector(Class<?> cls, String msg) {
-        return new LogInspector(cls.getName(), evt -> evt.getMessage().getFormattedMessage().contains(msg));
+    private LogInspector logInspector(Class<?> cls, String msg) {
+        var instanceCounters = new ConcurrentHashMap<String, AtomicInteger>();
+
+        perClassCounters.put(cls, instanceCounters);
+
+        Predicate<LogEvent> pred = event -> {
+            if (event.getMessage().getFormattedMessage().contains(msg)) {
+                assertTrue(event.getThreadName().startsWith("%"));
+                String instanceName = event.getThreadName().split("%")[1];
+                instanceCounters.computeIfAbsent(instanceName, k -> new AtomicInteger()).incrementAndGet();
+            }
+
+            return false;
+        };
+
+        return new LogInspector(cls.getName(), pred);
     }
 
     private static void stopLogInspectors(List<LogInspector> logInspectors) {
@@ -156,26 +199,22 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
     }
 
     private void stopServer(int index) {
-        JraftServerImpl server = servers.get(index);
-
-        servers.set(index, null);
+        JraftServerImpl server = servers.set(index, null);
 
         for (RaftNodeId nodeId : server.localNodes()) {
             server.stopRaftNode(nodeId);
         }
 
-        server.beforeNodeStop();
-
-        assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-
-        assertThat(IgniteUtils.stopAsync(new ComponentContext(), serverServices.get(index)), willCompleteSuccessfully());
-        serverServices.set(index, null);
-
-        assertThat(IgniteUtils.stopAsync(new ComponentContext(), logStorageFactories.get(index)), willCompleteSuccessfully());
-        logStorageFactories.set(index, null);
-
-        assertThat(IgniteUtils.stopAsync(new ComponentContext(), vaultManagers.get(index)), willCompleteSuccessfully());
-        vaultManagers.set(index, null);
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        server,
+                        logStorageFactories.set(index, null),
+                        serverServices.set(index, null),
+                        vaultManagers.set(index, null)
+                ),
+                willCompleteSuccessfully()
+        );
     }
 
     private int leaderIndex() {

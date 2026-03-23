@@ -88,7 +88,6 @@ public class CreateSystemViewCommand implements CatalogCommand {
         return columns;
     }
 
-
     /**
      * Returns a view type.
      *

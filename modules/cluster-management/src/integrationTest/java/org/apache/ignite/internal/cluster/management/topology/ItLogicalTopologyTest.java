@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
+import static org.apache.ignite.internal.ConfigTemplates.DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
+import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -45,15 +48,19 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tostring.S;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration tests for functionality of logical topology events subscription.
  */
 @SuppressWarnings("resource")
+@ExtendWith(FailureManagerExtension.class)
 class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
@@ -62,17 +69,10 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private static final String[] STORAGE_PROFILES_LIST = {"lru_rocks", "segmented_aipersist"};
 
     @Language("HOCON")
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  nodeAttributes.nodeAttributes: {region = US, storage = SSD},\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = renderConfigTemplate(
+            "  nodeAttributes.nodeAttributes: {region = US, storage = SSD},\n"
             + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
+    );
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
         @Override
@@ -252,6 +252,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void nodeReturnedToPhysicalTopologyDoesNotReturnToLogicalTopology() throws Exception {
         cluster.startAndInit(1);
 
@@ -316,6 +317,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void nodeThatCouldNotJoinShouldBeInvalidated(TestInfo testInfo) throws Exception {
         cluster.startAndInit(1);
 

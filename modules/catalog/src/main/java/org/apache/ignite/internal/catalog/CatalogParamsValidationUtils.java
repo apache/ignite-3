@@ -66,22 +66,6 @@ public class CatalogParamsValidationUtils {
     }
 
     /**
-     * Validates correctness of the auto adjust params.
-     */
-    public static void validateZoneDataNodesAutoAdjustParametersCompatibility(
-            @Nullable Integer autoAdjust,
-            @Nullable Integer scaleUp,
-            @Nullable Integer scaleDown
-    ) {
-        if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
-            throw new CatalogValidationException(
-                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}].",
-                    autoAdjust, scaleUp, scaleDown
-            );
-        }
-    }
-
-    /**
      * Validates correctness of the filter.
      */
     public static void validateZoneFilter(@Nullable String filter) {
@@ -113,6 +97,23 @@ public class CatalogParamsValidationUtils {
         }
 
         if (storageProfiles.isEmpty()) {
+            throw new CatalogValidationException(
+                    "Storage profile cannot be empty."
+            );
+        }
+    }
+
+    /**
+     * Validates correctness of the storage profiles.
+     */
+    public static void validateStorageProfileNames(List<String> storageProfileNames) {
+        if (storageProfileNames == null) {
+            throw new CatalogValidationException(
+                    "Storage profile cannot be null."
+            );
+        }
+
+        if (storageProfileNames.isEmpty()) {
             throw new CatalogValidationException(
                     "Storage profile cannot be empty."
             );

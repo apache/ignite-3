@@ -30,6 +30,9 @@ public final class Constants {
     /** Bytes in giga-byte (IEC 80000-13). */
     public static final int GiB = 1024 * MiB;
 
+    /** Disaster recovery operations timeout in milliseconds. */
+    public static final int DISASTER_RECOVERY_TIMEOUT_MILLIS = 30_000;
+
     /** Stub. */
     private Constants() {
         // Noop.

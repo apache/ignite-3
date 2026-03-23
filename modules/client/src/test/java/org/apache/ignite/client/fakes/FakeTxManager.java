@@ -20,17 +20,19 @@ package org.apache.ignite.client.fakes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
@@ -40,6 +42,9 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,6 +56,12 @@ public class FakeTxManager implements TxManager {
 
     public FakeTxManager(HybridClock clock) {
         this.clock = clock;
+    }
+
+    @Override
+    public @Nullable TransactionMetricsSource transactionMetricsSource() {
+        // No-op
+        return null;
     }
 
     @Override
@@ -66,16 +77,16 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
+        return begin(timestampTracker, true, readOnly);
     }
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
-        return begin(timestampTracker, false, readOnly, txOptions);
+        return begin(timestampTracker, false, readOnly);
     }
 
-    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, InternalTxOptions options) {
+    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
@@ -87,7 +98,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+            public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
                 return null;
             }
 
@@ -97,18 +108,18 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+            public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
                 return false;
             }
 
             @Override
-            public TablePartitionId commitPartition() {
+            public ZonePartitionId commitPartition() {
                 return null;
             }
 
             @Override
             public void enlist(
-                    ReplicationGroupId replicationGroupId,
+                    ZonePartitionId replicationGroupId,
                     int tableId,
                     String primaryNodeConsistentId,
                     long consistencyToken
@@ -158,12 +169,15 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public boolean implicit() {
-                return false;
+                return implicit;
             }
 
             @Override
             public CompletableFuture<Void> finish(
-                    boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+                    boolean commit,
+                    HybridTimestamp executionTimestamp,
+                    boolean full,
+                    @Nullable Throwable finishReason
             ) {
                 return nullCompletedFuture();
             }
@@ -184,7 +198,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+            public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
                 return nullCompletedFuture();
             }
 
@@ -206,22 +220,30 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public @Nullable <T extends TxStateMeta> T enrichTxMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return null;
+    }
+
+    @Override
     public LockManager lockManager() {
         return null;
     }
 
     @Override
-    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-        return CompletableFuture.runAsync(runnable);
+    public Executor writeIntentSwitchExecutor() {
+        return ForkJoinPool.commonPool();
     }
 
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            ReplicationGroupId commitPartition,
-            boolean commit,
-            boolean timeoutExceeded,
-            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+            ZonePartitionId commitPartition,
+            boolean commitIntent,
+            @Nullable Throwable finishReason,
+            boolean recovery,
+            boolean noRemoteWrites,
+            Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
         return nullCompletedFuture();
@@ -229,8 +251,8 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            ZonePartitionId commitPartitionId,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -240,7 +262,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -250,12 +272,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> vacuum() {
+    public CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics) {
         return nullCompletedFuture();
     }
 
@@ -265,8 +287,18 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx) {
+        return nullCompletedFuture();
+    }
+
+    @Override
     public int lockRetryCount() {
         return 0;
+    }
+
+    @Override
+    public RemotelyTriggeredResourceRegistry resourceRegistry() {
+        return null;
     }
 
     @Override
@@ -280,15 +312,25 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    public CompletableFuture<Void> finishFull(
+            HybridTimestampTracker timestampTracker,
+            UUID txId,
+            HybridTimestamp ts,
+            boolean commit,
+            Throwable finishReason
     ) {
-        // No-op.
+        return nullCompletedFuture();
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
-            Consumer<Throwable> cb) {
+    public InternalTransaction beginRemote(
+            UUID txId,
+            ZonePartitionId commitPartId,
+            UUID coord,
+            long token,
+            long timeout,
+            Consumer<Throwable> cb
+    ) {
         return null;
     }
 }

@@ -19,17 +19,19 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import java.util.UUID;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,105 +39,127 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
- * <p>Operation may throw {@link StorageException} and {@link TxIdMismatchException} which will cause form
- * {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
+ * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
 class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
-    private final RowId rowId;
+    protected final RowId rowId;
 
-    private final @Nullable BinaryRow row;
+    protected final @Nullable BinaryRow row;
 
     private final UUID txId;
 
-    private final int commitTableId;
+    private final int commitZoneId;
 
     private final int commitPartitionId;
 
-    private final AbstractPageMemoryMvPartitionStorage storage;
+    protected final AbstractPageMemoryMvPartitionStorage storage;
 
-    private @Nullable VersionChain newRow;
+    private OperationType operationType;
 
-    private @Nullable BinaryRow previousUncommittedRowVersion;
+    @Nullable
+    private VersionChain newRow;
 
     private @Nullable RowVersion toRemove;
+
+    private AddWriteResult addWriteResult;
 
     AddWriteInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableId,
+            int commitZoneId,
             int commitPartitionId,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
         this.row = row;
         this.txId = txId;
-        this.commitTableId = commitTableId;
+        this.commitZoneId = commitZoneId;
         this.commitPartitionId = commitPartitionId;
         this.storage = storage;
     }
 
     @Override
-    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+    public final void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
         if (oldRow == null) {
-            RowVersion newVersion = insertRowVersion(row, NULL_LINK);
+            operationType = OperationType.PUT;
+            addWriteResult = AddWriteResult.success(null);
 
-            newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), NULL_LINK);
+            RowVersion newVersion = insertFirstRowVersion();
+
+            newRow = createUncommittedVersionChain(newVersion);
 
             return;
         }
 
-        if (oldRow.isUncommitted()) {
-            throwIfChainBelongsToAnotherTx(oldRow);
+        if (oldRow.isUncommitted() && !txId.equals(oldRow.transactionId())) {
+            addWriteResult = AddWriteResult.txMismatch(
+                    oldRow.transactionId(),
+                    latestCommitTimestamp(storage, oldRow, this::addWriteInfo)
+            );
+
+            operationType = OperationType.NOOP;
+
+            return;
         }
 
-        RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink());
+        operationType = OperationType.PUT;
 
-        if (oldRow.isUncommitted()) {
-            RowVersion currentVersion = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
+        boolean replacingExistingWriteIntent = oldRow.isUncommitted();
+        RowVersion existingWriteIntent;
 
-            previousUncommittedRowVersion = currentVersion.value();
+        if (replacingExistingWriteIntent) {
+            existingWriteIntent = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
 
-            // As we replace an uncommitted version with new one, we need to remove old uncommitted version.
-            toRemove = currentVersion;
+            addWriteResult = AddWriteResult.success(existingWriteIntent.value());
+
+            // As we are replacing an uncommitted version with new one, we need to remove old uncommitted version.
+            toRemove = existingWriteIntent;
+        } else {
+            addWriteResult = AddWriteResult.success(null);
+
+            existingWriteIntent = null;
         }
 
-        newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), newVersion.nextLink());
+        RowVersion newVersion = insertAnotherRowVersion(oldRow, existingWriteIntent);
+
+        newRow = createUncommittedVersionChain(newVersion);
+    }
+
+    protected RowVersion insertFirstRowVersion() {
+        return insertRowVersion(NULL_LINK);
+    }
+
+    @SuppressWarnings("PMD.UnusedFormalParameter") // existingWriteIntent is used by subclass overrides
+    protected RowVersion insertAnotherRowVersion(VersionChain oldRow, @Nullable RowVersion existingWriteIntent) {
+        return insertRowVersion(oldRow.newestCommittedLink());
+    }
+
+    private VersionChain createUncommittedVersionChain(RowVersion newVersion) {
+        return VersionChain.createUncommitted(rowId, txId, commitZoneId, commitPartitionId, newVersion.link(), newVersion.nextLink());
     }
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert newRow != null;
+        assert (operationType == OperationType.PUT) == (newRow != null) :
+                addWriteInfo() + ", newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        return OperationType.PUT;
+        assert operationType != null : addWriteInfo();
+
+        return operationType;
     }
 
-    /**
-     * Returns the result for {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
-     */
-    @Nullable BinaryRow getPreviousUncommittedRowVersion() {
-        return previousUncommittedRowVersion;
-    }
-
-    private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
-        RowVersion rowVersion = new RowVersion(storage.partitionId, nextPartitionlessLink, row);
+    private RowVersion insertRowVersion(long nextLink) {
+        RowVersion rowVersion = new RowVersion(storage.partitionId, nextLink, row);
 
         storage.insertRowVersion(rowVersion);
 
         return rowVersion;
-    }
-
-    private void throwIfChainBelongsToAnotherTx(VersionChain versionChain) {
-        assert versionChain.isUncommitted();
-
-        if (!txId.equals(versionChain.transactionId())) {
-            throw new TxIdMismatchException(txId, versionChain.transactionId());
-        }
     }
 
     /**
@@ -145,5 +169,29 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
         }
+    }
+
+    static @Nullable HybridTimestamp latestCommitTimestamp(
+            AbstractPageMemoryMvPartitionStorage storage,
+            VersionChain chain,
+            Supplier<String> operationInfo
+    ) {
+        if (!chain.hasCommittedVersions()) {
+            return null;
+        }
+
+        RowVersion rowVersion = storage.readRowVersion(chain.newestCommittedLink(), DONT_LOAD_VALUE);
+
+        assert rowVersion != null : operationInfo.get() + ", newestCommittedLink=" + chain.newestCommittedLink();
+
+        return rowVersion.timestamp();
+    }
+
+    AddWriteResult result() {
+        return addWriteResult;
+    }
+
+    final String addWriteInfo() {
+        return storage.addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 }

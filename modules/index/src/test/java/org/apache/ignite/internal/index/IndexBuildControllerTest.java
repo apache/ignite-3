@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAM
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -42,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,10 +62,12 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -76,8 +78,11 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link IndexBuildController} testing. */
+@ExtendWith(MockitoExtension.class)
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 10;
 
@@ -93,13 +98,11 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
-    private IndexManager indexManager = null;
-
     @BeforeEach
     void setUp() {
         indexBuilder = mock(IndexBuilder.class);
 
-        indexManager = mock(IndexManager.class, invocation -> {
+        IndexManager indexManager = mock(IndexManager.class, invocation -> {
             MvTableStorage mvTableStorage = mock(MvTableStorage.class);
             MvPartitionStorage mvPartitionStorage = mock(MvPartitionStorage.class);
             IndexStorage indexStorage = mock(IndexStorage.class);
@@ -115,6 +118,16 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
+        PartitionReplicaLifecycleManager partitionReplicaLifecycleManager = mock(PartitionReplicaLifecycleManager.class);
+        ZonePartitionResources zonePartitionResources = mock(ZonePartitionResources.class);
+        lenient().doReturn(zonePartitionResources).when(partitionReplicaLifecycleManager).zonePartitionResourcesOrNull(any());
+
+        ZonePartitionReplicaListener replicaListener = mock(ZonePartitionReplicaListener.class);
+        lenient().doReturn(completedFuture(replicaListener)).when(zonePartitionResources).replicaListenerFuture();
+
+        TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
+        lenient().doReturn(txRwOperationTracker).when(replicaListener).txRwOperationTracker(anyInt());
+
         indexBuildController = new IndexBuildController(
                 indexBuilder,
                 indexManager,
@@ -122,6 +135,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 clusterService,
                 placementDriver,
                 clockService,
+                partitionReplicaLifecycleManager,
                 new NoOpFailureManager()
         );
 
@@ -154,6 +168,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -164,6 +180,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -189,6 +207,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -199,6 +219,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -222,6 +244,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -232,6 +256,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -255,6 +281,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(tableName))),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -265,6 +293,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -289,11 +319,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", randomUUID(), clock.now());
 
-        if (enabledColocation()) {
-            verify(indexBuilder).stopBuildingZoneIndexes(zoneId(), PARTITION_ID);
-        } else {
-            verify(indexBuilder).stopBuildingTableIndexes(tableId(), PARTITION_ID);
-        }
+        verify(indexBuilder).stopBuildingZoneIndexes(zoneId(), PARTITION_ID);
     }
 
     @Test
@@ -315,6 +341,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 anyInt(),
                 any(),
                 any(),
+                any(),
+                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -325,6 +353,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),
+                any(),
+                any(),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -357,7 +387,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     ) {
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, leaseholderId, startTime));
 
-        assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaId(partitionId), replicaMetaFuture), willCompleteSuccessfully());
+        assertThat(placementDriver.setPrimaryReplicaMeta(0, new ZonePartitionId(zoneId(), partitionId), replicaMetaFuture),
+                willCompleteSuccessfully());
     }
 
     private int tableId() {
@@ -376,21 +407,13 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
     }
 
-    private ReplicationGroupId replicaId(int partitionId) {
-        if (enabledColocation()) {
-            return new ZonePartitionId(zoneId(), partitionId);
-        } else {
-            return new TablePartitionId(tableId(), partitionId);
-        }
-    }
-
     private ReplicaMeta replicaMetaForOneSecond(String leaseholder, UUID leaseholderId, HybridTimestamp startTime) {
         return new Lease(
                 leaseholder,
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                enabledColocation() ? new ZonePartitionId(zoneId(), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
+                new ZonePartitionId(zoneId(), PARTITION_ID)
         );
     }
 }

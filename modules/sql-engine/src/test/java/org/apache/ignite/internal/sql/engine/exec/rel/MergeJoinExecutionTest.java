@@ -43,10 +43,11 @@ import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -59,7 +60,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * MergeJoinExecutionTest;
+ * MergeJoinExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
@@ -674,14 +675,14 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(
+        SqlExpressionFactoryImpl expFactory = new SqlExpressionFactoryImpl(
                 Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
         );
 
         RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
         RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);
 
-        SqlComparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nulls);
+        SqlComparator comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nulls);
 
         return MergeJoinNode.create(
                 ctx, leftType, rightType, joinType, (r1, r2) -> comp.compare(ctx, r1, r2), createIdentityProjectionIfNeeded(joinType)
@@ -701,6 +702,11 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

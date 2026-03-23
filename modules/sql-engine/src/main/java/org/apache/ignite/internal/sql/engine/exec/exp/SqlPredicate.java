@@ -17,27 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 
 /**
  * A functional interface representing a SQL predicate.
  *
- * <p>This interface defines a single method, {@link #test(ExecutionContext, RowT)}, 
+ * <p>This interface defines a single method, {@link #test(SqlEvaluationContext, Object)}, 
  * which evaluates a condition on a given row within the specified execution context. 
  * It can be used to implement filtering logic in SQL queries by determining whether 
  * a row satisfies a particular condition.
- *
- * @param <RowT> The type of the execution row.
  */
 @FunctionalInterface
-public interface SqlPredicate<RowT> {
+public interface SqlPredicate {
 
     /**
      * Evaluates the predicate on the given row within the execution context.
      *
      * @param context The execution context, providing access to query-related data.
      * @param row The current row to be evaluated.
+     * @param <RowT> The type of the execution row.
      * @return {@code true} if the row satisfies the predicate, {@code false} otherwise.
      */
-    boolean test(ExecutionContext<RowT> context, RowT row);
+    <RowT> boolean test(SqlEvaluationContext<RowT> context, RowT row);
 }

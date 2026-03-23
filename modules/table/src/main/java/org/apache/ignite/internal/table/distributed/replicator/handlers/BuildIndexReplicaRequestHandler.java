@@ -17,38 +17,28 @@
 
 package org.apache.ignite.internal.table.distributed.replicator.handlers;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
-import org.apache.ignite.internal.table.distributed.replicator.IndexBuilderTxRwOperationTracker;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
 /**
  * Handler for {@link BuildIndexReplicaRequest}.
  */
-public class BuildIndexReplicaRequestHandler {
+public class BuildIndexReplicaRequestHandler implements ReplicaRequestHandler<BuildIndexReplicaRequest> {
     /** Factory to create RAFT command messages. */
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
     private final IndexMetaStorage indexMetaStorage;
-
-    /** Read-write transaction operation tracker for building indexes. */
-    private final IndexBuilderTxRwOperationTracker txRwOperationTracker;
-
-    /** Partition safe-time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Applicator that applies RAFT command that is created by this handler. */
     private final ReplicationRaftCommandApplicator commandApplicator;
@@ -57,28 +47,15 @@ public class BuildIndexReplicaRequestHandler {
      * Creates a new instance of request handler.
      *
      * @param indexMetaStorage Index meta storage.
-     * @param txRwOperationTracker Read-write transaction operation tracker for building indexes.
-     * @param safeTime Partition safe-time tracker.
      * @param commandApplicator Applicator that applies RAFT command that is created by this handler.
      */
-    public BuildIndexReplicaRequestHandler(
-            IndexMetaStorage indexMetaStorage,
-            IndexBuilderTxRwOperationTracker txRwOperationTracker,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            ReplicationRaftCommandApplicator commandApplicator
-    ) {
+    public BuildIndexReplicaRequestHandler(IndexMetaStorage indexMetaStorage, ReplicationRaftCommandApplicator commandApplicator) {
         this.indexMetaStorage = indexMetaStorage;
-        this.txRwOperationTracker = txRwOperationTracker;
-        this.safeTime = safeTime;
         this.commandApplicator = commandApplicator;
     }
 
-    /**
-     * Handles {@link BuildIndexReplicaRequest}.
-     *
-     * @param request Request to handle.
-     */
-    public CompletableFuture<?> handle(BuildIndexReplicaRequest request) {
+    @Override
+    public CompletableFuture<?> handle(BuildIndexReplicaRequest request, ReplicaPrimacy replicaPrimacy) {
         IndexMeta indexMeta = indexMetaStorage.indexMeta(request.indexId());
 
         if (indexMeta == null || indexMeta.isDropped()) {
@@ -86,21 +63,19 @@ public class BuildIndexReplicaRequestHandler {
             return nullCompletedFuture();
         }
 
-        MetaIndexStatusChange registeredChangeInfo = indexMeta.statusChange(REGISTERED);
         MetaIndexStatusChange buildingChangeInfo = indexMeta.statusChange(BUILDING);
 
-        return txRwOperationTracker.awaitCompleteTxRwOperations(registeredChangeInfo.catalogVersion())
-                .thenCompose(unused -> safeTime.waitFor(hybridTimestamp(buildingChangeInfo.activationTimestamp())))
-                .thenCompose(unused -> commandApplicator.applyCommand(toBuildIndexCommand(request, buildingChangeInfo)));
+        return commandApplicator.applyCommand(toBuildIndexCommand(request, buildingChangeInfo));
     }
 
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommandV3()
                 .indexId(request.indexId())
                 .tableId(request.tableId())
                 .rowIds(request.rowIds())
                 .finish(request.finish())
-                // We are sure that there will be no error here since the primary replica is sent the request to itself.
+                .abortedTransactionIds(request.abortedTransactionIds())
+                // We are sure that there will be no error here since the primary replica is sending the request to itself.
                 .requiredCatalogVersion(buildingChangeInfo.catalogVersion())
                 .build();
     }

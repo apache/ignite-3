@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.time.Duration.ofSeconds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -113,9 +115,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testNoAssignments() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        createTable();
 
-        createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -136,9 +138,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testOldStableAssignments1() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -161,9 +163,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testOldStableAssignments2() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -208,6 +210,30 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     }
 
     /**
+     * Scenario where zone is already dropped and there are no assignments. In this case we return latest available timestamp.
+     */
+    @Test
+    void testNoAssignmentsDroppedZone() throws Exception {
+        startDistributionZoneManager();
+
+        String zoneName = "zoneName";
+        createZone(zoneName, null, null, null);
+        createTable(zoneName);
+
+        dropTable(TABLE_NAME);
+        dropZone(zoneName);
+
+        Catalog earliestCatalog = latestCatalogVersion();
+        createZone(zoneName + "1", null, null, null);
+        Catalog latestCatalog = latestCatalogVersion();
+
+        long minimumRequiredTime = getMinimumRequiredTime();
+
+        assertThat(earliestCatalog.time(), is(lessThanOrEqualTo(minimumRequiredTime)));
+        assertThat(minimumRequiredTime, is(lessThanOrEqualTo(latestCatalog.time())));
+    }
+
+    /**
      * Scenario where not all stable assignments are recalculated, and there are no pending assignments. Doesn't happen in real environment,
      * test-only case. Shows that we use earliest zone version amongst known stable assignments.
      */
@@ -215,9 +241,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testNewStableAssignments() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -241,9 +267,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPendingAssignmentsNotAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -266,9 +292,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPendingAssignmentsAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -291,9 +317,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPlannedAssignmentsNotAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -321,9 +347,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPlannedAssignmentsAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -347,23 +373,28 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         return metaStorageManager.clusterTime().currentSafeTime().longValue();
     }
 
-    private Catalog latestCatalogVersion() throws Exception {
-        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+    private Catalog latestCatalogVersion() {
+        Catalog latestCatalog = catalogManager.latestCatalog();
 
-        assertThat(latestCatalog, is(notNullValue()));
-
-        assertTrue(waitForCondition(() -> latestCatalog.time() <= currentSafeTime(), 10, 5000));
+        waitAtMost(ofSeconds(5)).until(
+                this::currentSafeTime,
+                is(greaterThanOrEqualTo(latestCatalog.time()))
+        );
 
         return latestCatalog;
     }
 
-    private int createTable(String defaultZoneName) throws Exception {
+    private int createTable() throws Exception {
+        return createTable(null);
+    }
+
+    private int createTable(@Nullable String zoneName) throws Exception {
         CompletableFuture<CatalogApplyResult> tableFuture = catalogManager.execute(CreateTableCommand.builder()
                 .tableName(TABLE_NAME)
                 .schemaName(SCHEMA_NAME)
-                .zone(defaultZoneName)
                 .columns(List.of(ColumnParams.builder().name("key").type(ColumnType.INT32).build()))
                 .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key")).build())
+                .zone(zoneName)
                 .build()
         );
 

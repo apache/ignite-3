@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 import java.util.Map;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
+// TODO https://issues.apache.org/jira/browse/IGNITE-27094
 /** Collects minimum required timestamp for each partition. */
 public interface MinimumRequiredTimeCollectorService {
     /** Undefined value of a min timestamp. */

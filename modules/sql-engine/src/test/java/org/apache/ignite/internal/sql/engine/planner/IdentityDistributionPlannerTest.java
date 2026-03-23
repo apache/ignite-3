@@ -54,7 +54,12 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                 .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
-                        .and(hasDistribution(IgniteDistributions.identity(0)))
+                        .and(hasDistribution(IgniteDistributions.identity(0))
+                                // This is projection of complexTbl distribution on the right side of join.
+                                // That is, for this equi-join, distribution might be either equal to one on the left side
+                                // or to its counterpart derived as projection of distribution keys of left side through
+                                // join pairs on right side.
+                                .or(hasDistribution(IgniteDistributions.identity(1))))
                         .and(input(0, isInstanceOf(IgniteIndexScan.class)))
                         .and(input(1, isInstanceOf(IgniteIndexScan.class)))
                 ))
@@ -66,7 +71,7 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinAffinityTableWithIdentityTable() throws Exception {
-        IgniteDistribution affinityDistribution = IgniteDistributions.affinity(0, nextTableId(), 0);
+        IgniteDistribution affinityDistribution = TestBuilders.affinity(0, nextTableId(), 0);
 
         IgniteTable tbl1 = simpleTable("TEST_TBL1", 2 * DEFAULT_TBL_SIZE, IgniteDistributions.identity(0));
         IgniteTable tbl2 = simpleTable("TEST_TBL2", DEFAULT_TBL_SIZE, affinityDistribution);
@@ -93,7 +98,7 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinIndentityTableWithAffinityTable() throws Exception {
-        IgniteDistribution affinityDistribution = IgniteDistributions.affinity(0, nextTableId(), 0);
+        IgniteDistribution affinityDistribution = TestBuilders.affinity(0, nextTableId(), 0);
 
         IgniteTable tbl1 = simpleTable("TEST_TBL1", DEFAULT_TBL_SIZE, IgniteDistributions.identity(0));
         IgniteTable tbl2 = simpleTable("TEST_TBL2", 2 * DEFAULT_TBL_SIZE, affinityDistribution);
@@ -131,7 +136,12 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                 .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
-                        .and(hasDistribution(IgniteDistributions.identity(0)))
+                        .and(hasDistribution(IgniteDistributions.identity(0))
+                                // This is projection of complexTbl distribution on the right side of join.
+                                // That is, for this equi-join, distribution might be either equal to one on the left side
+                                // or to its counterpart derived as projection of distribution keys of left side through
+                                // join pairs on right side.
+                                .or(hasDistribution(IgniteDistributions.identity(1))))
                         .and(input(0, isInstanceOf(IgniteIndexScan.class)))
                         .and(input(1, isInstanceOf(IgniteIndexScan.class)))
                 ))
@@ -154,7 +164,12 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                 .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
-                        .and(hasDistribution(IgniteDistributions.identity(0)))
+                        .and(hasDistribution(IgniteDistributions.identity(0))
+                                // This is projection of complexTbl distribution on the right side of join.
+                                // That is, for this equi-join, distribution might be either equal to one on the left side
+                                // or to its counterpart derived as projection of distribution keys of left side through
+                                // join pairs on right side.
+                                .or(hasDistribution(IgniteDistributions.identity(1))))
                         .and(input(0, isInstanceOf(IgniteIndexScan.class)))
                         .and(input(1, isInstanceOf(IgniteTrimExchange.class)
                                 .and(input(isInstanceOf(IgniteIndexScan.class)))

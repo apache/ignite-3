@@ -80,6 +80,16 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
         ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
         try {
+            long wiHeadLink = Long.MAX_VALUE;
+            long lastAppliedIndex = Long.MAX_VALUE - 1;
+            long lastAppliedTerm = Long.MAX_VALUE - 2;
+            long pageId = Long.MAX_VALUE - 3;
+            long versionChainTreeRootPageId = Long.MAX_VALUE - 4;
+            long freeListRootPageId = Long.MAX_VALUE - 5;
+            long indexTreeMetaPageId = Long.MAX_VALUE - 6;
+            long gcQueueMetaPageId = Long.MAX_VALUE - 7;
+            long leaseStartTime = Long.MAX_VALUE - 8;
+
             // Check for an empty file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 StoragePartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
@@ -88,19 +98,25 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(0, meta.lastAppliedTerm());
                 assertEquals(0, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(0, meta.versionChainTreeRootPageId());
+                assertEquals(0, meta.gcQueueMetaPageId());
+                assertEquals(0, meta.indexTreeMetaPageId());
                 assertEquals(0, meta.freeListRootPageId());
                 assertEquals(1, meta.pageCount());
                 assertEquals(HybridTimestamp.MIN_VALUE.longValue(), meta.leaseStartTime());
                 assertEquals(0, meta.estimatedSize());
+                assertEquals(0, meta.wiHeadLink());
 
                 // Change the meta and write it to the file.
-                meta.lastApplied(null, 50, 10);
-                meta.lastReplicationProtocolGroupConfigFirstPageId(null, 12);
-                meta.versionChainTreeRootPageId(null, 300);
-                meta.freeListRootPageId(null, 900);
+                meta.lastApplied(null, lastAppliedIndex, lastAppliedTerm);
+                meta.lastReplicationProtocolGroupConfigFirstPageId(null, pageId);
+                meta.versionChainTreeRootPageId(null, versionChainTreeRootPageId);
+                meta.gcQueueMetaPageId(null, gcQueueMetaPageId);
+                meta.indexTreeMetaPageId(null, indexTreeMetaPageId);
+                meta.freeListRootPageId(null, freeListRootPageId);
                 meta.incrementPageCount(null);
-                meta.updateLease(null, 500);
+                meta.updateLease(null, leaseStartTime);
                 meta.incrementEstimatedSize(null);
+                meta.updateWiHead(null, wiHeadLink);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
@@ -115,21 +131,39 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 StoragePartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
-                assertEquals(50, meta.lastAppliedIndex());
-                assertEquals(10, meta.lastAppliedTerm());
-                assertEquals(12, meta.lastReplicationProtocolGroupConfigFirstPageId());
-                assertEquals(300, meta.versionChainTreeRootPageId());
-                assertEquals(900, meta.freeListRootPageId());
+                assertEquals(lastAppliedIndex, meta.lastAppliedIndex());
+                assertEquals(lastAppliedTerm, meta.lastAppliedTerm());
+                assertEquals(pageId, meta.lastReplicationProtocolGroupConfigFirstPageId());
+                assertEquals(versionChainTreeRootPageId, meta.versionChainTreeRootPageId());
+                assertEquals(freeListRootPageId, meta.freeListRootPageId());
+                assertEquals(indexTreeMetaPageId, meta.indexTreeMetaPageId());
+                assertEquals(gcQueueMetaPageId, meta.gcQueueMetaPageId());
                 assertEquals(2, meta.pageCount());
-                assertEquals(500, meta.leaseStartTime());
+                assertEquals(leaseStartTime, meta.leaseStartTime());
                 assertEquals(1, meta.estimatedSize());
+                assertEquals(wiHeadLink, meta.wiHeadLink());
             }
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+                int deltaPageCount = Integer.MAX_VALUE - 9;
+                long deltaWiHeadLink = Long.MAX_VALUE - 10;
+                long deltaLastAppliedIndex = Long.MAX_VALUE - 11;
+                long deltaLastAppliedTerm = Long.MAX_VALUE - 12;
+                long deltaPageId = Long.MAX_VALUE - 13;
+                long deltaVersionChainTreeRootPageId = Long.MAX_VALUE - 14;
+                long deltaFreeListRootPageId = Long.MAX_VALUE - 15;
+                long deltaIndexTreeMetaPageId = Long.MAX_VALUE - 16;
+                long deltaGcQueueMetaPageId = Long.MAX_VALUE - 17;
+                long deltaLeaseStartTime = Long.MAX_VALUE - 18;
+                long deltaEstimatedSize = Long.MAX_VALUE - 19;
+
                 manager.writeMetaToBuffer(
                         partId,
-                        new StoragePartitionMeta(4, 100, 10, 34, 1000, new UUID(1, 1), 12, 900, 300, 200, 400, 200)
+                        new StoragePartitionMeta(deltaPageCount, 1, deltaLastAppliedIndex, deltaLastAppliedTerm, deltaPageId,
+                                deltaLeaseStartTime, new UUID(1, 1), deltaPageId, deltaFreeListRootPageId,
+                                deltaVersionChainTreeRootPageId, deltaIndexTreeMetaPageId, deltaGcQueueMetaPageId,
+                                deltaEstimatedSize, deltaWiHeadLink)
                                 .init(null)
                                 .metaSnapshot(null),
                         buffer.rewind()
@@ -146,16 +180,17 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
                 StoragePartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
-                assertEquals(100, meta.lastAppliedIndex());
-                assertEquals(10, meta.lastAppliedTerm());
-                assertEquals(34, meta.lastReplicationProtocolGroupConfigFirstPageId());
-                assertEquals(900, meta.freeListRootPageId());
-                assertEquals(300, meta.versionChainTreeRootPageId());
-                assertEquals(200, meta.indexTreeMetaPageId());
-                assertEquals(400, meta.gcQueueMetaPageId());
-                assertEquals(4, meta.pageCount());
-                assertEquals(1000, meta.leaseStartTime());
-                assertEquals(200, meta.estimatedSize());
+                assertEquals(deltaLastAppliedIndex, meta.lastAppliedIndex());
+                assertEquals(deltaLastAppliedTerm, meta.lastAppliedTerm());
+                assertEquals(deltaPageId, meta.lastReplicationProtocolGroupConfigFirstPageId());
+                assertEquals(deltaFreeListRootPageId, meta.freeListRootPageId());
+                assertEquals(deltaVersionChainTreeRootPageId, meta.versionChainTreeRootPageId());
+                assertEquals(deltaIndexTreeMetaPageId, meta.indexTreeMetaPageId());
+                assertEquals(deltaGcQueueMetaPageId, meta.gcQueueMetaPageId());
+                assertEquals(deltaPageCount, meta.pageCount());
+                assertEquals(deltaLeaseStartTime, meta.leaseStartTime());
+                assertEquals(deltaEstimatedSize, meta.estimatedSize());
+                assertEquals(deltaWiHeadLink, meta.wiHeadLink());
             }
 
             // Let's check the broken CRC.
@@ -176,6 +211,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(0, meta.freeListRootPageId());
                 assertEquals(1, meta.pageCount());
                 assertEquals(0, meta.estimatedSize());
+                assertEquals(0, meta.wiHeadLink());
             }
         } finally {
             freeBuffer(buffer);
@@ -202,7 +238,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
         ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
         try {
-            return (StoragePartitionMeta) manager.readOrCreateMeta(null, partId, filePageStore, buffer);
+            return (StoragePartitionMeta) manager.readOrCreateMeta(null, partId, filePageStore, buffer, 1);
         } finally {
             freeBuffer(buffer);
         }

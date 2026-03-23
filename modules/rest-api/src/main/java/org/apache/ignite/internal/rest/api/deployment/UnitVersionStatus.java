@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.rest.api.deployment;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * DTO of unit version and status.
  */
 @Schema(description = "Unit version and status.")
 public class UnitVersionStatus {
-    @Schema(description = "Unit version.", requiredMode = RequiredMode.REQUIRED)
+    @Schema(description = "Unit version.", requiredMode = REQUIRED)
     private final String version;
 
-    @Schema(description = "Unit status.", requiredMode = RequiredMode.REQUIRED)
+    @Schema(description = "Unit status.", requiredMode = REQUIRED)
     private final DeploymentStatus status;
 
     @JsonCreator
@@ -50,28 +52,25 @@ public class UnitVersionStatus {
         return status;
     }
 
-
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+    public final boolean equals(Object o) {
+        if (!(o instanceof UnitVersionStatus)) {
             return false;
         }
 
         UnitVersionStatus that = (UnitVersionStatus) o;
-
-        if (version != null ? !version.equals(that.version) : that.version != null) {
-            return false;
-        }
-        return status == that.status;
+        return version.equals(that.version) && status == that.status;
     }
 
     @Override
     public int hashCode() {
-        int result = version != null ? version.hashCode() : 0;
-        result = 31 * result + (status != null ? status.hashCode() : 0);
+        int result = version.hashCode();
+        result = 31 * result + status.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

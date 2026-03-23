@@ -19,9 +19,12 @@
 
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/value_with_default.h"
+#include "ignite/odbc/ssl_mode.h"
 
+#include "ignite/protocol/protocol_context.h"
 #include "ignite/common/end_point.h"
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 
@@ -41,7 +44,7 @@ public:
         static inline const std::string host{"localhost"};
 
         /** Default value for TCP port attribute. */
-        static inline const std::uint16_t port{10800};
+        static inline const std::uint16_t port{protocol::protocol_context::DEFAULT_TCP_PORT};
 
         /** Default value for Address attribute. */
         static inline const std::vector<end_point> address{{host, port}};
@@ -51,6 +54,12 @@ public:
 
         /** Default value for Timezone attribute. */
         static inline const std::string timezone{};
+
+        /** Default value for SSL mode. */
+        static inline const ssl_mode_t ssl_mode{ssl_mode_t::DISABLE};
+
+        /** Default heartbeat interval. */
+        static inline const std::chrono::seconds heartbeat_interval{30};
     };
 
     // Default.
@@ -104,7 +113,7 @@ public:
     void set_schema(std::string schema) { m_schema = {std::move(schema), true}; }
 
     /**
-     * Get authentication type.
+     * Get the authentication type.
      *
      * @return Authentication type.
      */
@@ -146,6 +155,78 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_timezone() const { return m_timezone; };
 
     /**
+     * Get the SSL Mode.
+     *
+     * @return SSL Mode.
+     */
+    [[nodiscard]] const value_with_default<ssl_mode_t> &get_ssl_mode() const { return m_ssl_mode; }
+
+    /**
+     * Set SSL mode.
+     *
+     * @param ssl_mode SSL Mode.
+     */
+    void set_ssl_mode(ssl_mode_t ssl_mode) { m_ssl_mode = { ssl_mode, true }; }
+
+    /**
+     * Get the SSL private key file path.
+     *
+     * @return SSL private key file path.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_ssl_key_file() const { return m_ssl_key_file; }
+
+    /**
+     * Set SSL key file.
+     *
+     * @param ssl_key_file SSL key file.
+     */
+    void set_ssl_key_file(std::string ssl_key_file) { m_ssl_key_file = {std::move(ssl_key_file), true}; }
+
+    /**
+     * Get the SSL certificate file path.
+     *
+     * @return SSL certificate file path.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_ssl_cert_file() const { return m_ssl_cert_file; }
+
+    /**
+     * Set SSL certificate file.
+     *
+     * @param ssl_cert_file SSL certificate file.
+     */
+    void set_ssl_cert_file(std::string ssl_cert_file) { m_ssl_cert_file = {std::move(ssl_cert_file), true}; }
+
+    /**
+     * Get the SSL certificate authority file path.
+     *
+     * @return SSL certificate authority file path.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_ssl_ca_file() const { return m_ssl_ca_file; }
+
+    /**
+     * Set SSL CA certificate file.
+     *
+     * @param ssl_ca_file SSL CA certificate file.
+     */
+    void set_ssl_ca_file(std::string ssl_ca_file) { m_ssl_ca_file = {std::move(ssl_ca_file), true}; }
+
+    /**
+     * Get the heartbeat interval.
+     *
+     * @return Heartbeat interval.
+     */
+    [[nodiscard]] const value_with_default<std::chrono::milliseconds> &get_heartbeat_interval() const {
+        return m_heartbeat_interval;
+    }
+
+    /**
+     * Set heartbeat interval.
+     *
+     * @param interval Heartbeat interval in ms.
+     */
+    void set_heartbeat_interval(std::chrono::milliseconds interval) { m_heartbeat_interval = {interval, true}; }
+
+    /**
      * Fill from configuration params.
      *
      * @throw odbc_error On parsing error.
@@ -167,13 +248,28 @@ private:
     value_with_default<std::string> m_schema{default_value::schema, false};
 
     /** Identity. */
-    value_with_default<std::string> m_auth_identity{"", false};
+    value_with_default<std::string> m_auth_identity{{}, false};
 
     /** Secret. */
-    value_with_default<std::string> m_auth_secret{"", false};
+    value_with_default<std::string> m_auth_secret{{}, false};
 
     /** Timezone. */
-    value_with_default<std::string> m_timezone{"", false};
+    value_with_default<std::string> m_timezone{default_value::timezone, false};
+
+    /** SSL mode. */
+    value_with_default<ssl_mode_t> m_ssl_mode{default_value::ssl_mode, false};
+
+    /** SSL private key file path. */
+    value_with_default<std::string> m_ssl_key_file{{}, false};
+
+    /** SSL certificate file path. */
+    value_with_default<std::string> m_ssl_cert_file{{}, false};
+
+    /** SSL certificate authority file path. */
+    value_with_default<std::string> m_ssl_ca_file{{}, false};
+
+    /** Heartbeat interval. */
+    value_with_default<std::chrono::milliseconds> m_heartbeat_interval{default_value::heartbeat_interval, false};
 };
 
 } // namespace ignite

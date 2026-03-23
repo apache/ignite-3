@@ -188,13 +188,17 @@ SELECT SUM(i) FROM integers GROUP BY GROUPING SETS (POWER(ROUND(ABS(SQRT(i*i)), 
 3
 NULL
 
-# expression with aliases can't be used in group by <columns> clause.
-statement error: Column 'K' not found in any table
+# expression with aliases can be used in group by <columns> clause.
+query II
 SELECT 1 AS k, SUM(i) FROM integers GROUP BY k+1 ORDER BY 2
+----
+1	6
 
-# expression with aliases can't be used in group by <grouping sets> clause.
-statement error: Column 'K' not found in any table
+# expression with aliases can be used in group by <grouping sets> clause.
+query II
 SELECT 1 AS k, SUM(i) FROM integers GROUP BY GROUPING SETS ((k+1)) ORDER BY 2
+----
+1	6
 
 # group by column refs should be recognized, even if one uses an explicit table specifier and the other does not
 query II

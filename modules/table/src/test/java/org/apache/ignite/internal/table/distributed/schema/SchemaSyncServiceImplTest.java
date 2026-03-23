@@ -29,7 +29,7 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
     private static final long DELAY_DURATION = 500;
 
     @Mock
-    private ClusterTime clusterTime;
+    private SchemaSafeTimeTracker schemaSafeTimeTracker;
 
     private final LongSupplier delayDurationMs = () -> DELAY_DURATION;
 
@@ -52,22 +52,22 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createSchemaSyncService() {
-        schemaSyncService = new SchemaSyncServiceImpl(clusterTime, delayDurationMs);
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMs);
     }
 
     @Test
-    void waitsTillSchemaCompletenessSubtractingDelayDuration() {
+    void waitsOnSchemaSafeTimeTillSchemaCompletenessSubtractingDelayDuration() {
         HybridTimestamp ts = clock.now();
-        CompletableFuture<Void> clusterTimeFuture = new CompletableFuture<>();
+        var safeTimeFuture = new CompletableFuture<Void>();
 
         HybridTimestamp tsMinusDelayDuration = ts.subtractPhysicalTime(delayDurationMs.getAsLong());
-        when(clusterTime.waitFor(tsMinusDelayDuration)).thenReturn(clusterTimeFuture);
+        when(schemaSafeTimeTracker.waitFor(tsMinusDelayDuration)).thenReturn(safeTimeFuture);
 
         CompletableFuture<Void> waitFuture = schemaSyncService.waitForMetadataCompleteness(ts);
 
         assertThat(waitFuture, is(not(completedFuture())));
 
-        clusterTimeFuture.complete(null);
+        safeTimeFuture.complete(null);
         assertThat(waitFuture, willCompleteSuccessfully());
     }
 }

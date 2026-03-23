@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -27,10 +26,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
@@ -51,13 +52,13 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final ScannableTable table;
 
-    private final RowHandler.RowFactory<RowT> factory;
+    private final RowFactory<RowT> factory;
 
     /** Returns partitions to be used by this scan. */
     private final PartitionProvider<RowT> partitionProvider;
 
     /** Participating columns. */
-    private final @Nullable BitSet requiredColumns;
+    private final int @Nullable [] requiredColumns;
 
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
@@ -80,7 +81,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      */
     public IndexScanNode(
             ExecutionContext<RowT> ctx,
-            RowHandler.RowFactory<RowT> rowFactory,
+            RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             ScannableTable table,
             TableDescriptor tableDescriptor,
@@ -89,14 +90,14 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
         this.schemaIndex = schemaIndex;
         this.table = table;
         this.partitionProvider = partitionProvider;
-        this.requiredColumns = requiredColumns;
+        this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;
@@ -156,5 +157,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             default:
                 throw new AssertionError("Unexpected index type: " + schemaIndex.type());
         }
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        super.dumpMetrics0(writer);
+        writer.app(", indexName=").app(schemaIndex.name());
     }
 }

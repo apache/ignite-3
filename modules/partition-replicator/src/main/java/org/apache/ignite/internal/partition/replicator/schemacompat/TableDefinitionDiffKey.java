@@ -22,13 +22,13 @@ package org.apache.ignite.internal.partition.replicator.schemacompat;
  */
 class TableDefinitionDiffKey {
     private final int tableId;
-    private final int fromSchemaVersion;
-    private final int toSchemaVersion;
+    private final int fromCatalogVersion;
+    private final int toCatalogVersion;
 
-    TableDefinitionDiffKey(int tableId, int fromSchemaVersion, int toSchemaVersion) {
+    TableDefinitionDiffKey(int tableId, int fromCatalogVersion, int toCatalogVersion) {
         this.tableId = tableId;
-        this.fromSchemaVersion = fromSchemaVersion;
-        this.toSchemaVersion = toSchemaVersion;
+        this.fromCatalogVersion = fromCatalogVersion;
+        this.toCatalogVersion = toCatalogVersion;
     }
 
     @Override
@@ -45,17 +45,17 @@ class TableDefinitionDiffKey {
         if (tableId != that.tableId) {
             return false;
         }
-        if (fromSchemaVersion != that.fromSchemaVersion) {
+        if (fromCatalogVersion != that.fromCatalogVersion) {
             return false;
         }
-        return toSchemaVersion == that.toSchemaVersion;
+        return toCatalogVersion == that.toCatalogVersion;
     }
 
     @Override
     public int hashCode() {
         int result = tableId;
-        result = 31 * result + fromSchemaVersion;
-        result = 31 * result + toSchemaVersion;
+        result = 31 * result + fromCatalogVersion;
+        result = 31 * result + toCatalogVersion;
         return result;
     }
 }

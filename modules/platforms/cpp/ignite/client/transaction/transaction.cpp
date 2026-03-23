@@ -20,12 +20,12 @@
 
 namespace ignite {
 
-void transaction::commit_async(ignite_callback<void> callback) {
-    m_impl->commit_async(std::move(callback));
+void transaction::commit_async(const ignite_callback<void> &callback) {
+    m_impl->commit_async(callback);
 }
 
-void transaction::rollback_async(ignite_callback<void> callback) {
-    m_impl->rollback_async(std::move(callback));
+void transaction::rollback_async(const ignite_callback<void> &callback) {
+    m_impl->rollback_async(callback);
 }
 
 } // namespace ignite

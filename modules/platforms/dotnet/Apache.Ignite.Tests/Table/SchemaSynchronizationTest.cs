@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Compute;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
@@ -35,6 +36,8 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     private static readonly TestMode[] TestModes = Enum.GetValues<TestMode>();
 
     private static readonly TestMode[] ReadTestModes = { TestMode.One, TestMode.Multiple };
+
+    private static readonly TestMode[] TableTestModes = { TestMode.One, TestMode.Two, TestMode.Multiple };
 
     public enum TestMode
     {
@@ -54,7 +57,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     public async Task DeleteTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TestTableName}");
 
     [Test]
-    public async Task TestClientUsesLatestSchemaOnWriteDropColumn([ValueSource(nameof(TestModes))] TestMode testMode)
+    public async Task TestClientUsesLatestSchemaOnWriteDropColumn([ValueSource(nameof(TableTestModes))] TestMode testMode)
     {
         // Create table, insert data.
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
@@ -93,14 +96,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                     break;
 
                 case TestMode.Multiple:
-                    await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
-                    break;
-
-                case TestMode.Compute:
-                    await Client.Compute.SubmitAsync(
-                        JobTarget.Colocated(table.Name, rec2),
-                        ComputeTests.NodeNameJob,
-                        null);
+                    await view.InsertAllAsync(null, [rec2, rec2, rec2]);
                     break;
 
                 default:
@@ -158,7 +154,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 // ExecuteColocated requires key part only.
                 await Client.Compute.SubmitAsync(
                     JobTarget.Colocated(table.Name, rec),
-                    ComputeTests.NodeNameJob,
+                    JavaJobs.NodeNameJob,
                     null);
                 break;
 
@@ -300,7 +296,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             case TestMode.Compute:
                 var jobExecution = await Client.Compute.SubmitAsync(
                     JobTarget.Colocated(table.Name, new Poco(1, "foo")),
-                    ComputeTests.NodeNameJob,
+                    JavaJobs.NodeNameJob,
                     null);
 
                 await jobExecution.GetResultAsync();
@@ -341,6 +337,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    [Timeout(60_000)] // Slow on Windows on CI.
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
     public async Task TestSchemaUpdateWhileStreaming(
         [Values(true, false)] bool insertNewColumn,

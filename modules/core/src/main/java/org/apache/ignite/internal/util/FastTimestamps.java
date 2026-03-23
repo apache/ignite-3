@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 public class FastTimestamps {
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
+    private static volatile boolean interrupted = false;
+
     /** The interval in milliseconds for updating a timestamp cache. */
     private static final long UPDATE_INTERVAL_MS = 10;
 
@@ -35,14 +38,35 @@ public class FastTimestamps {
     }
 
     private static void startUpdater() {
+        @SuppressWarnings("resource")
         ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "FastTimestamps updater");
+            @SuppressWarnings("ClassExplicitlyExtendsThread")
+            Thread t = new Thread(r, "FastTimestamps updater") {
+                @Override
+                @SuppressFBWarnings(value = "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD", justification = "Updater is static")
+                public void interrupt() {
+                    // Support scenarios like "mvn exec:java `-Dexec.cleanupDaemonThreads=true`"
+                    // that expect daemon threads to exit when interrupted.
+                    //noinspection AssignmentToStaticFieldFromInstanceMethod
+                    interrupted = true;
+                    super.interrupt();
+                }
+            };
             t.setDaemon(true);
             return t;
         });
 
         Runnable updaterTask = () -> {
-            coarseCurrentTimeMillis = System.currentTimeMillis();
+            if (interrupted) {
+                scheduledExecutor.shutdown();
+                return;
+            }
+
+            long now = System.currentTimeMillis();
+
+            if (now > coarseCurrentTimeMillis) {
+                coarseCurrentTimeMillis = now;
+            }
 
             // Safe-point-friendly hint.
             Thread.onSpinWait();

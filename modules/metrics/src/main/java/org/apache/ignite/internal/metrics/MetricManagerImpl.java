@@ -17,251 +17,208 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
-import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterConfigurationSchema;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterView;
+import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
+import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
-
 
 /**
  * Metric manager.
  */
-public class MetricManagerImpl implements MetricManager {
-    /** Logger. */
-    private final IgniteLogger log;
+public class MetricManagerImpl extends AbstractMetricManager {
+    // This field cannot be static, because its used by the Thin Client.
+    // However, it is expected that MetricManagerImpl will be used only on the server side.
+    private final IgniteLogger log = Loggers.forClass(MetricManagerImpl.class);
 
-    /** Metric registry. */
-    private final MetricRegistry registry;
+    private final String nodeName;
 
-    private final MetricProvider metricsProvider;
+    private final Supplier<UUID> clusterIdSupplier;
 
-    private final Map<String, MetricExporter> enabledMetricExporters = new ConcurrentHashMap<>();
+    private volatile MetricConfiguration metricConfiguration;
 
-    /** Metrics' exporters. */
-    private Map<String, MetricExporter> availableExporters;
-
-    private MetricConfiguration metricConfiguration;
-
-    private Supplier<UUID> clusterIdSupplier;
-
-    private String nodeName;
-
-    /**
-     * Constructor.
-     */
-    public MetricManagerImpl() {
-        this(Loggers.forClass(MetricManagerImpl.class));
+    /** Constructor. */
+    public MetricManagerImpl(String nodeName, Supplier<UUID> clusterIdSupplier) {
+        this.nodeName = nodeName;
+        this.clusterIdSupplier = clusterIdSupplier;
     }
 
-    /**
-     * Constructor.
-     *
-     * @param log Logger.
-     */
-    public MetricManagerImpl(IgniteLogger log) {
-        registry = new MetricRegistry();
-        metricsProvider = new MetricProvider(registry);
-        this.log = log;
+    /** Constructor for smoother testing. */
+    @TestOnly
+    public MetricManagerImpl(String nodeName, Supplier<UUID> clusterIdSupplier, MetricConfiguration metricConfiguration) {
+        this.nodeName = nodeName;
+        this.clusterIdSupplier = clusterIdSupplier;
+        this.metricConfiguration = metricConfiguration;
     }
 
-    @Override
-    public void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName) {
-        assert this.metricConfiguration == null : "Metric manager must be configured only once, on the start of the node";
-        assert this.clusterIdSupplier == null : "Metric manager must be configured only once, on the start of the node";
-        assert this.nodeName == null : "Metric manager must be configured only once, on the start of the node";
+    /** Sets the configuration. Needed to resolve cyclic dependencies. */
+    public void configure(MetricConfiguration metricConfiguration) {
+        assert this.metricConfiguration == null : "Metric configuration is already set.";
 
         this.metricConfiguration = metricConfiguration;
-        this.clusterIdSupplier = clusterIdSupplier;
-        this.nodeName = nodeName;
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        start(loadExporters());
+        return inBusyLockAsync(busyLock, () -> {
+            start(loadExporters());
 
-        return nullCompletedFuture();
+            return nullCompletedFuture();
+        });
     }
 
-    @Override
+    /** Starts the manager using the given exporters. */
     @VisibleForTesting
     public void start(Map<String, MetricExporter> availableExporters) {
-        this.availableExporters = availableExporters;
+        MetricConfiguration metricConfiguration = this.metricConfiguration;
 
-        MetricView conf = metricConfiguration.value();
+        assert metricConfiguration != null : "Metric configuration is not set.";
 
-        for (ExporterView exporter : conf.exporters()) {
-            checkAndStartExporter(exporter.exporterName(), exporter);
+        for (ExporterView exporterConfiguration : metricConfiguration.value().exporters()) {
+            startAndEnableExporter(exporterConfiguration, availableExporters);
         }
 
-        metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());
-    }
-
-    @Override
-    public void start(Iterable<MetricExporter<?>> exporters) {
-        this.availableExporters = new HashMap<>();
-
-        for (MetricExporter<?> exporter : exporters) {
-            exporter.start(metricsProvider, null, clusterIdSupplier, nodeName);
-
-            availableExporters.put(exporter.name(), exporter);
-            enabledMetricExporters.put(exporter.name(), exporter);
-        }
-    }
-
-    @Override public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        for (MetricExporter metricExporter : enabledMetricExporters.values()) {
-            metricExporter.stop();
+        if (!enabledMetricExporters.containsKey(LogPushExporter.EXPORTER_NAME)) {
+            startAndEnableExporter(new DefaultLogPushExporterView(), availableExporters);
         }
 
-        enabledMetricExporters.clear();
-
-        return nullCompletedFuture();
+        metricConfiguration.exporters().listenElements(new ExporterConfigurationListener(availableExporters));
     }
 
-    @Override
-    public void registerSource(MetricSource src) {
-        registry.registerSource(src);
-    }
+    private void startAndEnableExporter(ExporterView exporterConfiguration, Map<String, MetricExporter> availableExporters) {
+        String exporterName = exporterConfiguration.exporterName();
 
-    @Override
-    public void unregisterSource(MetricSource src) {
-        registry.unregisterSource(src);
-    }
+        MetricExporter exporter = availableExporters.get(exporterName);
 
-    @Override
-    public void unregisterSource(String srcName) {
-        registry.unregisterSource(srcName);
-    }
+        if (exporter == null) {
+            log.warn("Unknown metric exporter in configuration [name = {}].", exporterName);
 
-    @Override
-    public MetricSet enable(MetricSource src) {
-        MetricSet enabled = registry.enable(src);
-
-        if (enabled != null) {
-            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+            return;
         }
 
-        return enabled;
-    }
+        try {
+            exporter.start(registry, exporterConfiguration, clusterIdSupplier, nodeName);
+        } catch (Exception e) {
+            log.warn("Unable to start metric exporter [name = {}].", e, exporterName);
 
-    @Override
-    public MetricSet enable(final String srcName) {
-        MetricSet enabled = registry.enable(srcName);
-
-        if (enabled != null) {
-            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+            return;
         }
 
-        return enabled;
-    }
-
-    @Override
-    public void disable(MetricSource src) {
-        registry.disable(src);
-
-        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(src.name()));
-    }
-
-    @Override
-    public void disable(final String srcName) {
-        registry.disable(srcName);
-
-        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
-    }
-
-    @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return registry.metricSnapshot();
-    }
-
-    @Override
-    public Collection<MetricSource> metricSources() {
-        return registry.metricSources();
-    }
-
-    private <T extends ExporterView> void checkAndStartExporter(
-            String exporterName,
-            T exporterConfiguration) {
-        MetricExporter<T> exporter = availableExporters.get(exporterName);
-
-        if (exporter != null) {
-            enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
-                try {
-                    exporter.start(metricsProvider, exporterConfiguration, clusterIdSupplier, nodeName);
-
-                    return exporter;
-                } catch (Exception e) {
-                    log.warn("Unable to start metrics exporter name=[" + exporterName + "].", e);
-
-                    return null;
-                }
-            });
-        } else {
-            log.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
-        }
+        enabledMetricExporters.put(exporterName, exporter);
     }
 
     /**
      * Load exporters by {@link ServiceLoader} mechanism.
-     *
-     * @return list of loaded exporters.
      */
-    public static Map<String, MetricExporter> loadExporters() {
-        var clsLdr = Thread.currentThread().getContextClassLoader();
+    private static Map<String, MetricExporter> loadExporters() {
+        ClassLoader clsLdr = Thread.currentThread().getContextClassLoader();
 
         return ServiceLoader
                 .load(MetricExporter.class, clsLdr)
                 .stream()
                 .map(Provider::get)
-                .collect(Collectors.toMap(e -> e.name(), Function.identity()));
+                .collect(toUnmodifiableMap(MetricExporter::name, Function.identity()));
+    }
+
+    private static class DefaultLogPushExporterView implements LogPushExporterView {
+        private final LogPushExporterConfigurationSchema schema = new LogPushExporterConfigurationSchema();
+
+        @Override
+        public long periodMillis() {
+            return schema.periodMillis;
+        }
+
+        @Override
+        public boolean oneLinePerMetricSource() {
+            return schema.oneLinePerMetricSource;
+        }
+
+        @Override
+        public String[] enabledMetrics() {
+            return schema.enabledMetrics;
+        }
+
+        @Override
+        public String exporterName() {
+            return LogPushExporter.EXPORTER_NAME;
+        }
+
+        @Override
+        public String name() {
+            return "log";
+        }
     }
 
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {
+        private final Map<String, MetricExporter> availableExporters;
+
+        ExporterConfigurationListener(Map<String, MetricExporter> availableExporters) {
+            this.availableExporters = availableExporters;
+        }
+
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            checkAndStartExporter(ctx.newValue().exporterName(), ctx.newValue());
+            inBusyLockSafe(busyLock, () -> {
+                ExporterView newValue = ctx.newValue();
+
+                assert newValue != null;
+
+                startAndEnableExporter(newValue, availableExporters);
+            });
 
             return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<ExporterView> ctx) {
-            var removed = enabledMetricExporters.remove(ctx.oldValue().exporterName());
+            inBusyLockSafe(busyLock, () -> {
+                ExporterView oldValue = ctx.oldValue();
 
-            if (removed != null) {
-                removed.stop();
-            }
+                assert oldValue != null;
+
+                MetricExporter removed = enabledMetricExporters.remove(oldValue.exporterName());
+
+                if (removed != null) {
+                    removed.stop();
+                }
+            });
 
             return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            MetricExporter exporter = enabledMetricExporters.get(ctx.newValue().exporterName());
+            inBusyLockSafe(busyLock, () -> {
+                ExporterView newValue = ctx.newValue();
 
-            if (exporter != null) {
-                exporter.reconfigure(ctx.newValue());
-            }
+                assert newValue != null;
+
+                MetricExporter exporter = enabledMetricExporters.get(newValue.exporterName());
+
+                if (exporter != null) {
+                    exporter.reconfigure(newValue);
+                }
+            });
 
             return nullCompletedFuture();
         }

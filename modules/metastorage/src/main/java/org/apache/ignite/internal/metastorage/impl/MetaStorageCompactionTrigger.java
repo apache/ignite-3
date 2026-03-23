@@ -22,13 +22,13 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -51,10 +51,10 @@ import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -144,7 +144,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         config = new MetaStorageCompactionTriggerConfiguration(systemDistributedConfig);
 
         compactionExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
+                IgniteThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
 
         storage.registerCompactionRevisionUpdateListener(this::onCompactionRevisionUpdate);
@@ -306,9 +306,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 .thenRunAsync(() -> storage.compact(compactionRevision), compactionExecutor)
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        Throwable cause = unwrapCause(throwable);
-
-                        if (!(cause instanceof NodeStoppingException)) {
+                        if (!hasCause(throwable, NodeStoppingException.class, RejectedExecutionException.class)) {
                             String errorMessage = String.format(
                                     "Unknown error on new metastorage compaction revision: %s",
                                     compactionRevision
@@ -322,11 +320,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     }
 
     /** Invoked when a new leader is elected. */
-    private void onLeaderElected(ClusterNode newLeader) {
+    private void onLeaderElected(InternalClusterNode newLeader) {
         inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader));
     }
 
-    private void onLeaderElectedBusy(ClusterNode newLeader) {
+    private void onLeaderElectedBusy(InternalClusterNode newLeader) {
         lock.lock();
 
         try {
@@ -371,9 +369,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             runAsync(() -> inBusyLockSafe(busyLock, () -> storage.compact(recoveredCompactionRevision)), compactionExecutor)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            Throwable cause = unwrapCause(throwable);
-
-                            if (!(cause instanceof NodeStoppingException)) {
+                            if (!hasCause(throwable, NodeStoppingException.class, RejectedExecutionException.class)) {
                                 String errorMessage = String.format(
                                         "Unknown error during metastore compaction launched on node recovery: [compactionRevision=%s]",
                                         recoveredCompactionRevision

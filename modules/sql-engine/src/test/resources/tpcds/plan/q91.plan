@@ -1,0 +1,99 @@
+Sort
+    collation: [RETURNS_LOSS DESC]
+    est: (rows=99)
+  Project
+      fieldNames: [CALL_CENTER, CALL_CENTER_NAME, MANAGER, RETURNS_LOSS]
+      projection: [CALL_CENTER, CALL_CENTER_NAME, MANAGER, RETURNS_LOSS]
+      est: (rows=99)
+    ColocatedHashAggregate
+        fieldNames: [CALL_CENTER, CALL_CENTER_NAME, MANAGER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, RETURNS_LOSS]
+        group: [CALL_CENTER, CALL_CENTER_NAME, MANAGER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS]
+        aggregation: [SUM(CR_NET_LOSS)]
+        est: (rows=99)
+      Project
+          fieldNames: [CALL_CENTER, CALL_CENTER_NAME, MANAGER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, CR_NET_LOSS]
+          projection: [CC_CALL_CENTER_ID, CC_NAME, CC_MANAGER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, CR_NET_LOSS]
+          est: (rows=147)
+        HashJoin
+            predicate: =(CR_CALL_CENTER_SK, CC_CALL_CENTER_SK)
+            type: inner
+            est: (rows=147)
+          MergeJoin
+              predicate: =(CR_RETURNED_DATE_SK, D_DATE_SK)
+              type: inner
+              est: (rows=147)
+            Exchange
+                distribution: single
+                est: (rows=8100)
+              Sort
+                  collation: [D_DATE_SK ASC]
+                  est: (rows=8100)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: AND(=(D_YEAR, 2000), =(D_MOY, 12))
+                    fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                    est: (rows=8100)
+            HashJoin
+                predicate: =(CR_RETURNING_CUSTOMER_SK, C_CUSTOMER_SK)
+                type: inner
+                est: (rows=1330)
+              Exchange
+                  distribution: single
+                  est: (rows=144067)
+                Sort
+                    collation: [CR_RETURNED_DATE_SK ASC]
+                    est: (rows=144067)
+                  TableScan
+                      table: PUBLIC.CATALOG_RETURNS
+                      fieldNames: [CR_RETURNED_DATE_SK, CR_RETURNING_CUSTOMER_SK, CR_CALL_CENTER_SK, CR_NET_LOSS]
+                      est: (rows=144067)
+              HashJoin
+                  predicate: =(CA_ADDRESS_SK, C_CURRENT_ADDR_SK)
+                  type: inner
+                  est: (rows=923)
+                Exchange
+                    distribution: single
+                    est: (rows=16650)
+                  TableScan
+                      table: PUBLIC.CUSTOMER_ADDRESS
+                      predicate: =(CA_GMT_OFFSET, -7.00)
+                      fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
+                      est: (rows=16650)
+                HashJoin
+                    predicate: =(HD_DEMO_SK, C_CURRENT_HDEMO_SK)
+                    type: inner
+                    est: (rows=2772)
+                  HashJoin
+                      predicate: =(CD_DEMO_SK, C_CURRENT_CDEMO_SK)
+                      type: inner
+                      est: (rows=11089)
+                    Exchange
+                        distribution: single
+                        est: (rows=212996)
+                      TableScan
+                          table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                          predicate: OR(AND(=(CD_MARITAL_STATUS, _UTF-8'M'), =(CD_EDUCATION_STATUS, _UTF-8'Unknown')), AND(=(CD_MARITAL_STATUS, _UTF-8'W'), =(CD_EDUCATION_STATUS, _UTF-8'Advanced Degree')))
+                          fieldNames: [CD_DEMO_SK, CD_MARITAL_STATUS, CD_EDUCATION_STATUS]
+                          est: (rows=212996)
+                    Exchange
+                        distribution: single
+                        est: (rows=100000)
+                      TableScan
+                          table: PUBLIC.CUSTOMER
+                          fieldNames: [C_CUSTOMER_SK, C_CURRENT_CDEMO_SK, C_CURRENT_HDEMO_SK, C_CURRENT_ADDR_SK]
+                          est: (rows=100000)
+                  Exchange
+                      distribution: single
+                      est: (rows=1800)
+                    TableScan
+                        table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                        predicate: LIKE(HD_BUY_POTENTIAL, _UTF-8'Unknown%')
+                        fieldNames: [HD_DEMO_SK, HD_BUY_POTENTIAL]
+                        est: (rows=1800)
+          Exchange
+              distribution: single
+              est: (rows=6)
+            TableScan
+                table: PUBLIC.CALL_CENTER
+                fieldNames: [CC_CALL_CENTER_SK, CC_CALL_CENTER_ID, CC_NAME, CC_MANAGER]
+                est: (rows=6)

@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Timeout object interface.
  * It is used to limit a time to wait on the future compilation.
  */
-public interface TimeoutObject<T extends CompletableFuture<?>> {
+public interface TimeoutObject<T> {
     /**
      * Gets end timestamp.
      *
@@ -37,7 +37,7 @@ public interface TimeoutObject<T extends CompletableFuture<?>> {
      *
      * @return A future.
      */
-    T future();
+    CompletableFuture<T> future();
 
     /**
      * Describes the operation that has time limit. This is used to construct TimeoutException.

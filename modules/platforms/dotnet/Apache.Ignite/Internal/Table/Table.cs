@@ -22,17 +22,20 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Ignite.Transactions;
     using Microsoft.Extensions.Logging;
     using Proto;
     using Proto.MsgPack;
     using Serialization;
+    using Serialization.Mappers;
     using Sql;
     using Transactions;
 
@@ -116,7 +119,7 @@ namespace Apache.Ignite.Internal.Table
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
                 new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer, _sql));
 
-            PartitionManager = new PartitionManager(this);
+            PartitionDistribution = new PartitionManager(this);
         }
 
         /// <inheritdoc/>
@@ -132,7 +135,7 @@ namespace Apache.Ignite.Internal.Table
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
 
         /// <inheritdoc/>
-        public IPartitionManager PartitionManager { get; }
+        public IPartitionDistribution PartitionDistribution { get; }
 
         /// <summary>
         /// Gets the associated socket.
@@ -145,13 +148,69 @@ namespace Apache.Ignite.Internal.Table
         internal int Id { get; }
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
-            where T : notnull => GetRecordViewInternal<T>();
+            where T : notnull
+        {
+            var simpleMapper = OneColumnMappers.TryCreate<T>();
+
+            if (!RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (simpleMapper == null)
+                {
+                    throw new InvalidOperationException(
+                        "Dynamic code generation is not supported in the current environment. " +
+                        "Provide an explicit IMapper<T> implementation for type " + typeof(T).FullName);
+                }
+
+                return GetRecordView(simpleMapper);
+            }
+
+            return simpleMapper is not null
+                ? GetRecordView(simpleMapper)
+                : GetRecordViewInternal<T>();
+        }
 
         /// <inheritdoc/>
+        public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
+            where T : notnull =>
+            new RecordView<T>(this, new RecordSerializer<T>(this, new MapperSerializerHandler<T>(mapper)), _sql);
+
+        /// <inheritdoc/>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
-            where TK : notnull =>
-            new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+            where TK : notnull
+        {
+            var simpleMapper = KeyValueMappers.TryCreate<TK, TV>();
+
+            if (!RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (simpleMapper == null)
+                {
+                    throw new InvalidOperationException(
+                        "Dynamic code generation is not supported in the current environment. " +
+                        "Provide an explicit IMapper<KeyValuePair<TK, TV>> implementation for types " +
+                        typeof(TK).FullName + " and " + typeof(TV).FullName);
+                }
+
+                return GetKeyValueView(simpleMapper);
+            }
+
+            return simpleMapper is not null
+                ? GetKeyValueView(simpleMapper)
+                : new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+        }
+
+        /// <inheritdoc/>
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
+            where TK : notnull
+        {
+            var handler = new MapperPairSerializerHandler<TK, TV>(mapper);
+            var recordSerializer = new RecordSerializer<KvPair<TK, TV>>(this, handler);
+            var recordView = new RecordView<KvPair<TK, TV>>(this, recordSerializer, _sql);
+
+            return new KeyValueView<TK, TV>(recordView);
+        }
 
         /// <inheritdoc/>
         public override string ToString() =>
@@ -165,6 +224,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         internal RecordView<T> GetRecordViewInternal<T>()
             where T : notnull
         {
@@ -267,19 +327,22 @@ namespace Apache.Ignite.Internal.Table
 
         private Task<Schema> GetCachedSchemaAsync(int version)
         {
-            var task = GetOrAdd();
-
-            if (!task.IsFaulted)
+            if (_schemas.TryGetValue(version, out var task))
             {
-                return task;
-            }
+                if (!task.IsFaulted)
+                {
+                    return task;
+                }
 
-            // Do not return failed task. Remove it from the cache and try again.
-            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+                // Do not return old failed task. Remove it from the cache and try again.
+                _schemas.TryRemove(KeyValuePair.Create(version, task));
+            }
 
             return GetOrAdd();
 
-            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+            // Note: GetOrAdd does not guarantee that the factory is called only once.
+            Task<Schema> GetOrAdd() =>
+                _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         /// <summary>

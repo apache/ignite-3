@@ -99,7 +99,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
 
-
                 forTypePair(NumericPair.SMALLINT_SMALLINT)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT16))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT16)),
@@ -156,7 +155,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
 
-
                 forTypePair(NumericPair.INT_INT)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
@@ -208,7 +206,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(NumericPair.INT_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
-
 
                 forTypePair(NumericPair.BIGINT_BIGINT)
                         .firstOpBeSame()
@@ -302,7 +299,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_2_1))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
@@ -343,7 +339,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_4_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_4_3)),
@@ -380,7 +375,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_2_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
@@ -413,7 +407,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_3_1))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
@@ -442,7 +435,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
@@ -467,7 +459,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
@@ -488,7 +479,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
@@ -505,7 +495,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
@@ -518,7 +507,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpBeSame(),
 
-
                 forTypePair(NumericPair.REAL_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.FLOAT))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.FLOAT)),
@@ -526,7 +514,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(NumericPair.REAL_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
                         .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
-
 
                 forTypePair(NumericPair.DOUBLE_DOUBLE)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))

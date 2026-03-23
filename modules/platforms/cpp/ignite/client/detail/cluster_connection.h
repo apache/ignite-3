@@ -25,13 +25,13 @@
 #include "ignite/protocol/protocol_context.h"
 
 #include "ignite/common/ignite_result.h"
+#include "ignite/common/detail/thread_timer.h"
 #include "ignite/network/async_client_pool.h"
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 
 #include <functional>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -63,7 +63,7 @@ public:
     typedef std::function<protocol::client_operation(const protocol::protocol_context&)> operation_function_type;
 
     /** Default TCP port. */
-    static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
+    static constexpr uint16_t DEFAULT_TCP_PORT = protocol::protocol_context::DEFAULT_TCP_PORT;
 
     /**
      * Create a new instance of the object.
@@ -403,6 +403,9 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Timer thread. */
+    std::shared_ptr<thread_timer> m_timer_thread;
 };
 
 } // namespace ignite::detail

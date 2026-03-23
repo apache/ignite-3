@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobState;
@@ -35,32 +36,52 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.marshalling.Marshaller;
 
 /**
  * Compute MapReduce request.
  */
 public class ClientComputeExecuteMapReduceRequest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClientComputeExecuteMapReduceRequest.class);
+
     /**
      * Processes the request.
      *
      * @param in Unpacker.
      * @param compute Compute.
      * @param notificationSender Notification sender.
+     * @param clientContext Client context.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
             IgniteComputeInternal compute,
-            NotificationSender notificationSender) {
+            NotificationSender notificationSender,
+            ClientContext clientContext
+    ) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
-        Object arg = unpackJobArgumentWithoutMarshaller(in);
 
-        TaskExecution<Object> execution = compute.submitMapReduce(
-                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), arg);
+        boolean enableObservableTs = clientContext.hasFeature(ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS);
+        ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in, enableObservableTs);
+
+        TaskDescriptor<Object, Object> taskDescriptor = TaskDescriptor.builder(taskClassName).units(deploymentUnits).build();
+
+        ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.MAP_REDUCE)
+                .eventUser(clientContext.userDetails())
+                .clientAddress(clientContext.remoteAddress().toString());
+
+        TaskExecution<Object> execution = compute.submitMapReduceInternal(taskDescriptor, metadataBuilder, arg, null);
         sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()
@@ -84,16 +105,26 @@ public class ClientComputeExecuteMapReduceRequest {
     }
 
     private static void sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
-        TaskExecution<Object> t = execution;
         execution.resultAsync().whenComplete((val, err) ->
-                t.stateAsync().whenComplete((state, errState) ->
-                        execution.statesAsync().whenComplete((states, errStates) ->
-                                notificationSender.sendNotification(w -> {
-                                    Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) t).resultMarshaller();
-                                    ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
-                                    packTaskState(w, state);
-                                    packJobStates(w, states);
-                                }, firstNotNull(err, errState, errStates)))
+                execution.stateAsync().whenComplete((state, errState) ->
+                        execution.statesAsync().whenComplete((states, errStates) -> {
+                            try {
+                                notificationSender.sendNotification(
+                                        w -> {
+                                            Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) execution)
+                                                    .resultMarshaller();
+
+                                            ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
+                                            packTaskState(w, state);
+                                            packJobStates(w, states);
+                                        },
+                                        firstNotNull(err, errState, errStates),
+                                        ((HybridTimestampProvider) execution).hybridTimestamp());
+
+                            } catch (Throwable t) {
+                                LOG.error("Failed to send task result notification: " + t.getMessage(), t);
+                            }
+                        })
                 ));
     }
 

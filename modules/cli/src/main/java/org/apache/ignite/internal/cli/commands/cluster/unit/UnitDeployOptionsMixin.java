@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NOD
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NODES_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_RECURSIVE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_RECURSIVE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
@@ -92,12 +94,24 @@ class UnitDeployOptionsMixin {
         nodes = values;
     }
 
+    /** Recursive deployment flag. */
+    @Option(names = UNIT_RECURSIVE_OPTION, description = UNIT_RECURSIVE_OPTION_DESC)
+    private boolean recursive;
+
     DeployUnitCallInput toDeployUnitCallInput(String url) {
+        if (recursive && !Files.isDirectory(path)) {
+            throw new ParameterException(
+                    spec.commandLine(),
+                    "The --recursive option requires a directory path, but '" + path + "' is not a directory"
+            );
+        }
+
         return DeployUnitCallInput.builder()
                 .id(id)
                 .version(version)
                 .path(path)
                 .nodes(nodes)
+                .recursive(recursive)
                 .clusterUrl(url)
                 .build();
     }

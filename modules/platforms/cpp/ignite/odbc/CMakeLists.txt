@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite3-odbc)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ${PROJECT_NAME}-odbc)
 
 include(find_odbc)
 find_package(ODBC REQUIRED)
@@ -33,7 +31,6 @@ set(SOURCES
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp
-    meta/column_meta.cpp
     meta/table_meta.cpp
     query/column_metadata_query.cpp
     query/data_query.cpp
@@ -57,16 +54,17 @@ set(EXTRA_FILES)
 
 if (WIN32)
     string(REPLACE "." "," CMAKE_PROJECT_VERSION_COMMAS ${CMAKE_PROJECT_VERSION})
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+    configure_file(${IGNITE_CMAKE_TOP_DIR}/ignite/odbc/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
     set(EXTRA_FILES ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
 endif()
 
 add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
-target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ODBC_INCLUDE_DIRS})
+target_include_directories(${TARGET}-obj PUBLIC ${IGNITE_CMAKE_TOP_DIR} ${ODBC_INCLUDE_DIRS})
 
 add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def ${EXTRA_FILES})
+set_target_properties(${TARGET} PROPERTIES EXPORT_NAME odbc)
 
 set(LIBRARIES
     ignite-common
@@ -95,19 +93,39 @@ foreach(_target_lib IN LISTS _target_libs)
     endif()
 
     target_include_directories(${_target_lib} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
-    target_link_libraries(${_target_lib} ${LIBRARIES})
+    target_include_directories(${_target_lib}
+        INTERFACE $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
+                  $<INSTALL_INTERFACE:${IGNITE_INSTALL_INCLUDE_DIR}/>
+    )
+    target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
 endforeach()
 unset(_target_libs)
 
-if (${INSTALL_IGNITE_FILES})
-    install(TARGETS ${TARGET}
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-    )
-endif()
+add_library(ignite::odbc ALIAS ${TARGET})
+
+install(TARGETS ${TARGET}
+    EXPORT ignite-odbc-targets
+    COMPONENT odbc
+    ARCHIVE DESTINATION ${IGNITE_INSTALL_ARCHIVE_DIR}
+    LIBRARY DESTINATION ${IGNITE_INSTALL_LIBRARY_DIR}
+    RUNTIME DESTINATION ${IGNITE_INSTALL_RUNTIME_DIR}
+    INCLUDES DESTINATION ${IGNITE_INSTALL_INCLUDE_DIR}
+)
+
+export(
+    EXPORT ignite-odbc-targets
+    NAMESPACE ignite::
+    FILE "cmake/ignite-odbc-targets.cmake"
+)
+
+install(
+    EXPORT ignite-odbc-targets
+    NAMESPACE ignite::
+    DESTINATION "${IGNITE_INSTALL_LIBRARY_DIR}/cmake/ignite"
+    COMPONENT odbc-local
+    FILE "ignite-odbc-targets.cmake"
+)
 
 ignite_test(connection_info_test DISCOVER SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(config_tools_test DISCOVER SOURCES config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(application_data_buffer_test DISCOVER SOURCES app/application_data_buffer_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
-

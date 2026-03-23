@@ -22,7 +22,7 @@
 namespace ignite {
 
 /**
- * @brief A date.
+ * @brief A date without timezone information.
  *
  * This is modeled after java.time.LocalDate.
  */

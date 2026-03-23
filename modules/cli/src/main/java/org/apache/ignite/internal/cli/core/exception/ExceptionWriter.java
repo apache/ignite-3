@@ -44,7 +44,6 @@ public interface ExceptionWriter {
         }
     }
 
-
     static ExceptionWriter nullWriter() {
         return fromPrintWriter(new PrintWriter(PrintWriter.nullWriter()));
     }

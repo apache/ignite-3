@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.tostring;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
-
 import java.util.Arrays;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class StringBuilderLimitedLength extends IgniteStringBuilder {
     /** Max string length. */
-    private static final int MAX_STR_LEN = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_MAX_LENGTH, 10_000);
+    private static final int MAX_STR_LEN = 10_000;
 
     /** Length of tail part of message. */
     private static final int TAIL_LEN = MAX_STR_LEN / 10 * 2;

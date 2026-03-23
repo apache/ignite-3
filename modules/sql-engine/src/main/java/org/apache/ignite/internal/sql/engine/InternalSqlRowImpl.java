@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,7 +55,7 @@ public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
     /** {@inheritDoc} */
     @Override
     public int fieldCount() {
-        return rowHandler.columnCount(row);
+        return rowHandler.columnsCount(row);
     }
 
     /** {@inheritDoc} */

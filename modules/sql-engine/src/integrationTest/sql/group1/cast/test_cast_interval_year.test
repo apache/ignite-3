@@ -4,7 +4,7 @@
 # group: [cast]
 
 query T
-SELECT CAST(INTERVAL 1 YEARS AS INTERVAL YEARS);
+SELECT CAST(INTERVAL '1' YEARS AS INTERVAL YEARS);
 ----
 P1Y
 
@@ -33,17 +33,11 @@ SELECT CAST('2000-01-01'::DATE AS INTERVAL YEARS);
 statement error: Cast function cannot convert value of type BOOLEAN to type INTERVAL YEAR
 SELECT CAST(TRUE AS INTERVAL YEARS);
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::TINYINT AS INTERVAL YEARS);
 ----
 P1Y
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 # returns P1M
 query T
 SELECT CAST(1::SMALLINT AS INTERVAL YEARS);
@@ -55,21 +49,15 @@ SELECT CAST(1 AS INTERVAL YEARS);
 ----
 P1Y
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::INT AS INTERVAL YEARS);
 ----
-PT24H
+P1Y
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::BIGINT AS INTERVAL YEARS);
 ----
-PT24H
+P1Y
 
 statement error: Cast function cannot convert value of type REAL to type INTERVAL YEAR
 SELECT CAST(1.0::REAL AS INTERVAL YEARS);
@@ -80,21 +68,15 @@ SELECT CAST(1.0::FLOAT AS INTERVAL YEARS);
 statement error: Cast function cannot convert value of type DOUBLE to type INTERVAL YEAR
 SELECT CAST(1.0::DOUBLE AS INTERVAL YEARS);
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::DECIMAL(5) AS INTERVAL YEARS);
 ----
 P1Y
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1.25::DECIMAL(5, 2) AS INTERVAL YEARS);
 ----
-P1Y
+P1Y3M
 
 statement error: Cast function cannot convert value of type UUID to type INTERVAL YEAR
 SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS INTERVAL YEARS);
@@ -115,9 +97,6 @@ SELECT CAST(1 AS INTERVAL MONTH);
 ----
 P1M
 
-# https://issues.apache.org/jira/browse/IGNITE-22471
-# Similar CAST expressions produce completely different results
-skipif ignite3
 query T
 SELECT CAST(1::INT AS INTERVAL YEAR);
 ----

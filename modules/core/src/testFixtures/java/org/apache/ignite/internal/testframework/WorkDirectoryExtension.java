@@ -42,8 +42,10 @@ import org.apache.ignite.internal.util.OperatingSystem;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterClassTemplateInvocationCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeClassTemplateInvocationCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
@@ -73,7 +75,8 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  * for more information.
  */
 public class WorkDirectoryExtension
-        implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback, ParameterResolver {
+        implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback, BeforeClassTemplateInvocationCallback,
+        AfterClassTemplateInvocationCallback, ParameterResolver {
     /** JUnit namespace for the extension. */
     private static final Namespace NAMESPACE = Namespace.create(WorkDirectoryExtension.class);
 
@@ -109,7 +112,7 @@ public class WorkDirectoryExtension
     public void beforeAll(ExtensionContext context) throws Exception {
         Field workDirField = getWorkDirField(context);
 
-        if (workDirField == null || !Modifier.isStatic(workDirField.getModifiers())) {
+        if (workDirField == null || !Modifier.isStatic(workDirField.getModifiers()) || isForcePerClassTemplate(workDirField)) {
             return;
         }
 
@@ -143,7 +146,7 @@ public class WorkDirectoryExtension
     public void beforeEach(ExtensionContext context) throws Exception {
         Field workDirField = getWorkDirField(context);
 
-        if (workDirField == null || Modifier.isStatic(workDirField.getModifiers())) {
+        if (workDirField == null || Modifier.isStatic(workDirField.getModifiers()) || isForcePerClassTemplate(workDirField)) {
             return;
         }
 
@@ -156,6 +159,30 @@ public class WorkDirectoryExtension
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
         cleanupWorkDir(context);
+    }
+
+    @Override
+    public void beforeClassTemplateInvocation(ExtensionContext context) throws Exception {
+        Field workDirField = getWorkDirField(context);
+
+        if (workDirField == null || !isForcePerClassTemplate(workDirField)) {
+            return;
+        }
+
+        workDirField.setAccessible(true);
+
+        workDirField.set(Modifier.isStatic(workDirField.getModifiers()) ? null : context.getRequiredTestInstance(), createWorkDir(context));
+    }
+
+    @Override
+    public void afterClassTemplateInvocation(ExtensionContext context) throws Exception {
+        cleanupWorkDir(context);
+    }
+
+    private static boolean isForcePerClassTemplate(Field field) {
+        WorkDirectory workDirectory = field.getAnnotation(WorkDirectory.class);
+        assert workDirectory != null;
+        return workDirectory.forcePerClassTemplate();
     }
 
     /** {@inheritDoc} */
@@ -189,7 +216,7 @@ public class WorkDirectoryExtension
     /**
      * Creates a temporary folder for the given test method.
      */
-    private static Path createWorkDir(ExtensionContext context) throws IOException {
+    public static Path createWorkDir(ExtensionContext context) throws IOException {
         Path existingDir = context.getStore(NAMESPACE).get(context.getUniqueId(), Path.class);
 
         if (existingDir != null) {
@@ -280,7 +307,20 @@ public class WorkDirectoryExtension
         return PATTERN.matcher(property).matches();
     }
 
-    private static void zipDirectory(Path source, Path target) {
+    /**
+     * Creates a ZIP archive from the contents of a source directory.
+     *
+     * <p>This method recursively walks through the source directory and compresses all files (excluding directories)
+     * into a ZIP archive at the target location. The directory structure is preserved within the ZIP file using
+     * relative paths from the source directory.
+     *
+     * <p>The parent directories of the target ZIP file are created if they don't exist. If the target file already
+     * exists, it will be overwritten.
+     *
+     * @param source the path to the source directory to be zipped; must be an existing directory
+     * @param target the path where the ZIP archive will be created; parent directories will be created if necessary
+     */
+    public static void zipDirectory(Path source, Path target) {
         try {
             Files.createDirectories(target.getParent());
 

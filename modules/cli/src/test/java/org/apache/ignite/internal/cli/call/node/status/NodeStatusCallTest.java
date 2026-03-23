@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.cli.call.node.status;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalToIgnoringCase;
 import static org.hamcrest.Matchers.is;
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Arrays;
@@ -37,12 +40,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockserver.integration.ClientAndServer;
 
 @MicronautTest(rebuildContext = true)
+@WireMockTest
 class NodeStatusCallTest {
-
-    private ClientAndServer clientAndServer;
 
     private ObjectMapper objectMapper;
 
@@ -58,12 +59,11 @@ class NodeStatusCallTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
         nodeName = "testnode";
         objectMapper = new ObjectMapper();
 
-        clientAndServer = ClientAndServer.startClientAndServer(0);
-        url = "http://localhost:" + clientAndServer.getPort();
+        url = wmRuntimeInfo.getHttpBaseUrl();
     }
 
     @ParameterizedTest
@@ -85,11 +85,8 @@ class NodeStatusCallTest {
 
     private void nodeState(org.apache.ignite.rest.client.model.State state) {
         try {
-            clientAndServer
-                    .when(request()
-                            .withMethod("GET")
-                            .withPath("/management/v1/node/state"))
-                    .respond(response(objectMapper.writeValueAsString(new NodeState().name(nodeName).state(state))));
+            stubFor(get("/management/v1/node/state")
+                    .willReturn(ok(objectMapper.writeValueAsString(new NodeState().name(nodeName).state(state)))));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }

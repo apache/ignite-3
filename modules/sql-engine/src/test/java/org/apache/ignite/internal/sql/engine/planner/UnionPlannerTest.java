@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.Union;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Union test.
@@ -142,25 +145,46 @@ public class UnionPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {50, 100})
+    void unionAllHugeNumberOfTables(int tablesCount) throws Exception {
+        IgniteTable[] tables = IntStream.range(0, tablesCount)
+                .mapToObj(i -> createTestTable("TABLE_" + i))
+                .toArray(IgniteTable[]::new);
+
+        IgniteSchema schema = createSchema(tables);
+        String query = IntStream.range(0, tablesCount)
+                .mapToObj(i -> "SELECT \n"
+                        + "  'label_" + i + "'  As l_name, \n"
+                        + "  CASE WHEN EXISTS (\n"
+                        + "    SELECT 1 FROM table_" + i + "\n"
+                        + "  ) then true ELSE false END AS has_data")
+                .collect(Collectors.joining(" UNION "));
+
+        // No special verifications. We just expect this query to complete successfully. 
+        assertPlan(query, schema, node -> true);
+    }
+
     /**
      * Create schema for tests.
      *
      * @return Ignite schema.
      */
     private static IgniteSchema prepareSchema() {
-        return createSchemaFrom(
+        return createSchema(
                 createTestTable("TABLE1"),
                 createTestTable("TABLE2"),
                 createTestTable("TABLE3")
         );
     }
 
-    private static UnaryOperator<TableBuilder> createTestTable(String tableName) {
-        return tableBuilder -> tableBuilder
+    private static IgniteTable createTestTable(String tableName) {
+        return TestBuilders.table()
                 .name(tableName)
                 .distribution(someAffinity())
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
-                .addColumn("SALARY", NativeTypes.DOUBLE);
+                .addColumn("SALARY", NativeTypes.DOUBLE)
+                .build();
     }
 }

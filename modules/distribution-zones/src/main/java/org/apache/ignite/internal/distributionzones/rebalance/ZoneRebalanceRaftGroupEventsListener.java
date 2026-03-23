@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -74,6 +76,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
+import org.apache.ignite.internal.raft.rebalance.ChangePeersAndLearnersWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -129,7 +133,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Performs reconfiguration of a Raft group of a partition. */
-    private final PartitionMover partitionMover;
+    private final ChangePeersAndLearnersWithRetry changePeersAndLearnersWithRetry;
 
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts = new AtomicInteger(0);
@@ -146,7 +150,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param metaStorageMgr Meta storage manager.
      * @param zonePartitionId Partition id.
      * @param busyLock Busy lock.
-     * @param partitionMover Class that moves partition between nodes.
+     * @param changePeersAndLearnersWithRetry Class that moves partition between nodes.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
      * @param calculateAssignmentsFn Function that calculates assignments for zone's partition.
      * @param retryDelayConfiguration Configuration property for rebalance retries delay.
@@ -156,7 +160,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             FailureProcessor failureProcessor,
             ZonePartitionId zonePartitionId,
             IgniteSpinBusyLock busyLock,
-            PartitionMover partitionMover,
+            ChangePeersAndLearnersWithRetry changePeersAndLearnersWithRetry,
             ScheduledExecutorService rebalanceScheduler,
             BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
@@ -165,7 +169,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         this.failureProcessor = failureProcessor;
         this.zonePartitionId = zonePartitionId;
         this.busyLock = busyLock;
-        this.partitionMover = partitionMover;
+        this.changePeersAndLearnersWithRetry = changePeersAndLearnersWithRetry;
         this.rebalanceScheduler = rebalanceScheduler;
         this.calculateAssignmentsFn = calculateAssignmentsFn;
         this.retryDelayConfiguration = retryDelayConfiguration;
@@ -173,7 +177,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
     /** {@inheritDoc} */
     @Override
-    public void onLeaderElected(long term) {
+    public void onLeaderElected(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            PeersAndLearners configuration,
+            long sequenceToken
+    ) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -187,51 +197,72 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId)).value();
+                    // First of all, it's required to reread pending assignments and recheck whether it's still needed to perform the
+                    // rebalance. Worth mentioning that one of legitimate cases of metaStorageMgr.get() timeout is MG unavailability
+                    // in that cases it's required to retry the request. However it's important to handle local node stopping intent,
+                    // meaning that busyLock should be handled properly with thought of a throttle to provide the ability for node to stop.
+
+                    // It's required to read pending assignments from MS leader instead of local MS in order not to catch-up stale pending
+                    // ones:
+                    // Let's say that node A has processed configurations С1 and C2 and therefore moved the raft to configuration C2 for
+                    // partition P1.
+                    // Node B was elected as partition P1 leader, however locally Node B is a bit outdated within MS timeline, thus it has
+                    // C1 as pending assignments. If it'll propose C1 as "new" configuration and then fall, raft will stuck on old
+                    // configuration and won't do further progress.
+                    Entry entry = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get();
+                    byte[] pendingAssignmentsBytes = entry.value();
 
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
 
-                        var peers = new HashSet<String>();
-                        var learners = new HashSet<String>();
+                        // The race is possible between doStableSwitch processing on the node colocated with former leader
+                        // and onLeaderElected of the new leader:
+                        // 1. Node A that was colocated with former leader successfully moved raft from C0 to C1, however did not receive
+                        // onNewPeersConfigurationApplied yet and thus didn't do doStableSwitch.
+                        // 2. New node B occurred to be collocated with new leader and thus received onLeaderElected, checked pending
+                        // assignments in meta storage and retried changePeersAndLearnersAsync(C1).
+                        // 3. At the very same moment Node A performs doStableSwitch, meaning that it switches assignments pending from
+                        // C1 to C2.
+                        // 4.Node B gets meta storage notification about new pending C2 and sends changePeersAndLearnersAsync(C2)
+                        // changePeersAndLearnersAsync(C1) and changePeersAndLearnersAsync(C2) from Node B may reorder.
+                        // In order to eliminate this we may check raft configuration on leader election and if it matches the one in
+                        // current global pending assignments call doStableSwitch instead of changePeersAndLearners since raft already on
+                        // required configuration.
+                        if (PeersAndLearners.fromAssignments(pendingAssignments).equals(configuration)) {
+                            doStableKeySwitchWithExceptionHandling(
+                                    pendingAssignments,
+                                    zonePartitionId,
+                                    configurationTerm,
+                                    configurationIndex,
+                                    calculateAssignmentsFn
+                            );
+                        } else {
 
-                        for (Assignment assignment : pendingAssignments) {
-                            if (assignment.isPeer()) {
-                                peers.add(assignment.consistentId());
-                            } else {
-                                learners.add(assignment.consistentId());
+                            var peers = new HashSet<String>();
+                            var learners = new HashSet<String>();
+
+                            for (Assignment assignment : pendingAssignments) {
+                                if (assignment.isPeer()) {
+                                    peers.add(assignment.consistentId());
+                                } else {
+                                    learners.add(assignment.consistentId());
+                                }
                             }
+
+                            LOG.info(
+                                    "New leader elected. Going to apply new configuration [zonePartitionId={}, peers={}, learners={}]",
+                                    zonePartitionId, peers, learners
+                            );
+
+                            PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
+
+                            changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, entry.revision())
+                                    .whenComplete((unused, ex) -> maybeRunFailHandler(ex, term));
                         }
-
-                        LOG.info(
-                                "New leader elected. Going to apply new configuration [zonePartitionId={}, peers={}, learners={}]",
-                                zonePartitionId, peers, learners
-                        );
-
-                        PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
-
-                        partitionMover.movePartition(peersAndLearners, term)
-                                .whenComplete((unused, ex) -> {
-                                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                        String errorMessage = String.format(
-                                                "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                                zonePartitionId,
-                                                term
-                                        );
-                                        failureProcessor.process(new FailureContext(ex, errorMessage));
-                                    }
-                                });
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    if (!hasCause(e, NodeStoppingException.class)) {
-                        String errorMessage = String.format(
-                                "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                zonePartitionId,
-                                term
-                        );
-                        failureProcessor.process(new FailureContext(e, errorMessage));
-                    }
+                    maybeRunFailHandler(e, term);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -241,9 +272,22 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         }
     }
 
+    private void maybeRunFailHandler(Throwable ex, long term) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove `!hasCause(ex, TimeoutException.class)`
+        if (ex != null && !hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)
+                && !hasCause(ex, TimeoutException.class)) {
+            String errorMessage = String.format(
+                    "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                    zonePartitionId,
+                    term
+            );
+            failureProcessor.process(new FailureContext(ex, errorMessage));
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
-    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index) {
+    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index, long sequenceToken) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -269,7 +313,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
     /** {@inheritDoc} */
     @Override
-    public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
+    public void onReconfigurationError(Status status, PeersAndLearners configuration, long term, long sequenceToken) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -292,14 +336,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.debug("Error occurred during rebalance [partId={}]", zonePartitionId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
-                scheduleChangePeersAndLearners(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term, sequenceToken);
             } else {
                 LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", zonePartitionId,
                         REBALANCE_RETRY_THRESHOLD);
 
-                // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
-                // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-19087
-                scheduleChangePeersAndLearners(configuration, term);
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19087 currently we just retry intent to change peers according
+                //  to the rebalance infinitely, until new leader is elected, but rebalance cancel mechanism should be implemented.
+                scheduleChangePeersAndLearners(configuration, term, sequenceToken);
             }
         } finally {
             busyLock.leaveBusy();
@@ -322,7 +366,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param peersAndLearners Peers and learners.
      * @param term Current known leader term.
      */
-    private void scheduleChangePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
+    private void scheduleChangePeersAndLearners(PeersAndLearners peersAndLearners, long term, long revision) {
         rebalanceScheduler.schedule(() -> {
             if (!busyLock.enterBusy()) {
                 return;
@@ -331,13 +375,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zonePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term)
-                        .whenComplete((unused, ex) -> {
-                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
-                                String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
-                                failureProcessor.process(new FailureContext(ex, errorMessage));
-                            }
-                        });
+                changePeersAndLearnersWithRetry.executeOnLeader(peersAndLearners, term, revision)
+                        .whenComplete((unused, ex) -> maybeRunFailHandler(ex, term));
             } finally {
                 busyLock.leaveBusy();
             }
@@ -404,12 +443,54 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Entry switchAppendEntry = values.get(switchAppendKey);
             Entry assignmentsChainEntry = values.get(assignmentsChainKey);
 
+            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
+
+            if (pendingAssignmentsQueue != null && pendingAssignmentsQueue.size() > 1) {
+
+                if (pendingAssignmentsQueue.peekFirst().nodes().equals(stableFromRaft)) {
+                    pendingAssignmentsQueue.poll(); // remove, first element was already applied to the configuration by pending listeners
+                }
+
+                Assignments stable = Assignments.of(stableFromRaft, pendingAssignmentsQueue.peekFirst().timestamp());
+                pendingAssignmentsQueue = pendingAssignmentsCalculator()
+                        .stable(stable)
+                        .target(pendingAssignmentsQueue.peekLast())
+                        .toQueue();
+
+                final AssignmentsQueue pendingAssignmentsQueueFinal = pendingAssignmentsQueue;
+                return metaStorageMgr.invoke(iif(
+                        revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
+                        ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
+                        ops().yield(false)
+                )).thenCompose(statementResult -> {
+                    boolean updated = statementResult.getAsBoolean();
+
+                    if (updated) {
+                        LOG.info("Pending assignments queue polled and updated [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return nullCompletedFuture(); // quit and wait for new configuration iteration
+                    } else {
+                        LOG.info("Pending assignments queue update retry [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return doStableKeySwitch(
+                                stableFromRaft,
+                                zonePartitionId,
+                                configurationTerm,
+                                configurationIndex,
+                                calculateAssignmentsFn
+                        );
+                    }
+                });
+            }
+
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Assignments pendingAssignments = pendingEntry.value() == null
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null
                     ? Assignments.EMPTY
-                    : AssignmentsQueue.fromBytes(pendingEntry.value()).poll();
+                    : pendingAssignmentsQueue.poll();
+
             Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
@@ -502,9 +583,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         // eq(revision(partition.assignments.planned), plannedEntry.revision)
                         con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
+                        AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
+                                .stable(newStableAssignments)
+                                .target(Assignments.fromBytes(plannedEntry.value()))
+                                .toQueue();
+
                         successCase = ops(
                                 put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                                put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
+                                put(pendingPartAssignmentsKey, partAssignmentsPendingQueue.toBytes()),
                                 remove(plannedPartAssignmentsKey),
                                 assignmentChainChangeOp
                         ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
@@ -742,7 +828,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             long configurationTerm,
             long configurationIndex
     ) {
-        // We write this key only in HA mode. See TableManager.writeTableAssignmentsToMetastore.
+        // We write this key only in HA mode. See PartitionReplicaLifecycleManager#writeZoneAssignmentsToMetastore.
         if (assignmentsChainEntry.value() != null) {
             AssignmentsChain updatedAssignmentsChain = updateAssignmentsChain(
                     AssignmentsChain.fromBytes(assignmentsChainEntry.value()),

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.CodeBlock;
 import java.util.Collection;
@@ -72,12 +73,14 @@ class MessageWriterMethodResolver {
 
         TypeMirror getterReturnType = getter.getReturnType();
 
-        String parameterName = getter.getSimpleName().toString();
+        String getterName = getter.getSimpleName().toString();
+        String propertyName = propertyName(getter);
 
         if (getter.getAnnotation(Marshallable.class) != null) {
-            parameterName = addByteArrayPostfix(parameterName);
+            getterName = addByteArrayPostfix(getterName);
+            propertyName = addByteArrayPostfix(propertyName);
             return CodeBlock.builder()
-                    .add("writeByteArray($S, message.$L())", parameterName, parameterName)
+                    .add("writeByteArray($S, message.$L())", propertyName, getterName)
                     .build();
         }
 
@@ -85,18 +88,18 @@ class MessageWriterMethodResolver {
 
         switch (methodName) {
             case "ObjectArray":
-                return resolveWriteObjectArray((ArrayType) getterReturnType, parameterName);
+                return resolveWriteObjectArray((ArrayType) getterReturnType, getterName, propertyName);
             case "Collection":
-                return resolveWriteCollection((DeclaredType) getterReturnType, parameterName);
+                return resolveWriteCollection((DeclaredType) getterReturnType, getterName, propertyName);
             case "List":
-                return resolveWriteList((DeclaredType) getterReturnType, parameterName);
+                return resolveWriteList((DeclaredType) getterReturnType, getterName, propertyName);
             case "Set":
-                return resolveWriteSet((DeclaredType) getterReturnType, parameterName);
+                return resolveWriteSet((DeclaredType) getterReturnType, getterName, propertyName);
             case "Map":
-                return resolveWriteMap((DeclaredType) getterReturnType, parameterName);
+                return resolveWriteMap((DeclaredType) getterReturnType, getterName, propertyName);
             default:
                 return CodeBlock.builder()
-                        .add("write$L($S, message.$L())", methodName, parameterName, parameterName)
+                        .add("write$L($S, message.$L())", methodName, propertyName, getterName)
                         .build();
         }
     }
@@ -104,13 +107,13 @@ class MessageWriterMethodResolver {
     /**
      * Creates a {@link MessageWriter#writeObjectArray(String, Object[], MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveWriteObjectArray(ArrayType parameterType, String parameterName) {
+    private CodeBlock resolveWriteObjectArray(ArrayType parameterType, String parameterName, String propertyName) {
         TypeMirror componentType = parameterType.getComponentType();
 
         return CodeBlock.builder()
                 .add(
                         "writeObjectArray($S, message.$L(), $T.$L)",
-                        parameterName,
+                        propertyName,
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(componentType)
@@ -121,13 +124,13 @@ class MessageWriterMethodResolver {
     /**
      * Creates a {@link MessageWriter#writeCollection(String, Collection, MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveWriteCollection(DeclaredType parameterType, String parameterName) {
+    private CodeBlock resolveWriteCollection(DeclaredType parameterType, String parameterName, String propertyName) {
         TypeMirror collectionGenericType = parameterType.getTypeArguments().get(0);
 
         return CodeBlock.builder()
                 .add(
                         "writeCollection($S, message.$L(), $T.$L)",
-                        parameterName,
+                        propertyName,
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(collectionGenericType)
@@ -138,13 +141,13 @@ class MessageWriterMethodResolver {
     /**
      * Creates a {@link MessageWriter#writeList(String, List, MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveWriteList(DeclaredType parameterType, String parameterName) {
+    private CodeBlock resolveWriteList(DeclaredType parameterType, String parameterName, String propertyName) {
         TypeMirror listGenericType = parameterType.getTypeArguments().get(0);
 
         return CodeBlock.builder()
                 .add(
                         "writeList($S, message.$L(), $T.$L)",
-                        parameterName,
+                        propertyName,
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(listGenericType)
@@ -155,13 +158,13 @@ class MessageWriterMethodResolver {
     /**
      * Creates a {@link MessageWriter#writeSet(String, Set, MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveWriteSet(DeclaredType parameterType, String parameterName) {
+    private CodeBlock resolveWriteSet(DeclaredType parameterType, String parameterName, String propertyName) {
         TypeMirror setGenericType = parameterType.getTypeArguments().get(0);
 
         return CodeBlock.builder()
                 .add(
                         "writeSet($S, message.$L(), $T.$L)",
-                        parameterName,
+                        propertyName,
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(setGenericType)
@@ -172,7 +175,7 @@ class MessageWriterMethodResolver {
     /**
      * Creates a {@link MessageWriter#writeMap(String, Map, MessageCollectionItemType, MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveWriteMap(DeclaredType parameterType, String parameterName) {
+    private CodeBlock resolveWriteMap(DeclaredType parameterType, String parameterName, String propertyName) {
         List<? extends TypeMirror> typeArguments = parameterType.getTypeArguments();
 
         MessageCollectionItemType mapKeyType = typeConverter.fromTypeMirror(typeArguments.get(0));
@@ -181,7 +184,7 @@ class MessageWriterMethodResolver {
         return CodeBlock.builder()
                 .add(
                         "writeMap($S, message.$L(), $T.$L, $T.$L)",
-                        parameterName,
+                        propertyName,
                         parameterName,
                         MessageCollectionItemType.class,
                         mapKeyType,

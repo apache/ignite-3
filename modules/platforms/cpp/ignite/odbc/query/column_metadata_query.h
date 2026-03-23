@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite/odbc/meta/column_meta.h"
+#include "ignite/protocol/sql/column_meta.h"
 #include "ignite/odbc/query/query.h"
 
 namespace ignite {
@@ -93,7 +93,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta() override { return &m_columns_meta; }
+    const protocol::column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
@@ -127,7 +127,7 @@ public:
     bool is_data_available() const override { return m_cursor != m_meta.end(); }
 
     /**
-     * Get number of rows affected by the statement.
+     * Get the number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
@@ -176,7 +176,7 @@ private:
     std::vector<odbc_column_meta>::iterator m_cursor;
 
     /** Columns metadata. */
-    column_meta_vector m_columns_meta;
+    protocol::column_meta_vector m_columns_meta;
 };
 
 } // namespace ignite

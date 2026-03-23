@@ -198,7 +198,7 @@ public class IgniteMath {
 
     /** Returns the product of the arguments, throwing an exception if the result overflows an {@code int}. */
     public static int multiplyExact(int x, int y) {
-        long r = (long) x * (long) y;
+        long r = (long) x * y;
 
         if ((int) r != r) {
             throw outOfRangeForTypeException(INTEGER);
@@ -281,6 +281,7 @@ public class IgniteMath {
      * Decimal division. Precision is only used by type inferenc, its value is ignored at runtime.
      * See {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static @Nullable BigDecimal decimalDivide(@Nullable BigDecimal x, @Nullable BigDecimal y, int p, int s) {
         if (x == null || y == null) {
             return null;

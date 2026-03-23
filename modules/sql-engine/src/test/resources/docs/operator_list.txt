@@ -369,6 +369,10 @@ SINGLE_VALUE(<any>)
 #b454f7ac12dead652d1d09ed92cbb7e4c08761fd
 
 [internal]
+SAME_VALUE(<any>)
+#d2d8df63a238e59c64dd55011f8bb63bcbb6fdf0
+
+[internal]
 <any> FILTER <any>
 #b9102e525855e461ba8259fd7b7458d9699b513e
 
@@ -377,6 +381,9 @@ EVERY(<boolean>)
 
 SOME(<boolean>)
 #014b53be23fc2009080420e94b78d52bf2b09dbd
+
+GROUPING(...)
+#c19a178a82716bcc5f313ca5259637dd60c8ba0e
 
 [internal]
 LITERAL_AGG()
@@ -390,6 +397,12 @@ GREATEST(<equivalent_type>, <equivalent_type>)
 
 LEAST(<equivalent_type>, <equivalent_type>)
 #b31238bde19843e513c899fc5b16eb81f00f477c
+
+$FIND_PREFIX(<string>, <string>)
+#8d1aac23a600a78dc25b42ece7560b7aba53dc4a
+
+$NEXT_GREATER_PREFIX(<string>)
+#1a9fe941e676e8f2eef41af67aae575a7f619ec0
 
 CAST(<any> AS <type>) ***
 #77b6ca9302e03be11b2f841e86ed09cc8bf7372a
@@ -446,6 +459,9 @@ EXISTS <any>
 <any> DESC
 #cd2aa6863ed54bd03d844b08664115655e7ae2e4
 
+CURRENT_USER
+#3cfbde57fbba1435023dc75472eedaec6555d525
+
 TYPEOF(<any>)
 #85771dfef877b07351286b9f792f2ae2cd4a234d
 
@@ -501,8 +517,9 @@ JSON_TYPE(<character>)
 JSON_VALUE(json_doc, path [RETURNING type] [{NULL | ERROR | DEFAULT value} ON EMPTY] [{NULL | ERROR | DEFAULT value} ON ERROR])
 #93bd442e87a5f53e52fc9227291c7e3a97d3782b
 
+JSON_QUERY(<any> <character> <any> WRAPPER <any> ON EMPTY <any> ON ERROR)
 JSON_QUERY(<any> <character> RETURNING <any> <any> WRAPPER <any> ON EMPTY <any> ON ERROR)
-#31185ae83391a4700666220253cca898d2e33836
+#a7034824b8a355310836ecdf15593e6fed5b8077
 
 JSON_TYPE(<any>)
 #8daf3ac25da544b79650f8876580b1254d9f158a
@@ -574,11 +591,13 @@ EXTRACTVALUE(<string>, <string>)
 XMLTRANSFORM(<string>, <string>)
 #cea0989d0e701f8f200f34006b0bc3269dac556f
 
+EXTRACT(<string>, <string>)
 EXTRACT(<string>, <string>, <string>)
-#8e2004af04aa75a7e8a260ddbc095f2de2540bc3
+#73cca47491791f8af4e6ed92a539fbea1c12909b
 
+EXISTSNODE(<string>, <string>)
 EXISTSNODE(<string>, <string>, <string>)
-#fc8c57d6fe872dafbe6e49ab284f8fb1d146d4ee
+#08f80c3abcf7ce2372217732c963c12fd10494d9
 
 
 === Collection Functions

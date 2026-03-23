@@ -17,13 +17,25 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.existingCauseOrSuppressed;
+
+import java.util.HashSet;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import org.apache.ignite.client.handler.requests.tx.ClientTxPartitionEnlistmentCleaner;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Per-connection resource registry.
@@ -45,6 +57,8 @@ public class ClientResourceRegistry {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final ConcurrentHashMap<UUID, ClientTxPartitionEnlistmentCleaner> txCleaners = new ConcurrentHashMap<>();
 
     /**
      * Stores the resource and returns the generated id.
@@ -79,7 +93,7 @@ public class ClientResourceRegistry {
             ClientResource res = this.res.get(id);
 
             if (res == null) {
-                throw new IgniteInternalException("Failed to find resource with id: " + id);
+                throw new IgniteException(Client.RESOURCE_NOT_FOUND_ERR, "Failed to find resource with id: " + id);
             }
 
             return res;
@@ -100,12 +114,52 @@ public class ClientResourceRegistry {
             ClientResource res = this.res.remove(id);
 
             if (res == null) {
-                throw new IgniteInternalException("Failed to find resource with id: " + id);
+                throw new IgniteException(Client.RESOURCE_NOT_FOUND_ERR, "Failed to find resource with id: " + id);
             }
 
             return res;
         } finally {
             leave();
+        }
+    }
+
+    /**
+     * Records that a remote transaction enlisted a partition on this node.
+     *
+     * @param txId Transaction ID.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     * @param txManager Transaction manager responsible for coordinating and cleaning up the transaction.
+     * @param tables Tables facade used to resolve table information for enlisted partitions.
+     */
+    public void addTxCleaner(UUID txId, int tableId, int partitionId, TxManager txManager, IgniteTablesInternal tables)
+            throws IgniteInternalCheckedException {
+        enter();
+
+        try {
+            txCleaners
+                    .computeIfAbsent(txId, k -> new ClientTxPartitionEnlistmentCleaner(txId, txManager, tables))
+                    .addEnlistment(tableId, partitionId);
+        } finally {
+            leave();
+        }
+    }
+
+    /**
+     * Removes the transaction cleaner associated with the given transaction ID.
+     *
+     * @param txId Transaction ID whose cleaner should be removed.
+     */
+    public void removeTxCleaner(UUID txId) throws IgniteInternalCheckedException {
+        if (!busyLock.enterBusy()) {
+            // Can be called on disconnect. Removing from a closed registry is not a problem.
+            return;
+        }
+
+        try {
+            txCleaners.remove(txId);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
@@ -119,25 +173,41 @@ public class ClientResourceRegistry {
 
         busyLock.block();
 
-        IgniteInternalException ex = null;
+        AtomicReference<IgniteInternalException> ex = new AtomicReference<>();
+        var dejaVu = new HashSet<Throwable>();
 
-        for (ClientResource r : res.values()) {
+        Consumer<Runnable> releaseSafe = r -> {
             try {
-                r.release();
-            } catch (Exception e) {
-                if (ex == null) {
-                    ex = new IgniteInternalException(e);
-                } else {
-                    ex.addSuppressed(e);
+                r.run();
+            } catch (Throwable e) {
+                if (ex.get() == null) {
+                    ex.set(new IgniteInternalException(e));
+                    existingCauseOrSuppressed(e, dejaVu); // Seed dejaVu.
+                } else if (!existingCauseOrSuppressed(e, dejaVu)) {
+                    ex.get().addSuppressed(e);
                 }
             }
+        };
+
+        for (ClientResource r : res.values()) {
+            releaseSafe.accept(r::release);
         }
 
         res.clear();
 
-        if (ex != null) {
-            throw ex;
+        for (var cleaner : txCleaners.values()) {
+            // Don't block the thread, clean in background. discardLocalWriteIntents swallows errors anyway.
+            releaseSafe.accept(() -> cleaner.clean(true));
         }
+
+        if (ex.get() != null) {
+            throw ex.get();
+        }
+    }
+
+    @TestOnly
+    public int size() {
+        return res.size();
     }
 
     /**

@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdSelectivity;
 import org.apache.calcite.rel.metadata.RelMdUtil;
@@ -36,30 +37,24 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.util.BuiltInMethod;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * IgniteMdSelectivity supplies implementation of {@link RelMetadataQuery#getSelectivity}.
  */
 public class IgniteMdSelectivity extends RelMdSelectivity {
     public static final RelMetadataProvider SOURCE =
-            ReflectiveRelMetadataProvider.reflectiveSource(
-                    BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
+            ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdSelectivity(), BuiltInMetadata.Selectivity.Handler.class);
 
     public static final double EQ_SELECTIVITY = 0.333;
     public static final double IS_NOT_NULL_SELECTIVITY = 0.9;
@@ -198,8 +193,9 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         // sys view is possible here
         if (table != null) {
             int colCount = table.getRowType(Commons.typeFactory()).getFieldCount();
-            ImmutableBitSet requiredCols = rel.requiredColumns() == null ? ImmutableBitSet.range(colCount) : rel.requiredColumns();
-            columnMapping = Commons.trimmingMapping(colCount, requiredCols);
+            columnMapping = rel.requiredColumns() == null
+                    ? Mappings.createIdentity(colCount)
+                    : Commons.projectedMapping(colCount, rel.requiredColumns());
 
             keyColumns = table.keyColumns();
             primaryKeys = new BitSet();
@@ -284,6 +280,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      * @param mq Relational metadata.
      * @param predicate Operation predicate.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
             return guessSelectivity(rel.condition(), rel);
@@ -334,27 +331,4 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return mq.getSelectivity(rel.getInput(), rel.condition());
     }
 
-    /** Guess cost multiplier regarding search bounds only. */
-    private static double guessCostMultiplier(SearchBounds bounds) {
-        if (bounds instanceof ExactBounds) {
-            return .1;
-        } else if (bounds instanceof RangeBounds) {
-            RangeBounds rangeBounds = (RangeBounds) bounds;
-
-            if (rangeBounds.condition() != null) {
-                return ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
-            } else {
-                return .35;
-            }
-        } else if (bounds instanceof MultiBounds) {
-            MultiBounds multiBounds = (MultiBounds) bounds;
-
-            return multiBounds.bounds().stream()
-                    .mapToDouble(IgniteMdSelectivity::guessCostMultiplier)
-                    .max()
-                    .orElseThrow(AssertionError::new);
-        }
-
-        return 1.0;
-    }
 }

@@ -42,4 +42,14 @@ interface SinkRegistry {
      */
     @Nullable
     Set<Sink<?>> findAllByChannel(String channel);
+
+    /**
+     * Starts the registry.
+     */
+    void start();
+
+    /**
+     * Stops the registry.
+     */
+    void stop();
 }

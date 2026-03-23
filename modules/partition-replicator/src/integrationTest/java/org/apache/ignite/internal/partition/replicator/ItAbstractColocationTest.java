@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -35,9 +34,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -71,15 +69,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-
 /**
  * Base class for tests that require a cluster with zone replication.
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(SystemPropertiesExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 20_000;
 
@@ -128,7 +123,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SqlDistributedConfiguration sqlDistributedConfiguration;
 
-    final List<Node> cluster = new ArrayList<>();
+    final List<Node> cluster = new CopyOnWriteArrayList<>();
 
     private NodeFinder nodeFinder;
 
@@ -160,7 +155,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
             @Nullable List<NodeAttributesConfiguration> customAttributes
     ) throws Exception {
         List<NetworkAddress> addresses = IntStream.range(0, size)
-                .mapToObj(i -> new NetworkAddress("localhost", BASE_PORT + i))
+                .mapToObj(i -> new NetworkAddress("127.0.0.1", BASE_PORT + i))
                 .collect(toList());
 
         nodeFinder = new StaticNodeFinder(addresses);
@@ -203,7 +198,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     Node addNodeToCluster(int idx) {
-        Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
+        Node node = newNode(new NetworkAddress("127.0.0.1", BASE_PORT + idx), nodeFinder);
 
         cluster.add(node);
 
@@ -251,18 +246,12 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     static int createZone(Node node, String zoneName, int partitions, int replicas) {
-        return createZone(node, zoneName, partitions, replicas, false);
-    }
-
-    private static int createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
         return createZoneWithStorageProfiles(
                 node,
                 zoneName,
                 partitions,
                 replicas,
-                testStorageProfile
-                        ? DEFAULT_TEST_PROFILE_NAME
-                        : DEFAULT_STORAGE_PROFILE
+                DEFAULT_STORAGE_PROFILE
         );
     }
 

@@ -28,11 +28,13 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchAware;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code ALTER ZONE SET} statement.
  */
+@DdlBatchAware
 public class IgniteSqlAlterZoneSet extends IgniteAbstractSqlAlterZone {
 
     /** ALTER ZONE SET operator. */

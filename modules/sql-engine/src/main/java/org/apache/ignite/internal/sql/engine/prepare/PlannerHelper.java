@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -28,11 +29,13 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
@@ -43,9 +46,12 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttle;
 import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.core.Window;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.MultiJoin;
@@ -68,6 +74,8 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.sql2rel.RelDecorrelator;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
@@ -75,6 +83,7 @@ import org.apache.calcite.util.Util.FoundOne;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
@@ -85,8 +94,8 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -155,13 +164,25 @@ public final class PlannerHelper {
 
             rel = planner.replaceCorrelatesCollisions(rel);
 
+            if (!hints.present(IgniteHint.DISABLE_DECORRELATION)) {
+                rel = tryDecorrelate(planner, rel);
+            }
+
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
+
+            RelOptCluster cluster = rel.getCluster();
+            rel = rel.accept(new RelHomogeneousShuttle() {
+                @Override public RelNode visit(RelNode other) {
+                    RelNode next = super.visit(other);
+                    return next.accept(new OutOfRangeLiteralComparisonReductionShuttle(cluster.getRexBuilder()));
+                }
+            });
 
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
-            {
+            if (fastQueryOptimizationEnabled()) {
                 // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
@@ -193,21 +214,16 @@ public final class PlannerHelper {
 
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
+                    .replace(single())
                     .replace(root.collation == null ? RelCollations.EMPTY : root.collation)
                     .simplify();
 
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
+                LogicalProject project = (LogicalProject) root.project();
 
-                for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(result, field));
-                }
-
-                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, project.getProjects(), project.getRowType());
             }
 
             return result;
@@ -224,6 +240,36 @@ public final class PlannerHelper {
 
             throw ex;
         }
+    }
+
+    private static RelNode tryDecorrelate(IgnitePlanner planner, RelNode rel) {
+        try {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-27555 remove this
+            // Currently, RelDecorrelator emits incorrect plan if the same correlation id is used
+            // in several relations.
+            rel.accept(new CorrelationUsedOnlyInSingleRelValidator());
+        } catch (FoundOne ignored) {
+            return rel;
+        }
+
+        RelBuilder relBuilder = Commons.FRAMEWORK_CONFIG.getSqlToRelConverterConfig()
+                .getRelBuilderFactory()
+                .create(planner.cluster(), null);
+
+        RelNode result = RelDecorrelator.decorrelateQuery(rel, relBuilder);
+        result = planner.transform(
+                PlannerPhase.HEP_PROJECT_TO_WINDOW, rel.getTraitSet(), result
+        );
+
+        try {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23608 remove after window functions are supported
+            // Decorrelation may produce Window node which is currently not supported.
+            result.accept(new WindowNodeIsNotPresentedValidator());
+        } catch (FoundOne ignored) {
+            return rel;
+        }
+
+        return result;
     }
 
     private static void validateIndexesFromHints(RelNode rel, Hints hints) {
@@ -283,7 +329,7 @@ public final class PlannerHelper {
             return null;
         }
 
-        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+        IgniteSqlToRelConverter converter = planner.sqlToRelConverter();
         RelOptTable targetTable = converter.getTargetTable(insertNode);
         IgniteTable igniteTable = targetTable.unwrap(IgniteTable.class);
 
@@ -337,7 +383,7 @@ public final class PlannerHelper {
                 planner.cluster(),
                 planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
                 targetTable,
-                Operation.PUT,
+                Operation.INSERT,
                 expressions
         );
     }
@@ -465,7 +511,7 @@ public final class PlannerHelper {
 
         assert select.getFrom() != null : "FROM is missing";
 
-        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+        IgniteSqlToRelConverter converter = planner.sqlToRelConverter();
 
         // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
         SqlNode from = SqlUtil.stripAs(select.getFrom());
@@ -517,7 +563,7 @@ public final class PlannerHelper {
 
         IgniteSelectCount rel = new IgniteSelectCount(
                 planner.cluster(),
-                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE).replace(single()),
                 targetTable,
                 expressions
         );
@@ -600,6 +646,37 @@ public final class PlannerHelper {
             } else {
                 return operand instanceof SqlIdentifier && ((SqlIdentifier) operand).isStar();
             }
+        }
+    }
+
+    private static class CorrelationUsedOnlyInSingleRelValidator extends RelHomogeneousShuttle {
+        private final Map<CorrelationId, RelNode> correlationUsage = new IdentityHashMap<>();
+
+        @Override
+        public RelNode visit(RelNode other) {
+            RelOptUtil.VariableUsedVisitor vuv = new RelOptUtil.VariableUsedVisitor(null);
+            other.accept(vuv);
+
+            for (CorrelationId id : vuv.variables) {
+                RelNode old = correlationUsage.put(id, other);
+
+                if (old != null && old != other) {
+                    throw new Util.FoundOne(id);
+                }
+            }
+
+            return super.visit(other);
+        }
+    }
+
+    private static class WindowNodeIsNotPresentedValidator extends RelHomogeneousShuttle {
+        @Override
+        public RelNode visit(RelNode other) {
+            if (other instanceof Window) {
+                throw new Util.FoundOne(other);
+            }
+
+            return super.visit(other);
         }
     }
 }

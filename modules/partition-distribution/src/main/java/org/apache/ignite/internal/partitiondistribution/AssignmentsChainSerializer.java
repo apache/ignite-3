@@ -24,7 +24,6 @@ import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
-
 /**
  * {@link VersionedSerializer} for {@link AssignmentsChain} instances.
  */

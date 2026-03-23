@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.Ignite;
@@ -92,6 +98,87 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
         |  6 | Igor1 |   13  |
         +----+-------+-------+
          */
+    }
+
+    @Test
+    void testIndexLookup() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript(""
+                + "CREATE TABLE t (id VARCHAR(25) PRIMARY KEY, val TINYINT);"
+                + "CREATE INDEX t_val_asc_idx ON t (val ASC);"
+                + "INSERT INTO t VALUES ('abc  ', 125);"
+
+                + "CREATE TABLE t_time (id TIME(6) PRIMARY KEY);"
+                + "CREATE TABLE t_timestamp (id TIMESTAMP(6) PRIMARY KEY);"
+                + "CREATE TABLE t_timestamp_wltz (id TIMESTAMP(6) WITH LOCAL TIME ZONE PRIMARY KEY);"
+                + "INSERT INTO t_time VALUES (TIME '00:00:00.12');"
+                + "INSERT INTO t_timestamp VALUES (TIMESTAMP '1970-01-01 00:00:00.12');"
+        );
+
+        assertQuery("INSERT INTO t_timestamp_wltz VALUES (TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.12')")
+                .withTimeZoneId(ZoneOffset.UTC)
+                .returnSomething()
+                .check();
+
+        // Test case ensures that we don't remove cast which may change semantic of a query.
+        // In this particular case excess space character is truncated during cast, which makes
+        // it equal to the value stored in the table.
+        assertQuery("SELECT * FROM t WHERE id = ?::VARCHAR(5)")
+                .withParam("abc   ") // Value has one extra space at the end which must be truncated.
+                .matches(containsSubPlan("KeyValueGet"))
+                .returns("abc  ", (byte) 125)
+                .check();
+
+        // Similar as above, but also makes sure that cast is not removed from the column reference as well.
+        assertQuery("SELECT * FROM t WHERE id::VARCHAR(3) = ?::VARCHAR(3)")
+                .withParam("abc   ")
+                // Since cast over column reference cannot be removed, it's impossible to compose search bound,
+                // hence KV plan is not expected.
+                .matches(containsSubPlan("TableScan"))
+                .returns("abc  ", (byte) 125)
+                .check();
+
+        // Similar test for TIME.
+        assertQuery("SELECT * FROM t_time WHERE id::TIME(1) = ?::TIME(1)")
+                .withParam(LocalTime.parse("00:00:00.123"))
+                .matches(containsSubPlan("TableScan"))
+                .returns(LocalTime.parse("00:00:00.12"))
+                .check();
+
+        // Similar test for TIMESTAMP.
+        assertQuery("SELECT * FROM t_timestamp WHERE id::TIMESTAMP(1) = ?::TIMESTAMP(1) ORDER BY id")
+                .withParam(LocalDateTime.parse("1970-01-01T00:00:00.123"))
+                .matches(containsSubPlan("TableScan"))
+                .returns(LocalDateTime.parse("1970-01-01T00:00:00.12"))
+                .check();
+
+        // Similar test for TIMESTAMP WITH LOCAL TIME ZONE.
+        assertQuery("SELECT * FROM t_timestamp_wltz "
+                + "WHERE id::TIMESTAMP(1) WITH LOCAL TIME ZONE = ?::TIMESTAMP(1) WITH LOCAL TIME ZONE")
+                .withTimeZoneId(ZoneOffset.UTC)
+                .withParam(Instant.parse("1970-01-01T00:00:00.123Z"))
+                .matches(containsSubPlan("TableScan"))
+                .returns(Instant.parse("1970-01-01T00:00:00.12Z"))
+                .check();
+
+        // Test case to make sure that non-safe cast (like cast from bigint to smallint) is not appeared in the plan
+        // when composing a search condition for index lookup. In this example, column `val` is of smaller type
+        // than type of dynamic parameter, therefore search condition should not be created as it requires to downcast
+        // parameter, which is not safe in general case.
+        assertQuery("SELECT /*+ FORCE_INDEX(t_val_asc_idx) */ * FROM t WHERE val = ?")
+                .withParam(Short.MAX_VALUE) // Value is out of range for TINYINT.
+                .matches(containsSubPlan("IndexScan"))
+                .matches(not(matches("searchBounds")))
+                .returnNothing()
+                .check();
+
+        // But explicit cast should make it work.
+        assertQuery("SELECT /*+ FORCE_INDEX(t_val_asc_idx) */ * FROM t WHERE val = ?::TINYINT")
+                .withParam(0)
+                .matches(containsSubPlan("IndexScan"))
+                .matches(matchesOnce("searchBounds"))
+                .returnNothing()
+                .check();
     }
 
     /** Tests varchar min\max aggregates. */
@@ -297,7 +384,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
         sql("insert into test_tbl values (1, 1), (2, 2), (3, 3), (4, null)");
 
         assertQuery("select c1 from test_tbl ORDER BY c1")
-                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "TEST_TBL", "IDX_ASC"))
                 .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(1)
@@ -316,7 +403,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls last")
-                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "TEST_TBL", "IDX_ASC"))
                 .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(1)
@@ -326,7 +413,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc")
-                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "TEST_TBL", "IDX_DESC"))
                 .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(null)
@@ -336,7 +423,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc nulls first")
-                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "TEST_TBL", "IDX_DESC"))
                 .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(null)

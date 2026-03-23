@@ -14,7 +14,7 @@ Apache Ignite 3 is a distributed database for high-performance computing.
 
 The latest documentation is generated together with the releases and hosted on the apache site.
 
-Please check [the documentation page](https://ignite.apache.org/docs/3.0.0-beta/) for more information.
+Please check [the documentation page](https://ignite.apache.org/docs/ignite3/latest/) for more information.
 
 ## Contact
 

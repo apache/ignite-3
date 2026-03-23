@@ -40,7 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.net.ssl.KeyManagerFactory;
@@ -72,7 +72,7 @@ import org.jetbrains.annotations.TestOnly;
 class MetricReporter implements AutoCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MetricReporter.class);
 
-    private final Collection<MetricData> metrics = new CopyOnWriteArrayList<>();
+    private final Map<String, Collection<MetricData>> metricsBySet = new ConcurrentHashMap<>();
     private final Lazy<Resource> resource;
 
     private MetricExporter exporter;
@@ -100,16 +100,19 @@ class MetricReporter implements AutoCloseable {
             }
         }
 
-        metrics.addAll(metrics0);
+        metricsBySet.put(metricSet.name(), metrics0);
     }
 
     void removeMetricSet(String metricSetName) {
-        metrics.removeIf(metricData -> metricSetName.equals(metricData.getName()));
+        metricsBySet.remove(metricSetName);
     }
 
     void report() {
-        if (!metrics.isEmpty()) {
-            exporter.export(metrics);
+        if (!metricsBySet.isEmpty()) {
+            Collection<MetricData> allMetrics = metricsBySet.values().stream()
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList());
+            exporter.export(allMetrics);
         }
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.causality;
 
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,6 +33,7 @@ public interface CompletionListener<T> {
      * @param token Token for which a value has been completed.
      * @param value Value that the Versioned Value was completed with.
      * @param ex If not {@code null} - the Versioned Value has benn completed with an exception.
+     * @return Future that signifies the end of the event execution.
      */
-    void whenComplete(long token, @Nullable T value, @Nullable Throwable ex);
+    CompletableFuture<?> whenComplete(long token, @Nullable T value, @Nullable Throwable ex);
 }

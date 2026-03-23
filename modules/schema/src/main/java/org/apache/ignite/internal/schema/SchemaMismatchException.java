@@ -29,4 +29,14 @@ public class SchemaMismatchException extends SchemaException {
     public SchemaMismatchException(String msg) {
         super(msg);
     }
+
+    /**
+     * Constructor with error message and cause.
+     *
+     * @param msg   Message.
+     * @param cause Cause.
+     */
+    public SchemaMismatchException(String msg, Throwable cause) {
+        super(msg, cause);
+    }
 }

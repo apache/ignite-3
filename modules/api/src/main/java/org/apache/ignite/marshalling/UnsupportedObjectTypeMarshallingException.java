@@ -27,7 +27,6 @@ import org.apache.ignite.lang.IgniteException;
 public class UnsupportedObjectTypeMarshallingException extends IgniteException {
     private static final long serialVersionUID = -8131613381875542450L;
 
-
     /**
      * Creates an exception with the given unsupported type.
      *

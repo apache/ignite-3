@@ -21,6 +21,7 @@ import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
@@ -28,6 +29,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -45,23 +47,36 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link CheckpointTimeoutLock} testing.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Nullable
     private CheckpointTimeoutLock timeoutLock;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
+
+    private final CheckpointReadWriteLockMetrics dummyMetrics = new CheckpointReadWriteLockMetrics(
+            new CollectionMetricSource("test", "storage", null)
+    );
 
     @AfterEach
     void tearDown() {
@@ -377,7 +392,11 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     }
 
     private CheckpointReadWriteLock newReadWriteLock() {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000));
+        return newReadWriteLock(dummyMetrics);
+    }
+
+    private CheckpointReadWriteLock newReadWriteLock(CheckpointReadWriteLockMetrics metrics) {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metrics);
     }
 
     private CheckpointProgress newCheckpointProgress(CompletableFuture<?> future) {
@@ -398,5 +417,57 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         when(checkpointer.scheduleCheckpoint(0, "too many dirty pages")).thenReturn(checkpointProgress);
 
         return checkpointer;
+    }
+
+    @Test
+    void testCheckpointReadLockMetrics() {
+        CollectionMetricSource metricSource = new CollectionMetricSource("test", "storage", null);
+        CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(metricSource);
+        CheckpointReadWriteLock readWriteLock = newReadWriteLock(metrics);
+
+        timeoutLock = new CheckpointTimeoutLock(
+                readWriteLock,
+                10_000,
+                () -> NOT_REQUIRED,
+                mock(Checkpointer.class),
+                mock(FailureManager.class)
+        );
+
+        timeoutLock.start();
+
+        try {
+            // Verify metrics start at zero
+            assertThat(
+                    metrics.readLockAcquisitionTime(),
+                    hasMeasurementsCount(0L)
+            );
+
+            // Acquire and immediately release the lock
+            timeoutLock.checkpointReadLock();
+            timeoutLock.checkpointReadUnlock();
+
+            // Verify acquisition was recorded
+            assertThat(
+                    metrics.readLockAcquisitionTime(),
+                    hasMeasurementsCount(1L)
+            );
+
+            // Verify hold time distribution was recorded
+            assertThat(
+                    metrics.readLockHoldTime(),
+                    hasMeasurementsCount(1L)
+            );
+
+            readWriteLock.writeLock();
+            runAsync(() -> {
+                timeoutLock.checkpointReadLock();
+                timeoutLock.checkpointReadUnlock();
+            });
+            await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(1L)));
+            readWriteLock.writeUnlock();
+            await().untilAsserted(() -> assertThat(metrics.readLockWaitingThreads().value(), is(0L)));
+        } finally {
+            timeoutLock.stop();
+        }
     }
 }

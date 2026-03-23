@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Table;
 using Ignite.Table;
 using NUnit.Framework;
 
@@ -87,6 +88,54 @@ public class KeyValueViewPocoPrimitiveTests : IgniteTestsBase
     {
         var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, null!, null!));
         Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+    {
+        var result = await KvView.ContainsAllKeysAsync(null, []);
+
+        Assert.IsTrue(result);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
+    {
+        await KvView.PutAsync(null, GetKeyPoco(1L), "val1");
+        await KvView.PutAsync(null, GetKeyPoco(2L), "val2");
+        await KvView.PutAsync(null, GetKeyPoco(3L), "val3");
+
+        var result = await KvView.ContainsAllKeysAsync(null, [GetKeyPoco(1L), GetKeyPoco(2L), GetKeyPoco(3L)]);
+
+        Assert.IsTrue(result);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWithAllNonExistingKeysReturnsFalse()
+    {
+        var result = await KvView.ContainsAllKeysAsync(null, [GetKeyPoco(1), GetKeyPoco(2)]);
+
+        Assert.IsFalse(result);
+    }
+
+    [Test]
+    public async Task TestContainsAllKeysWithNonExistingKeysReturnsFalse()
+    {
+        await KvView.PutAsync(null, GetKeyPoco(1L), "val1");
+        await KvView.PutAsync(null, GetKeyPoco(2L), "val2");
+
+        var result = await KvView.ContainsAllKeysAsync(null, [GetKeyPoco(1L), GetKeyPoco(2L), GetKeyPoco(3L)]);
+
+        Assert.IsFalse(result);
+    }
+
+    [Test]
+    public void TestContainsAllKeysThrowsArgumentExceptionOnNullCollectionElement()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await KvView.ContainsAllKeysAsync(null, [GetKeyPoco(1), null!]));
+
+        Assert.AreEqual("Value cannot be null. (Parameter 'key')", ex!.Message);
     }
 
     [Test]

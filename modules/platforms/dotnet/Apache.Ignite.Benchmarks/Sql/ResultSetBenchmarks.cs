@@ -23,9 +23,9 @@ namespace Apache.Ignite.Benchmarks.Sql
     using System.Threading;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
-    using BenchmarkDotNet.Jobs;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Tests;
 
     /// <summary>
@@ -43,7 +43,6 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// |    PrimitiveMappingToListAsync | 121.2 us | 2.41 us | 4.10 us |  0.54 |    0.02 |      - |     48 KB |.
     /// </summary>
     [MemoryDiagnoser]
-    [SimpleJob(RuntimeMoniker.Net60)]
     public class ResultSetBenchmarks
     {
         private FakeServer? _server;
@@ -152,6 +151,18 @@ namespace Apache.Ignite.Benchmarks.Sql
         }
 
         [Benchmark]
+        public async Task ObjectMappingWithMapperToListAsync()
+        {
+            await using var resultSet = await _client!.Sql.ExecuteAsync(null, new RecMapper(), "select 1", CancellationToken.None);
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
         public async Task PrimitiveMappingToListAsync()
         {
             await using var resultSet = await _client!.Sql.ExecuteAsync<int>(null, "select 1");
@@ -164,5 +175,14 @@ namespace Apache.Ignite.Benchmarks.Sql
         }
 
         private sealed record Rec(int Id);
+
+        private sealed class RecMapper : IMapper<Rec>
+        {
+            public void Write(Rec obj, ref RowWriter rowWriter, IMapperSchema schema) =>
+                throw new NotImplementedException();
+
+            public Rec Read(ref RowReader rowReader, IMapperSchema schema) =>
+                new(rowReader.ReadInt()!.Value);
+        }
     }
 }

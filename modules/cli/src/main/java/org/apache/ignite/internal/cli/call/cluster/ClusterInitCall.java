@@ -17,45 +17,64 @@
 
 package org.apache.ignite.internal.cli.call.cluster;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.Call;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.success;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
+import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
+import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.InitCommand;
 
 /**
  * Inits cluster.
  */
-@Singleton
-public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
+public class ClusterInitCall implements AsyncCall<ClusterInitCallInput, String> {
+    private final ProgressTracker tracker;
+
     private final ApiClientFactory clientFactory;
 
-    public ClusterInitCall(ApiClientFactory clientFactory) {
+    /**
+     * Custom read timeout for the init operation, default is 10 seconds which could be not enough.
+     */
+    private static final int READ_TIMEOUT_MILLIS = 60_000;
+
+    ClusterInitCall(ProgressTracker tracker, ApiClientFactory clientFactory) {
+        this.tracker = tracker;
         this.clientFactory = clientFactory;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(ClusterInitCallInput input) {
+    public CompletableFuture<CallOutput<String>> execute(ClusterInitCallInput input) {
         ClusterManagementApi client = createApiClient(input);
 
-        try {
-            client.init(new InitCommand()
-                    .metaStorageNodes(input.getMetaStorageNodes())
-                    .cmgNodes(input.getCmgNodes())
-                    .clusterName(input.getClusterName())
-                    .clusterConfiguration(input.clusterConfiguration())
-            );
-            return DefaultCallOutput.success("Cluster was initialized successfully");
-        } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
-        }
+        tracker.maxSize(-1);
+        return supplyAsync(() -> {
+            try {
+                client.init(new InitCommand()
+                        .metaStorageNodes(input.getMetaStorageNodes())
+                        .cmgNodes(input.getCmgNodes())
+                        .clusterName(input.getClusterName())
+                        .clusterConfiguration(input.clusterConfiguration())
+                );
+                return success("Cluster was initialized successfully.");
+            } catch (ApiException | IllegalArgumentException e) {
+                return failure(new IgniteCliApiException(e, input.getClusterUrl()));
+            } finally {
+                tracker.done();
+            }
+        });
     }
 
     private ClusterManagementApi createApiClient(ClusterInitCallInput input) {
-        return new ClusterManagementApi(clientFactory.getClient(input.getClusterUrl()));
+        ApiClient client = clientFactory.getClient(input.getClusterUrl());
+        client.setReadTimeout(READ_TIMEOUT_MILLIS);
+        return new ClusterManagementApi(client);
     }
 }

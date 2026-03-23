@@ -23,6 +23,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadO
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Represents replica primacy info. Contains the following information:
@@ -54,14 +55,16 @@ public class ReplicaPrimacy {
     /**
      * Creates an instance representing information about the primary replica held by this node.
      */
-    static ReplicaPrimacy forPrimaryReplicaRequest(long leaseStartTime) {
+    @VisibleForTesting
+    public static ReplicaPrimacy forPrimaryReplicaRequest(long leaseStartTime) {
         return new ReplicaPrimacy(leaseStartTime, null);
     }
 
     /**
      * Creates an instance representing information about whether this node currently holds the primary.
      */
-    static ReplicaPrimacy forIsPrimary(boolean isPrimary) {
+    @VisibleForTesting
+    public static ReplicaPrimacy forIsPrimary(boolean isPrimary) {
         return new ReplicaPrimacy(null, isPrimary);
     }
 

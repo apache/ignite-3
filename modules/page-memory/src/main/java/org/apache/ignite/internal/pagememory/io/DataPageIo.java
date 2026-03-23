@@ -513,7 +513,7 @@ public class DataPageIo extends PageIo {
 
         boolean valid = directCnt >= indirectCnt;
 
-        b.appendHex(PageIo.getPageId(pageAddr)).app(" [");
+        b.appendHex(getPageId(pageAddr)).app(" [");
 
         int entriesSize = 0;
 
@@ -621,6 +621,7 @@ public class DataPageIo extends PageIo {
         return directItemId;
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected int getDataOffsetOrNotFoundMarker(long pageAddr, int itemId, int pageSize) {
         assert checkIndex(itemId) : itemId;
 
@@ -1121,7 +1122,6 @@ public class DataPageIo extends PageIo {
      * @param rowSize Row size.
      * @param pageSize Page size.
      * @return Written payload size.
-     * @throws IgniteInternalCheckedException If failed.
      */
     public int addRowFragment(
             PageMemory pageMem,
@@ -1131,7 +1131,7 @@ public class DataPageIo extends PageIo {
             int written,
             int rowSize,
             int pageSize
-    ) throws IgniteInternalCheckedException {
+    ) {
         assertPageType(pageAddr);
 
         assert row != null;
@@ -1143,7 +1143,14 @@ public class DataPageIo extends PageIo {
 
         int payloadSize = Math.min(rowSize - written, getFreeSpace(pageAddr));
 
-        assert payloadSize >= row.headerSize() || written >= row.headerSize();
+        int remaining = rowSize - written - payloadSize;
+        int headerSize = row.headerSize();
+
+        // We need row header to be located entirely on the very first page in chain.
+        // So we force moving it to the next page if it could not fit entirely on this page.
+        if (remaining > 0 && remaining < headerSize) {
+            payloadSize -= headerSize - remaining;
+        }
 
         int fullEntrySize = getPageEntrySize(payloadSize, SHOW_PAYLOAD_LEN | SHOW_LINK | SHOW_ITEM);
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);

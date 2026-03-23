@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-
 import org.apache.ignite.internal.tostring.S;
 
 /** Intent to destroy raft node's group storages. */

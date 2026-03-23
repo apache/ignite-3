@@ -31,7 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -52,7 +52,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
@@ -237,6 +236,12 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 () -> sql("CREATE TABLE T0(\"__part\" INT PRIMARY KEY, VAL INT)")
         );
 
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__PARTITION_ID' is reserved name.",
+                () -> sql("CREATE TABLE T0(__partition_id INT PRIMARY KEY, VAL INT)")
+        );
+
         sql("CREATE TABLE T0(id INT PRIMARY KEY)");
 
         assertThrowsSqlException(
@@ -249,6 +254,12 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Failed to validate query. Column '__part' is reserved name.",
                 () -> sql("ALTER TABLE T0 ADD COLUMN \"__part\" INT")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__PARTITION_ID' is reserved name.",
+                () -> sql("ALTER TABLE T0 ADD COLUMN __partition_id INT")
         );
     }
 
@@ -281,14 +292,24 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .returns(102L, "v2")
                 .check();
 
-        assertQuery("SELECT \"__part\" FROM t0")
+        assertQuery("SELECT __partition_id FROM t0")
                 .returns(partitionForKey(table, key1))
                 .returns(partitionForKey(table, key2))
                 .check();
 
-        assertQuery("SELECT \"__part\", id FROM t0")
+        assertQuery("SELECT __partition_id, id FROM t0")
                 .returns(partitionForKey(table, key1), 101L)
                 .returns(partitionForKey(table, key2), 102L)
+                .check();
+
+        assertQuery("SELECT \"__part\" FROM t0")
+                .returns((int) partitionForKey(table, key1))
+                .returns((int) partitionForKey(table, key2))
+                .check();
+
+        assertQuery("SELECT \"__part\", id FROM t0")
+                .returns((int) partitionForKey(table, key1), 101L)
+                .returns((int) partitionForKey(table, key2), 102L)
                 .check();
     }
 
@@ -757,18 +778,39 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         return Objects.requireNonNull(catalog.defaultZone());
     }
 
-    private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
-        return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
+    private static long partitionForKey(Table table, Tuple keyTuple) throws Exception {
+        return table.partitionDistribution().partitionAsync(keyTuple).get().id();
     }
 
     @Test
     public void creatingTableOnZoneReferencingNonExistingProfile() {
+        String zoneName = "test_zone";
         String tableName = "test_table";
+        String nonExistingProfileName = "no-such-profile";
 
-        sql("CREATE ZONE test_zone STORAGE PROFILES ['no-such-profile']");
-        sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE test_zone");
+        // Try to create zone with not existed storage profile.
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistingProfileName + "]].",
+                () -> sql("CREATE ZONE \"" + zoneName + "\" STORAGE PROFILES ['" + nonExistingProfileName + "']")
+        );
 
+        // Check that the zone wasn't created and table creation fails with zone not found reason.
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Distribution zone with name '" + zoneName + "' not found.",
+                () -> sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE \"" + zoneName + "\"")
+        );
+
+        // Try to create table with default zone and wrong storage profile.
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Zone with name 'Default' does not contain table's storage profile [storageProfile='" + nonExistingProfileName + "'].",
+                () -> sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) STORAGE PROFILE '" + nonExistingProfileName + "'")
+        );
+
+        // Verify that there still no the desired table.
         Table table = CLUSTER.aliveNode().tables().table(tableName);
-        assertThat(table, is(notNullValue()));
+        assertThat(table, is(nullValue()));
     }
 }

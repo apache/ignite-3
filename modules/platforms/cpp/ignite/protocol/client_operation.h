@@ -23,6 +23,9 @@ namespace ignite::protocol {
  * Client operation code.
  */
 enum class client_operation {
+    /** Heartbeat. */
+    HEARTBEAT = 1,
+
     /** Get all tables. */
     TABLES_GET = 3,
 

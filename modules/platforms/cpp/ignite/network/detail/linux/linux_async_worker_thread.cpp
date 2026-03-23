@@ -66,6 +66,7 @@ void linux_async_worker_thread::start(size_t limit, std::vector<tcp_range> addrs
     if (m_stop_event < 0) {
         std::string msg = get_last_system_error("Failed to create stop event instance", "");
         close(m_stop_event);
+        m_stop_event = SOCKET_ERROR;
         throw ignite_error(error::code::INTERNAL, msg);
     }
 
@@ -78,9 +79,13 @@ void linux_async_worker_thread::start(size_t limit, std::vector<tcp_range> addrs
     if (res < 0) {
         std::string msg = get_last_system_error("Failed to create stop event instance", "");
         close(m_stop_event);
+        m_stop_event = SOCKET_ERROR;
         close(m_epoll);
+        m_epoll = SOCKET_ERROR;
         throw ignite_error(error::code::INTERNAL, msg);
     }
+
+//    auto timer = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 
     m_stopping = false;
     m_failed_attempts = 0;
@@ -112,7 +117,9 @@ void linux_async_worker_thread::stop() {
     m_thread.join();
 
     close(m_stop_event);
+    m_stop_event = SOCKET_ERROR;
     close(m_epoll);
+    m_epoll = SOCKET_ERROR;
 
     m_non_connected.clear();
     m_current_connection.reset();
@@ -273,14 +280,14 @@ void linux_async_worker_thread::handle_connection_closed(linux_async_client *cli
 void linux_async_worker_thread::handle_connection_success(linux_async_client *client) {
     m_non_connected.erase(std::find(m_non_connected.begin(), m_non_connected.end(), client->get_range()));
 
-    m_client_pool.add_client(std::move(m_current_client));
+    if (m_client_pool.add_client(m_current_client)) {
+        m_current_client.reset();
+        m_current_connection.reset();
 
-    m_current_client.reset();
-    m_current_connection.reset();
+        m_failed_attempts = 0;
 
-    m_failed_attempts = 0;
-
-    clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
+        clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
+    }
 }
 
 int linux_async_worker_thread::calculate_connection_timeout() const {

@@ -22,7 +22,7 @@
 namespace ignite {
 
 /**
- * Deployment unit identifier.
+ * @brief Deployment unit identifier.
  */
 class deployment_unit {
 

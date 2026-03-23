@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
-
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**

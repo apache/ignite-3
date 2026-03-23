@@ -23,16 +23,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** For {@link TxState} testing. */
 public class TxStateTest {
     @Test
     void testStates() {
         assertThat(TxState.values(),
-                arrayContaining(TxState.PENDING, TxState.FINISHING, TxState.ABORTED, TxState.COMMITTED, TxState.ABANDONED));
+                arrayContaining(
+                        TxState.PENDING,
+                        TxState.FINISHING,
+                        TxState.ABORTED,
+                        TxState.COMMITTED,
+                        TxState.ABANDONED,
+                        TxState.UNKNOWN
+                )
+        );
     }
 
     @Test
@@ -41,6 +54,7 @@ public class TxStateTest {
         assertFalse(TxState.isFinalState(TxState.PENDING));
         assertFalse(TxState.isFinalState(TxState.FINISHING));
         assertFalse(TxState.isFinalState(TxState.ABANDONED));
+        assertFalse(TxState.isFinalState(TxState.UNKNOWN));
 
         // Final.
         assertTrue(TxState.isFinalState(TxState.ABORTED));
@@ -54,6 +68,9 @@ public class TxStateTest {
 
     @Test
     void testTransitionsFromNull() {
+        // Not allowed.
+        assertFalse(TxState.checkTransitionCorrectness(null, TxState.UNKNOWN));
+
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(null, TxState.PENDING));
         assertTrue(TxState.checkTransitionCorrectness(null, TxState.ABORTED));
@@ -64,6 +81,9 @@ public class TxStateTest {
 
     @Test
     void testTransitionsFromPending() {
+        // Not allowed.
+        assertFalse(TxState.checkTransitionCorrectness(TxState.PENDING, TxState.UNKNOWN));
+
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(TxState.PENDING, TxState.PENDING));
         assertTrue(TxState.checkTransitionCorrectness(TxState.PENDING, TxState.FINISHING));
@@ -77,6 +97,7 @@ public class TxStateTest {
         // Not allowed.
         assertFalse(TxState.checkTransitionCorrectness(TxState.FINISHING, TxState.PENDING));
         assertFalse(TxState.checkTransitionCorrectness(TxState.FINISHING, TxState.FINISHING));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.FINISHING, TxState.UNKNOWN));
 
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(TxState.FINISHING, TxState.ABORTED));
@@ -91,6 +112,7 @@ public class TxStateTest {
         assertFalse(TxState.checkTransitionCorrectness(TxState.ABORTED, TxState.FINISHING));
         assertFalse(TxState.checkTransitionCorrectness(TxState.ABORTED, TxState.COMMITTED));
         assertFalse(TxState.checkTransitionCorrectness(TxState.ABORTED, TxState.ABANDONED));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.ABORTED, TxState.UNKNOWN));
 
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABORTED, TxState.ABORTED));
@@ -103,6 +125,7 @@ public class TxStateTest {
         assertFalse(TxState.checkTransitionCorrectness(TxState.COMMITTED, TxState.FINISHING));
         assertFalse(TxState.checkTransitionCorrectness(TxState.COMMITTED, TxState.ABORTED));
         assertFalse(TxState.checkTransitionCorrectness(TxState.COMMITTED, TxState.ABANDONED));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.COMMITTED, TxState.UNKNOWN));
 
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(TxState.COMMITTED, TxState.COMMITTED));
@@ -115,6 +138,7 @@ public class TxStateTest {
     void testTransitionsFromAbandoned() {
         // Not allowed.
         assertFalse(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.PENDING));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.UNKNOWN));
 
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.FINISHING));
@@ -123,20 +147,47 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /**
+     * Transition from UNKNOWN to any state is not allowed.
+     */
     @Test
-    void testFromOrdinal() {
-        assertEquals(TxState.PENDING, TxState.fromOrdinal(0));
+    void testTransitionsFromUnknown() {
+        // Not allowed.
+        assertFalse(TxState.checkTransitionCorrectness(TxState.UNKNOWN, TxState.PENDING));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.UNKNOWN, TxState.FINISHING));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.UNKNOWN, TxState.ABORTED));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.UNKNOWN, TxState.COMMITTED));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.UNKNOWN, TxState.ABANDONED));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.UNKNOWN, TxState.UNKNOWN));
+    }
 
-        assertEquals(TxState.FINISHING, TxState.fromOrdinal(1));
+    private static Stream<Arguments> txStateIds() {
+        return Stream.of(
+                arguments(TxState.PENDING, 0),
+                arguments(TxState.FINISHING, 1),
+                arguments(TxState.ABORTED, 2),
+                arguments(TxState.COMMITTED, 3),
+                arguments(TxState.ABANDONED, 4),
+                arguments(TxState.UNKNOWN, 5)
+        );
+    }
 
-        assertEquals(TxState.ABORTED, TxState.fromOrdinal(2));
+    @ParameterizedTest
+    @MethodSource("txStateIds")
+    void testId(TxState txState, int expectedId) {
+        assertEquals(expectedId, txState.id());
+    }
 
-        assertEquals(TxState.COMMITTED, TxState.fromOrdinal(3));
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("txStateIds")
+    void testFromId(TxState expectedEnumEntry, int id) {
+        assertEquals(expectedEnumEntry, TxState.fromId(id));
+    }
 
-        assertEquals(TxState.ABANDONED, TxState.fromOrdinal(4));
-
-        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(5));
+    @Test
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromId(6));
     }
 }

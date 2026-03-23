@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.pagememory.persistence.store.FilePageSt
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.TMP_PART_DELTA_FILE_TEMPLATE;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.findPartitionDeltaFiles;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -400,8 +401,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         filePageStore0.markToDestroy();
         filePageStore1.markToDestroy();
 
-        manager.destroyPartition(groupPartitionId00).get(1, TimeUnit.SECONDS);
-        manager.destroyPartition(groupPartitionId10).get(1, TimeUnit.SECONDS);
+        assertThat(manager.destroyPartition(groupPartitionId00), willCompleteSuccessfully());
+        assertThat(manager.destroyPartition(groupPartitionId10), willCompleteSuccessfully());
 
         assertThat(collectFilesOnly(startPath), empty());
     }

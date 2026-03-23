@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Random {@link CatalogTableDescriptor}s for testing.
@@ -40,6 +40,8 @@ final class TestTableDescriptors {
             case 1:
             case 2:
                 return tablesV0(state);
+            case 3:
+                return tablesV3(state);
             default:
                 throw new IllegalArgumentException("Unexpected table version: " + version);
         }
@@ -48,74 +50,101 @@ final class TestTableDescriptors {
     private static List<CatalogTableDescriptor> tablesV0(TestDescriptorState state) {
         List<CatalogTableDescriptor> list = new ArrayList<>();
 
-        CatalogTableDescriptor table1 = new CatalogTableDescriptor(
-                state.id(),
-                state.id(),
-                state.id(),
-                state.name("TABLE"),
-                100,
-                TestTableColumnDescriptors.columns(state),
-                List.of("C0"),
-                null,
-                "S1"
-        );
+        CatalogTableDescriptor table1 = CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(100)
+                .newColumns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(IntList.of(0))
+                .colocationColumns(null)
+                .storageProfile("S1")
+                .build();
 
         list.add(table1);
-        list.add(list.get(0).newDescriptor(
-                table1.name() + "_1", 2,
-                TestTableColumnDescriptors.columns(state).subList(0, 10),
-                hybridTimestamp(1232L),
-                "S1")
+        list.add(table1.copyBuilder()
+                .name(table1.name() + "_1")
+                .newColumns(TestTableColumnDescriptors.columns(state).subList(0, 10))
+                .timestamp(HybridTimestamp.hybridTimestamp(1232L))
+                .storageProfile("S1")
+                .build()
         );
         list.add(
-                list.get(list.size() - 1)
-                        .newDescriptor(table1.name() + "_2", 3,
-                                TestTableColumnDescriptors.columns(state).subList(0, 20), hybridTimestamp(21232L), "S1")
+                list.get(list.size() - 1).copyBuilder()
+                        .name(table1.name() + "_2")
+                        .newColumns(TestTableColumnDescriptors.columns(state).subList(0, 20))
+                        .timestamp(HybridTimestamp.hybridTimestamp(21232L))
+                        .storageProfile("S1")
+                        .build()
         );
 
-        CatalogTableDescriptor table2 = new CatalogTableDescriptor(
-                state.id(),
-                state.id(),
-                state.id(),
-                state.name("TABLE"),
-                101,
-                TestTableColumnDescriptors.columns(state), List.of("C4"), null,
-                "S2"
-        );
+        CatalogTableDescriptor table2 = CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(101)
+                .newColumns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(IntList.of(4))
+                .storageProfile("S2")
+                .build();
 
         list.add(table2);
-        list.add(list.get(list.size() - 1).newDescriptor(
-                table2.name() + "_1", 2,
-                TestTableColumnDescriptors.columns(state).subList(0, 10),
-                hybridTimestamp(4567L), "S2")
+        list.add(table2.copyBuilder()
+                .name(table2.name() + "_1")
+                .newColumns(TestTableColumnDescriptors.columns(state).subList(0, 10))
+                .timestamp(HybridTimestamp.hybridTimestamp(4567L))
+                .storageProfile("S2")
+                .build()
         );
-        list.add(list.get(list.size() - 1).newDescriptor(
-                table2.name() + "_2", 3,
-                TestTableColumnDescriptors.columns(state).subList(0, 20),
-                hybridTimestamp(8833L),
-                "S2")
+        list.add(list.get(list.size() - 1).copyBuilder()
+                .name(table2.name() + "_2")
+                .newColumns(TestTableColumnDescriptors.columns(state).subList(0, 20))
+                .timestamp(HybridTimestamp.hybridTimestamp(8833L))
+                .build()
         );
 
-        CatalogTableDescriptor table3 = new CatalogTableDescriptor(
-                state.id(),
-                state.id(),
-                state.id(),
-                state.name("TABLE"),
-                102,
-                TestTableColumnDescriptors.columns(state),
-                List.of("C1", "C2", "C3"),
-                List.of("C2", "C3"),
-                "S3"
-        );
+        CatalogTableDescriptor table3 = CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(102)
+                .newColumns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(IntList.of(1, 2, 3))
+                .colocationColumns(IntList.of(2, 3))
+                .storageProfile("S3")
+                .build();
         list.add(table3);
-        list.add(list.get(list.size() - 1).newDescriptor(
-                table3.name() + "_1",
-                2,
-                TestTableColumnDescriptors.columns(state),
-                hybridTimestamp(123234L),
-                "S4")
+        list.add(table3.copyBuilder()
+                .name(table3.name() + "_1")
+                .newColumns(TestTableColumnDescriptors.columns(state))
+                .timestamp(HybridTimestamp.hybridTimestamp(123234L))
+                .storageProfile("S4")
+                .build()
         );
 
         return list;
+    }
+
+    private static List<CatalogTableDescriptor> tablesV3(TestDescriptorState state) {
+        List<CatalogTableDescriptor> tables = new ArrayList<>(tablesV0(state));
+
+        tables.add(CatalogTableDescriptor.builder()
+                .id(state.id())
+                .schemaId(state.id())
+                .primaryKeyIndexId(state.id())
+                .name(state.name("TABLE"))
+                .zoneId(101)
+                .newColumns(TestTableColumnDescriptors.columns(state))
+                .primaryKeyColumns(IntList.of(4))
+                .storageProfile("S2")
+                .staleRowsFraction(0.3d)
+                .minStaleRowsCount(state.id() * 10_000L)
+                .build()
+        );
+
+        return tables;
     }
 }

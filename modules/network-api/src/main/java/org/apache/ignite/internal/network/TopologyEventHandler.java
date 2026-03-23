@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.network;
 
-import org.apache.ignite.network.ClusterNode;
-
 /**
  * Interface for handling the topology change events.
  */
@@ -28,7 +26,7 @@ public interface TopologyEventHandler {
      *
      * @param member New cluster member.
      */
-    default void onAppeared(ClusterNode member) {
+    default void onAppeared(InternalClusterNode member) {
         // no-op
     }
 
@@ -38,7 +36,7 @@ public interface TopologyEventHandler {
      *
      * @param member Member that has left the cluster.
      */
-    default void onDisappeared(ClusterNode member) {
+    default void onDisappeared(InternalClusterNode member) {
         // no-op
     }
 }

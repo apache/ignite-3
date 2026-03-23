@@ -48,13 +48,12 @@ import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Table view implementation for binary objects.
@@ -107,7 +106,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param schemaVersion Schema version for which to obtain a marshaller.
      */
     public TupleMarshaller marshaller(int schemaVersion) {
-        return marshallerCache.marshaller(schemaVersion);
+        return marshallerCache.marshaller(tbl::name, schemaVersion);
     }
 
     @Override
@@ -268,8 +267,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
-        return sync(replaceAsync(tx, oldRec, newRec));
+    public boolean replaceExact(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
+        return sync(replaceExactAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
@@ -286,7 +285,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
@@ -451,15 +450,15 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      *
      * @param tx Transaction, if present.
      * @param rec Tuple record.
+     * @param keyOnly Marshal key part only.
      * @return A future, with row as a result.
      */
     @TestOnly
-    @VisibleForTesting
-    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec) {
+    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec, boolean keyOnly) {
         Objects.requireNonNull(rec);
 
         return doOperation(tx, schemaVersion -> {
-            Row row = marshal(rec, schemaVersion, false);
+            Row row = marshal(rec, schemaVersion, keyOnly);
 
             return completedFuture(row);
         });
@@ -473,7 +472,6 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @return A future, with tuple as a result.
      */
     @TestOnly
-    @VisibleForTesting
     public CompletableFuture<Tuple> binaryRowToTuple(@Nullable Transaction tx, BinaryRow row) {
         return doOperation(tx, schemaVersion -> completedFuture(wrap(row, schemaVersion)));
     }
@@ -575,14 +573,14 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     }
 
     @Override
-    public <E, V, R, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R> receiver,
             Function<E, Tuple> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

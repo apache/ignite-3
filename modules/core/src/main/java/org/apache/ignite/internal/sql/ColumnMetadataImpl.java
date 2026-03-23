@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
+
 import java.util.List;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -85,7 +87,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return name;
+        return name.isEmpty() ? name : quoteIfNeeded(name);
     }
 
     /** {@inheritDoc} */
@@ -124,6 +126,11 @@ public class ColumnMetadataImpl implements ColumnMetadata {
         return origin;
     }
 
+    /** Returns normalized name. */
+    String normalizedName() {
+        return name;
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {
@@ -155,19 +162,19 @@ public class ColumnMetadataImpl implements ColumnMetadata {
         /** {@inheritDoc} */
         @Override
         public String schemaName() {
-            return schemaName;
+            return quoteIfNeeded(schemaName);
         }
 
         /** {@inheritDoc} */
         @Override
         public String tableName() {
-            return tableName;
+            return quoteIfNeeded(tableName);
         }
 
         /** {@inheritDoc} */
         @Override
         public String columnName() {
-            return columnName;
+            return columnName != null ? quoteIfNeeded(columnName) : null;
         }
 
         /** {@inheritDoc} */

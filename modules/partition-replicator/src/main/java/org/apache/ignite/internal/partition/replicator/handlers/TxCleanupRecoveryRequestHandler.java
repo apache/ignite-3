@@ -17,20 +17,24 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
@@ -44,18 +48,19 @@ import org.apache.ignite.internal.util.Cursor;
  */
 public class TxCleanupRecoveryRequestHandler {
     private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRecoveryRequestHandler.class);
+    private static final int THROTTLE_BATCH_SIZE = 1000;
 
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final TxManager txManager;
     private final FailureProcessor failureProcessor;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
 
     /** Constructor. */
     public TxCleanupRecoveryRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
             FailureProcessor failureProcessor,
-            ReplicationGroupId replicationGroupId
+            ZonePartitionId replicationGroupId
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.txManager = txManager;
@@ -66,10 +71,9 @@ public class TxCleanupRecoveryRequestHandler {
     /**
      * Handles a {@link TxCleanupRecoveryRequest}.
      *
-     * @param request Request to handle.
      * @return Future completed when the request has been handled.
      */
-    public CompletableFuture<Void> handle(TxCleanupRecoveryRequest request) {
+    public CompletableFuture<Void> handle() {
         runPersistentStorageScan();
 
         return nullCompletedFuture();
@@ -78,6 +82,7 @@ public class TxCleanupRecoveryRequestHandler {
     private void runPersistentStorageScan() {
         int committedCount = 0;
         int abortedCount = 0;
+        List<IgniteBiTuple<UUID, TxMeta>> tasks = new ArrayList<>();
 
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStatePartitionStorage.scan()) {
             for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
@@ -94,17 +99,7 @@ public class TxCleanupRecoveryRequestHandler {
                     abortedCount++;
                 }
 
-                txManager.cleanup(
-                        replicationGroupId,
-                        txMeta.enlistedPartitions(),
-                        txMeta.txState() == COMMITTED,
-                        txMeta.commitTimestamp(),
-                        txId
-                ).exceptionally(throwable -> {
-                    LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
-
-                    return null;
-                });
+                tasks.add(tx);
             }
         } catch (IgniteInternalException e) {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-25302 - remove this IF after proper stop is implemented.
@@ -115,5 +110,55 @@ public class TxCleanupRecoveryRequestHandler {
         }
 
         LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);
+
+        if (!tasks.isEmpty()) {
+            throttledCleanup(new CopyOnWriteArrayList<>(tasks));
+        }
+    }
+
+    private void throttledCleanup(List<IgniteBiTuple<UUID, TxMeta>> tasks) {
+        if (tasks.isEmpty()) {
+            return;
+        }
+
+        List<IgniteBiTuple<UUID, TxMeta>> batch = tasks.subList(0, Math.min(tasks.size(), THROTTLE_BATCH_SIZE));
+
+        List<IgniteBiTuple<UUID, TxMeta>> toCleanup = new ArrayList<>(batch);
+        batch.clear();
+
+        try {
+            callCleanup(toCleanup).whenComplete((r, e) -> throttledCleanup(tasks));
+        } catch (IgniteInternalException e) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25302 - remove this IF after proper stop is implemented.
+            if (!hasCause(e, TxStateStorageClosedException.class, TxStateStorageDestroyedException.class)) {
+                String errorMessage = String.format("Failed to cleanup transaction states [commitPartition=%s].", replicationGroupId);
+                failureProcessor.process(new FailureContext(e, errorMessage));
+            }
+        }
+    }
+
+    private CompletableFuture<?> callCleanup(List<IgniteBiTuple<UUID, TxMeta>> tasks) {
+        CompletableFuture<?>[] array = tasks.stream().map(task -> callCleanup(task.getValue(), task.getKey()))
+                .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(array);
+    }
+
+    private CompletableFuture<?> callCleanup(TxMeta txMeta, UUID txId) {
+        return txManager.cleanup(
+                replicationGroupId,
+                txMeta.enlistedPartitions(),
+                txMeta.txState() == COMMITTED,
+                txMeta.commitTimestamp(),
+                txId
+        ).exceptionally(throwable -> {
+            LOG.warn(
+                    "Failed to cleanup transaction {}.",
+                    throwable,
+                    formatTxInfo(txId, txManager)
+            );
+
+            return null;
+        });
     }
 }

@@ -49,8 +49,6 @@ class InvalidDefinitionTest {
 
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::distributionAlgorithm, "a", "Partition distribution algorithm");
 
-        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjust, 1,
-                "Timeout between node added or node left topology event itself and data nodes switch");
         assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleUp, 1,
                 "Timeout between node added topology event itself and data nodes switch");
         assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleDown, 1,

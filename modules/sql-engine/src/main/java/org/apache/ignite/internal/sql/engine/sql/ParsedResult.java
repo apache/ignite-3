@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.fsm.DdlBatchGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Result of the parse.
@@ -43,6 +45,17 @@ public interface ParsedResult {
     /** Returns the count of the dynamic params (specified by question marks in the query text) used in the query. */
     int dynamicParamsCount();
 
-    /** Returns the syntax tree of the query according to the grammar rules. */
+    /**
+     * Returns the syntax tree of the query according to the grammar rules for planning purposes.
+     *
+     * <p>Note: Each call should return new tree instance.
+     */
     SqlNode parsedTree();
+
+    /**
+     * Returns {@link DdlBatchGroup} for batching purposes or {@code null} if not applicable.
+     */
+    default @Nullable DdlBatchGroup ddlBatchGroup() {
+        return null;
+    }
 }

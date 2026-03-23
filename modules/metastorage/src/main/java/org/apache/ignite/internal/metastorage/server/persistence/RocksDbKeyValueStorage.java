@@ -112,7 +112,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -218,6 +218,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Path to the rocksdb database. */
     private final Path dbPath;
 
+    /** Node name. */
+    private final String nodeName;
+
     /** RockDB options. */
     private volatile DBOptions options;
 
@@ -237,7 +240,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private volatile ColumnFamily revisionToTs;
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-23910 - either make checksums durable or invent another way to solve
-    // the 'divergence going unnoticed' problem.
+    //  the 'divergence going unnoticed' problem.
     /** Revision to checksum mapping column family. */
     private volatile ColumnFamily revisionToChecksum;
 
@@ -270,7 +273,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private final UpdatedEntries updatedEntries = new UpdatedEntries();
 
     /** Tracks RocksDb resources that must be properly closed. */
-    private List<AbstractNativeReference> rocksResources = new ArrayList<>();
+    private final List<AbstractNativeReference> rocksResources = new ArrayList<>();
 
     /**
      * Write options used to write to RocksDB.
@@ -308,10 +311,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
+        this.nodeName = nodeName;
 
         executor = Executors.newFixedThreadPool(
                 2,
-                NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
+                IgniteThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
         );
     }
 
@@ -380,7 +384,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 .setAtomicFlush(true)
                 .setCreateMissingColumnFamilies(true)
                 .setListeners(List.of(flusher.listener()))
-                .setCreateIfMissing(true);
+                .setCreateIfMissing(true)
+                // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                .setAvoidFlushDuringShutdown(true);
 
         rocksResources.add(options);
 
@@ -400,6 +406,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         flusher = new RocksDbFlusher(
                 "rocksdb metastorage kv storage",
+                nodeName,
                 busyLock,
                 scheduledExecutor,
                 executor,
@@ -491,7 +498,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         busyLock.block();
 
         watchProcessor.close();
-        flusher.stop();
+
+        RocksDbFlusher flusher = this.flusher;
+
+        if (flusher != null) {
+            flusher.stop();
+        }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
@@ -501,7 +513,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private void closeRocksResources() {
         Collections.reverse(rocksResources);
         RocksUtils.closeAll(rocksResources);
-        this.rocksResources = new ArrayList<>();
+        rocksResources.clear();
     }
 
     @Override
@@ -537,14 +549,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public Entry get(byte[] key) {
-        try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
+        try (TrackingToken ignored = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.get(key);
         }
     }
 
     @Override
     public List<Entry> getAll(List<byte[]> keys) {
-        try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
+        try (TrackingToken ignored = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.getAll(keys);
         }
     }

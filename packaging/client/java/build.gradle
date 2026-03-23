@@ -23,6 +23,8 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
+apply from: "$rootDir/buildscripts/utils.gradle"
+
 import org.gradle.crypto.checksum.Checksum
 
 java {
@@ -98,6 +100,7 @@ ospackage {
     packageDescription "This package will install Apache Ignite Java Client"
     os LINUX
     user 'root'
+    release getCommitNum()
 
     into(linuxTokens.LIB_DIR) {
         from configurations.javaClient

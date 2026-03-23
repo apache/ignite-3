@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.compute.executor;
 
-import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ExecutionOptions;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,13 +32,17 @@ public interface ComputeExecutor {
     JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
             String jobClassName,
-            JobClassLoader classLoader,
-            @Nullable ComputeJobDataHolder input);
+            UnitsClassLoader classLoader,
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable ComputeJobDataHolder arg
+    );
 
     <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
-            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
-            I input
+            String taskClassName,
+            UnitsClassLoader classLoader,
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable I arg
     );
 
     void start();

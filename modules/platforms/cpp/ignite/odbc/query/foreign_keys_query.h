@@ -58,7 +58,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta() override { return &m_columns_meta; }
+    const protocol::column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
@@ -91,7 +91,7 @@ public:
     bool is_data_available() const override { return false; }
 
     /**
-     * Get number of rows affected by the statement.
+     * Get the number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
@@ -127,7 +127,7 @@ private:
     bool m_executed{false};
 
     /** Columns metadata. */
-    column_meta_vector m_columns_meta;
+    protocol::column_meta_vector m_columns_meta;
 };
 
 } // namespace ignite

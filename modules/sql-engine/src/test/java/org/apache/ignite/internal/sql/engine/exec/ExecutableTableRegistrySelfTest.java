@@ -22,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.Spliterators;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -154,11 +152,10 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(tableManager.cachedTable(tableId)).thenReturn(table);
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
-            when(descriptor.iterator()).thenReturn(Collections.emptyIterator());
-            when(descriptor.spliterator()).thenReturn(Spliterators.emptySpliterator());
 
             IgniteTable sqlTable = new IgniteTableImpl(
-                    "TBL1", tableId, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1, 10000
+                    "TBL1", tableId, tableVersion, tableVersion, descriptor, ImmutableIntList.of(0),
+                    new TestStatistic(1_000.0), Map.of(), 1, 10000
             );
 
             when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);

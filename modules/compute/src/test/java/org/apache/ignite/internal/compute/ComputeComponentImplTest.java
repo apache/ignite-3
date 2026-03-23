@@ -56,7 +56,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -72,14 +71,11 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
-import org.apache.ignite.internal.compute.loader.JobContext;
-import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
@@ -93,22 +89,26 @@ import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.deployunit.DeploymentStatus;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
+import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -142,12 +142,16 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private ComputeConfiguration computeConfiguration;
 
     @Mock
-    private JobContextManager jobContextManager;
+    private UnitsContextManager unitsContextManager;
 
-    private ComputeComponent computeComponent;
+    private ComputeComponentImpl computeComponent;
 
-    private final ClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
-    private final ClusterNode remoteNode = new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("remote-host", 1));
+    private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
+    private final InternalClusterNode remoteNode = new ClusterNodeImpl(
+            randomUUID(),
+            "remote",
+            new NetworkAddress("remote-host", 1)
+    );
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 
@@ -156,9 +160,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
-        JobContext jobContext = new JobContext(classLoader, ignored -> {});
-        lenient().when(jobContextManager.acquireClassLoader(anyList()))
+        UnitsClassLoader classLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
+        UnitsClassLoaderContext jobContext = new UnitsClassLoaderContext(classLoader, ignored -> {});
+        lenient().when(unitsContextManager.acquireClassLoader(anyList(), anyString()))
                 .thenReturn(completedFuture(jobContext));
 
         doAnswer(invocation -> {
@@ -167,19 +171,23 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }).when(messagingService).addMessageHandler(eq(ComputeMessageTypes.class), any());
 
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, INSTANCE_NAME);
-        ComputeExecutor computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService);
+        ComputeExecutor computeExecutor = new ComputeExecutorImpl(
+                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()), EventLog.NOOP);
 
         computeComponent = new ComputeComponentImpl(
                 INSTANCE_NAME,
                 messagingService,
                 topologyService,
                 logicalTopologyService,
-                jobContextManager,
+                unitsContextManager,
                 computeExecutor,
-                computeConfiguration
+                computeConfiguration,
+                EventLog.NOOP,
+                HybridTimestampTracker.emptyTracker()
         );
 
         assertThat(computeComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        computeComponent.enable();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
     }
 
@@ -209,13 +217,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void testLongPreExecutionInitialization() {
         CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
 
+        String className = SimpleJob.class.getName();
         doReturn(infiniteFuture)
-                .when(jobContextManager).acquireClassLoader(List.of());
+                .when(unitsContextManager).acquireClassLoader(List.of(), className);
 
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                DEFAULT, List.of(), SimpleJob.class.getName(), null, cancelHandle.token()
+                new ExecutionContext(DEFAULT, List.of(), className, ComputeEventMetadata.builder(), null),
+                cancelHandle.token()
         );
 
         assertFalse(infiniteFuture.isDone());
@@ -239,7 +249,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // LongJob catches interruption and completes normally — cooperative cancellation honors the result.
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
         assertThatNoRequestsWereSent();
     }
@@ -417,7 +428,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteRequest capturedRequest = invokeAndCaptureRequest(ExecuteRequest.class);
 
         assertThat(capturedRequest.jobClassName(), is(jobClassName));
-        assertThat(SharedComputeUtils.unmarshalArgOrResult(capturedRequest.input(), null, null), is(equalTo(arg)));
+        assertThat(SharedComputeUtils.unmarshalArg(capturedRequest.input(), null, null), is(equalTo(arg)));
     }
 
     private void assertThatJobResultRequestWasSent(UUID jobId) {
@@ -485,7 +496,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .build();
         JobResultResponse jobResultResponse = sendRequestAndCaptureResponse(jobResultRequest, testNode, 456L);
 
-        assertThat(SharedComputeUtils.unmarshalArgOrResult(jobResultResponse.result(), null, null), is("jobResponse"));
+        assertThat(SharedComputeUtils.unmarshalResult(jobResultResponse.result(), null, null), is("jobResponse"));
         assertThat(jobResultResponse.throwable(), is(nullValue()));
     }
 
@@ -609,7 +620,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void executorThreadsAreNamedAccordingly() {
         assertThat(
                 executeLocally(GetThreadNameJob.class.getName()),
-                willBe(startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")))
+                willBe(startsWith(IgniteThread.threadPrefix(INSTANCE_NAME, "compute")))
         );
     }
 
@@ -660,43 +671,17 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Test
-    void executionOfNotExistingDeployedUnit() {
-        List<DeploymentUnit> units = List.of(new DeploymentUnit("unit", "1.0.0"));
-        doReturn(CompletableFuture.failedFuture(new DeploymentUnitNotFoundException("unit", Version.parseVersion("1.0.0"))))
-                .when(jobContextManager).acquireClassLoader(units);
-
-        assertThat(
-                executeLocally(units, "com.example.Maim"),
-                willThrow(ClassNotFoundException.class)
-        );
-    }
-
-    @Test
-    void executionOfNotAvailableDeployedUnit() {
-        List<DeploymentUnit> units = List.of(new DeploymentUnit("unit", "1.0.0"));
-        DeploymentUnitUnavailableException toBeThrown = new DeploymentUnitUnavailableException(
-                "unit",
-                Version.parseVersion("1.0.0"),
-                DeploymentStatus.OBSOLETE,
-                DeploymentStatus.REMOVING
-        );
-        doReturn(CompletableFuture.failedFuture(toBeThrown))
-                .when(jobContextManager).acquireClassLoader(units);
-
-        assertThat(
-                executeLocally(units, "com.example.Maim"),
-                willThrow(ClassNotFoundException.class)
-        );
-    }
-
     private <T extends NetworkMessage> T invokeAndCaptureRequest(Class<T> clazz) {
         ArgumentCaptor<T> requestCaptor = ArgumentCaptor.forClass(clazz);
         verify(messagingService).invoke(eq(remoteNode.name()), requestCaptor.capture(), anyLong());
         return requestCaptor.getValue();
     }
 
-    private <T extends NetworkMessage> T sendRequestAndCaptureResponse(NetworkMessage request, ClusterNode sender, long correlationId) {
+    private <T extends NetworkMessage> T sendRequestAndCaptureResponse(
+            NetworkMessage request,
+            InternalClusterNode sender,
+            long correlationId
+    ) {
         AtomicBoolean responseSent = new AtomicBoolean(false);
 
         when(messagingService.respond(eq(sender.name()), any(), eq(correlationId)))
@@ -719,13 +704,16 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName) {
-        return computeComponent.executeLocally(DEFAULT, units, jobClassName, null, null)
-                .thenCompose(ComputeComponentImplTest::unwrapResult);
+        return computeComponent.executeLocally(
+                new ExecutionContext(DEFAULT, units, jobClassName, ComputeEventMetadata.builder(), null),
+                null
+        ).thenCompose(ComputeComponentImplTest::unwrapResult);
     }
 
     private JobExecution<ComputeJobDataHolder> executeLocally(String jobClassName, @Nullable CancellationToken cancellationToken) {
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                DEFAULT, List.of(), jobClassName, null, cancellationToken
+                new ExecutionContext(DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null),
+                cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
@@ -737,19 +725,24 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
             @Nullable CancellationToken cancellationToken
     ) {
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeRemotely(
-                DEFAULT, remoteNode, List.of(), jobClassName, arg, cancellationToken
+                remoteNode,
+                new ExecutionContext(DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), arg),
+                cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
 
     private CompletableFuture<String> executeRemotely(String jobClassName) {
-        return computeComponent.executeRemotely(DEFAULT, remoteNode, List.of(), jobClassName, null, null)
-                .thenCompose(ComputeComponentImplTest::unwrapResult);
+        return computeComponent.executeRemotely(
+                remoteNode,
+                new ExecutionContext(DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null),
+                null
+        ).thenCompose(ComputeComponentImplTest::unwrapResult);
     }
 
     private static CompletableFuture<String> unwrapResult(JobExecution<ComputeJobDataHolder> execution) {
-        return execution.resultAsync().thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(r, null, null));
+        return execution.resultAsync().thenApply(r -> SharedComputeUtils.unmarshalResult(r, null, null));
     }
 
     private static class SimpleJob implements ComputeJob<String, String> {

@@ -27,8 +27,9 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.jetbrains.annotations.Nullable;
@@ -88,7 +89,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet requiredCols
+            @Nullable ImmutableIntList requiredCols
     ) {
         this(-1L, cluster, traits, tbl, idxName, type, collation, names, proj, cond, searchBounds, requiredCols);
     }
@@ -121,7 +122,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
-            @Nullable ImmutableBitSet requiredCols
+            @Nullable ImmutableIntList requiredCols
     ) {
         super(cluster, traits, List.of(), tbl, idxName, type, names, proj, cond, searchBounds, requiredCols);
 
@@ -183,5 +184,16 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        explainAttributes(writer);
+
+        if (type == Type.SORTED) {
+            writer.addCollation(collation, getRowType());
+        }
+
+        return writer;
     }
 }

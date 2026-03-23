@@ -21,23 +21,28 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
+import org.apache.ignite.internal.storage.engine.AbstractVolatileStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.junit.jupiter.api.Test;
 
 /**
  * Implementation of the {@link AbstractStorageEngineTest} for the {@link VolatilePageMemoryStorageEngine#ENGINE_NAME} engine.
  */
-public class VolatilePageMemoryStorageEngineTest extends AbstractStorageEngineTest {
+public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorageEngineTest {
     @InjectConfiguration("mock.profiles.default.engine = aimem")
     private StorageConfiguration storageConfig;
+
+    @InjectConfiguration
+    SystemLocalConfiguration systemConfig;
 
     @Override
     protected StorageEngine createEngine() {
@@ -52,18 +57,11 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractStorageEngineTe
         return new VolatilePageMemoryStorageEngine(
                 "test",
                 configuration,
+                systemConfig,
                 ioRegistry,
                 mock(FailureManager.class),
                 clock
         );
-    }
-
-    @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
     }
 
     @Test
@@ -79,20 +77,7 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractStorageEngineTe
             assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(123000L));
             assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
         }
-    }
 
-    @Test
-    void initSizeSetToMaxSizeByDefault(
-            @InjectConfiguration("mock.profiles.default {engine = aimem, maxSizeBytes = 12345000}")
-            StorageConfiguration storageConfig
-    ) {
-        StorageEngine anotherEngine = createEngine(storageConfig);
-
-        anotherEngine.start();
-
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(12345000L));
-            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
-        }
+        assertThat(anotherEngine.requiredOffHeapMemorySize(), is(12345000L));
     }
 }

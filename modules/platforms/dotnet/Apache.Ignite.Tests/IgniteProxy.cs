@@ -43,6 +43,8 @@ public sealed class IgniteProxy : IgniteServerBase
         NodeName = nodeName;
 
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        _socket.NoDelay = true;
+
         _socket.Connect(targetEndpoint);
     }
 

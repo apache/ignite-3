@@ -131,7 +131,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         CompatValidationResult result = resultFuture.getNow(null);
         assertThat(result, is(notNullValue()));
 
-        assertThat("Change is incompatible", result.isSuccessful(), is(true));
+        assertThat("Change is incompatible: " + result.optionalDetails(), result.isSuccessful(), is(true));
     }
 
     @ParameterizedTest
@@ -155,7 +155,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         CompatValidationResult result = resultFuture.getNow(null);
         assertThat(result, is(notNullValue()));
 
-        assertThat("Change is compatible", result.isSuccessful(), is(false));
+        assertThat("Change should be incompatible", result.isSuccessful(), is(false));
         assertThat(result.isTableDropped(), is(false));
 
         assertThat(result.failedTableName(), is(TABLE_NAME));
@@ -406,7 +406,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         return new CatalogTableColumnDescriptor(columnName, INT32, true, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
     }
 
-    private static CatalogTableColumnDescriptor intColumnWithDefault(String columnName, int defaultValue) {
+    private static CatalogTableColumnDescriptor intColumnWithDefault(String columnName, @Nullable Integer defaultValue) {
         return new CatalogTableColumnDescriptor(
                 columnName,
                 INT32,
@@ -418,12 +418,16 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         );
     }
 
+    private static List<CatalogTableColumnDescriptor> someColumns() {
+        return List.of(intColumn("col1"));
+    }
+
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
         return tableSchema(schemaVersion, TABLE_NAME, columns);
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, String name, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, TABLE_ID, name, columns);
+        return new FullTableSchema(1, schemaVersion, TABLE_ID, name, columns);
     }
 
     private interface SchemaChangeSource {
@@ -492,12 +496,8 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     private enum ForwardIncompatibleChange implements SchemaChangeSource {
         RENAME_TABLE(
                 List.of(
-                        tableSchema(1, TABLE_NAME, List.of(
-                                intColumn("col1")
-                        )),
-                        tableSchema(2, ANOTHER_NAME, List.of(
-                                intColumn("col1")
-                        ))
+                        tableSchema(1, TABLE_NAME, someColumns()),
+                        tableSchema(2, ANOTHER_NAME, someColumns())
                 ),
                 "Name of the table has been changed"
         ),
@@ -552,6 +552,16 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         )),
                         tableSchema(2, List.of(
                                 intColumn("NON_NULL_WITHOUT_DEFAULT_COL")
+                        ))
+                ),
+                "Not null column added without default value"
+        ),
+        NON_NULL_WITH_DEFAULT_NULL(
+                List.of(
+                        tableSchema(1, List.of(
+                        )),
+                        tableSchema(2, List.of(
+                                intColumnWithDefault("NON_NULL_WITHOUT_DEFAULT_COL", null)
                         ))
                 ),
                 "Not null column added without default value"

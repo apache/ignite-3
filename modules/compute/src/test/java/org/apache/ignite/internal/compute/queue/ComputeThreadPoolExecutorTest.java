@@ -23,12 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ComputeThreadPoolExecutorTest {
-
     private ComputeThreadPoolExecutor computeThreadPoolExecutor;
     private BlockingQueue<Runnable> workQueue;
 
@@ -36,8 +35,7 @@ class ComputeThreadPoolExecutorTest {
     public void setup() {
         workQueue = new BoundedPriorityBlockingQueue<>(() -> 5);
         computeThreadPoolExecutor = new ComputeThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS, workQueue,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix("test", "compute"),
-                        Loggers.forClass(ComputeThreadPoolExecutorTest.class)));
+                IgniteThreadFactory.create("test", "compute", false, Loggers.forClass(ComputeThreadPoolExecutorTest.class)));
     }
 
     @Test

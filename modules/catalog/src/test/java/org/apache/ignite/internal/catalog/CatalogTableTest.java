@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.lang.Double.compare;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
@@ -26,11 +27,19 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -46,6 +55,7 @@ import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
@@ -69,13 +79,19 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableSetPropertyCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -89,6 +105,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -102,6 +119,8 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -159,13 +178,13 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
         assertEquals(catalog.defaultZone().id(), table.zoneId());
-        assertEquals(List.of("key1", "key2"), table.primaryKeyColumns());
-        assertEquals(List.of("key2"), table.colocationColumns());
+        assertEquals(IntList.of(0, 1), table.primaryKeyColumns());
+        assertEquals(IntList.of(1), table.colocationColumns());
 
         // Validate newly created pk index
         assertEquals(pkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
-        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertEquals(IntList.of(0, 1), pkIndex.columnIds());
         assertTrue(pkIndex.unique());
         assertTrue(pkIndex.isCreatedWithTable());
         assertEquals(AVAILABLE, pkIndex.status());
@@ -177,6 +196,65 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertEquals(0, table.columnIndex("key1"));
         assertEquals(1, table.columnIndex("key2"));
+
+        // Validate column ids
+        assertEquals(0, table.column("key1").id());
+        assertEquals(1, table.column("key2").id());
+        assertEquals(2, table.column("val").id());
+    }
+
+    @Test
+    public void testCreateTableWithNamedPk() {
+        long timePriorToTableCreation = clock.nowLong();
+        String expectedName = "CUSTOM_PK_NAME";
+
+        CatalogCommand command = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(expectedName)
+                        .columns(List.of("key1", "key2"))
+                        .build())
+                .colocationColumns(List.of("key2"))
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        // Validate catalog version from the past.
+        Catalog catalog = manager.activeCatalog(timePriorToTableCreation);
+
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+
+        assertNotNull(schema);
+        assertNull(schema.table(TABLE_NAME));
+        assertNull(schema.aliveIndex(expectedName));
+
+        assertNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, expectedName));
+
+        // Validate actual catalog
+        catalog = manager.activeCatalog(clock.nowLong());
+
+        schema = catalog.schema(SCHEMA_NAME);
+        CatalogTableDescriptor table = schema.table(TABLE_NAME);
+
+        // There should be no index with default name.
+        assertNull(catalog.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME)));
+
+        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(expectedName);
+
+        assertSame(pkIndex, catalog.aliveIndex(SCHEMA_NAME, expectedName));
+        assertSame(pkIndex, catalog.index(pkIndex.id()));
+
+        // Validate newly created pk index
+        assertEquals(expectedName, pkIndex.name());
+        assertEquals(table.id(), pkIndex.tableId());
+        assertEquals(IntList.of(0, 1), pkIndex.columnIds());
+        assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.isCreatedWithTable());
+        assertEquals(AVAILABLE, pkIndex.status());
     }
 
     @Test
@@ -185,7 +263,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME_2));
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.latestCatalog();
         assertNotNull(catalog);
 
         CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
@@ -309,6 +387,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertNotNull(table);
         assertNull(table.column(NEW_COLUMN_NAME));
 
+        int maxColumnId = table.columns().stream().mapToInt(CatalogTableColumnDescriptor::id).max().orElseThrow();
+
         // Validate actual catalog
         table = actualTable(TABLE_NAME);
 
@@ -317,6 +397,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate column descriptor.
         CatalogTableColumnDescriptor column = table.column(NEW_COLUMN_NAME);
 
+        int expectedColumnId = maxColumnId + 1;
+        assertEquals(expectedColumnId, column.id());
         assertEquals(NEW_COLUMN_NAME, column.name());
         assertEquals(STRING, column.type());
         assertTrue(column.nullable());
@@ -329,6 +411,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_SCALE, column.scale());
 
         assertEquals(6, table.columnIndex(NEW_COLUMN_NAME));
+        assertSame(column, table.columnById(expectedColumnId));
     }
 
     @Test
@@ -434,8 +517,81 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testDropMultipleColumns() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogTableDescriptor tableBefore = actualTable(TABLE_NAME);
+        int colCountBefore = tableBefore.columns().size();
+
+        tryApplyAndExpectApplied(dropColumnParams(TABLE_NAME, "VAL", "DEC", "STR"));
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+
+        assertNull(table.column("VAL"));
+        assertNull(table.column("DEC"));
+        assertNull(table.column("STR"));
+        assertEquals(colCountBefore - 3, table.columns().size());
+    }
+
+    @Test
+    public void testDropMultipleColumnsWithMissingColumn() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "fake")),
+                willThrowFast(CatalogValidationException.class, "Column with name 'fake' not found in table 'PUBLIC.test_table'.")
+        );
+
+        // Validate no column was dropped.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table.column("VAL"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsWithPrimaryKeyColumn() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "ID")),
+                willThrowFast(CatalogValidationException.class, "Deleting column `ID` belonging to primary key is not allowed")
+        );
+
+        // Validate no column was dropped.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table.column("VAL"));
+        assertNotNull(table.column("ID"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsWithIndexColumn() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+        tryApplyAndExpectApplied(simpleIndex());
+
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "DEC")),
+                willThrowFast(
+                        CatalogValidationException.class,
+                        "Deleting column 'VAL' used by index(es) [myIndex], it is not allowed"
+                )
+        );
+
+        // Validate no column was dropped.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table.column("VAL"));
+        assertNotNull(table.column("DEC"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsFromNonExistingTable() {
+        assertThat(
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL", "DEC")),
+                willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found.")
+        );
+    }
+
+    @Test
     public void testAddColumnWithNotExistingTable() {
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("key", INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("key", INT32, true))),
                 willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
     }
 
@@ -443,7 +599,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void testAddColumnWithExistingName() {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("ID", INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("ID", INT32, true))),
                 willThrowFast(CatalogValidationException.class, "Column with name 'ID' already exists."));
     }
 
@@ -490,6 +646,68 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testCreateDefaultZoneLazilyIfNoZonesProvided() {
+        // Check that initially there no default zone and zones at all.
+        Catalog initialCatalog = manager.latestCatalog();
+        assertThat(initialCatalog.zones(), empty());
+        assertThat(initialCatalog.defaultZone(), nullValue());
+
+        // Create table that should triggers new default zone creation.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        // Check that initially there is only new default zone is presented.
+        int afterTableCreatedCatalogVersion = manager.latestCatalogVersion();
+        Catalog afterTableCreatedCatalog = manager.catalog(afterTableCreatedCatalogVersion);
+        CatalogZoneDescriptor defaultZone = afterTableCreatedCatalog.defaultZone();
+        assertThat(defaultZone, notNullValue());
+        assertThat(afterTableCreatedCatalog.zones(), contains(defaultZone));
+        checkDefaultZoneProperties(defaultZone);
+    }
+
+    @Test
+    public void testDefaultZoneCreationIsIdempotent() {
+        // Check that initially there no default zone and zones at all.
+        Catalog initialCatalog = manager.latestCatalog();
+        assertThat(initialCatalog.zones(), empty());
+        assertThat(initialCatalog.defaultZone(), nullValue());
+
+        // Create table that should triggers new default zone creation.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME + 0));
+        // Check that new tables won't trigger new default zone and will be placed into the created one.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME + 1));
+
+        int afterSecondTableCreatedCatalogVersion = manager.latestCatalogVersion();
+        Catalog afterSecondTableCreatedCatalog =  manager.catalog(afterSecondTableCreatedCatalogVersion);
+        CatalogZoneDescriptor defaultZone = afterSecondTableCreatedCatalog.defaultZone();
+        assertThat(defaultZone, notNullValue());
+        assertThat(afterSecondTableCreatedCatalog.zones(), contains(defaultZone));
+        checkDefaultZoneProperties(defaultZone);
+    }
+
+    @Test
+    public void testDefaultZoneCannotBeCreatedIfDefaultNameIsAlreadyInUse() {
+        // Check that initially there no default zone and zones at all.
+        Catalog initialCatalog = manager.latestCatalog();
+        assertThat(initialCatalog.zones(), empty());
+        assertThat(initialCatalog.defaultZone(), nullValue());
+
+        // Create table that should triggers new default zone creation.
+        tryApplyAndExpectApplied(simpleZone(DEFAULT_ZONE_NAME));
+        // Check that new tables won't trigger new default zone and will be placed into the created one.
+        assertThat(
+                manager.execute(simpleTable(TABLE_NAME)),
+                willThrowFast(
+                        CatalogValidationException.class,
+                        "Distribution zone with name '" + DEFAULT_ZONE_NAME + "' already exists."
+                )
+        );
+
+        Catalog lastCatalog = manager.latestCatalog();
+        assertThat(lastCatalog.zones(), hasSize(1));
+        assertThat(initialCatalog.defaultZone(), nullValue());
+    }
+
+    @Test
     public void testTableRename() {
         createSomeTable(TABLE_NAME);
 
@@ -517,8 +735,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(table(prevVersion, TABLE_NAME_2), is(nullValue()));
         assertThat(table(curVersion, TABLE_NAME), is(nullValue()));
 
-        assertThat(curDescriptor.tableVersion(), is(prevDescriptor.tableVersion() + 1));
-
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
@@ -526,6 +742,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
+        assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));
     }
 
     @Test
@@ -552,11 +769,11 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams("val2", INT32)));
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams("val2", INT32, true)));
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     @Test
@@ -565,7 +782,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(1));
+        assertThat(table.latestSchemaVersion(), is(1));
     }
 
     @Test
@@ -576,7 +793,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     @Test
@@ -610,7 +827,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
         // Try to add column without table.
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32, true))),
                 willThrow(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
         verifyNoInteractions(eventListener);
 
@@ -618,7 +835,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         // Add column.
-        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32)));
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32, true)));
         verify(eventListener).notify(any(AddColumnEventParameters.class));
 
         // Drop column.
@@ -665,7 +882,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
-        assertThat(table.tableVersion(), is(2));
+        assertThat(table.latestSchemaVersion(), is(2));
     }
 
     /**
@@ -1145,7 +1362,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .zoneName(customZoneName)
                 .partitions(42)
                 .replicas(15)
-                .dataNodesAutoAdjust(73)
                 .filter("expression")
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
@@ -1164,7 +1380,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         tryApplyAndExpectApplied(createTableCmd);
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.latestCatalog();
 
         CatalogZoneDescriptor defaultZoneDescriptor = catalog.zone(DEFAULT_ZONE_NAME);
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(customZoneName);
@@ -1181,6 +1397,160 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertThat(catalog.tables(zoneDescriptor.id()), hasSize(1));
         assertThat(catalog.tables(zoneDescriptor.id()).stream().map(d -> d.id()).collect(toList()), hasItem(customTableId));
+    }
+
+    @Test
+    void createTableWithStalenessConfiguration() {
+        {
+            CatalogCommand tableCmdWithDefault = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "defaults",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+        }
+
+        {
+            CatalogCommand tableCmdWithOnlyRowFraction = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "stale_rows",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .staleRowsFraction(0.8)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithOnlyRowFraction);
+        }
+
+        {
+            CatalogCommand tableCmdWithOnlyMinRowCount = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "min_rows",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .minStaleRowsCount(2000L)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithOnlyMinRowCount);
+        }
+
+        {
+            CatalogCommand tableCmdWithEverything = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    "everything",
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .minStaleRowsCount(4000L)
+                    .staleRowsFraction(0.5)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithEverything);
+        }
+
+        assertThat(manager.latestCatalog().tables(), hasItems(
+                tableThatSatisfies("table with stale rows conf that matches defaults", d -> 
+                        "defaults".equals(d.name())
+                                && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
+                tableThatSatisfies("table with non-default stale rows fraction conf", d ->
+                        "stale_rows".equals(d.name())
+                                && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                && compare(d.properties().staleRowsFraction(), 0.8) == 0),
+                tableThatSatisfies("table with non-default min stale rows conf", d ->
+                        "min_rows".equals(d.name())
+                                && d.properties().minStaleRowsCount() == 2000L
+                                && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0),
+                tableThatSatisfies("table with non-deafult stale rows con", d ->
+                        "everything".equals(d.name())
+                                && d.properties().minStaleRowsCount() == 4000L
+                                && compare(d.properties().staleRowsFraction(), 0.5) == 0)
+        ));
+    }
+
+    @Test
+    void alterTableStalenessConfiguration() {
+        { // create table with default row staleness configuration
+            CatalogCommand tableCmdWithDefault = createTableCommandBuilder(
+                    SqlCommon.DEFAULT_SCHEMA_NAME,
+                    TABLE_NAME,
+                    List.of(columnParams("ID", INT32), columnParams("VAL", INT32)),
+                    List.of("ID"),
+                    null)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
+            );
+        }
+
+        { // let's change row fraction first
+            CatalogCommand tableCmdWithDefault = AlterTableSetPropertyCommand.builder()
+                    .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .staleRowsFraction(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
+            );
+        }
+
+        { // now let's change min rows count
+            CatalogCommand tableCmdWithDefault = AlterTableSetPropertyCommand.builder()
+                    .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .minStaleRowsCount(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT * 2)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT * 2
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION * 2) == 0)
+            );
+        }
+
+        { // finally, let's change both back to defaults
+            CatalogCommand tableCmdWithDefault = AlterTableSetPropertyCommand.builder()
+                    .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .minStaleRowsCount(CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
+                    .staleRowsFraction(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION)
+                    .build();
+            tryApplyAndExpectApplied(tableCmdWithDefault);
+
+            assertThat(
+                    actualTable(TABLE_NAME),
+                    tableThatSatisfies("table with default configuration", d ->
+                            d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT
+                                    && compare(d.properties().staleRowsFraction(), CatalogUtils.DEFAULT_STALE_ROWS_FRACTION) == 0)
+            );
+        }
+    }
+
+    private static BaseMatcher<CatalogTableDescriptor> tableThatSatisfies(String description, Predicate<CatalogTableDescriptor> predicate) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object o) {
+                return o instanceof CatalogTableDescriptor && predicate.test((CatalogTableDescriptor) o);
+            }
+
+            @Override
+            public void describeTo(Description description0) {
+                description0.appendText(description);
+            }
+        };
     }
 
     private CompletableFuture<CatalogApplyResult> changeColumn(
@@ -1240,11 +1610,367 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         }
     }
 
+    @Test
+    public void testAddMultipleColumnsAssignsSequentialIds() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogTableDescriptor tableBefore = actualTable(TABLE_NAME);
+        assertNotNull(tableBefore);
+        int maxId = tableBefore.columns().stream().mapToInt(CatalogTableColumnDescriptor::id).max().orElse(0);
+
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME,
+                columnParams("COL_A", INT32, true),
+                columnParams("COL_B", STRING, 100, true),
+                columnParams("COL_C", DECIMAL, true, DFLT_TEST_PRECISION, 2)
+        ));
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertEquals(maxId + 1, table.column("COL_A").id());
+        assertEquals(maxId + 2, table.column("COL_B").id());
+        assertEquals(maxId + 3, table.column("COL_C").id());
+    }
+
+    @Test
+    public void testAddMultipleColumnsPreservesProperties() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME,
+                columnParamsBuilder("COL_INT", INT32, true).defaultValue(constant(42)).build(),
+                columnParamsBuilder("COL_STR", STRING).length(200).defaultValue(constant("hello")).build(),
+                columnParams("COL_DEC", DECIMAL, true, 15, 5)
+        ));
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+
+        CatalogTableColumnDescriptor colInt = table.column("COL_INT");
+        assertNotNull(colInt);
+        assertEquals(INT32, colInt.type());
+        assertTrue(colInt.nullable());
+        assertEquals(constant(42), colInt.defaultValue());
+
+        CatalogTableColumnDescriptor colStr = table.column("COL_STR");
+        assertNotNull(colStr);
+        assertEquals(STRING, colStr.type());
+        assertEquals(200, colStr.length());
+        assertEquals(constant("hello"), colStr.defaultValue());
+
+        CatalogTableColumnDescriptor colDec = table.column("COL_DEC");
+        assertNotNull(colDec);
+        assertEquals(DECIMAL, colDec.type());
+        assertTrue(colDec.nullable());
+        assertEquals(15, colDec.precision());
+        assertEquals(5, colDec.scale());
+    }
+
+    @Test
+    public void testAddMultipleColumnsPreservesOrder() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME,
+                columnParams("COL_A", INT32, true),
+                columnParams("COL_B", INT32, true),
+                columnParams("COL_C", INT32, true)
+        ));
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        List<CatalogTableColumnDescriptor> columns = table.columns();
+
+        // simpleTable creates 6 columns, new ones should be at indices 6, 7, 8
+        assertEquals("COL_A", columns.get(6).name());
+        assertEquals("COL_B", columns.get(7).name());
+        assertEquals("COL_C", columns.get(8).name());
+
+        assertEquals(6, table.columnIndex("COL_A"));
+        assertEquals(7, table.columnIndex("COL_B"));
+        assertEquals(8, table.columnIndex("COL_C"));
+    }
+
+    @Test
+    public void testAddMultipleColumnsIncrementsTableVersionOnce() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogTableDescriptor tableBefore = actualTable(TABLE_NAME);
+        assertNotNull(tableBefore);
+        assertEquals(1, tableBefore.latestSchemaVersion());
+
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME,
+                columnParams("COL_A", INT32, true),
+                columnParams("COL_B", INT32, true),
+                columnParams("COL_C", INT32, true)
+        ));
+
+        CatalogTableDescriptor tableAfter = actualTable(TABLE_NAME);
+        assertNotNull(tableAfter);
+        assertEquals(2, tableAfter.latestSchemaVersion());
+    }
+
+    @Test
+    public void testAddMultipleColumnsTimeTravelVisibility() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        long timestampBeforeAdd = clock.nowLong();
+
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME,
+                columnParams("COL_A", INT32, true),
+                columnParams("COL_B", INT32, true)
+        ));
+
+        // At the old timestamp, the new columns should not be visible.
+        CatalogTableDescriptor oldTable = manager.activeCatalog(timestampBeforeAdd).table(SCHEMA_NAME, TABLE_NAME);
+        assertNotNull(oldTable);
+        assertNull(oldTable.column("COL_A"));
+        assertNull(oldTable.column("COL_B"));
+
+        // At the latest timestamp, the new columns should be visible.
+        CatalogTableDescriptor newTable = actualTable(TABLE_NAME);
+        assertNotNull(newTable);
+        assertNotNull(newTable.column("COL_A"));
+        assertNotNull(newTable.column("COL_B"));
+    }
+
+    @Test
+    public void testAddMultipleColumnsFiresEventWithAllColumns() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        var fireEventFuture = new CompletableFuture<Void>();
+
+        manager.listen(CatalogEvent.TABLE_ALTER, fromConsumer(fireEventFuture, (AddColumnEventParameters parameters) -> {
+            List<CatalogTableColumnDescriptor> descriptors = parameters.descriptors();
+
+            assertThat(descriptors, hasSize(2));
+            assertEquals("COL_A", descriptors.get(0).name());
+            assertEquals("COL_B", descriptors.get(1).name());
+        }));
+
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME,
+                columnParams("COL_A", INT32, true),
+                columnParams("COL_B", INT32, true)
+        ));
+
+        assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testAddSingleColumnIfNotExistsColumnExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(columnParams("VAL", INT32, true)))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+    }
+
+    @Test
+    public void testAddSingleColumnIfNotExistsColumnDoesNotExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(columnParams(NEW_COLUMN_NAME, INT32, true)))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertNotNull(table.column(NEW_COLUMN_NAME));
+    }
+
+    @Test
+    public void testAddMultipleColumnsIfNotExistsAllNew() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        columnParams(NEW_COLUMN_NAME, INT32, true),
+                        columnParams(NEW_COLUMN_NAME_2, INT32, true)
+                ))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertNotNull(table.column(NEW_COLUMN_NAME));
+        assertNotNull(table.column(NEW_COLUMN_NAME_2));
+    }
+
+    @Test
+    public void testAddMultipleColumnsIfNotExistsPartialOverlap() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        columnParams("VAL", INT32, true),
+                        columnParams(NEW_COLUMN_NAME, INT32, true)
+                ))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertNotNull(table.column(NEW_COLUMN_NAME));
+        // VAL should still have its original type (INT32) and be unchanged.
+        assertNotNull(table.column("VAL"));
+    }
+
+    @Test
+    public void testAddMultipleColumnsIfNotExistsAllExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        columnParams("VAL", INT32, true),
+                        columnParams("STR", STRING, 100, true)
+                ))
+                .ifColumnNotExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+    }
+
+    @Test
+    public void testAddMultipleColumnsFailsAtomicallyWhenOneAlreadyExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        // Try to add columns where "VAL" already exists — without ifColumnNotExists, this should fail.
+        assertThat(
+                manager.execute(addColumnParams(TABLE_NAME,
+                        columnParams(NEW_COLUMN_NAME, INT32, true),
+                        columnParams("VAL", INT32, true)
+                )),
+                willThrow(CatalogValidationException.class)
+        );
+
+        // Verify NEWCOL was NOT added (atomic rollback).
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNotNull(table);
+        assertNull(table.column(NEW_COLUMN_NAME));
+    }
+
+    @Test
+    public void testDropMultipleColumnsIfExistsAllExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL", "DEC"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNull(table.column("VAL"));
+        assertNull(table.column("DEC"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsIfExistsPartialOverlap() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL", "fake"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNull(table.column("VAL"));
+    }
+
+    @Test
+    public void testDropMultipleColumnsIfExistsNoneExist() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("fake1", "fake2"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+    }
+
+    @Test
+    public void testDropSingleColumnIfExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("fake"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectNotApplied(command);
+
+        // Verify table is unchanged.
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertEquals(6, table.columns().size());
+    }
+
+    @Test
+    public void testDropSingleColumnIfExistsColumnExists() {
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        CatalogCommand command = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"))
+                .ifColumnExists(true)
+                .build();
+
+        tryApplyAndExpectApplied(command);
+
+        CatalogTableDescriptor table = actualTable(TABLE_NAME);
+        assertNull(table.column("VAL"));
+        assertEquals(5, table.columns().size());
+    }
+
     private @Nullable CatalogTableDescriptor actualTable(String tableName) {
         return manager.activeCatalog(clock.nowLong()).table(SCHEMA_NAME, tableName);
     }
 
     private @Nullable CatalogTableDescriptor table(int catalogVersion, String tableName) {
         return manager.catalog(catalogVersion).table(SCHEMA_NAME, tableName);
+    }
+
+    private static void checkDefaultZoneProperties(CatalogZoneDescriptor defaultZoneDescriptor) {
+        assertThat(defaultZoneDescriptor.name(), is(DEFAULT_ZONE_NAME));
+        assertThat(defaultZoneDescriptor.partitions(), is(DEFAULT_PARTITION_COUNT));
+        assertThat(defaultZoneDescriptor.replicas(), is(DEFAULT_REPLICA_COUNT));
+        assertThat(defaultZoneDescriptor.quorumSize(), is(DEFAULT_ZONE_QUORUM_SIZE));
+        assertThat(defaultZoneDescriptor.dataNodesAutoAdjustScaleUp(), is(IMMEDIATE_TIMER_VALUE));
+        assertThat(defaultZoneDescriptor.dataNodesAutoAdjustScaleDown(), is(INFINITE_TIMER_VALUE));
+        assertThat(defaultZoneDescriptor.filter(), is(DEFAULT_FILTER));
+        assertThat(
+                defaultZoneDescriptor.storageProfiles().profiles(),
+                contains(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))
+        );
+        assertThat(defaultZoneDescriptor.consistencyMode(), is(STRONG_CONSISTENCY));
     }
 }

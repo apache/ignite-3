@@ -19,8 +19,6 @@ package org.apache.ignite.internal.cli.core.call;
 
 import java.io.PrintWriter;
 import java.util.concurrent.CompletionException;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import me.tongfei.progressbar.DelegatingProgressBarConsumer;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -30,30 +28,28 @@ import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 /** Call execution pipeline that executes an async call and displays progress bar. */
 public class AsyncCallExecutionPipeline<I extends CallInput, T> extends AbstractCallExecutionPipeline<I, T> {
     /** Async call factory. */
-    private final Function<ProgressTracker, AsyncCall<I, T>> callFactory;
+    private final AsyncCallFactory<I, T> callFactory;
 
     /** Builder for progress bar rendering. */
     private final ProgressBarBuilder progressBarBuilder;
 
     AsyncCallExecutionPipeline(
-            Function<ProgressTracker, AsyncCall<I, T>> callFactory,
+            AsyncCallFactory<I, T> callFactory,
             ProgressBarBuilder progressBarBuilder,
             PrintWriter output,
             PrintWriter errOutput,
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
-            Supplier<I> inputProvider,
+            I input,
             boolean[] verbose
     ) {
-        super(output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
+        super(output, errOutput, exceptionHandlers, decorator, input, verbose);
         this.callFactory = callFactory;
         this.progressBarBuilder = progressBarBuilder;
     }
 
     @Override
     public int runPipelineInternal() {
-        I callInput = inputProvider.get();
-
         progressBarBuilder.setConsumer(new DelegatingProgressBarConsumer(this::print) {
             @Override
             public void close() {
@@ -62,12 +58,11 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
                 output.flush();
             }
         });
-        progressBarBuilder.setUpdateIntervalMillis(60);
 
         try {
             ProgressBarTracker tracker = new ProgressBarTracker(progressBarBuilder);
-            CallOutput<T> result = callFactory.apply(tracker)
-                    .execute(callInput)
+            CallOutput<T> result = callFactory.create(tracker)
+                    .execute(input)
                     .whenComplete((el, err) -> tracker.close())
                     .join();
 

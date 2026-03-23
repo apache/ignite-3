@@ -19,9 +19,14 @@ package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.junit.jupiter.api.Test;
 
@@ -86,6 +91,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
+        assertNull(storage.highestRowId());
     }
 
     @Test
@@ -106,6 +112,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
+        assertNull(storage.highestRowId());
     }
 
     @Test
@@ -158,5 +165,37 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         assertNotNull(row);
         assertThat(row.binaryRow(), isRow(TABLE_ROW));
+    }
+
+    @Test
+    void testTombstoneAndAbortWriteAndGcAndAddWriteAndCommit() {
+        UUID txId = newTransactionId();
+
+        addAndCommit(TABLE_ROW);
+        addAndCommit(null);
+
+        addWrite(ROW_ID, TABLE_ROW2, txId);
+        abortWrite(ROW_ID, txId);
+
+        pollForVacuum(HybridTimestamp.MAX_VALUE);
+
+        assertDoesNotThrow(() -> addAndCommit(TABLE_ROW));
+    }
+
+    @Test
+    void testGcWhenOldestCommittedVersionIsUnderTombstoneThatIsNotLatestCommittedVersion() {
+        UUID txId = newTransactionId();
+
+        addAndCommit(TABLE_ROW);
+        addAndCommit(null);
+        addAndCommit(TABLE_ROW2);
+
+        addWrite(ROW_ID, binaryRow(KEY, new TestValue(40, "baz")), txId);
+
+        BinaryRowAndRowId polled1 = pollForVacuum(HybridTimestamp.MAX_VALUE);
+        assertThat(polled1, is(notNullValue()));
+        assertThat(polled1.binaryRow(), isRow(TABLE_ROW));
+
+        assertThat(pollForVacuum(HybridTimestamp.MAX_VALUE), is(nullValue()));
     }
 }

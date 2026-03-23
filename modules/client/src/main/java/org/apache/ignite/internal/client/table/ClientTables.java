@@ -39,16 +39,19 @@ public class ClientTables implements IgniteTables {
     private final ReliableChannel ch;
 
     private final MarshallersProvider marshallers;
+    private final int sqlPartitionAwarenessMetadataCacheSize;
 
     /**
      * Constructor.
      *
      * @param ch Channel.
      * @param marshallers Marshallers provider.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
      */
-    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers) {
+    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers, int sqlPartitionAwarenessMetadataCacheSize) {
         this.ch = ch;
         this.marshallers = marshallers;
+        this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
     }
 
     /** {@inheritDoc} */
@@ -72,7 +75,7 @@ public class ClientTables implements IgniteTables {
                         int tableId = in.unpackInt();
                         QualifiedName name = unpackQualifiedNames ? in.unpackQualifiedName() : QualifiedName.parse(in.unpackString());
 
-                        res.add(new ClientTable(ch, marshallers, tableId, name));
+                        res.add(new ClientTable(ch, marshallers, tableId, name, sqlPartitionAwarenessMetadataCacheSize));
                     }
 
                     return res;
@@ -96,7 +99,7 @@ public class ClientTables implements IgniteTables {
                     if (useQualifiedNames(w.clientChannel())) {
                         w.out().packQualifiedName(name);
                     } else {
-                        w.out().packString(name.toCanonicalForm());
+                        w.out().packString(name.objectName());
                     }
                 }, r -> {
                     if (r.in().tryUnpackNil()) {
@@ -107,7 +110,7 @@ public class ClientTables implements IgniteTables {
                     boolean unpackQualifiedNames = useQualifiedNames(r.clientChannel());
                     QualifiedName qname = unpackQualifiedNames ? r.in().unpackQualifiedName() : QualifiedName.parse(r.in().unpackString());
 
-                    return new ClientTable(ch, marshallers, tableId, qname);
+                    return new ClientTable(ch, marshallers, tableId, qname, sqlPartitionAwarenessMetadataCacheSize);
                 });
     }
 

@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import javax.annotation.Nullable;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.lang.MarshallerException;
@@ -30,6 +29,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,7 +201,6 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
         assertEquals(expectedValue, tuple.valueOrDefault("columnname", null));
         assertEquals(expectedValue, tuple.valueOrDefault("COLUMNNAME", null));
         assertEquals(expectedValue, tuple.valueOrDefault("ColumnName", null));
-        ;
 
         assertNull(tuple.valueOrDefault("\"columnname\"", null));
         assertEquals(expectedValue, tuple.valueOrDefault("\"COLUMNNAME\"", null));

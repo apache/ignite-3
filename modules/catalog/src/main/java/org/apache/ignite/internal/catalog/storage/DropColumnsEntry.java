@@ -18,27 +18,22 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
+import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.Builder;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes dropping of columns.
  */
-public class DropColumnsEntry implements UpdateEntry, Fireable {
+public class DropColumnsEntry extends AbstractUpdateTableEntry implements Fireable {
     private final int tableId;
     private final Set<String> columns;
 
@@ -54,6 +49,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     }
 
     /** Returns table id. */
+    @Override
     public int tableId() {
         return tableId;
     }
@@ -79,28 +75,13 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
+    public Builder newTableDescriptor(CatalogTableDescriptor table) {
+        List<CatalogTableColumnDescriptor> updatedTableColumns = table.columns().stream()
+                .filter(col -> !columns.contains(col.name()))
+                .collect(toList());
 
-        CatalogTableDescriptor newTable = table.newDescriptor(
-                table.name(),
-                table.tableVersion() + 1,
-                table.columns().stream()
-                        .filter(col -> !columns.contains(col.name()))
-                        .collect(toList()),
-                timestamp,
-                table.storageProfile()
-        );
-
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
-                defaultZoneIdOpt(catalog)
-        );
+        return table.copyBuilder()
+                .newColumns(updatedTableColumns);
     }
 
     @Override

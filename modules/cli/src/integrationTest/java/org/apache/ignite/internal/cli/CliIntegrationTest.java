@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli;
 
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
@@ -26,8 +27,10 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
@@ -42,8 +45,10 @@ import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
+import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -64,8 +69,30 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("client.handler").enabled(true),
             new MetricSource().name("sql.client").enabled(true),
             new MetricSource().name("sql.plan.cache").enabled(true),
+            new MetricSource().name("sql.queries").enabled(true),
+            new MetricSource().name("storage.aipersist").enabled(true),
             new MetricSource().name("storage.aipersist.default").enabled(true),
-            new MetricSource().name("storage.aipersist.default_aipersist").enabled(true)
+            new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
+            new MetricSource().name("storage.aipersist.checkpoint").enabled(true),
+            new MetricSource().name("storage.aipersist.io").enabled(true),
+            new MetricSource().name("topology.cluster").enabled(true),
+            new MetricSource().name("topology.local").enabled(true),
+            new MetricSource().name("thread.pools.partitions-executor").enabled(true),
+            new MetricSource().name("thread.pools.sql-executor").enabled(true),
+            new MetricSource().name("thread.pools.sql-planning-executor").enabled(true),
+            new MetricSource().name("transactions").enabled(true),
+            new MetricSource().name("placement-driver").enabled(true),
+            new MetricSource().name("resource.vacuum").enabled(true),
+            new MetricSource().name("zones.Default").enabled(true),
+            new MetricSource().name("clock.service").enabled(true),
+            new MetricSource().name("index.builder").enabled(true),
+            new MetricSource().name("raft.snapshots").enabled(true),
+            new MetricSource().name("messaging").enabled(true),
+            new MetricSource().name("log.storage").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound").enabled(true),
     };
 
     /** Correct ignite jdbc url. */
@@ -172,12 +199,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void assertExitCodeIsError() {
-        assertExitCodeIs(errorExitCode());
-    }
-
-    // REPL mode has no exit code for error, override this method in tests for repl commands.
-    protected int errorExitCode() {
-        return 1;
+        assertExitCodeIs(1);
     }
 
     protected void assertOutputIsNotEmpty() {
@@ -190,6 +212,19 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertThat(sout.toString())
                 .as("Expected command output to be: " + expectedOutput + " but was " + sout.toString())
                 .isEqualTo(expectedOutput);
+    }
+
+    protected void assertOutputIsSqlResultWithColumns(String... columns) {
+        String tableWithContent = new TableDecorator(false)
+                .decorate(new Table(List.of(columns), List.of()))
+                .toTerminalString();
+        String expectedHeader = Arrays.stream(tableWithContent.split("\n"))
+                .limit(2)
+                .collect(Collectors.joining("\n"));
+
+        assertThat(sout.toString())
+                .as("Expected command output to start with: " + expectedHeader + " but was " + sout.toString())
+                .startsWith(expectedHeader);
     }
 
     protected void assertOutputStartsWith(String expectedOutput) {
@@ -268,6 +303,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .isEmpty();
     }
 
+    protected void assertOutputContainsSubsequence(Iterable<String> substrings) {
+        assertThat(sout.toString())
+                .as("Expected command output will contain the substrings in the given order")
+                .containsSubsequence(substrings);
+    }
+
     protected void assertErrOutputIsNotEmpty() {
         assertThat(serr.toString())
                 .as("Expected command error output not to be empty")
@@ -317,7 +358,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected static void createAndPopulateTable() {
-        createTableOnly(DEFAULT_TABLE_NAME, "Default");
+        createTableOnly(DEFAULT_TABLE_NAME);
 
         int idx = 0;
 

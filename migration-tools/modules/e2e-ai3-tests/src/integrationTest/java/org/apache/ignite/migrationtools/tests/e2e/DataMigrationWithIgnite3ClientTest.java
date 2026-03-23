@@ -34,7 +34,9 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.migrationtools.tests.bases.MigrationTestBase;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.DiscoveryUtils;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.ExampleBasedCacheTest;
+import org.apache.ignite.migrationtools.tests.e2e.framework.core.NameUtils;
 import org.apache.ignite.migrationtools.tests.e2e.framework.core.SqlTest;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -51,8 +53,8 @@ import org.junit.jupiter.api.function.Executable;
  * The tests are executed against a AI3 cluster with the native client and the JDBC client.
  */
 public class DataMigrationWithIgnite3ClientTest extends MigrationTestBase {
-    // TODO: Check if it is possible to rename the tests
-    // TODO: Some of these properties are duplicated with other tests.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28172 Check if it is possible to rename the tests
+    //  Some of these properties are duplicated with other tests.
 
     private static final List<ExampleBasedCacheTest> TEST_CLASS_INSTANCES = DiscoveryUtils.discoverClasses();
 
@@ -77,7 +79,7 @@ public class DataMigrationWithIgnite3ClientTest extends MigrationTestBase {
 
     @BeforeAll
     static void enableInfoLogsUnconditionally() {
-        // TODO: Check if this is a good idea. It was quick
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28172 Check if this is a good idea. It was quick
         Configurator.setLevel(LogManager.getLogger(MigrationTestBase.class), Level.INFO);
     }
 
@@ -138,10 +140,10 @@ public class DataMigrationWithIgnite3ClientTest extends MigrationTestBase {
             ExampleBasedCacheTest<?, ?> exampleBasedTest
     ) throws Exception {
         try (IgniteClient client = clientBuilder.build()) {
-            var escapedName = "\"" + exampleBasedTest.getTableName() + "\"";
-            Table table = client.tables().table(escapedName);
+            var qn = QualifiedName.parse(NameUtils.ignite3TableName(exampleBasedTest));
+            Table table = client.tables().table(qn);
             assertThat(table)
-                    .withFailMessage("Table with name must exist: " + escapedName)
+                    .withFailMessage("Table with name must exist: " + qn)
                     .isNotNull();
 
             exampleBasedTest.testIgnite3(table, N_TEST_EXAMPLES);

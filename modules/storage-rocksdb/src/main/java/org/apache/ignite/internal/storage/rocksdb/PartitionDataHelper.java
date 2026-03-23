@@ -30,12 +30,12 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.put
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
@@ -94,7 +94,10 @@ public final class PartitionDataHelper implements ManuallyCloseable {
     private final int partitionId;
 
     /** Upper bound for scans. */
-    private final Slice upperBound;
+    final Slice upperBound;
+
+    /** Lower bound for backward scans. */
+    private final Slice lowerBound;
 
     /** Partition data column family. */
     final ColumnFamilyHandle partCf;
@@ -124,9 +127,13 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         this.partitionStartPrefix = compositeKey(tableId, partitionId);
         this.partitionEndPrefix = incrementPrefix(partitionStartPrefix);
 
+        this.lowerBound = new Slice(partitionStartPrefix);
         this.upperBound = new Slice(partitionEndPrefix);
         this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);
-        this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setAutoPrefixMode(true);
+        this.scanReadOpts = new ReadOptions()
+                .setIterateLowerBound(lowerBound)
+                .setIterateUpperBound(upperBound)
+                .setAutoPrefixMode(true);
     }
 
     public int partitionId() {
@@ -349,6 +356,6 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
     @Override
     public void close() {
-        RocksUtils.closeAll(scanReadOpts, upperBoundReadOpts, upperBound);
+        RocksUtils.closeAll(scanReadOpts, upperBoundReadOpts, upperBound, lowerBound);
     }
 }

@@ -31,11 +31,10 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
-
 
 /**
  * Base implementation of {@link IgniteDataSource}.
@@ -51,16 +50,19 @@ public abstract class AbstractIgniteDataSource extends AbstractTable
 
     private final int version;
 
+    private final long timestamp;
+
     private final Statistic statistic;
 
     /** Constructor. */
-    public AbstractIgniteDataSource(String name, int id,  int version, TableDescriptor desc,
+    public AbstractIgniteDataSource(String name, int id,  int version, long timestamp, TableDescriptor desc,
             Statistic statistic) {
 
         this.id = id;
         this.name = name;
         this.desc = desc;
         this.version = version;
+        this.timestamp = timestamp;
         this.statistic = statistic;
     }
 
@@ -78,6 +80,12 @@ public abstract class AbstractIgniteDataSource extends AbstractTable
 
     /** {@inheritDoc} */
     @Override
+    public long timestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String name() {
         return name;
     }
@@ -90,13 +98,7 @@ public abstract class AbstractIgniteDataSource extends AbstractTable
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return getRowType(typeFactory, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
+    public RelDataType getRowType(RelDataTypeFactory typeFactory, @Nullable ImmutableIntList requiredColumns) {
         return desc.rowType((IgniteTypeFactory) typeFactory, requiredColumns);
     }
 

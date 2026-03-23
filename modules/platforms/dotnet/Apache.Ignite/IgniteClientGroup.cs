@@ -60,6 +60,9 @@ public sealed class IgniteClientGroup : IDisposable
 
     private readonly SemaphoreSlim _clientsLock = new(1);
 
+    /** Shared hybrid timestamp tracker to ensure consistency across client instances. */
+    private readonly HybridTimestampTracker _hybridTs = new();
+
     private int _disposed;
 
     private int _clientIndex;
@@ -158,7 +161,11 @@ public sealed class IgniteClientGroup : IDisposable
 
     private async Task<IgniteClientInternal> CreateClientAsync()
     {
-        var client = await IgniteClient.StartAsync(Configuration.ClientConfiguration).ConfigureAwait(false);
+        var client = await IgniteClient.StartInternalAsync(
+                configuration: Configuration.ClientConfiguration,
+                dnsResolver: new DnsResolver(),
+                hybridTs: _hybridTs)
+            .ConfigureAwait(false);
 
         return (IgniteClientInternal)client;
     }

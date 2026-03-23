@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,23 +51,57 @@ public class CatalogTableSchemaVersions implements MarshallableEntry {
         public int typeId() {
             return MarshallableEntryType.DESCRIPTOR_TABLE_VERSION.id();
         }
+
+        private TableVersion assignColumnIds(IdGenerator idGenerator, Object2IntMap<String> knownColumns) {
+            if (columns.isEmpty()) {
+                return this;
+            }
+
+            List<CatalogTableColumnDescriptor> newColumns = new ArrayList<>(columns.size());
+            Set<String> columnsExistingInCurrentVersion = IgniteUtils.newHashSet(columns.size());
+            for (CatalogTableColumnDescriptor column : columns) {
+                columnsExistingInCurrentVersion.add(column.name());
+
+                int newId = knownColumns.computeIfAbsent(column.name(), k -> idGenerator.nextId());
+
+                newColumns.add(column.clone(newId));
+            }
+
+            // Cleanup ids for non existing columns as new column may be created with the same name,
+            // but they must be assigned with new id.
+            knownColumns.keySet().removeIf(name -> !columnsExistingInCurrentVersion.contains(name));
+
+            return new TableVersion(newColumns);
+        }
     }
 
     private final int base;
+    private final int nextColumnId;
     private final TableVersion[] versions;
 
     /**
      * Constructor.
      *
-     * @param versions Array of table versions.
+     * @param version Array of table versions.
      */
-    public CatalogTableSchemaVersions(TableVersion... versions) {
-        this(CatalogTableDescriptor.INITIAL_TABLE_VERSION, versions);
+    public CatalogTableSchemaVersions(TableVersion version) {
+        this(
+                CatalogTableDescriptor.INITIAL_TABLE_VERSION,
+                version.columns.size(),
+                version.assignColumnIds(new IdGenerator(0), new Object2IntOpenHashMap<>())
+        );
     }
 
-    CatalogTableSchemaVersions(int base, TableVersion... versions) {
+    CatalogTableSchemaVersions(int base, int nextColumnId, TableVersion... versions) {
+        validateColumnIdsAreAssigned(nextColumnId, versions);
+
         this.base = base;
+        this.nextColumnId = nextColumnId;
         this.versions = versions;
+    }
+
+    int nextColumnId() {
+        return nextColumnId;
     }
 
     /**
@@ -77,6 +116,13 @@ public class CatalogTableSchemaVersions implements MarshallableEntry {
      */
     public int latestVersion() {
         return base + versions.length - 1;
+    }
+
+    /**
+     * Returns latest known table version.
+     */
+    public List<CatalogTableColumnDescriptor> latestVersionColumns() {
+        return versions[versions.length - 1].columns();
     }
 
     /**
@@ -100,14 +146,66 @@ public class CatalogTableSchemaVersions implements MarshallableEntry {
     /**
      * Creates a new instance of {@link CatalogTableSchemaVersions} with one new version appended.
      */
-    public CatalogTableSchemaVersions append(TableVersion tableVersion, int version) {
-        assert version == latestVersion() + 1;
+    public CatalogTableSchemaVersions append(TableVersion tableVersion) {
+        TableVersion latestVersion = versions[versions.length - 1];
 
-        return new CatalogTableSchemaVersions(base, ArrayUtils.concat(versions, tableVersion));
+        Object2IntMap<String> knownColumns = new Object2IntOpenHashMap<>();
+        for (CatalogTableColumnDescriptor column : latestVersion.columns) {
+            assert column.id() != CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED 
+                    : "latest existing TableVersion contains column with unassigned id";
+
+            knownColumns.put(column.name(), column.id());
+        }
+
+        IdGenerator idGenerator = new IdGenerator(nextColumnId);
+        tableVersion = tableVersion.assignColumnIds(idGenerator, knownColumns);
+
+        return new CatalogTableSchemaVersions(base, idGenerator.nextId, ArrayUtils.concat(versions, tableVersion));
     }
 
     @Override
     public int typeId() {
         return MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id();
+    }
+
+    static class IdGenerator {
+        private int nextId;
+
+        IdGenerator(int initialId) {
+            this.nextId = initialId;
+        }
+
+        int nextId() {
+            return nextId++;
+        }
+    }
+
+    static TableVersion[] assignColumnIds(IdGenerator idGenerator, TableVersion[] versions) {
+        Object2IntMap<String> knownColumns = new Object2IntOpenHashMap<>();
+        TableVersion[] newVersions = new TableVersion[versions.length];
+
+        for (int i = 0; i < versions.length; i++) {
+            newVersions[i] = versions[i].assignColumnIds(idGenerator, knownColumns);
+        }
+
+        return newVersions;
+    }
+
+    private static void validateColumnIdsAreAssigned(int nextColumnId, TableVersion[] versions) {
+        if (!IgniteUtils.assertionsEnabled()) {
+            return;
+        }
+
+        for (TableVersion version : versions) {
+            int lastSeenColumnId = CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED;
+
+            for (CatalogTableColumnDescriptor column : version.columns) {
+                assert column.id() != CatalogTableColumnDescriptor.ID_IS_NOT_ASSIGNED : "One or more column doesn't have an id assigned";
+                assert column.id() > lastSeenColumnId : "Column ids must be increasing: " + version.columns;
+                assert column.id() < nextColumnId : "Column ids of existing columns must be less than nextColumnId: " + version.columns;
+
+                lastSeenColumnId = column.id();
+            }
+        }
     }
 }

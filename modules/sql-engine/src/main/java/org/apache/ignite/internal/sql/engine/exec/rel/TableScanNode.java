@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
@@ -46,13 +47,16 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowFactory<RowT> rowFactory;
 
-    private final @Nullable BitSet requiredColumns;
+    private final int @Nullable [] requiredColumns;
+
+    private final String tableName;
 
     /**
      * Constructor.
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
+     * @param schemaTable Schema table.
      * @param table Internal table.
      * @param partitionProvider List of pairs containing the partition number to scan with the corresponding enlistment
      *         consistency token.
@@ -62,19 +66,21 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      */
     public TableScanNode(
             ExecutionContext<RowT> ctx,
-            RowHandler.RowFactory<RowT> rowFactory,
+            RowFactory<RowT> rowFactory,
+            IgniteTable schemaTable,
             ScannableTable table,
             PartitionProvider<RowT> partitionProvider,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
         this.table = table;
         this.partitionProvider = partitionProvider;
         this.rowFactory = rowFactory;
-        this.requiredColumns = requiredColumns;
+        this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
+        this.tableName = schemaTable.name();
     }
 
     /** {@inheritDoc} */
@@ -86,5 +92,11 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
                 partitions.iterator(), p -> table.scan(context(), p, rowFactory, requiredColumns));
 
         return SubscriptionUtils.concat(it);
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        super.dumpMetrics0(writer);
+        writer.app(", tableName=").app(tableName);
     }
 }

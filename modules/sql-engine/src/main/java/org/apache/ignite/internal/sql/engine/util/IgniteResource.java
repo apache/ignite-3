@@ -114,6 +114,11 @@ public interface IgniteResource {
     @BaseMessage("Timestamp literal ''{0}'' out of range.")
     ExInst<SqlValidatorException> timestampLiteralOutOfRange(String typeName);
 
+    @BaseMessage(
+            "Invalid number of arguments to function ''{0}''. Was expecting number of arguments in range [{1,number,#}, {2,number,#}]."
+    )
+    ExInst<SqlValidatorException> invalidArgCount(String functionName, int min, int max);
+
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
         return makeSignature(binding, Arrays.asList(operandTypes));

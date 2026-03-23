@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.raft.handlers;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,10 +30,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
-import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -49,14 +50,14 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
     private static final IgniteLogger LOG = Loggers.forClass(FinishTxCommandHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
 
     private final RaftTxFinishMarker txFinishMarker;
 
     /** Constructor. */
     public FinishTxCommandHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             TxManager txManager
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
@@ -83,7 +84,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                fromPartitionMessages(command.partitions()),
+                enlistedPartitions(command),
                 command.commitTimestamp()
         );
 
@@ -97,18 +98,30 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
                 commandTerm
         );
 
-        // Assume that we handle the finish command only on the commit partition.
-        txFinishMarker.markFinished(txId, command.commit(), command.commitTimestamp(), this.replicationGroupId);
-
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
-        if (!txStateChangeRes) {
-            assert txMetaBeforeCas != null : "txMetaBeforeCase is null, but CAS has failed for " + txId;
+        if (txStateChangeRes) {
+            // Assume that we handle the finish command only on the commit partition.
+            txFinishMarker.markFinished(txId, command.commit(), command.commitTimestamp(), this.replicationGroupId);
 
-            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
+            TransactionResult result = new TransactionResult(stateToSet, command.commitTimestamp());
+
+            return new CommandResult(result, true);
         }
 
-        return new CommandResult(new TransactionResult(stateToSet, command.commitTimestamp()), true);
+        if (txMetaBeforeCas == null) {
+            throw new IgniteInternalException(
+                    INTERNAL_ERR,
+                    "txMetaBeforeCas is null, but CAS has failed for {}",
+                    txId
+            );
+        }
+
+        TransactionResult existingResult = new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp());
+
+        logTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
+
+        return new CommandResult(existingResult, false);
     }
 
     private static List<EnlistedPartitionGroup> fromPartitionMessages(List<EnlistedPartitionGroupMessage> messages) {
@@ -121,23 +134,23 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
         return list;
     }
 
-    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
-        String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
-                        + " expected state = {}, state to set = {}",
+    private void logTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
+        String errorMsg = format("Finish command skipped, transaction txId = {}, because transaction state is already set,"
+                        + " existing state = {}, state to set = {}, groupId = {}",
                 txId,
                 txMetaBeforeCas,
-                txMetaToSet
+                txMetaToSet,
+                replicationGroupId
         );
 
-        IgniteInternalException stateChangeException =
-                new UnexpectedTransactionStateException(
-                        errorMsg,
-                        new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp())
-                );
+        LOG.info(errorMsg);
+    }
 
-        // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-        LOG.error(errorMsg);
+    private static List<EnlistedPartitionGroup> enlistedPartitions(FinishTxCommand command) {
+        if (command instanceof FinishTxCommandV2) {
+            return fromPartitionMessages(((FinishTxCommandV2) command).partitions());
+        }
 
-        throw stateChangeException;
+        throw new IllegalArgumentException("Unknown command: " + command);
     }
 }

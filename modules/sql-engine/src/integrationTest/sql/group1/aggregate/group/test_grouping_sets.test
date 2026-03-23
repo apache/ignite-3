@@ -1,0 +1,149 @@
+# name: test/sql/aggregate/group/test_grouping_sets.test
+# description: Test group by with rollup and cube
+# feature: T431 (GROUPING operation), T433 (Multiargument GROUPING function)
+# group: [group]
+
+# Single group
+query I
+SELECT GROUPING(a)
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((a))
+----
+1
+1
+
+query II rowsort
+SELECT GROUPING(a), a
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((a))
+----
+1	1
+1	4
+
+query II rowsort
+SELECT GROUPING(a), SUM(c)
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((a))
+----
+1	9
+1	6
+
+# Multiple groups
+query III rowsort
+SELECT GROUPING(a), GROUPING(b), GROUPING(c)
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((a), (b), (c))
+----
+1	0	0
+1	0	0
+0	1	0
+0	1	0
+0	0	1
+0	0	1
+
+query IIII
+SELECT GROUPING(a), GROUPING(b), a, b
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((a), (b))
+----
+1	0	1	NULL
+1	0	4	NULL
+0	1	NULL	2
+0	1	NULL	NULL
+
+query IIII rowsort
+SELECT GROUPING(a), SUM(a), GROUPING(b),  SUM(c)
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((a), (b))
+----
+0	1	1	3
+0	5	1	12
+1	2	0	9
+1	4	0	6
+
+# Duplicate groups
+query I
+SELECT GROUPING(b) as g1
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((b), (b))
+----
+1
+1
+1
+1
+
+query II rowsort
+SELECT GROUPING(b), b
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((b), (b))
+----
+1	2
+1	2
+1	NULL
+1	NULL
+
+query II rowsort
+SELECT GROUPING(b) as g1, SUM(c) as g2
+FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
+GROUP BY GROUPING SETS ((b), (b))
+----
+1	3
+1	3
+1	12
+1	12
+
+# Empty group
+query IIRR rowsort
+SELECT GROUPING(city_id), GROUPING(category_id), min(price), max(price)
+FROM (VALUES
+(2, 6, 21500.00),
+(2, 6, 22900.00),
+(2, 6, 23500.00),
+(2, 7, 17800.00),
+(4, 6, 20000.00),
+(4, 8, 37000.00),
+(4, 9, 75600.00)
+) AS t (city_id, category_id, price)
+GROUP BY GROUPING SETS ((city_id), (category_id), ())
+----
+1	0	17800.00	23500.00
+1	0	20000.00	75600.00
+0	1	17800.00	17800.00
+0	1	20000.00	23500.00
+0	1	37000.00	37000.00
+0	1	75600.00	75600.00
+0	0	17800.00	75600.00
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-26335 Conversion to relational algebra failed to preserve datatypes
+query IIT rowsort
+SELECT GROUPING(id), GROUPING(id), id
+FROM ( VALUES
+('c4a0327c-44be-416d-ae90-75c05079789f'::UUID, 1),
+('367fc6f1-40c3-4237-8545-3fd102d29134'::UUID, 2)
+) as t(val, id)
+GROUP BY ALL GROUPING SETS (id)
+----
+1	1	c4a0327c-44be-416d-ae90-75c05079789f
+1	1	c4a0327c-44be-416d-ae90-75c05079789f
+1	1	367fc6f1-40c3-4237-8545-3fd102d29134
+1	1	367fc6f1-40c3-4237-8545-3fd102d29134
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-26335 Conversion to relational algebra failed while rewriting GROUPING SETS to UNION
+# Duplicate groups
+query IIT rowsort
+SELECT GROUPING(val), GROUPING(val), val
+FROM ( VALUES
+(1, 1),
+(1, 2),
+(1, 3)
+) as t(id, val)
+GROUP BY ALL GROUPING SETS ((val), (val))
+----
+1	1	1
+1	1	1
+1	1	2
+1	1	2
+1	1	3
+1	1	3

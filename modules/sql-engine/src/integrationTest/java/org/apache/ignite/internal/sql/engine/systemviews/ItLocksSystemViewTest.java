@@ -175,7 +175,6 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
     }
 
-
     private void verifyLockInfo(List<Object> row, String expectedTxId) {
         int idx = 0;
 

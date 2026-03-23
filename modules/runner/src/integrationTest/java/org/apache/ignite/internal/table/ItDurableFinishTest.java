@@ -22,9 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -52,8 +50,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -129,18 +125,12 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         return new Context(primaryNode, coordinatorNode, publicTable, rwTx, keyTpl);
     }
 
-    private ReplicationGroupId defaultZonePartitionId(Ignite node) {
-        if (enabledColocation()) {
-            IgniteImpl ignite = unwrapIgniteImpl(node);
-            var zoneDescriptor = ignite.catalogManager().activeCatalog(ignite.clockService().nowLong()).zone(ZONE_NAME);
-            assertNotNull(zoneDescriptor);
+    private ZonePartitionId defaultZonePartitionId(Ignite node) {
+        IgniteImpl ignite = unwrapIgniteImpl(node);
+        var zoneDescriptor = ignite.catalogManager().activeCatalog(ignite.clockService().nowLong()).zone(ZONE_NAME);
+        assertNotNull(zoneDescriptor);
 
-            return new ZonePartitionId(zoneDescriptor.id(), 0);
-        } else {
-            TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
-
-            return new TablePartitionId(table.tableId(), 0);
-        }
+        return new ZonePartitionId(zoneDescriptor.id(), 0);
     }
 
     private void commitAndValidate(InternalTransaction rwTx, Table publicTable, Tuple keyTpl) {
@@ -339,19 +329,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {
         TableImpl tableImpl = unwrapTableImpl(publicTable);
 
-        TxStatePartitionStorage storage;
+        TxStatePartitionStorage storage = primaryNode.partitionReplicaLifecycleManager()
+                .txStatePartitionStorage(tableImpl.internalTable().zoneId(), 0);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove !enabledColocation part.
-        if (enabledColocation()) {
-            storage = primaryNode.partitionReplicaLifecycleManager().txStatePartitionStorage(tableImpl.internalTable().zoneId(), 0);
-        } else {
-            TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
-            storage = primaryTbl.internalTable().txStateStorage().getPartitionStorage(0);
-        }
-
-        ReplicationGroupId replicationGroupIdToEnlist =
-                enabledColocation() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), 0) :
-                new TablePartitionId(tableImpl.tableId(), 0);
+        ZonePartitionId replicationGroupIdToEnlist = new ZonePartitionId(tableImpl.internalTable().zoneId(), 0);
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,

@@ -20,10 +20,11 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -160,10 +161,10 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
 
-        Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
-                pkIndexId, pkStorage,
-                sortedIndexId, sortedIndexStorage,
-                hashIndexId, hashIndexStorage
+        Int2ObjectMap<TableSchemaAwareIndexStorage> indexes = Int2ObjectMap.ofEntries(
+                Int2ObjectMap.entry(pkIndexId, pkStorage),
+                Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                Int2ObjectMap.entry(hashIndexId, hashIndexStorage)
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
@@ -180,7 +181,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
 
         TestStorageUtils.completeBuiltIndexes(storage, hashInnerStorage, sortedInnerStorage);
@@ -199,7 +201,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, lastCommitTime, null);
     }
 
     static BinaryRow defaultRow() {
@@ -259,7 +261,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                // TODO: perhaps need to pass last commit time as a param
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-28183 perhaps need to pass last commit time as a param
                 handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null, null);
             }
         },

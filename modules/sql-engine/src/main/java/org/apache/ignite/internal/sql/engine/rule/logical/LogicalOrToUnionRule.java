@@ -149,16 +149,16 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
             }
         }
 
-        Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
-                Commons.trimmingMapping(fieldCnt, scan.requiredColumns());
+        Mappings.TargetMapping mapping = scan.requiredColumns() == null
+                ? Mappings.createIdentity(fieldCnt)
+                : Commons.projectedMapping(fieldCnt, scan.requiredColumns());
 
         for (RexNode op : operands) {
             BitSet conditionFields = new BitSet(fieldCnt);
 
             new RexShuttle() {
                 @Override public RexNode visitLocalRef(RexLocalRef inputRef) {
-                    conditionFields.set(mapping == null ? inputRef.getIndex() :
-                            mapping.getSourceOpt(inputRef.getIndex()));
+                    conditionFields.set(mapping.getSourceOpt(inputRef.getIndex()));
                     return inputRef;
                 }
             }.apply(op);

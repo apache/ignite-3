@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;

@@ -28,7 +28,9 @@
 namespace ignite {
 
 /**
- * Compute job descriptor.
+ * @brief Compute job descriptor.
+ *
+ * Contains necessary context to start compute job execution.
  */
 class job_descriptor {
 public:
@@ -59,7 +61,7 @@ public:
     [[nodiscard]] const job_execution_options &get_execution_options() const { return m_options; }
 
     /**
-     * Builder.
+     * @brief Job description builder.
      */
     class builder {
     public:

@@ -33,65 +33,69 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-workers')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.scalecube.cluster
     implementation libs.fastutil.core
     implementation libs.netty.handler
     implementation libs.netty.transport
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
+    compileOnly libs.jsr305 // Fix unknown enum constant warning
 
-    annotationProcessor project(":ignite-configuration-annotation-processor")
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
-    testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
     testAnnotationProcessor libs.auto.service
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-network-annotation-processor')
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation libs.jmh.core
     testImplementation(libs.kryo) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation libs.javapoet
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
     testImplementation libs.awaitility
     testImplementation libs.bouncycastle.bcpkix.jdk18on;
 
-    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
+    testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-configuration-root')
     testFixturesImplementation project(':ignite-failure-handler')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation(testFixtures(project(':ignite-workers')))
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration'))
+    testFixturesImplementation testFixtures(project(':ignite-workers'))
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
-    testFixturesImplementation libs.jetbrains.annotations
-    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 
-    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
+    integrationTestAnnotationProcessor project(':ignite-network-annotation-processor')
     integrationTestImplementation project(':ignite-network-annotation-processor')
     integrationTestImplementation project(':ignite-failure-handler')
-    integrationTestImplementation(testFixtures(project))
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler:'))
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.compileTesting
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.typesafe.config
 }
 
 tasks.withType(Test).configureEach {

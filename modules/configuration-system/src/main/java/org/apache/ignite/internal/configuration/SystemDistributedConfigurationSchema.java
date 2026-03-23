@@ -26,6 +26,8 @@ import org.apache.ignite.configuration.validation.Range;
 /** Distributed system configuration schema. */
 @Config
 public class SystemDistributedConfigurationSchema {
+    static final int DEFAULT_IDLE_SAFE_TIME_SYNC_INTERVAL_MILLIS = 250;
+
     /**
      * Duration (in milliseconds) used to determine how often to issue safe time sync commands when the Meta Storage is idle
      * (no writes are being issued).
@@ -35,7 +37,7 @@ public class SystemDistributedConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long idleSafeTimeSyncIntervalMillis = 250;
+    public long idleSafeTimeSyncIntervalMillis = DEFAULT_IDLE_SAFE_TIME_SYNC_INTERVAL_MILLIS;
 
     /** System properties. */
     @CamelCaseKeys

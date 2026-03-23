@@ -26,6 +26,7 @@ import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Style;
 import org.apache.ignite.internal.cli.core.style.element.UiElement;
 import org.apache.ignite.internal.cli.core.style.element.UiString;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * UI component that represent any error message.
@@ -49,10 +50,11 @@ public class ErrorUiComponent implements UiComponent {
 
     private ErrorUiComponent(
             String header, UiElement[] headerUiElements,
-            String details, UiElement[] detailsUiElements,
-            String verbose, UiElement[] verboseUiElements,
+            @Nullable String details, UiElement[] detailsUiElements,
+            @Nullable String verbose, UiElement[] verboseUiElements,
             UUID traceId,
-            String errorCode) {
+            String errorCode
+    ) {
         this.header = header;
         this.headerUiElements = headerUiElements;
         this.details = details;
@@ -75,10 +77,6 @@ public class ErrorUiComponent implements UiComponent {
 
     public String header() {
         return header;
-    }
-
-    public String details() {
-        return details;
     }
 
     @Override
@@ -112,10 +110,12 @@ public class ErrorUiComponent implements UiComponent {
 
         private UiElement[] headerUiElements;
 
+        @Nullable
         private String details;
 
         private UiElement[] detailsUiElements;
 
+        @Nullable
         private String verbose;
 
         private UiElement[] verboseUiElements;
@@ -132,7 +132,7 @@ public class ErrorUiComponent implements UiComponent {
         }
 
         /** Sets details. */
-        public ErrorComponentBuilder details(String details, UiElement... uiElements) {
+        public ErrorComponentBuilder details(@Nullable String details, UiElement... uiElements) {
             this.details = details;
             this.detailsUiElements = uiElements;
             return this;
@@ -144,7 +144,7 @@ public class ErrorUiComponent implements UiComponent {
         }
 
         /** Sets verbose. */
-        public ErrorComponentBuilder verbose(String verbose, UiElement... uiElements) {
+        public ErrorComponentBuilder verbose(@Nullable String verbose, UiElement... uiElements) {
             this.verbose = verbose;
             this.verboseUiElements = uiElements;
             return this;

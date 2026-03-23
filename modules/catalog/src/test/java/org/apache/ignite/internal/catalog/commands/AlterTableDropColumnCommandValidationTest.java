@@ -176,6 +176,26 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
     }
 
     @Test
+    void exceptionDoesNotThrownIfColumnWithGivenNameNotExistsWithIfColumnExists() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name(columnName).type(INT32).build()))
+                .primaryKey(primaryKey(columnName))
+        );
+
+        AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(Set.of(columnName + "_UNK"))
+                .ifColumnExists(true);
+
+        assertDoesNotThrow(() -> builder.build().get(new UpdateContext(catalog)));
+    }
+
+    @Test
     void exceptionIsThrownIfColumnBelongsToPrimaryKey() {
         String tableName = "TEST";
         String columnName1 = "C1";
@@ -220,7 +240,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
     @Test
     void rightExceptionIsThrownIfSameColumnNameBelongsToIndexesForDifferentTables() {
-        Catalog catalog = catalog(
+        Catalog catalog = catalogWithDefaultZone(
                 createTableCommand(TABLE_NAME),
                 createIndexCommand(TABLE_NAME, "TEST_IDX"),
                 createTableCommand(TABLE_NAME + "_1"),
@@ -228,7 +248,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         );
 
         Set<String> indexes = catalog.indexes().stream()
-                .filter(index -> ((CatalogHashIndexDescriptor) index).columns().contains("VAL"))
+                .filter(index -> ((CatalogHashIndexDescriptor) index).columnIds().contains(1))
                 .map(CatalogObjectDescriptor::name)
                 .collect(Collectors.toSet());
 

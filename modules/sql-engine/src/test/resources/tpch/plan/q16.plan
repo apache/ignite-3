@@ -1,0 +1,91 @@
+Sort
+    collation: [SUPPLIER_CNT DESC, P_BRAND ASC, P_TYPE ASC, P_SIZE ASC]
+    est: (rows=925370)
+  ColocatedSortAggregate
+      fieldNames: [P_BRAND, P_TYPE, P_SIZE, SUPPLIER_CNT]
+      collation: [P_BRAND ASC, P_TYPE ASC, P_SIZE ASC]
+      group: [P_BRAND, P_TYPE, P_SIZE]
+      aggregation: [COUNT(DISTINCT PS_SUPPKEY)]
+      est: (rows=925370)
+    Project
+        fieldNames: [P_BRAND, P_TYPE, P_SIZE, PS_SUPPKEY]
+        projection: [P_BRAND, P_TYPE, P_SIZE, PS_SUPPKEY]
+        est: (rows=1896250)
+      Filter
+          predicate: OR(=(c, 0), AND(IS NULL(i), >=(ck, c)))
+          est: (rows=1896250)
+        HashJoin
+            predicate: =(PS_SUPPKEY, S_SUPPKEY)
+            type: left
+            est: (rows=7585000)
+          NestedLoopJoin
+              predicate: true
+              type: inner
+              est: (rows=100000)
+            Project
+                fieldNames: [PS_PARTKEY, PS_SUPPKEY, P_PARTKEY, P_BRAND, P_TYPE, P_SIZE]
+                projection: [PS_PARTKEY, PS_SUPPKEY, P_PARTKEY, P_BRAND, P_TYPE, P_SIZE]
+                est: (rows=100000)
+              HashJoin
+                  predicate: =(P_PARTKEY, PS_PARTKEY)
+                  type: inner
+                  est: (rows=100000)
+                Exchange
+                    distribution: single
+                    est: (rows=25000)
+                  Sort
+                      collation: [P_BRAND ASC, P_TYPE ASC, P_SIZE ASC]
+                      est: (rows=25000)
+                    TableScan
+                        table: PUBLIC.PART
+                        predicate: AND(<>(P_BRAND, _UTF-8'Brand#45'), SEARCH(P_SIZE, Sarg[3, 9, 14, 19, 23, 36, 45, 49]), NOT(LIKE(P_TYPE, _UTF-8'MEDIUM POLISHED%')))
+                        fieldNames: [P_PARTKEY, P_BRAND, P_TYPE, P_SIZE]
+                        est: (rows=25000)
+                Exchange
+                    distribution: single
+                    est: (rows=800000)
+                  TableScan
+                      table: PUBLIC.PARTSUPP
+                      fieldNames: [PS_PARTKEY, PS_SUPPKEY]
+                      est: (rows=800000)
+            Project
+                fieldNames: [c, ck]
+                projection: [c, c]
+                est: (rows=1)
+              Project
+                  fieldNames: [c]
+                  projection: [CAST(f0_0):BIGINT NOT NULL]
+                  est: (rows=1)
+                ReduceSortAggregate
+                    fieldNames: [f0_0]
+                    collation: []
+                    group: []
+                    aggregation: [$SUM0(_ACC0)]
+                    est: (rows=1)
+                  Exchange
+                      distribution: single
+                      est: (rows=1)
+                    MapSortAggregate
+                        fieldNames: [_ACC0]
+                        collation: []
+                        group: []
+                        aggregation: [COUNT()]
+                        est: (rows=1)
+                      TableScan
+                          table: PUBLIC.SUPPLIER
+                          predicate: LIKE(S_COMMENT, _UTF-8'%Customer%Complaints%')
+                          fieldNames: [S_COMMENT]
+                          est: (rows=2500)
+          Exchange
+              distribution: single
+              est: (rows=500)
+            ColocatedHashAggregate
+                fieldNames: [S_SUPPKEY, i]
+                group: [S_SUPPKEY]
+                aggregation: [LITERAL_AGG(true)]
+                est: (rows=500)
+              TableScan
+                  table: PUBLIC.SUPPLIER
+                  predicate: LIKE(S_COMMENT, _UTF-8'%Customer%Complaints%')
+                  fieldNames: [S_SUPPKEY]
+                  est: (rows=2500)

@@ -60,8 +60,8 @@ public class ItNotInitializedClusterTest extends CliCommandTestNotInitializedInt
                 arguments("cluster metric source enable metricName", "Cannot enable metrics"),
                 arguments("cluster metric source disable metricName", "Cannot disable metrics"),
                 arguments("cluster metric source list", "Cannot list metric sources"),
-                arguments("recovery partitions restart --table tableName --zone zoneName", "Cannot restart partitions"),
-                arguments("recovery partitions reset --table tableName --zone zoneName", "Cannot reset partitions"),
+                arguments("recovery partitions restart --zone zoneName", "Cannot restart partitions"),
+                arguments("recovery partitions reset --zone zoneName", "Cannot reset partitions"),
                 arguments("recovery partitions states --global", "Cannot list partition states")
         );
     }

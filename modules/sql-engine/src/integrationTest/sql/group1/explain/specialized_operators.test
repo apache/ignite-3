@@ -1,0 +1,165 @@
+# description: Tests for printout of various specialized operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+statement ok
+CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
+
+## Tests on KeyValueGet node
+
+# select all, no renames
+explain plan
+SELECT * FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [C1, C2, C3]
+    key: [1]
+    est: (rows=1)
+
+# select with trimming projection, no renames
+explain plan
+SELECT c1, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [C1, C2]
+    key: [1]
+    est: (rows=1)
+
+# select with trimming projection and renames
+explain plan
+SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [C1, C2]
+    key: [1]
+    est: (rows=1)
+
+# select with expression projection, no renames
+explain plan
+SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [EXPR$0, C2]
+    projection: [+(C1, C3), C2]
+    key: [1]
+    est: (rows=1)
+
+# select with expression projection and renames
+explain plan
+SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [SUM_OF_C1_AND_C3, C2]
+    projection: [+(C1, C3), C2]
+    key: [1]
+    est: (rows=1)
+
+# kvGet with an extra condition and functional source expression
+explain plan
+SELECT * FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE)::INTEGER AND c3 > 10;
+----
+KeyValueGet
+    table: PUBLIC.TEST_TABLE
+    predicate: >(C3, 10)
+    fieldNames: [C1, C2, C3]
+    key: [CAST(EXTRACT(FLAG(DAY), CURRENT_DATE)):INTEGER NOT NULL]
+    est: (rows=1)
+
+
+## Tests on KeyValueModify#INSERT node
+
+# insert single tuple with literals
+explain plan
+INSERT INTO test_table VALUES (1, 2, 3)
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    sourceExpression: [1, 2, 3]
+    type: INSERT
+    est: (rows=1)
+
+# insert single tuple with literals different order
+explain plan
+INSERT INTO test_table (c2, c3, c1) VALUES (1, 2, 3)
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    sourceExpression: [3, 1, 2]
+    type: INSERT
+    est: (rows=1)
+
+# insert single tuple mixed
+explain plan
+INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3)
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    sourceExpression: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
+    type: INSERT
+    est: (rows=1)
+
+## Tests on KeyValueModify#DELETE node
+
+# delete single tuple with literals
+explain plan
+DELETE FROM test_table WHERE c1 = 1
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    type: DELETE
+    key: [1]
+    est: (rows=1)
+
+# delete single tuple by functional key expression
+explain plan
+DELETE FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE)::INTEGER;
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    type: DELETE
+    key: [CAST(EXTRACT(FLAG(DAY), CURRENT_DATE)):INTEGER NOT NULL]
+    est: (rows=1)
+
+## Tests on SelectCount node
+
+# count all
+explain plan
+SELECT COUNT(*) FROM test_table;
+----
+SelectCount
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [$f0]
+    projection: [$COUNT_ALL]
+    est: (rows=1)
+
+# count with literal
+explain plan
+SELECT COUNT(1) FROM test_table;
+----
+SelectCount
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [$f0]
+    projection: [$COUNT_ALL]
+    est: (rows=1)
+
+# complex case including literals in project list
+explain plan
+SELECT 1, 2, COUNT(*), COUNT(1) FROM test_table;
+----
+SelectCount
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [$f0, $f1, $f2, $f3]
+    projection: [1, 2, $COUNT_ALL, $COUNT_ALL]
+    est: (rows=1)

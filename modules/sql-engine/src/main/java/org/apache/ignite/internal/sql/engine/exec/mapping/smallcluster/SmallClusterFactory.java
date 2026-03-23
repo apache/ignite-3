@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 
+import static org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory.ensureNonEmptyTarget;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -57,6 +58,8 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public ExecutionTarget allOf(List<String> nodes) {
+        ensureNonEmptyTarget(nodes);
+
         long nodesMap = 0;
 
         for (String name : nodes) {
@@ -74,16 +77,22 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public ExecutionTarget oneOf(List<String> nodes) {
+        ensureNonEmptyTarget(nodes);
+
         return new OneOfTarget(nodeListToMap(nodes));
     }
 
     @Override
     public ExecutionTarget someOf(List<String> nodes) {
+        ensureNonEmptyTarget(nodes);
+
         return new SomeOfTarget(nodeListToMap(nodes));
     }
 
     @Override
     public ExecutionTarget partitioned(List<TokenizedAssignments> assignments) {
+        ensureNonEmptyTarget(assignments);
+
         long[] partitionNodes = new long[assignments.size()];
         long[] enlistmentConsistencyTokens = new long[assignments.size()];
 
@@ -104,7 +113,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
                         .map(Assignment::consistentId)
                         .collect(Collectors.toList());
 
-                throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
+                throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes);
             }
 
             finalised = finalised && isPow2(currentPartitionNodes);
@@ -137,7 +146,9 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     private long nodeListToMap(List<String> nodes) {
-        assert !nodes.isEmpty() : "Empty target is not allowed";
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Empty target is not allowed");
+        }
 
         long nodesMap = 0;
 
@@ -150,7 +161,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         }
 
         if (nodesMap == 0) {
-            throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
+            throw new MappingException("Mandatory nodes were excluded from mapping: " + nodes);
         }
 
         return nodesMap;

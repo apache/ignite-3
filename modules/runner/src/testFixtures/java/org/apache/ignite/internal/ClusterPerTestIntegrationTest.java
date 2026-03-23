@@ -17,27 +17,37 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllResultSet;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,61 +65,6 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
-
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncIntervalMillis: 1000,\n"
-            + "      failurePingIntervalMillis: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipIntervalMillis: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
-    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      failurePingIntervalMillis: 1000000000\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
 
     protected Cluster cluster;
 
@@ -132,8 +87,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
         cluster = new Cluster(clusterConfiguration.build());
 
-        if (initialNodes() > 0) {
-            cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+        if (!shouldStartAndInitializeCluster()) {
+            return;
+        }
+
+        cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+
+        if (shouldCreateDefaultZone()) {
+            createDefaultZone();
         }
     }
 
@@ -142,7 +103,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     public void stopCluster() {
         cluster.shutdown();
 
-        MicronautCleanup.removeShutdownHooks();
+        TestMvTableStorage.resetPartitionStorageFactory();
     }
 
     /**
@@ -166,6 +127,21 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected void customizeInitParameters(InitParametersBuilder builder) {
         // No-op.
+    }
+
+    private boolean shouldStartAndInitializeCluster() {
+        return initialNodes() > 0;
+    }
+
+    protected boolean shouldCreateDefaultZone() {
+        return true;
+    }
+
+    private void createDefaultZone() {
+        assertThat(cluster, is(notNullValue()));
+        assertThat(cluster.nodes(), is(not(empty())));
+
+        DistributionZonesTestUtil.createDefaultZone(igniteImpl(0).catalogManager());
     }
 
     /**
@@ -238,6 +214,13 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     /**
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
+     */
+    protected final Iterable<IgniteImpl> runningNodesIter() {
+        return cluster.runningNodes().map(node -> unwrapIgniteImpl(node))::iterator;
+    }
+
+    /**
      * Restarts a node by index.
      *
      * @param nodeIndex Node index.
@@ -274,17 +257,61 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected final List<List<Object>> executeSql(int nodeIndex, String sql, Object... args) {
-        Ignite ignite = node(nodeIndex);
-
-        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, sql, args);
+        return executeSql(nodeIndex, null, sql, args);
     }
 
-    protected ClusterNode clusterNode(int index) {
+    protected final List<List<Object>> executeSql(int nodeIndex, @Nullable Transaction tx, String sql, Object... args) {
+        Ignite ignite = node(nodeIndex);
+
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, sql, args);
+    }
+
+    protected InternalClusterNode clusterNode(int index) {
         return clusterNode(node(index));
     }
 
-    protected static ClusterNode clusterNode(Ignite node) {
+    protected static InternalClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+    protected ClusterNode publicClusterNode(int index) {
+        return publicClusterNode(node(index));
+    }
+
+    protected static ClusterNode publicClusterNode(Ignite node) {
+        return unwrapIgniteImpl(node).node().toPublicNode();
+    }
+
+    protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(predicate)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("node not found"));
+    }
+
+    protected final IgniteImpl anyNode() {
+        return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
+    }
+
+    protected final List<List<Object>> sql(String sql) {
+        return sql(null, sql);
+    }
+
+    protected final List<List<Object>> sql(Transaction tx, String sql) {
+        try (ResultSet<SqlRow> rs = anyNode().sql().execute(tx, sql)) {
+            return getAllResultSet(rs);
+        }
+    }
+
+    /** Cluster configuration that aggressively increases low watermark to speed up data cleanup in tests. */
+    public static String aggressiveLowWatermarkIncreaseClusterConfig() {
+        return "{\n"
+                + "  ignite.gc.lowWatermark {\n"
+                + "    dataAvailabilityTimeMillis: 1000,\n"
+                + "    updateIntervalMillis: 100\n"
+                + "  },\n"
+                + "}";
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

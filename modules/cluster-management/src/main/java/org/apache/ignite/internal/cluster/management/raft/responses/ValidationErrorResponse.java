@@ -24,14 +24,17 @@ import java.io.Serializable;
  */
 public class ValidationErrorResponse implements Serializable {
     private final String reason;
+    private final boolean invalidNodeConfig;
 
     /**
      * Creates a new response.
      *
      * @param reason Textual representation of the reason of join rejection.
+     * @param invalidNodeConfig Flag denoting whether erroneous result is caused by invalid node configuration.
      */
-    public ValidationErrorResponse(String reason) {
+    public ValidationErrorResponse(String reason, boolean invalidNodeConfig) {
         this.reason = reason;
+        this.invalidNodeConfig = invalidNodeConfig;
     }
 
     /**
@@ -41,5 +44,14 @@ public class ValidationErrorResponse implements Serializable {
      */
     public String reason() {
         return reason;
+    }
+
+    /**
+     * Flag marking this error as being caused by invalid node configuration.
+     *
+     * @return flag denoting whether erroneous result is caused by invalid node configuration.
+     */
+    public boolean isInvalidNodeConfig() {
+        return invalidNodeConfig;
     }
 }

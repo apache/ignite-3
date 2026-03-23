@@ -1,0 +1,70 @@
+Limit
+    fetch: 100
+    est: (rows=100)
+  ColocatedSortAggregate
+      fieldNames: [I_ITEM_ID, AGG1, AGG2, AGG3, AGG4]
+      collation: [I_ITEM_ID ASC]
+      group: [I_ITEM_ID]
+      aggregation: [AVG(SS_QUANTITY), AVG(SS_LIST_PRICE), AVG(SS_COUPON_AMT), AVG(SS_SALES_PRICE)]
+      est: (rows=2359)
+    Project
+        fieldNames: [I_ITEM_ID, SS_QUANTITY, SS_LIST_PRICE, SS_COUPON_AMT, SS_SALES_PRICE]
+        projection: [I_ITEM_ID, SS_QUANTITY, SS_LIST_PRICE, SS_COUPON_AMT, SS_SALES_PRICE]
+        est: (rows=11794)
+      HashJoin
+          predicate: =(SS_ITEM_SK, I_ITEM_SK)
+          type: inner
+          est: (rows=11794)
+        Exchange
+            distribution: single
+            est: (rows=18000)
+          Sort
+              collation: [I_ITEM_ID ASC]
+              est: (rows=18000)
+            TableScan
+                table: PUBLIC.ITEM
+                fieldNames: [I_ITEM_SK, I_ITEM_ID]
+                est: (rows=18000)
+        HashJoin
+            predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+            type: inner
+            est: (rows=11794)
+          HashJoin
+              predicate: =(SS_PROMO_SK, P_PROMO_SK)
+              type: inner
+              est: (rows=35419)
+            HashJoin
+                predicate: =(SS_CDEMO_SK, CD_DEMO_SK)
+                type: inner
+                est: (rows=106362)
+              Exchange
+                  distribution: single
+                  est: (rows=2880404)
+                TableScan
+                    table: PUBLIC.STORE_SALES
+                    fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CDEMO_SK, SS_PROMO_SK, SS_QUANTITY, SS_LIST_PRICE, SS_SALES_PRICE, SS_COUPON_AMT]
+                    est: (rows=2880404)
+              Exchange
+                  distribution: single
+                  est: (rows=70928)
+                TableScan
+                    table: PUBLIC.CUSTOMER_DEMOGRAPHICS
+                    predicate: AND(=(CD_GENDER, _UTF-8'F'), =(CD_MARITAL_STATUS, _UTF-8'W'), =(CD_EDUCATION_STATUS, _UTF-8'College'))
+                    fieldNames: [CD_DEMO_SK, CD_GENDER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS]
+                    est: (rows=70928)
+            Exchange
+                distribution: single
+                est: (rows=100)
+              TableScan
+                  table: PUBLIC.PROMOTION
+                  predicate: OR(=(P_CHANNEL_EMAIL, _UTF-8'N'), =(P_CHANNEL_EVENT, _UTF-8'N'))
+                  fieldNames: [P_PROMO_SK, P_CHANNEL_EMAIL, P_CHANNEL_EVENT]
+                  est: (rows=100)
+          Exchange
+              distribution: single
+              est: (rows=24325)
+            TableScan
+                table: PUBLIC.DATE_DIM
+                predicate: =(D_YEAR, 2001)
+                fieldNames: [D_DATE_SK, D_YEAR]
+                est: (rows=24325)

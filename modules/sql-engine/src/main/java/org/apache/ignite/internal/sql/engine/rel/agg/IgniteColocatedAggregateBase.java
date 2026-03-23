@@ -24,6 +24,7 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
@@ -92,12 +93,14 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
             ));
         }
 
+        RelDataType inputType = getInput().getRowType();
+
         // Otherwise if stream is distributed by hash function, and grouping columns is a super-set of
         // distribution keys, we can use colocated aggregate as well
         if (inDistribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED) {
             if (groupSet.contains(ImmutableBitSet.of(inDistribution.getKeys()))) {
                 // Group set contains all distribution keys, shift distribution keys according to used columns.
-                IgniteDistribution outDistribution = inDistribution.apply(Commons.trimmingMapping(rowType.getFieldCount(), groupSet));
+                IgniteDistribution outDistribution = inDistribution.apply(Commons.trimmingMapping(inputType.getFieldCount(), groupSet));
 
                 return List.of(Pair.of(nodeTraits.replace(outDistribution), inputTraits));
             }
@@ -108,7 +111,7 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
         // at least one option, otherwise propagation result for other traits will be
         // dropped for current input.
         IgniteDistribution newInDistribution = IgniteDistributions.hash(groupSet.asList());
-        IgniteDistribution newOutDistribution = newInDistribution.apply(Commons.trimmingMapping(rowType.getFieldCount(), groupSet));
+        IgniteDistribution newOutDistribution = newInDistribution.apply(Commons.trimmingMapping(inputType.getFieldCount(), groupSet));
 
         return List.of(
                 Pair.of(

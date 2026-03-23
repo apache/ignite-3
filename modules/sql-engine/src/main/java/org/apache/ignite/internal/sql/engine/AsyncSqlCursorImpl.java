@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,7 +33,32 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
     private final AsyncDataCursor<T> dataCursor;
+    private final @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata;
     private final @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement;
+
+    /**
+     * Constructor.
+     *
+     * @param queryType Type of the query.
+     * @param meta The meta of the result set.
+     * @param partitionAwarenessMetadata Partition awareness meta.
+     * @param dataCursor The result set.
+     * @param nextStatement Next statement future, non-null in the case of a
+     *         multi-statement query and if current statement is not the last.
+     */
+    public AsyncSqlCursorImpl(
+            SqlQueryType queryType,
+            ResultSetMetadata meta,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata,
+            AsyncDataCursor<T> dataCursor,
+            @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement
+    ) {
+        this.queryType = queryType;
+        this.meta = meta;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
+        this.dataCursor = dataCursor;
+        this.nextStatement = nextStatement;
+    }
 
     /**
      * Constructor.
@@ -49,10 +75,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             AsyncDataCursor<T> dataCursor,
             @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement
     ) {
-        this.queryType = queryType;
-        this.meta = meta;
-        this.dataCursor = dataCursor;
-        this.nextStatement = nextStatement;
+        this(queryType, meta, null, dataCursor, nextStatement);
     }
 
     /** {@inheritDoc} */
@@ -65,6 +88,12 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return meta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
     }
 
     /** {@inheritDoc} */

@@ -100,6 +100,8 @@ import org.jetbrains.annotations.Nullable;
  * Query planer.
  */
 public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
+    private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
+
     private final SqlOperatorTable operatorTbl;
 
     private final List<Program> programs;
@@ -468,7 +470,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     private List<RelOptLattice> latices() {
-        return List.of(); // TODO
+        return List.of(); // TODO: https://issues.apache.org/jira/browse/IGNITE-28152
     }
 
     /**
@@ -477,7 +479,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * @return Materializations.
      */
     private List<RelOptMaterialization> materializations() {
-        return List.of(); // TODO
+        return List.of(); // TODO: https://issues.apache.org/jira/browse/IGNITE-28152
     }
 
     /**
@@ -623,13 +625,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return relShuttle.visit(rel);
     }
 
-    private IgniteSqlToRelConvertor sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
+    private IgniteSqlToRelConverter sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
             SqlToRelConverter.Config config) {
-        return new IgniteSqlToRelConvertor(this, validator, reader, cluster(), convertletTbl, config);
+        return new IgniteSqlToRelConverter(this, validator, reader, cluster(), convertletTbl, config);
     }
 
     /** Returns converter from ast to rel node tree. */
-    public IgniteSqlToRelConvertor sqlToRelConverter() {
+    public IgniteSqlToRelConverter sqlToRelConverter() {
         return sqlToRelConverter(validator(), catalogReader, sqlToRelConverterCfg);
     }
 
@@ -657,8 +659,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {
-        private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
-
         private final long startTs;
 
         protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx, long startTs) {

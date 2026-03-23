@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
@@ -41,7 +46,9 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -51,9 +58,12 @@ import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
@@ -81,10 +91,17 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private volatile @Nullable LeaseInfo leaseInfo;
 
+    private long wiHeadLink = NULL_LINK;
+
+    private final ReentrantLock wiHeadLock = new ReentrantLock();
+
     /**
      * Lock for updating lease info in the storage.
      */
     private final Object leaseInfoLock = new Object();
+
+    /** RunConsistently metrics. */
+    private final RunConsistentlyMetrics runConsistentlyMetrics;
 
     /**
      * Constructor.
@@ -97,6 +114,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @param failureProcessor Failure processor.
+     * @param runConsistentlyMetrics Metric source for runConsistently operations.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -107,7 +125,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            RunConsistentlyMetrics runConsistentlyMetrics
     ) {
         super(
                 partitionId,
@@ -129,7 +148,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
 
-        this.meta = meta;
+        setNewMeta(meta);
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
@@ -153,6 +172,18 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+
+        this.runConsistentlyMetrics = runConsistentlyMetrics;
+    }
+
+    /**
+     * Updates the {@link #meta} field and all other values associated with it.
+     *
+     * @param meta New instance for partition's meta.
+     */
+    private void setNewMeta(StoragePartitionMeta meta) {
+        this.meta = meta;
+        this.wiHeadLink = meta.wiHeadLink();
     }
 
     @Override
@@ -170,23 +201,41 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-                LocalLocker locker0 = new LocalLocker(lockByRowId);
+                boolean metricsEnabled = runConsistentlyMetrics.enabled();
+                long startTime = metricsEnabled ? System.nanoTime() : 0;
 
-                checkpointTimeoutLock.checkpointReadLock();
-
-                THREAD_LOCAL_LOCKER.set(locker0);
+                if (metricsEnabled) {
+                    runConsistentlyMetrics.onRunConsistentlyStarted();
+                }
 
                 try {
-                    return closure.execute(locker0);
+                    return executeRunConsistently(closure);
                 } finally {
-                    THREAD_LOCAL_LOCKER.set(null);
-
-                    // Can't throw any exception, it's safe to do it without try/finally.
-                    locker0.unlockAll();
-
-                    checkpointTimeoutLock.checkpointReadUnlock();
+                    if (metricsEnabled) {
+                        runConsistentlyMetrics.recordRunConsistentlyDuration(System.nanoTime() - startTime);
+                        runConsistentlyMetrics.onRunConsistentlyFinished();
+                    }
                 }
             });
+        }
+    }
+
+    private <V> V executeRunConsistently(WriteClosure<V> closure) {
+        LocalLocker locker0 = new PersistentPageMemoryLocker();
+
+        checkpointTimeoutLock.checkpointReadLock();
+
+        THREAD_LOCAL_LOCKER.set(locker0);
+
+        try {
+            return closure.execute(locker0);
+        } finally {
+            THREAD_LOCAL_LOCKER.set(null);
+
+            // Can't throw any exception, it's safe to do it without try/finally.
+            locker0.unlockAll();
+
+            checkpointTimeoutLock.checkpointReadUnlock();
         }
     }
 
@@ -259,7 +308,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     @FunctionalInterface
     private interface MetaUpdateClosure {
-        void update(UUID lastCheckpointId, StoragePartitionMeta meta);
+        void update(@Nullable UUID lastCheckpointId, StoragePartitionMeta meta);
     }
 
     /**
@@ -274,7 +323,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         closure.update(lastCheckpointId, meta);
 
-        checkpointManager.markPartitionAsDirty(tableStorage.dataRegion(), tableStorage.getTableId(), partitionId);
+        checkpointManager.markPartitionAsDirty(
+                tableStorage.dataRegion(),
+                tableStorage.getTableId(),
+                partitionId,
+                meta.partitionGeneration()
+        );
     }
 
     @Override
@@ -359,6 +413,60 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 this.leaseInfo = leaseInfo;
             }
         });
+    }
+
+    /**
+     * Retrieves the link to the head of the write intent list for the partition and locks the head.
+     *
+     * <p>If the list is empty, it returns a @{NULL_LINK}.
+     */
+    long lockWriteIntentListHead() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            wiHeadLock.lock();
+
+            return wiHeadLink;
+        });
+    }
+
+    /**
+     * Update a head link in partition metadata and unlocks the head.
+     *
+     * @param wiHeadLink Link to the first write intents list element, or {@code NULL_LINK} if the list is empty.
+     */
+    void updateWriteIntentListHeadAndUnlock(long wiHeadLink) {
+        try {
+            if (wiHeadLink == this.wiHeadLink) {
+                return;
+            }
+
+            busy(() -> {
+                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+                this.wiHeadLink = wiHeadLink;
+
+                updateWiHeadBusy(wiHeadLink);
+            });
+        } finally {
+            wiHeadLock.unlock();
+        }
+    }
+
+    private void updateWiHeadBusy(long link) {
+        updateMeta((lastCheckpointId, meta) -> {
+            meta.updateWiHead(lastCheckpointId, link);
+        });
+    }
+
+    boolean writeIntentHeadIsLockedByCurrentThread() {
+        return wiHeadLock.isHeldByCurrentThread();
+    }
+
+    /** Returns the runConsistently metrics for testing. */
+    @TestOnly
+    RunConsistentlyMetrics runConsistentlyMetrics() {
+        return runConsistentlyMetrics;
     }
 
     @Override
@@ -490,7 +598,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
-        this.meta = meta;
+        setNewMeta(meta);
 
         this.blobStorage = new BlobStorage(
                 freeList,
@@ -505,6 +613,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexMetaTree,
                 gcQueue
         );
+
+        checkpointManager.addCheckpointListener(checkpointListener, tableStorage.dataRegion());
     }
 
     @Override
@@ -512,6 +622,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
+                () -> checkpointManager.removeCheckpointListener(checkpointListener),
                 localState.freeList()::close,
                 localState.versionChainTree()::close,
                 localState.indexMetaTree()::close,
@@ -547,6 +658,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return meta.estimatedSize();
     }
 
+    /**
+     * Returns a total number of allocated pages for the storage, including pages that are not in the memory currently.
+     */
+    public int pageCount() {
+        return meta.pageCount();
+    }
+
     @Override
     public void incrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.incrementEstimatedSize(lastCheckpointId));
@@ -555,5 +673,120 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void decrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
+    }
+
+    public int emptyDataPageCountInFreeList() {
+        return renewableState.freeList().emptyDataPages();
+    }
+
+    /** Returns the amount of free space (in bytes) in the partially filled pages. */
+    public long freeSpaceInFreeList() {
+        return renewableState.freeList().freeSpace();
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return busy(() -> new WriteIntentsCursor(lockWriteIntentListHead()));
+    }
+
+    @Override
+    AddWriteLinkingWiInvokeClosure newAddWriteInvokeClosure(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitPartitionId
+    ) {
+        return new AddWriteLinkingWiInvokeClosure(rowId, row, txId, commitZoneId, commitPartitionId, this);
+    }
+
+    WriteIntentLinks readWriteIntentLinks(long rowVersionLink) {
+        var read = new ReadWriteIntentLinks(partitionId);
+
+        try {
+            rowVersionDataPageReader.traverse(rowVersionLink, read, null);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Write intent links lookup failed: [link={}, {}]", e, rowVersionLink, createStorageInfo());
+        }
+
+        return read.result();
+    }
+
+    /**
+     * This optimization reduces the IO operations performed when executing {@link #vacuum} inside {@link #runConsistently}, which is
+     * currently executed in a loop. This will allow the checkpoint to acquire a write lock more quickly.
+     */
+    @Override
+    protected void preloadingForGcIfNeededBusy(GcRowVersion gcRowVersion) {
+        RowId rowId = gcRowVersion.getRowId();
+        HybridTimestamp timestamp = gcRowVersion.getTimestamp();
+
+        var preloadingForGc = new PreloadingForGcInvokeClosure(rowId, timestamp, gcRowVersion.getLink(), this);
+
+        lockByRowId.lock(rowId);
+
+        try {
+            renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, preloadingForGc);
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException(
+                    "Error preloading row versions for garbage collection: [rowId={}, rowTimestamp={}, {}]",
+                    e,
+                    rowId, timestamp, createStorageInfo()
+            );
+        } finally {
+            lockByRowId.unlockAll(rowId);
+        }
+    }
+
+    private class PersistentPageMemoryLocker extends LocalLocker {
+        private PersistentPageMemoryLocker() {
+            super(lockByRowId);
+        }
+
+        @Override
+        public boolean shouldRelease() {
+            return checkpointTimeoutLock.shouldReleaseReadLock();
+        }
+    }
+
+    private class WriteIntentsCursor implements Cursor<RowId> {
+        private final long headLink;
+        private long nextLink;
+
+        private WriteIntentsCursor(long headLink) {
+            this.headLink = headLink;
+            nextLink = headLink;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return busy(() -> nextLink != NULL_LINK);
+        }
+
+        @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
+        @Override
+        public RowId next() {
+            return busy(() -> {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                RowVersion rowVersion = readRowVersion(nextLink, DONT_LOAD_VALUE);
+
+                assert rowVersion instanceof WiLinkableRowVersion;
+                WiLinkableRowVersion linkableRowVersion = (WiLinkableRowVersion) rowVersion;
+
+                nextLink = linkableRowVersion.nextWriteIntentLink();
+
+                return linkableRowVersion.requiredRowId();
+            });
+        }
+
+        @Override
+        public void close() {
+            updateWriteIntentListHeadAndUnlock(headLink);
+        }
     }
 }

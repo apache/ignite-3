@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
-import java.nio.ByteBuffer;
 import java.util.Collection;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /**
@@ -40,8 +38,7 @@ public class LeaseBatch {
         return VersionedSerialization.toBytes(this, LeaseBatchSerializer.INSTANCE);
     }
 
-    public static LeaseBatch fromBytes(ByteBuffer bytes) {
-        byte[] byteArray = ByteUtils.toByteArray(bytes);
-        return VersionedSerialization.fromBytes(byteArray, LeaseBatchSerializer.INSTANCE);
+    public static LeaseBatch fromBytes(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, LeaseBatchSerializer.INSTANCE);
     }
 }

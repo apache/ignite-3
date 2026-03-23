@@ -228,7 +228,6 @@ public class ClientMessagePackerUnpackerTest {
         }
     }
 
-
     @Test
     public void testQualifiedName() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {

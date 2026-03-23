@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +42,7 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
     private static final String TEST_SINK = "testSink";
 
-    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class)
+    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class, type = DISTRIBUTED)
     private EventLogConfiguration cfg;
 
     private InMemoryCollectionSink inMemoryCollectionSink;
@@ -54,6 +56,12 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
                 UUID::randomUUID, "default");
 
         registry = new ConfigurationBasedSinkRegistry(cfg, new TestSinkFactory(defaultFactory, inMemoryCollectionSink));
+        registry.start();
+    }
+
+    @AfterEach
+    void tearDown() {
+        registry.stop();
     }
 
     @Test

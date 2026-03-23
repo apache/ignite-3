@@ -23,11 +23,11 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.migrationtools.config.registry.ConfigurationRegistryInterface;
-import org.apache.ignite3.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite3.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.apache.ignite3.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite3.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite3.internal.storage.configurations.StorageProfileChange;
+import org.apache.ignite3.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite3.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +58,7 @@ public class DataRegionConfigurationConverter implements ConfigurationConverter 
                 .changeReplacementMode(regionCfg.getPageReplacementMode().name());
 
         storageConfig.profiles().change(c -> c.createOrUpdate(regionName, changer)).get();
-        // TODO: Configure the allocator
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28165 Configure the allocator.
     }
 
     private static void convertMemoryRegion(ConfigurationRegistryInterface registry,
@@ -66,17 +66,17 @@ public class DataRegionConfigurationConverter implements ConfigurationConverter 
             String regionName) throws ExecutionException, InterruptedException {
         StorageConfiguration storageConfig = registry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
-        // TODO: Check where the eviction configuration went!!
-        // TODO: Check where the changeEmptyPagesPoolSize configuration went!!
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28166 Check where the eviction configuration went!
+        //  Check where the changeEmptyPagesPoolSize configuration went!!
         Consumer<StorageProfileChange> changer = t -> t.convert(VolatilePageMemoryProfileChange.class)
                 .changeInitSizeBytes(regionCfg.getInitialSize())
                 .changeMaxSizeBytes(regionCfg.getMaxSize());
 
         storageConfig.profiles().change(c -> c.createOrUpdate(regionName, changer)).get();
-        // TODO: Configure the allocator
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28165 Configure the allocator.
     }
 
-    // TODO: Clean-up the code.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28167 Clean-up the code.
     @Override
     public void convert(IgniteConfiguration src,
             ConfigurationRegistryInterface registry) throws ExecutionException, InterruptedException {
@@ -86,7 +86,7 @@ public class DataRegionConfigurationConverter implements ConfigurationConverter 
             return;
         }
 
-        // TODO: I'm not sure how to change the pageSize afterwards.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28168 I'm not sure how to change the pageSize afterwards.
         if (dataStorageCfg.getPageSize() != 0) {
             LOGGER.warn("Unable to force pageSize to :{}. Unsupported in Ignite 3", dataStorageCfg.getPageSize());
         }

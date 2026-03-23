@@ -169,7 +169,7 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
         try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
             int[] pageIndexes = arr(0, 1, 2);
 
-            Supplier<int[]> pageIndexesSupplier = spy(new Supplier<int[]>() {
+            Supplier<int[]> pageIndexesSupplier = spy(new Supplier<>() {
                 /** {@inheritDoc} */
                 @Override
                 public int[] get() {
@@ -177,7 +177,7 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
                 }
             });
 
-            IntFunction<Path> deltaFilePathFunction = spy(new IntFunction<Path>() {
+            IntFunction<Path> deltaFilePathFunction = spy(new IntFunction<>() {
                 /** {@inheritDoc} */
                 @Override
                 public Path apply(int index) {
@@ -208,6 +208,16 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
 
             assertEquals(PAGE_SIZE, deltaIo.pageSize());
             assertEquals(0, deltaIo.fileIndex());
+        }
+    }
+
+    @Test
+    void testGetCompletedDeltaFiles() throws Exception {
+        DeltaFilePageStoreIo completedDeltaIo = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), completedDeltaIo))  {
+            filePageStore.getOrCreateNewDeltaFile(ignored -> workDir.resolve("testDelta"), () -> INT_EMPTY_ARRAY);
+            assertThat(filePageStore.getCompletedDeltaFiles(), contains(completedDeltaIo));
         }
     }
 
@@ -517,6 +527,29 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
                     () -> filePageStore.getOrCreateNewDeltaFile(newDeltaFileIndex -> newDeltaFilePath, () -> INT_EMPTY_ARRAY),
                     () -> filePageStore.removeDeltaFile(deltaFileToCompaction)
             );
+        }
+    }
+
+    @Test
+    void testFullSize() throws Exception {
+        DeltaFilePageStoreIo deltaFile0 = mock(DeltaFilePageStoreIo.class);
+        DeltaFilePageStoreIo deltaFile1 = mock(DeltaFilePageStoreIo.class);
+
+        when(deltaFile0.size()).thenReturn(100L);
+        when(deltaFile1.size()).thenReturn(200L);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), deltaFile0, deltaFile1)) {
+            assertEquals(300L, filePageStore.fullSize());
+
+            filePageStore.ensure();
+
+            assertEquals(300L + PAGE_SIZE, filePageStore.fullSize());
+
+            long pageId0 = createDataPageId(filePageStore::allocatePage);
+
+            filePageStore.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE));
+
+            assertEquals(300L + PAGE_SIZE * 2, filePageStore.fullSize());
         }
     }
 

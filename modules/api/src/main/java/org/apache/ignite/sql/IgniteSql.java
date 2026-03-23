@@ -60,6 +60,18 @@ public interface IgniteSql {
     /**
      * Executes a single SQL query.
      *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return SQL query result set.
+     * @throws SqlException If failed.
+     */
+    default ResultSet<SqlRow> execute(String query, @Nullable Object... arguments) {
+        return execute((Transaction) null, (CancellationToken) null, query, arguments);
+    }
+
+    /**
+     * Executes a single SQL query.
+     *
      * @param transaction Transaction to execute the query within or {@code null}.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param query SQL query template.
@@ -197,6 +209,18 @@ public interface IgniteSql {
             @Nullable Object... arguments
     ) {
         return executeAsync(transaction, (CancellationToken) null, query, arguments);
+    }
+
+    /**
+     * Executes SQL query in an asynchronous way.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    default CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(String query, @Nullable Object... arguments) {
+        return executeAsync((Transaction) null, (CancellationToken) null, query, arguments);
     }
 
     /**
@@ -342,6 +366,18 @@ public interface IgniteSql {
     /**
      * Executes a batched SQL query. Only DML queries are supported.
      *
+     * @param dmlQuery DML query template.
+     * @param batch Batch of query arguments.
+     * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
+     */
+    default long[] executeBatch(String dmlQuery, BatchedArguments batch) {
+        return executeBatch(null, null, dmlQuery, batch);
+    }
+
+    /**
+     * Executes a batched SQL query. Only DML queries are supported.
+     *
      * @param transaction Transaction to execute the query within or {@code null}.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param dmlQuery DML query template.
@@ -397,6 +433,18 @@ public interface IgniteSql {
      */
     default CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         return executeBatchAsync(transaction, null, query, batch);
+    }
+
+    /**
+     * Executes a batched SQL query asynchronously.
+     *
+     * @param query SQL query template.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation Future completed with the number of rows affected by each query in the batch
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     */
+    default CompletableFuture<long[]> executeBatchAsync(String query, BatchedArguments batch) {
+        return executeBatchAsync(null, null, query, batch);
     }
 
     /**

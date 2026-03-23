@@ -30,7 +30,7 @@
 namespace ignite {
 
 /**
- * Big integer number implementation.
+ * @brief Big integer number implementation.
  *
  * TODO: Modernize this code to C++17 and update coding style
  */

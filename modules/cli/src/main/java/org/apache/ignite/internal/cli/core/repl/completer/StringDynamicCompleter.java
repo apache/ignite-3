@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 
 /**
  * Completes typed words with provided list of strings.

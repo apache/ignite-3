@@ -18,12 +18,14 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Reflection.Emit;
 
 /// <summary>
 /// Extensions for <see cref="ILGenerator"/>.
 /// </summary>
+[RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
 internal static class ILGeneratorExtensions
 {
     /// <summary>
@@ -149,7 +151,7 @@ internal static class ILGeneratorExtensions
         if (fromUnderlying == null && toUnderlying != null)
         {
             EmitConvertTo(il, from, to, columnName);
-            il.Emit(OpCodes.Newobj, to.GetConstructor(new[] { toUnderlying })!);
+            il.Emit(OpCodes.Newobj, to.GetConstructor([toUnderlying])!);
 
             return;
         }
@@ -165,11 +167,22 @@ internal static class ILGeneratorExtensions
             }
 
             var methodName = "To" + to.Name;
-            var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
+            var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, [from]);
 
             if (method == null)
             {
                 throw NotSupportedConversion(from, to, columnName);
+            }
+
+            if (from.IsValueType && method.GetParameters()[0].ParameterType == typeof(object))
+            {
+                if (!from.IsAssignableTo(typeof(IConvertible)))
+                {
+                    throw NotSupportedConversion(from, to, columnName);
+                }
+
+                // Convert.ToX(object).
+                il.Emit(OpCodes.Box, from);
             }
 
             il.Emit(OpCodes.Call, method);

@@ -19,6 +19,7 @@ package org.apache.ignite.migrationtools.cli.sql.commands;
 
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
+import org.apache.ignite.migrationtools.cli.exceptions.ErrorLoadingInputConfigurationHandlers;
 import org.apache.ignite.migrationtools.cli.mixins.ClassloaderOption;
 import org.apache.ignite.migrationtools.cli.sql.calls.SqlDdlGeneratorCall;
 import org.apache.ignite3.internal.cli.commands.BaseCommand;
@@ -56,7 +57,8 @@ public class SqlDdlGeneratorCmd extends BaseCommand implements Callable<Integer>
     public Integer call() {
         var call = new SqlDdlGeneratorCall();
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new SqlDdlGeneratorCall.Input(
+                .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
+                .input(new SqlDdlGeneratorCall.Input(
                         inputFile,
                         targetFile,
                         stopOnError,

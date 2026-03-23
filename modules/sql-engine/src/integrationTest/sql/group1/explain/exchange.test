@@ -1,0 +1,112 @@
+# description: Tests for printout of [Trim]Exchange operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+statement ok
+CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
+
+# exchange with `single` and `table` distribution
+explain plan
+INSERT INTO test_table SELECT x, x, x FROM system_range(1, 10);
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=100)
+      TableModify
+          table: PUBLIC.TEST_TABLE
+          fieldNames: [ROWCOUNT]
+          type: INSERT
+          est: (rows=100)
+        Exchange
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [C1]
+            est: (rows=100)
+          Project
+              fieldNames: [C1, C2, C3]
+              projection: [CAST(X):INTEGER NOT NULL, CAST(X):INTEGER NOT NULL, CAST(X):INTEGER NOT NULL]
+              est: (rows=100)
+            TableFunctionScan
+                fieldNames: [X]
+                invocation: SYSTEM_RANGE(1, 10)
+                est: (rows=100)
+
+# exchange with `identity` distribution
+explain plan
+SELECT 1
+  FROM system.sql_queries sq 
+  JOIN (SELECT rand_uuid()::varchar || x::varchar as node_name FROM (VALUES (1), (2)) ids(x)) as nodes
+    ON nodes.node_name = sq.initiator_node
+   AND QUERY_ID BETWEEN 1 AND 4;
+----
+Exchange
+    distribution: single
+    est: (rows=8)
+  Project
+      fieldNames: [EXPR$0]
+      projection: [1]
+      est: (rows=8)
+    HashJoin
+        predicate: =(NODE_NAME, INITIATOR_NODE)
+        type: inner
+        est: (rows=8)
+      SystemViewScan
+          table: SYSTEM.SQL_QUERIES
+          predicate: SEARCH(CAST(QUERY_ID):INTEGER, Sarg[[1..4]])
+          fieldNames: [INITIATOR_NODE, QUERY_ID]
+          est: (rows=25)
+      Exchange
+          distribution: identity by [NODE_NAME]
+          est: (rows=2)
+        Project
+            fieldNames: [NODE_NAME]
+            projection: [||(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL)]
+            est: (rows=2)
+          Values
+              fieldNames: [X]
+              tuples: [[1], [2]]
+              est: (rows=2)
+
+# trim exchange with table distribution (the only option)
+
+# first, let's create new table with complex colocation key.
+# Not really needed for this case, but it would be nice to check multi-column colocation key too.
+statement ok
+CREATE TABLE another_table (c1 INT, c2 INT, c3 INT, c4 INT, primary key (c1, c2, c3)) COLOCATE BY (c3, c1);
+
+explain plan
+INSERT INTO another_table VALUES (0, 0, 0, 0), (1, 1, 1, 1), (2, 2, 2, 2);
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=3)
+      TableModify
+          table: PUBLIC.ANOTHER_TABLE
+          fieldNames: [ROWCOUNT]
+          type: INSERT
+          est: (rows=3)
+        TrimExchange
+            distribution: table PUBLIC.ANOTHER_TABLE in zone "Default" by [C3, C1]
+            est: (rows=3)
+          Values
+              fieldNames: [C1, C2, C3, C4]
+              tuples: [[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2]]
+              est: (rows=3)

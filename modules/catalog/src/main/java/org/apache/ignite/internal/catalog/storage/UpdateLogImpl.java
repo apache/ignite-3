@@ -71,6 +71,8 @@ import org.jetbrains.annotations.TestOnly;
 public class UpdateLogImpl implements UpdateLog {
     private static final byte[] MAGIC_BYTES = "IGNITE".getBytes(StandardCharsets.UTF_8);
 
+    public static final ByteArray CATALOG_UPDATE_PREFIX = ByteArray.fromString("catalog.update.");
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -284,7 +286,7 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
-            UpdateLogEvent update = (UpdateLogEvent) marshaller.unmarshall(Objects.requireNonNull(entry.value()));
+            UpdateLogEvent update = marshaller.unmarshall(Objects.requireNonNull(entry.value()));
 
             handler.handle(update, entry.timestamp(), entry.revision());
         }
@@ -304,7 +306,7 @@ public class UpdateLogImpl implements UpdateLog {
         }
 
         static ByteArray updatePrefix() {
-            return ByteArray.fromString("catalog.update.");
+            return CATALOG_UPDATE_PREFIX;
         }
 
         static ByteArray snapshotVersion() {
@@ -341,7 +343,7 @@ public class UpdateLogImpl implements UpdateLog {
                 assert payload != null : eventEntry;
 
                 try {
-                    UpdateLogEvent update = (UpdateLogEvent) marshaller.unmarshall(payload);
+                    UpdateLogEvent update = marshaller.unmarshall(payload);
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
                 } catch (CatalogMarshallerException ex) {

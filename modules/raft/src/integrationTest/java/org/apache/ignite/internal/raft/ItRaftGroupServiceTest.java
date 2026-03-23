@@ -44,6 +44,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -58,12 +59,13 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -101,6 +103,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
@@ -178,22 +183,28 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(newFollowersConfig, newLearnersConfig);
 
-        // Start Raft groups on the new nodes with the new configuration.
-        Stream.concat(newFollowers.stream(), newLearners.stream()).forEach(node -> node.startRaftGroup(configuration));
-
-        // Change Raft configuration and wait until it's applied.
+        // Set up the stubbing before starting Raft groups to avoid race condition
+        // where background Raft threads call the mock while stubbing is in progress.
         var configurationComplete = new CountDownLatch(1);
 
+        // Change Raft configuration and wait until it's applied.
         doAnswer(invocation -> {
             configurationComplete.countDown();
 
             return null;
-        }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong(), anyLong());
+        }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong(), anyLong(), anyLong());
+
+        // Start Raft groups on the new nodes with the new configuration.
+        Stream.concat(newFollowers.stream(), newLearners.stream()).forEach(node -> node.startRaftGroup(configuration));
 
         RaftGroupService service0 = nodes.get(0).raftGroupService;
 
         CompletableFuture<Void> changePeersFuture = service0.refreshAndGetLeaderWithTerm()
-                .thenCompose(l -> service0.changePeersAndLearnersAsync(configuration, l.term()));
+                .thenCompose(l -> service0.changePeersAndLearnersAsync(
+                        configuration,
+                        l.term(),
+                        Configuration.NO_SEQUENCE_TOKEN
+                ));
 
         assertThat(changePeersFuture, willCompleteSuccessfully());
 
@@ -294,7 +305,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         private final Loza loza;
         private RaftGroupService raftGroupService;
         private RaftGroupService sysRaftGroupService;
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageManager partitionsLogStorageManager;
         private final ComponentWorkingDir partitionsWorkDir;
 
         TestNode(TestInfo testInfo) {
@@ -302,13 +313,14 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
             partitionsWorkDir = new ComponentWorkingDir(workDir.resolve("node" + nodes.size()));
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     partitionsWorkDir.raftLogPath()
             );
             this.loza = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     new HybridClockImpl()
             );
         }
@@ -318,7 +330,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, partitionsLogStorageManager, loza), willCompleteSuccessfully());
         }
 
         void startSystemRaftGroup(PeersAndLearners configuration) {
@@ -336,7 +348,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
                         sysEventsListener,
                         null,
                         RaftGroupOptionsConfigHelper.configureProperties(
-                                partitionsLogStorageFactory,
+                                partitionsLogStorageManager,
                                 partitionsWorkDir.metaPath()
                         )
                 );
@@ -355,7 +367,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             RaftGroupOptions ops = RaftGroupOptions.defaults();
 
             RaftGroupOptionsConfigHelper.configureProperties(
-                    partitionsLogStorageFactory,
+                    partitionsLogStorageManager,
                     partitionsWorkDir.metaPath()
             ).configure(ops);
 
@@ -390,7 +402,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(new ComponentContext(), loza, partitionsLogStorageFactory, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), loza, partitionsLogStorageManager, clusterService), willCompleteSuccessfully());
         }
     }
 }

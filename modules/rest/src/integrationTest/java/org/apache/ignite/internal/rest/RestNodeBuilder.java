@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.rest;
 
-import java.nio.file.Path;
+import org.apache.ignite.internal.Cluster;
 
 /** Builder of {@link RestNode}. */
 public class RestNodeBuilder {
@@ -25,17 +25,15 @@ public class RestNodeBuilder {
     private String keyStorePassword = "changeit";
     private String trustStorePath = "ssl/truststore.jks";
     private String trustStorePassword = "changeit";
-    private Path workDir;
-    private String name;
-    private int networkPort;
-    private int httpPort;
-    private int httpsPort;
     private boolean sslEnabled = false;
 
     private boolean sslClientAuthEnabled = false;
     private boolean dualProtocol = false;
 
     private String ciphers = "";
+
+    private Cluster cluster;
+    private int index;
 
     public RestNodeBuilder keyStorePath(String keyStorePath) {
         this.keyStorePath = keyStorePath;
@@ -54,31 +52,6 @@ public class RestNodeBuilder {
 
     public RestNodeBuilder trustStorePassword(String trustStorePassword) {
         this.trustStorePassword = trustStorePassword;
-        return this;
-    }
-
-    public RestNodeBuilder workDir(Path workDir) {
-        this.workDir = workDir;
-        return this;
-    }
-
-    public RestNodeBuilder name(String name) {
-        this.name = name;
-        return this;
-    }
-
-    public RestNodeBuilder networkPort(int networkPort) {
-        this.networkPort = networkPort;
-        return this;
-    }
-
-    public RestNodeBuilder httpPort(int httpPort) {
-        this.httpPort = httpPort;
-        return this;
-    }
-
-    public RestNodeBuilder httpsPort(int httpsPort) {
-        this.httpsPort = httpsPort;
         return this;
     }
 
@@ -102,18 +75,25 @@ public class RestNodeBuilder {
         return this;
     }
 
+    public RestNodeBuilder cluster(Cluster cluster) {
+        this.cluster = cluster;
+        return this;
+    }
+
+    public RestNodeBuilder index(int index) {
+        this.index = index;
+        return this;
+    }
+
     /** Builds {@link RestNode}. */
     public RestNode build() {
         return new RestNode(
+                cluster,
+                index,
                 keyStorePath,
                 keyStorePassword,
                 trustStorePath,
                 trustStorePassword,
-                workDir,
-                name,
-                networkPort,
-                httpPort,
-                httpsPort,
                 sslEnabled,
                 sslClientAuthEnabled,
                 dualProtocol,

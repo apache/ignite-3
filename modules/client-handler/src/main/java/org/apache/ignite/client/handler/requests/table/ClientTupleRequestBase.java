@@ -20,8 +20,11 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
 
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -74,56 +77,53 @@ class ClientTupleRequestBase {
         return tuple2;
     }
 
-    public static CompletableFuture<ClientTupleRequestBase> readAsync(
-            ClientMessageUnpacker in,
-            IgniteTables tables,
-            ClientResourceRegistry resources,
-            @Nullable TxManager txManager,
-            boolean txReadOnly,
-            @Nullable NotificationSender notificationSender,
-            @Nullable HybridTimestampTracker tsTracker,
-            boolean keyOnly
-    ) {
-        return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
+    public enum RequestOptions {
+        READ_ONLY,
+        KEY_ONLY,
+        READ_SECOND_TUPLE,
+        HAS_OPTIONS
     }
 
     public static CompletableFuture<ClientTupleRequestBase> readAsync(
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            @Nullable TxManager txManager,
-            boolean txReadOnly,
+            TxManager txManager,
             @Nullable NotificationSender notificationSender,
-            @Nullable HybridTimestampTracker tsTracker,
-            boolean keyOnly,
-            boolean readSecondTuple
+            HybridTimestampTracker tsTracker,
+            EnumSet<RequestOptions> options
     ) {
-        assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
-
         int tableId = in.unpackInt();
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = txManager == null
-                ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender, resIdHolder);
+        CompletableFuture<InternalTransaction> txFut = readOrStartImplicitTx(
+                in,
+                tsTracker,
+                resources,
+                txManager,
+                tables,
+                options,
+                notificationSender,
+                resIdHolder
+        );
 
         int schemaId = in.unpackInt();
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
-        BitSet noValueSet2 = readSecondTuple ? in.unpackBitSet() : null;
-        byte[] tupleBytes2 = readSecondTuple ? in.readBinary() : null;
+        BitSet noValueSet2 = options.contains(READ_SECOND_TUPLE) ? in.unpackBitSet() : null;
+        byte[] tupleBytes2 = options.contains(READ_SECOND_TUPLE) ? in.readBinary() : null;
 
-        return readTableAsync(tableId, tables)
+        return txFut.thenCompose(tx -> readTableAsync(tableId, tables)
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
-                            var tuple = readTuple(noValueSet, tupleBytes, keyOnly, schema);
-                            var tuple2 = readSecondTuple ? readTuple(noValueSet2, tupleBytes2, keyOnly, schema) : null;
+                            var tuple = readTuple(noValueSet, tupleBytes, options.contains(KEY_ONLY), schema);
+                            var tuple2 = options.contains(READ_SECOND_TUPLE)
+                                    ? readTuple(noValueSet2, tupleBytes2, options.contains(KEY_ONLY), schema) : null;
 
                             return new ClientTupleRequestBase(tx, table, tuple, tuple2, resIdHolder[0]);
-                        }));
-
+                        })));
     }
 }

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.configuration.util;
 
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.legacyNames;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.io.Serializable;
@@ -27,7 +25,6 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -41,19 +38,31 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** Current keys list, almost the same as {@link #currentKey}. */
     private final List<String> currentPath = new ArrayList<>();
 
-    /** For every part of the current path stores corresponding legacy names. */
-    private final List<String[]> currentLegacyNames = new ArrayList<>();
+    private static boolean isDeprecated(Field field) {
+        return field != null && field.getAnnotation(Deprecated.class) != null;
+    }
 
-    /** Total amount of legacy names, corresponding to the current path. */
-    private int currentLegacyNamesCount = 0;
+    private static String[] getLegacyNames(Field field) {
+        return field == null ? STRING_EMPTY_ARRAY : legacyNames(field);
+    }
 
     /** {@inheritDoc} */
     @Override
     public final T visitLeafNode(Field field, String key, Serializable val) {
-        int prevPos = startVisit(field, key, false, true);
+        for (String legacyKey : getLegacyNames(field)) {
+            int prevPos = startVisit(legacyKey, false, true);
+
+            try {
+                doVisitLegacyLeafNode(field, legacyKey, val, false);
+            } finally {
+                endVisit(prevPos);
+            }
+        }
+
+        int prevPos = startVisit(key, false, true);
 
         try {
-            return doVisitLeafNode(field, key, val);
+            return isDeprecated(field) ? doVisitLegacyLeafNode(field, key, val, true) : doVisitLeafNode(field, key, val);
         } finally {
             endVisit(prevPos);
         }
@@ -62,10 +71,20 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** {@inheritDoc} */
     @Override
     public final T visitInnerNode(Field field, String key, InnerNode node) {
-        int prevPos = startVisit(field, key, false, false);
+        for (String legacyKey : getLegacyNames(field)) {
+            int prevPos = startVisit(legacyKey, false, false);
+
+            try {
+                doVisitLegacyInnerNode(field, legacyKey, node, false);
+            } finally {
+                endVisit(prevPos);
+            }
+        }
+
+        int prevPos = startVisit(key, false, false);
 
         try {
-            return doVisitInnerNode(field, key, node);
+            return isDeprecated(field) ? doVisitLegacyInnerNode(field, key, node, true) : doVisitInnerNode(field, key, node);
         } finally {
             endVisit(prevPos);
         }
@@ -74,10 +93,20 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** {@inheritDoc} */
     @Override
     public final T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
-        int prevPos = startVisit(field, key, false, false);
+        for (String legacyKey : getLegacyNames(field)) {
+            int prevPos = startVisit(legacyKey, false, false);
+
+            try {
+                doVisitLegacyNamedListNode(field, legacyKey, node, false);
+            } finally {
+                endVisit(prevPos);
+            }
+        }
+
+        int prevPos = startVisit(key, false, false);
 
         try {
-            return doVisitNamedListNode(field, key, node);
+            return isDeprecated(field) ? doVisitLegacyNamedListNode(field, key, node, true) : doVisitNamedListNode(field, key, node);
         } finally {
             endVisit(prevPos);
         }
@@ -90,7 +119,16 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param val Configuration value.
      * @return Anything that implementation decides to return.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitLeafNode(Field field, String key, Serializable val) {
+        return null;
+    }
+
+    /**
+     * Almost the same as {@link #doVisitLeafNode(Field, String, Serializable)}, but used for legacy fields.
+     */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    protected T doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
         return null;
     }
 
@@ -101,9 +139,18 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param node Inner configuration node.
      * @return Anything that implementation decides to return.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitInnerNode(Field field, String key, InnerNode node) {
         node.traverseChildren(this, true);
 
+        return null;
+    }
+
+    /**
+     * Almost the same as {@link #doVisitInnerNode(Field, String, InnerNode)}, but used for legacy fields.
+     */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    protected T doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
         return null;
     }
 
@@ -114,9 +161,10 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param node Named list inner configuration node.
      * @return Anything that implementation decides to return.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
         for (String namedListKey : node.namedListKeys()) {
-            int prevPos = startVisit(field, namedListKey, true, false);
+            int prevPos = startVisit(namedListKey, true, false);
 
             try {
                 doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
@@ -125,6 +173,14 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
             }
         }
 
+        return null;
+    }
+
+    /**
+     * Almost the same as {@link #doVisitNamedListNode(Field, String, NamedListNode)}, but used for legacy fields.
+     */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    protected T doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
         return null;
     }
 
@@ -138,8 +194,9 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param closure Closure to execute when {@link #currentKey()} and {@link #currentPath()} have updated values.
      * @return Closure result.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected final T withTracking(Field field, String key, boolean escape, boolean leaf, Supplier<T> closure) {
-        int prevPos = startVisit(field, key, escape, leaf);
+        int prevPos = startVisit(key, escape, leaf);
 
         try {
             return closure.get();
@@ -169,12 +226,12 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Prepares values of {@link #currentKey} and {@link #currentPath} for further processing.
      *
-     * @param field Field.
      * @param key Key.
      * @param escape Whether we need to escape the key before appending it to {@link #currentKey}.
+     * @param leaf Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
      * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
      */
-    private int startVisit(Field field, String key, boolean escape, boolean leaf) {
+    private int startVisit(String key, boolean escape, boolean leaf) {
         final int previousKeyLength = currentKey.length();
 
         currentKey.append(escape ? ConfigurationUtil.escape(key) : key);
@@ -184,11 +241,6 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         }
 
         currentPath.add(key);
-
-        String[] legacyNames = field == null ? STRING_EMPTY_ARRAY : legacyNames(field);
-
-        currentLegacyNames.add(legacyNames);
-        currentLegacyNamesCount += legacyNames.length;
 
         return previousKeyLength;
     }
@@ -202,55 +254,5 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         currentKey.setLength(previousKeyLength);
 
         currentPath.remove(currentPath.size() - 1);
-
-        String[] legacyNames = currentLegacyNames.remove(currentLegacyNames.size() - 1);
-        currentLegacyNamesCount -= legacyNames.length;
-    }
-
-    /** Calls consumer for all variations of legacy paths, i.e. to remove them from the storage. */
-    protected void processLegacyPaths(Consumer<String> legacyKeyConsumer) {
-        // Current path doesn't contain any legacy names.
-        if (currentLegacyNamesCount == 0) {
-            return;
-        }
-
-        processLegacyPaths(new ArrayList<>(), legacyKeyConsumer);
-    }
-
-    private void processLegacyPaths(List<String> path, Consumer<String> legacyKeyConsumer) {
-        // We reached the leaf. If path joined with leaf name != current key, it is legacy and should be processed.
-        if (path.size() == currentPath().size() - 1) {
-            for (String leafName : currentLegacyNames.get(currentPath().size() - 1)) {
-                processLeaf(path, legacyKeyConsumer, leafName);
-            }
-
-            // Process current name for cases when legacy name was in the middle of the path.
-            processLeaf(path, legacyKeyConsumer, currentPath().get(currentPath().size() - 1));
-
-            return;
-        }
-
-        // For inner nodes we should all legacy names and current name.
-        for (String innerNodeName : currentLegacyNames.get(path.size())) {
-            path.add(innerNodeName);
-
-            processLegacyPaths(path, legacyKeyConsumer);
-
-            path.remove(path.size() - 1);
-        }
-
-        path.add(currentPath.get(path.size()));
-
-        processLegacyPaths(path, legacyKeyConsumer);
-
-        path.remove(path.size() - 1);
-    }
-
-    private void processLeaf(List<String> path, Consumer<String> legacyKeyConsumer, String leafName) {
-        String key = join(appendKey(path, leafName));
-
-        if (!key.equals(currentKey())) {
-            legacyKeyConsumer.accept(key);
-        }
     }
 }

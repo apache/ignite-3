@@ -29,6 +29,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 
 /**
  * Relational expression that receives elements from remote {@link IgniteSender}.
@@ -154,5 +155,11 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer
+                .addSourceFragmentId(sourceFragmentId);
     }
 }

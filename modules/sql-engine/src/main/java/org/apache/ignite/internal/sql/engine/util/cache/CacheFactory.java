@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util.cache;
 
+import java.time.Duration;
+
 /**
  * Factory that creates a cache.
  */
@@ -41,4 +43,16 @@ public interface CacheFactory {
      * @param <V> Type of the value object.
      */
     <K, V> Cache<K, V> create(int size, StatsCounter statCounter);
+
+    /**
+     * Creates a cache of the required size, controls whether statistics should be collected, and specifies entry expiration time.
+     *
+     * @param size Desired size of the cache.
+     * @param statCounter Cache statistic accumulator.
+     * @param expireAfterAccess Duration to use for expiration.
+     * @return An instance of the cache.
+     * @param <K> Type of the key object.
+     * @param <V> Type of the value object.
+     */
+    <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess);
 }

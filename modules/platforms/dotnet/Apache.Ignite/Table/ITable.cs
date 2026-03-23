@@ -17,6 +17,12 @@
 
 namespace Apache.Ignite.Table
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
+    using Internal.Table.Serialization;
+    using Mapper;
+
     /// <summary>
     /// Table view.
     /// </summary>
@@ -45,7 +51,13 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Gets the partition manager.
         /// </summary>
-        public IPartitionManager PartitionManager { get; }
+        [Obsolete("Replaced by PartitionDistribution property.")]
+        public IPartitionManager PartitionManager => (IPartitionManager)PartitionDistribution;
+
+        /// <summary>
+        /// Gets the partition distribution.
+        /// </summary>
+        public IPartitionDistribution PartitionDistribution { get; }
 
         /// <summary>
         /// Gets the record view mapped to specified type <typeparamref name="T"/>.
@@ -55,7 +67,17 @@ namespace Apache.Ignite.Table
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
+            where T : notnull;
+
+        /// <summary>
+        /// Gets the record view mapped to specified type <typeparamref name="T"/> with a custom mapper.
+        /// </summary>
+        /// <param name="mapper">Mapper.</param>
+        /// <typeparam name="T">Record type.</typeparam>
+        /// <returns>Record view.</returns>
+        public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
             where T : notnull;
 
         /// <summary>
@@ -67,7 +89,18 @@ namespace Apache.Ignite.Table
         /// <typeparam name="TK">Key type.</typeparam>
         /// <typeparam name="TV">Value type.</typeparam>
         /// <returns>Key-value view.</returns>
+        [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
+            where TK : notnull;
+
+        /// <summary>
+        /// Gets the record view mapped to specified key and value types with a custom mapper.
+        /// </summary>
+        /// <param name="mapper">Mapper.</param>
+        /// <typeparam name="TK">Key type.</typeparam>
+        /// <typeparam name="TV">Value type.</typeparam>
+        /// <returns>Key-value view.</returns>
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
             where TK : notnull;
     }
 }

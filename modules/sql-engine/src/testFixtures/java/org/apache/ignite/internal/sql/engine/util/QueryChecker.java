@@ -39,19 +39,15 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
+import org.jetbrains.annotations.Nullable;
 
 /** Query checker interface. */
 public interface QueryChecker {
     Object[] NULL_AS_VARARG = {null};
 
     /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
-    static Matcher<String> containsUnion(boolean all) {
-        return matchesOnce("UnionAll.*?all: " + all);
-    }
-
-    /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
     static Matcher<String> containsUnion() {
-        return matchesOnce("UnionAll.*?all:");
+        return matchesOnce("UnionAll");
     }
 
     /**
@@ -111,7 +107,8 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName) {
-        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?searchBounds: ");
     }
 
     /**
@@ -123,6 +120,46 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName
+                + ".*?searchBounds: ");
+    }
+
+    /**
+     * Ignite index scan matcher.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @param idxName Index name.
+     * @param searchBounds Search bounds.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScan(String schema, String tblName, String idxName, String searchBounds) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName
+                + ".*?searchBounds: " + Pattern.quote(searchBounds));
+    }
+
+    /**
+     * Ignite index scan matcher which ignores search bounds.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScanIgnoreBounds(String schema, String tblName) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
+    }
+
+    /**
+     * Ignite index scan matcher which ignores search bounds.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @param idxName Index name.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScanIgnoreBounds(String schema, String tblName, String idxName) {
         return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
                 + ".*?index: " + idxName);
     }
@@ -137,7 +174,7 @@ public interface QueryChecker {
      */
     static Matcher<String> containsProject(String schema, String tblName, String... names) {
         return matchesOnce("(Table|Index)Scan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
-                + ".*?fields: \\[" + String.join(", ", List.of(names)) + "\\]");
+                + ".*?fieldNames: \\[" + String.join(", ", List.of(names)) + "\\]");
     }
 
     /**
@@ -289,7 +326,7 @@ public interface QueryChecker {
 
     QueryChecker withParams(Object... params);
 
-    QueryChecker withParam(Object param);
+    QueryChecker withParam(@Nullable Object param);
 
     QueryChecker withTimeZoneId(ZoneId timeZoneId);
 
@@ -297,7 +334,11 @@ public interface QueryChecker {
 
     QueryChecker disableRules(String... rules);
 
+    /** Adds validator that ensures the next row in resultset equals to the one represented by array. */
     QueryChecker returns(Object... res);
+
+    /** Adds validator that ensures the next row in resultset satisfies the given matcher. */
+    QueryChecker results(Matcher<List<List<?>>> matcher);
 
     QueryChecker returnNothing();
 

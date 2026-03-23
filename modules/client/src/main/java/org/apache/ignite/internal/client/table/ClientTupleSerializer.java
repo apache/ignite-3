@@ -18,18 +18,18 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -39,8 +39,11 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleHelper;
 import org.apache.ignite.table.mapper.Mapper;
@@ -54,13 +57,18 @@ public class ClientTupleSerializer {
     /** Table ID. */
     private final int tableId;
 
+    /** Table name resolver. */
+    private final Supplier<QualifiedName> tableNameSupplier;
+
     /**
      * Constructor.
      *
      * @param tableId Table id.
+     * @param tableNameSupplier Supplier of table name.
      */
-    ClientTupleSerializer(int tableId) {
+    public ClientTupleSerializer(int tableId, Supplier<QualifiedName> tableNameSupplier) {
         this.tableId = tableId;
+        this.tableNameSupplier = tableNameSupplier;
     }
 
     /**
@@ -137,7 +145,7 @@ public class ClientTupleSerializer {
      * @param out Out.
      * @param keyOnly Key only.
      */
-    public static void writeTupleRaw(Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
+    public void writeTupleRaw(Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
         var columns = keyOnly ? schema.keyColumns() : schema.columns();
 
         var builder = new BinaryTupleBuilder(columns.length);
@@ -437,32 +445,7 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(Tuple rec) {
-        return PartitionAwarenessProvider.of((schema, coord) -> getColocationHash(schema, rec));
-    }
-
-    /**
-     * Gets partition awareness provider for the tuple collections.
-     *
-     * @param recs Tuples.
-     * @return Partition awareness provider.
-     */
-    public static PartitionAwarenessProvider getPartitionAwarenessProvider(Collection<Tuple> recs) {
-        return PartitionAwarenessProvider.of((schema, coord) -> {
-            Iterator<Tuple> iter = recs.iterator();
-            int hash = getColocationHash(schema, iter.next());
-
-            // For coordinator use first record for a placement hint.
-            if (coord) {
-                return hash;
-            }
-
-            // Temporary disable direct mapping for batches.
-            if (iter.hasNext()) {
-                return null;
-            }
-
-            return hash;
-        });
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
     }
 
     /**
@@ -471,33 +454,10 @@ public class ClientTupleSerializer {
      * @param rec Object.
      * @return Partition awareness provider.
      */
-    public static <T> PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, T rec) {
-        return PartitionAwarenessProvider.of((schema, coord) -> getColocationHash(schema, m, rec));
-    }
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, Object rec) {
+        assert !(rec instanceof Collection);
 
-    /**
-     * Gets partition awareness provider for the objects collection.
-     *
-     * @param recs Objects.
-     * @return Partition awareness provider.
-     */
-    public static <T> PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, Collection<T> recs) {
-        return PartitionAwarenessProvider.of((schema, coord) -> {
-            Iterator<T> iter = recs.iterator();
-            int hash = getColocationHash(schema, m, iter.next());
-
-            // For assign coordinator mode use first record for a placement hint.
-            if (coord) {
-                return hash;
-            }
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25348 Enable batch splitting for direct mappings.
-            if (iter.hasNext()) {
-                return null;
-            }
-
-            return hash;
-        });
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, m, rec));
     }
 
     /**
@@ -532,7 +492,7 @@ public class ClientTupleSerializer {
         return hashCalc.hash();
     }
 
-    private static void throwSchemaMismatchException(Tuple tuple, ClientSchema schema, TuplePart part) {
+    private void throwSchemaMismatchException(Tuple tuple, ClientSchema schema, TuplePart part) {
         Set<String> extraColumns = new HashSet<>();
 
         for (int i = 0; i < tuple.columnCount(); i++) {
@@ -551,7 +511,11 @@ public class ClientTupleSerializer {
             prefix = "Value tuple";
         }
 
-        throw new IllegalArgumentException(String.format("%s doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                prefix, schema.version(), extraColumns), new UnmappedColumnsException());
+        QualifiedName tableName = tableNameSupplier.get();
+
+        String message = IgniteStringFormatter.format("Failed to serialize tuple for table {}:"
+                        + " {} doesn't match schema: schemaVersion={}, extraColumns={}",
+                tableName.toCanonicalForm(), prefix, schema.version(), extraColumns);
+        throw new MarshallerException(message, new UnmappedColumnsException());
     }
 }

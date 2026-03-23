@@ -66,14 +66,9 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         Catalog catalog = manager.activeCatalog(clock.nowLong());
 
         CatalogSchemaDescriptor defaultSchema = catalog.schema(SCHEMA_NAME);
-        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         assertNotNull(defaultSchema);
-        assertNotNull(defaultZone);
-        assertTrue(
-                defaultZone.updateTimestamp().longValue() > INITIAL_TIMESTAMP.longValue(),
-                "Non default timestamp was expected"
-        );
+
         assertTrue(
                 defaultSchema.updateTimestamp().longValue() > INITIAL_TIMESTAMP.longValue(),
                 "Non default timestamp was expected"

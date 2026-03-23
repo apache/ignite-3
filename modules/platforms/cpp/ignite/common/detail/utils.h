@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/ignite_error.h>
+#include <ignite_error.h>
 
 #include <future>
 #include <memory>
@@ -69,6 +69,39 @@ inline std::optional<std::string> get_env(const std::string &name) {
         return {};
 
     return env;
+}
+
+/**
+ * Normalizes nanosecond portion of temporal type according to chosen precision.
+ *
+ * @param nanos Nanoseconds.
+ * @param precision Precision, 0 means one-second precision 9 means nanosecond precision.
+ * @return Truncated nanoseconds.
+ */
+inline std::int_least32_t normalize_nanos(std::int32_t nanos, std::int32_t precision) {
+    switch (precision) {
+        case 0:
+            return 0;
+        case 1:
+            return nanos / 100'000'000 * 100'000'000; // 100ms precision
+        case 2:
+            return nanos / 10'000'000 * 10'000'000; // 10ms precision
+        case 3:
+            return nanos / 1'000'000 * 1'000'000; // 1ms precision
+        case 4:
+            return nanos / 100'000 * 100'000; // 100us precision
+        case 5:
+            return nanos / 10'000 * 10'000; // 10us precision
+        case 6:
+            return nanos / 1'000 * 1'000; // 1us precision
+        case 7:
+            return nanos / 100 * 100; // 100ns precision
+        case 8:
+            return nanos / 10 * 10; // 10ns precision
+        case 9:
+        default:
+            return nanos; // 1ns precision
+    }
 }
 
 } // namespace ignite::detail

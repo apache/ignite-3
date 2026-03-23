@@ -52,7 +52,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
     @Test
     public void trimColumnNames() {
         String var300 = "'" + generate(() -> "X").limit(300).collect(joining()) + "'";
-        String var256 = var300.substring(0, Math.min(var300.length(), MAX_LENGTH_OF_ALIASES));
+        String var256 = "\"" + var300.substring(0, Math.min(var300.length(), MAX_LENGTH_OF_ALIASES)) + "\"";
 
         assertQuery("select " + var300 + " from person").columnNames(var256).check();
     }
@@ -60,35 +60,36 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
     @Test
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
-                .columnNames("EXPR$0", "EXPR$1").check();
+                .columnNames("\"EXPR$0\"", "\"EXPR$1\"").check();
         assertQuery("select (select count(*) from person) as subquery from person")
                 .columnNames("SUBQUERY").check();
 
         assertQuery("select salary*2, salary*2 as \"SaLaRy\", salary/2, salary+2, salary-2, mod(salary, 2)  from person")
-                .columnNames("SALARY * 2", "SaLaRy", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
+                .columnNames("\"SALARY * 2\"", "\"SaLaRy\"", "\"SALARY / 2\"", "\"SALARY + 2\"", "\"SALARY - 2\"", "\"MOD(SALARY, 2)\"")
+                .check();
         assertQuery("select salary*2 as first, salary/2 as LAst from person").columnNames("FIRST", "LAST").check();
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
-        assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
+        assertQuery("select trim(name) from person").columnNames("\"TRIM(BOTH ' ' FROM NAME)\"").check();
         assertQuery("select ceil(salary), floor(salary), position('text' IN name) from person")
-                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN NAME)").check();
+                .columnNames("\"CEIL(SALARY)\"", "\"FLOOR(SALARY)\"", "\"POSITION('text' IN NAME)\"").check();
 
-        assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
-        assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
-        assertQuery("select max(salary) from person").columnNames("MAX(SALARY)").check();
-        assertQuery("select min(salary) from person").columnNames("MIN(SALARY)").check();
-        assertQuery("select aVg(salary) from person").columnNames("AVG(SALARY)").check();
-        assertQuery("select sum(salary) from person").columnNames("SUM(SALARY)").check();
+        assertQuery("select count(*) from person").columnNames("\"COUNT(*)\"").check();
+        assertQuery("select count(name) from person").columnNames("\"COUNT(NAME)\"").check();
+        assertQuery("select max(salary) from person").columnNames("\"MAX(SALARY)\"").check();
+        assertQuery("select min(salary) from person").columnNames("\"MIN(SALARY)\"").check();
+        assertQuery("select aVg(salary) from person").columnNames("\"AVG(SALARY)\"").check();
+        assertQuery("select sum(salary) from person").columnNames("\"SUM(SALARY)\"").check();
 
-        assertQuery("select typeOf(salary) from person").columnNames("TYPEOF(SALARY)").check();
-        assertQuery("select typeOf(null) from person").columnNames("TYPEOF(NULL)").check();
+        assertQuery("select typeOf(salary) from person").columnNames("\"TYPEOF(SALARY)\"").check();
+        assertQuery("select typeOf(null) from person").columnNames("\"TYPEOF(NULL)\"").check();
 
-        assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
+        assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "\"COUNT(NAME)\"").check();
 
-        assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
+        assertQuery("select 1, -1, 'some string' from person").columnNames("\"1\"", "\"-1\"", "\"'some string'\"").check();
 
         // id, name, salary
-        assertQuery("SELECT SUM(sal) FROM person as p (i, n, sal)").columnNames("SUM(SAL)").check();
+        assertQuery("SELECT SUM(sal) FROM person as p (i, n, sal)").columnNames("\"SUM(SAL)\"").check();
     }
 
     @Test
@@ -106,8 +107,8 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher().name("TID").type(ColumnType.INT8),
                         new MetadataMatcher().name("SID").type(ColumnType.INT16),
                         new MetadataMatcher().name("VID").type(ColumnType.STRING),
-                        new MetadataMatcher().name("ID :: INTERVAL INTERVAL_HOUR").type(ColumnType.DURATION),
-                        new MetadataMatcher().name("ID :: INTERVAL INTERVAL_YEAR").type(ColumnType.PERIOD)
+                        new MetadataMatcher().name("\"ID :: INTERVAL INTERVAL_HOUR\"").type(ColumnType.DURATION),
+                        new MetadataMatcher().name("\"ID :: INTERVAL INTERVAL_YEAR\"").type(ColumnType.PERIOD)
                 ).check();
     }
 
@@ -117,23 +118,23 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE column_order1 (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR)");
 
         assertQuery("select *, double_c, double_c * 2 from column_order")
-                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C", "DOUBLE_C * 2")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C", "\"DOUBLE_C * 2\"")
                 .check();
 
         assertQuery("select *, double_c as J, double_c * 2, double_c as J2 from column_order")
-                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "J", "DOUBLE_C * 2", "J2")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "J", "\"DOUBLE_C * 2\"", "J2")
                 .check();
 
         assertQuery("select double_c * 2, * from column_order")
-                .columnNames("DOUBLE_C * 2", "DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
+                .columnNames("\"DOUBLE_C * 2\"", "DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
                 .check();
 
         assertQuery("select *, *, double_c * 2 from column_order")
-                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C0", "LONG_C0", "STRING_C0", "INT_C0", "DOUBLE_C * 2")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C0", "LONG_C0", "STRING_C0", "INT_C0", "\"DOUBLE_C * 2\"")
                 .check();
 
         assertQuery("select *, double_c * 2, double_c * 2, * from column_order")
-                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C * 2", "DOUBLE_C * 2", "DOUBLE_C0", "LONG_C0",
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "\"DOUBLE_C * 2\"", "\"DOUBLE_C * 2\"", "DOUBLE_C0", "LONG_C0",
                         "STRING_C0", "INT_C0").check();
 
         assertQuery("select * from column_order")
@@ -141,12 +142,12 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("select a.*, a.double_c * 2, b.*  from column_order a, column_order1 b where a.double_c = b.double_c")
-                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "A.DOUBLE_C * 2", "DOUBLE_C0", "LONG_C0", "STRING_C0")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "\"A.DOUBLE_C * 2\"", "DOUBLE_C0", "LONG_C0", "STRING_C0")
                 .check();
 
         assertQuery("select a.*, a.double_c * 2, a.double_c * 2 as J, b.*  from column_order a, column_order1 b "
                 + "where a.double_c = b.double_c")
-                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "A.DOUBLE_C * 2", "J", "DOUBLE_C0", "LONG_C0", "STRING_C0")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "\"A.DOUBLE_C * 2\"", "J", "DOUBLE_C0", "LONG_C0", "STRING_C0")
                 .check();
     }
 
@@ -265,15 +266,15 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
         assertQuery("select * from sens")
                 .columnMetadata(
-                        new MetadataMatcher().name("Col1"),
+                        new MetadataMatcher().name("\"Col1\""),
                         new MetadataMatcher().name("COL2"),
-                        new MetadataMatcher().name("Col3.a"),
+                        new MetadataMatcher().name("\"Col3.a\""),
                         new MetadataMatcher().name("COL4"))
                 .check();
 
         sql("INSERT INTO sens VALUES (1, 1, 1, 1)");
 
-        ResultSet<SqlRow> res = igniteSql().execute(null, "select * from sens");
+        ResultSet<SqlRow> res = igniteSql().execute("select * from sens");
         SqlRow row = res.next();
         assertNotNull(row.intValue("\"Col1\""));
         assertThrows(IllegalArgumentException.class, () -> row.intValue("col1"));

@@ -26,7 +26,9 @@
 namespace ignite {
 
 /**
- * Column metadata.
+ * @brief Table column metadata.
+ *
+ * Represents table field properties such as name, type, nullability, etc.
  */
 class column_metadata {
 public:

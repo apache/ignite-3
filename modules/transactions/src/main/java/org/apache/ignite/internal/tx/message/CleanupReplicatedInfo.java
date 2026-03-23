@@ -17,23 +17,19 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * The result of a replicated cleanup request.
  */
-public class CleanupReplicatedInfo implements Serializable {
-
-    private static final long serialVersionUID = -975001033274630774L;
-
+public class CleanupReplicatedInfo {
     private final UUID txId;
 
-    private final Collection<ReplicationGroupId> partitions;
+    private final Collection<ZonePartitionId> partitions;
 
-    public CleanupReplicatedInfo(UUID txId, Collection<ReplicationGroupId> partitions) {
+    public CleanupReplicatedInfo(UUID txId, Collection<ZonePartitionId> partitions) {
         this.txId = txId;
         this.partitions = partitions;
     }
@@ -42,7 +38,7 @@ public class CleanupReplicatedInfo implements Serializable {
         return txId;
     }
 
-    public Collection<ReplicationGroupId> partitions() {
+    public Collection<ZonePartitionId> partitions() {
         return partitions;
     }
 }

@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +44,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile long leaseStartTime;
 
+    private volatile long wiHeadLink;
+
     private volatile @Nullable UUID primaryReplicaNodeId;
 
     private volatile long primaryReplicaNodeNameFirstPageId;
@@ -61,6 +64,7 @@ public class StoragePartitionMeta extends PartitionMeta {
      * Constructor.
      *
      * @param pageCount Count of pages in the partition.
+     * @param partitionGeneration Partition generation at the time of its creation.
      * @param lastAppliedIndex Last applied index value.
      * @param lastAppliedTerm Last applied term value.
      * @param lastReplicationProtocolGroupConfigFirstPageId ID of the first page in a chain storing a blob representing last replication
@@ -72,10 +76,13 @@ public class StoragePartitionMeta extends PartitionMeta {
      * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param indexTreeMetaPageId Index tree meta page ID.
      * @param gcQueueMetaPageId Garbage collection queue meta page ID.
-     * @param estimatedSize Estimated size of the partition.
+     * @param estimatedSize Estimated number of latest entries in the partition.
+     *
+     * @see MvPartitionStorage#estimatedSize for a detailed description of what estimated size is.
      */
     public StoragePartitionMeta(
             int pageCount,
+            int partitionGeneration,
             long lastAppliedIndex,
             long lastAppliedTerm,
             long lastReplicationProtocolGroupConfigFirstPageId,
@@ -86,9 +93,10 @@ public class StoragePartitionMeta extends PartitionMeta {
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
             long gcQueueMetaPageId,
-            long estimatedSize
+            long estimatedSize,
+            long wiHeadLink
     ) {
-        super(pageCount);
+        super(pageCount, partitionGeneration);
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
@@ -100,6 +108,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.estimatedSize = estimatedSize;
+        this.wiHeadLink = wiHeadLink;
     }
 
     /**
@@ -277,7 +286,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 leaseStartTime,
                 primaryReplicaNodeId,
                 primaryReplicaNodeNameFirstPageId,
-                estimatedSize
+                estimatedSize,
+                wiHeadLink
         );
     }
 
@@ -351,6 +361,27 @@ public class StoragePartitionMeta extends PartitionMeta {
     }
 
     /**
+     * Returns the link to the head of the write intent list.
+     *
+     * @return Link to the head of the write intent list.
+     */
+    public long wiHeadLink() {
+        return wiHeadLink;
+    }
+
+    /**
+     * Updates the link to the head of the write intent list.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param link Link to the head of the write intent list.
+     */
+    public void updateWiHead(@Nullable UUID checkpointId, long link) {
+        updateSnapshot(checkpointId);
+
+        this.wiHeadLink = link;
+    }
+
+    /**
      * An immutable snapshot of the partition's meta information.
      */
     public static class StoragePartitionMetaSnapshot implements PartitionMetaSnapshot {
@@ -380,6 +411,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         private final long estimatedSize;
 
+        private final long wiHeadLink;
+
         private StoragePartitionMetaSnapshot(
                 @Nullable UUID checkpointId,
                 long lastAppliedIndex,
@@ -393,7 +426,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 long leaseStartTime,
                 @Nullable UUID primaryReplicaNodeId,
                 long primaryReplicaNodeNameFistPageId,
-                long estimatedSize
+                long estimatedSize,
+                long wiHeadLink
         ) {
             this.checkpointId = checkpointId;
             this.lastAppliedIndex = lastAppliedIndex;
@@ -408,6 +442,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             this.primaryReplicaNodeId = primaryReplicaNodeId;
             this.primaryReplicaNodeNameFirstPageId = primaryReplicaNodeNameFistPageId;
             this.estimatedSize = estimatedSize;
+            this.wiHeadLink = wiHeadLink;
         }
 
         /**
@@ -462,6 +497,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         /**
          * Returns count of pages in the partition.
          */
+        @Override
         public int pageCount() {
             return pageCount;
         }
@@ -480,6 +516,11 @@ public class StoragePartitionMeta extends PartitionMeta {
             return estimatedSize;
         }
 
+        /** Returns link to the head of Write Intent list. */
+        public long wiHeadLink() {
+            return wiHeadLink;
+        }
+
         /**
          * Writes the contents of the snapshot to a page of type {@link StoragePartitionMetaIo}.
          *
@@ -488,7 +529,8 @@ public class StoragePartitionMeta extends PartitionMeta {
          */
         @Override
         public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
-            StoragePartitionMetaIo storageMetaIo = (StoragePartitionMetaIo) metaIo;
+            StoragePartitionMetaIoV3 storageMetaIo = (StoragePartitionMetaIoV3) metaIo;
+
             storageMetaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             storageMetaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
             storageMetaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
@@ -501,6 +543,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             storageMetaIo.setPrimaryReplicaNodeId(pageAddr, primaryReplicaNodeId);
             storageMetaIo.setPrimaryReplicaNodeNameFirstPageId(pageAddr, primaryReplicaNodeNameFirstPageId);
             storageMetaIo.setEstimatedSize(pageAddr, estimatedSize);
+            storageMetaIo.setWiHead(pageAddr, wiHeadLink);
         }
 
         /**

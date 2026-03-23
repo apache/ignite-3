@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +44,7 @@ public interface InternalTransaction extends Transaction {
      * @param replicationGroupId Replication group ID.
      * @return Enlisted partition information.
      */
-    PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId);
+    PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId);
 
     /**
      * Returns a transaction state.
@@ -59,14 +59,14 @@ public interface InternalTransaction extends Transaction {
      * @param commitPartitionId Commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(ReplicationGroupId commitPartitionId);
+    boolean assignCommitPartition(ZonePartitionId commitPartitionId);
 
     /**
      * Gets a partition id that stores the transaction state.
      *
      * @return Partition id.
      */
-    ReplicationGroupId commitPartition();
+    ZonePartitionId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.
@@ -77,7 +77,7 @@ public interface InternalTransaction extends Transaction {
      * @param consistencyToken Consistency token to enlist for given replication group.
      */
     void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken
@@ -121,17 +121,26 @@ public interface InternalTransaction extends Transaction {
         return false;
     }
 
+    default boolean remoteOnCoordinator() {
+        return false;
+    }
+
     /**
-     * Finishes a read-only transaction with a specific execution timestamp.
+     * Finishes a transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.
      * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node. The parameter
      *         is not used for read-write transactions.
      * @param full Full state transaction marker.
-     * @param timeoutExceeded Timeout exceeded flag (commit flag must be {@code false}).
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      * @return The future.
      */
-    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded);
+    CompletableFuture<Void> finish(
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    );
 
     /**
      * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.
@@ -156,17 +165,17 @@ public interface InternalTransaction extends Transaction {
     CompletableFuture<Void> kill();
 
     /**
-     * Rolls back the transaction due to timeout exceeded. After this method is called, {@link #isRolledBackWithTimeoutExceeded()} will
-     * return {@code true}. A rollback of a completed or ending transaction has no effect and always succeeds when the transaction is
-     * completed.
+     * Rolls back the transaction due to a non-user exception and records the abort reason.
+     * A rollback of a completed or ending transaction has no effect and always succeeds when the transaction is completed.
      *
+     * @param throwable Abort reason.
      * @return The future.
      */
-    CompletableFuture<Void> rollbackTimeoutExceededAsync();
+    CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable);
 
     /**
      * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout exceeded is
-     * to call {@link #rollbackTimeoutExceededAsync()}.
+     * to call {@link #rollbackWithExceptionAsync(Throwable)}.
      *
      * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
      */

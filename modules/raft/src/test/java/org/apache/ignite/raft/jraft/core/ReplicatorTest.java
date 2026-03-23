@@ -113,7 +113,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         this.opts.setElectionTimeoutMs(1000);
 
         NodeOptions options = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
 
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
@@ -185,7 +185,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         assertNotNull(r);
         assertSame(r.getOpts(), this.opts);
         Set<String> metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
-        assertEquals(7, metrics.size());
+        assertEquals(11, metrics.size());
         r.destroy();
         metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
         assertEquals(0, metrics.size());

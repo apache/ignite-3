@@ -30,8 +30,9 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
-
-    testImplementation libs.hamcrest.core
 }

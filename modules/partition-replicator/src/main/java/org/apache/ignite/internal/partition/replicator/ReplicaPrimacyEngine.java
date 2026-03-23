@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Logic related to replica primacy checks.
@@ -42,14 +42,14 @@ public class ReplicaPrimacyEngine {
     private final LeasePlacementDriver placementDriver;
     private final ClockService clockService;
     private final ReplicationGroupId replicationGroupId;
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     /** Constructor. */
     public ReplicaPrimacyEngine(
             LeasePlacementDriver placementDriver,
             ClockService clockService,
             ReplicationGroupId replicationGroupId,
-            ClusterNode localNode
+            InternalClusterNode localNode
     ) {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
@@ -119,6 +119,7 @@ public class ReplicaPrimacyEngine {
                     null,
                     enlistmentConsistencyToken,
                     null,
+                    replicationGroupId,
                     null
             );
         }
@@ -136,6 +137,7 @@ public class ReplicaPrimacyEngine {
                     primaryReplicaMeta.getLeaseholderId(),
                     enlistmentConsistencyToken,
                     currentEnlistmentConsistencyToken,
+                    replicationGroupId,
                     null);
         }
 

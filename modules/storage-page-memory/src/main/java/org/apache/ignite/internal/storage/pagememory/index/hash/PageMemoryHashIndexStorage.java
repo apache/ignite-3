@@ -19,12 +19,11 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
-import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of Hash index storage using Page Memory.
@@ -79,6 +79,16 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
         return descriptor;
     }
 
+    @TestOnly
+    HashIndexTree indexTree() {
+        return indexTree;
+    }
+
+    @TestOnly
+    FreeListImpl freeList() {
+        return freeList;
+    }
+
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         return busyDataRead(() -> {
@@ -88,19 +98,19 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
             IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
+            HashIndexRowKey bound = new HashIndexRowKey(indexColumns);
+            try {
+                Cursor<HashIndexRow> cursor = indexTree.find(bound, bound);
 
-            return new ScanCursor<RowId>(lowerBound) {
-                @Override
-                protected RowId map(HashIndexRow value) {
-                    return value.rowId();
-                }
-
-                @Override
-                protected boolean exceedsUpperBound(HashIndexRow value) {
-                    return !Objects.equals(value.indexColumns().valueBuffer(), key.byteBuffer());
-                }
-            };
+                return new ReadOnlyScanCursor<HashIndexRow, RowId>(cursor) {
+                    @Override
+                    protected RowId map(HashIndexRow value) {
+                        return value.rowId();
+                    }
+                };
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Couldn't get index tree cursor", e);
+            }
         });
     }
 

@@ -75,7 +75,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta() override;
+    const protocol::column_meta_vector *get_meta() override;
 
     /**
      * Fetch next result row.
@@ -85,7 +85,7 @@ public:
     sql_result fetch_next_row();
 
     /**
-     * Get current row.
+     * Get the current row.
      *
      * @return  Row.
      */
@@ -123,7 +123,7 @@ public:
     [[nodiscard]] bool is_data_available() const override;
 
     /**
-     * Get number of rows affected by the statement.
+     * Get the number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
@@ -156,18 +156,18 @@ public:
      * @param idx Parameter index.
      * @return Parameter.
      */
-    [[nodiscard]] const sql_parameter *get_sql_param(std::int16_t idx);
+    [[nodiscard]] const sql_parameter *get_sql_param(std::int16_t idx) const;
 
     /**
-     * Get expected parameter number.
-     * Using metadata. If metadata was not updated returns zero.
+     * Get the expected parameter number.
+     * Using metadata. If metadata was not updated, returns zero.
      *
      * @return Expected parameters number.
      */
     [[nodiscard]] std::size_t get_expected_param_num() const { return m_params_meta.size(); }
 
     /**
-     * Check if parameters meta is available.
+     * Check if parameter's meta is available.
      *
      * @return @c true if available.
      */
@@ -196,8 +196,7 @@ private:
     [[nodiscard]] bool has_more_rows() const { return has_more_pages() || (m_cursor && m_cursor->has_data()); }
 
     /**
-     * Make query execute request and use response to set internal
-     * state.
+     * Make the query execute request and use response to set internal state.
      *
      * @return Result.
      */
@@ -240,7 +239,7 @@ private:
      *
      * @param value Metadata.
      */
-    void set_resultset_meta(column_meta_vector value);
+    void set_resultset_meta(protocol::column_meta_vector value);
 
     /**
      * Set metadata for params.
@@ -278,18 +277,18 @@ private:
     volatile bool m_result_meta_available{false};
 
     /** Result set metadata. */
-    column_meta_vector m_result_meta;
+    protocol::column_meta_vector m_result_meta;
 
     /** Query ID, nullopt when closed on server. */
     std::optional<std::int64_t> m_query_id;
 
-    /** Indicate whether result set is available. */
+    /** Indicate whether a result set is available. */
     bool m_has_rowset{false};
 
-    /** Indicate whether there are more pages available on server side. */
+    /** Indicate whether there are more pages available on the server side. */
     bool m_has_more_pages{false};
 
-    /** Indicate whether query was applied. */
+    /** Indicate whether the query was applied. */
     bool m_was_applied{false};
 
     /** Number of rows affected. */

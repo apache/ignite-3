@@ -79,6 +79,7 @@ public class ItSslTest {
         @Language("JSON")
         String sslDisabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    ssl.enabled: false,\n"
                 + "    port: {},\n"
                 + "    nodeFinder:{\n"
@@ -113,7 +114,7 @@ public class ItSslTest {
         @DisplayName("Client can connect without ssl")
         void clientCouldConnectWithoutSsl() {
             try (IgniteClient client = IgniteClient.builder().addresses("localhost:10800").build()) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -164,6 +165,7 @@ public class ItSslTest {
         @Language("JSON")
         String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
                 + "      trustStore: {\n"
@@ -290,7 +292,7 @@ public class ItSslTest {
                     .ssl(sslConfiguration)
                     .build()
             ) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -363,7 +365,7 @@ public class ItSslTest {
                     .ssl(sslConfiguration)
                     .build()
             ) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -421,6 +423,7 @@ public class ItSslTest {
         @Language("JSON")
         String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
                 + "      clientAuth: \"require\",\n"
@@ -526,7 +529,7 @@ public class ItSslTest {
                     .ssl(sslConfiguration)
                     .build()
             ) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 

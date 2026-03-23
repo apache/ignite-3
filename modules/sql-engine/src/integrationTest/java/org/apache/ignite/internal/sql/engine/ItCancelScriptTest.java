@@ -39,6 +39,8 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     @BeforeAll
     void createTestTable() {
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
+
+        waitUntilRunningQueriesCount(is(0));
     }
 
     @Override
@@ -122,7 +124,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
 
         cancelHandle.cancel();
 
-        expectQueryCancelledInternalException(
+        expectQueryCancelled(
                 () -> runScript(token, "SELECT 1; SELECT 2;")
         );
     }

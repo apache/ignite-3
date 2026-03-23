@@ -24,8 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.lang.management.RuntimeMXBean;
 import java.util.List;
+import java.util.Map;
 import javax.management.ObjectName;
+import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +39,8 @@ public class JvmMetricSourceTest {
         var memoryBean = new MemoryBean(5, 15, 20, 90,
                 100, 115, 120, 200);
         var gcBean = new GarbageCollectorBean(10, 100);
-        var metricSource = new JvmMetricSource(memoryBean, List.of(gcBean));
+        var runtimeBean = new RuntimeBean(1000);
+        var metricSource = new JvmMetricSource(runtimeBean, memoryBean, List.of(gcBean));
 
         var metricSet = metricSource.enable();
 
@@ -44,6 +48,8 @@ public class JvmMetricSourceTest {
         assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.Used").value());
         assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.Committed").value());
         assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.Max").value());
+        // Expected free percent: (90 - 15) / 90 * 100 = 83.33%
+        assertEquals(83.33, metricSet.<DoubleMetric>get("memory.heap.FreePercent").value(), 0.01);
 
         assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.Init").value());
         assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
@@ -68,6 +74,8 @@ public class JvmMetricSourceTest {
         assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.Used").value());
         assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.Committed").value());
         assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.Max").value());
+        // Expected free percent after update: (90 - 16) / 90 * 100 = 82.22%.
+        assertEquals(82.22, metricSet.<DoubleMetric>get("memory.heap.FreePercent").value(), 0.01);
 
         assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.Init").value());
         assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
@@ -81,16 +89,36 @@ public class JvmMetricSourceTest {
                 100, 115, 120, 200);
         var gcBean1 = new GarbageCollectorBean(10, 100);
         var gcBean2 = new GarbageCollectorBean(20, 200);
-        var metricSource = new JvmMetricSource(memoryBean, List.of(gcBean1, gcBean2));
+        var runtimeBean = new RuntimeBean(1000);
+        var metricSource = new JvmMetricSource(runtimeBean, memoryBean, List.of(gcBean1, gcBean2));
 
         var metricSet = metricSource.enable();
 
         assertEquals(300, metricSet.<LongMetric>get("gc.CollectionTime").value());
+        assertEquals(30.0, metricSet.<DoubleMetric>get("gc.CollectionTimePercent").value(), 0.01);
 
         gcBean1.changeCollectionMetrics(1, 10);
         gcBean2.changeCollectionMetrics(1, 15);
 
         assertEquals(325, metricSet.<LongMetric>get("gc.CollectionTime").value());
+        assertEquals(32.5, metricSet.<DoubleMetric>get("gc.CollectionTimePercent").value(), 0.01);
+    }
+
+    @Test
+    public void testUptimeMetric() {
+        var memoryBean = new MemoryBean(5, 15, 20, 90,
+                100, 115, 120, 200);
+        var gcBean = new GarbageCollectorBean(10, 100);
+        var runtimeBean = new RuntimeBean(1000);
+        var metricSource = new JvmMetricSource(runtimeBean, memoryBean, List.of(gcBean));
+
+        var metricSet = metricSource.enable();
+
+        assertEquals(runtimeBean.upTime, metricSet.<LongMetric>get("UpTime").value());
+
+        runtimeBean.upTime += 1000; // Simulate JVM uptime increase
+
+        assertEquals(runtimeBean.upTime, metricSet.<LongMetric>get("UpTime").value());
     }
 
     /**
@@ -98,16 +126,16 @@ public class JvmMetricSourceTest {
      * which open for mutations in scope of the current test.
      *
      */
-    private class MemoryBean implements MemoryMXBean {
-        public long heapInit;
-        public long heapUsed;
-        public long heapCommitted;
-        public long heapMax;
+    private static class MemoryBean implements MemoryMXBean {
+        long heapInit;
+        long heapUsed;
+        long heapCommitted;
+        long heapMax;
 
-        public long nonHeapInit;
-        public long nonHeapUsed;
-        public long nonHeapCommitted;
-        public long nonHeapMax;
+        long nonHeapInit;
+        long nonHeapUsed;
+        long nonHeapCommitted;
+        long nonHeapMax;
 
         private MemoryBean(long heapInit, long heapUsed, long heapCommitted, long heapMax,
                 long nonHeapInit, long nonHeapUsed, long nonHeapCommitted, long nonHeapMax) {
@@ -200,6 +228,99 @@ public class JvmMetricSourceTest {
         private void changeCollectionMetrics(int countDelta, int timeDelta) {
             collectionCount += countDelta;
             collectionTime += timeDelta;
+        }
+    }
+
+    private static class RuntimeBean implements RuntimeMXBean {
+        long upTime;
+
+        RuntimeBean(long upTime) {
+            this.upTime = upTime;
+        }
+
+        @Override
+        public String getName() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getVmName() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getVmVendor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getVmVersion() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getSpecName() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getSpecVendor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getSpecVersion() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getManagementSpecVersion() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getClassPath() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getLibraryPath() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isBootClassPathSupported() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getBootClassPath() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<String> getInputArguments() {
+            return List.of();
+        }
+
+        @Override
+        public long getUptime() {
+            return upTime;
+        }
+
+        @Override
+        public long getStartTime() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Map<String, String> getSystemProperties() {
+            return Map.of();
+        }
+
+        @Override
+        public ObjectName getObjectName() {
+            throw new UnsupportedOperationException();
         }
     }
 }

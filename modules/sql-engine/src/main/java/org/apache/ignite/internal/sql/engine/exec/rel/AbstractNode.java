@@ -24,9 +24,12 @@ import java.util.List;
 import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionEvaluationException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -58,6 +61,11 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     private boolean closed;
 
     private List<Node<RowT>> sources;
+
+    // Metrics
+    protected int requestCount = 0;
+    protected int rewindCount = 0;
+    protected long receivedRowsCount = 0L;
 
     /**
      * Constructor.
@@ -109,6 +117,8 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     /** {@inheritDoc} */
     @Override
     public void rewind() {
+        onRewind();
+
         rewindInternal();
 
         if (!nullOrEmpty(sources())) {
@@ -131,7 +141,11 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
             checkState();
 
-            task.run();
+            try {
+                task.run();
+            } catch (ExpressionEvaluationException evaluationException) {
+                throw new SqlException(Sql.RUNTIME_ERR, evaluationException);
+            }
         }, this::onError);
     }
 
@@ -211,5 +225,44 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             writer.app(indent).app("Sources: ").nl();
             Debuggable.dumpState(writer, Debuggable.childIndentation(indent), sources);
         }
+    }
+
+    @Override
+    public void dumpNodeMetrics(IgniteStringBuilder writer, String indent) {
+        writer.app(indent);
+        dumpMetrics0(writer);
+        writer.nl();
+
+        MetricsAwareNode.dumpChildNodesMetrics(writer, indent, sources);
+    }
+
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        writer.app(this.getClass().getSimpleName()).app(": ");
+
+        writer.app("receivedRows=").app(receivedRowsCount);
+
+        if (requestCount > 0) {
+            writer.app(", requests=").app(requestCount);
+        }
+
+        if (rewindCount > 0) {
+            writer.app(", rewinds=").app(rewindCount);
+        }
+    }
+
+    protected final void onRequestReceived() {
+        requestCount++;
+    }
+
+    protected final void onRowReceived() {
+        receivedRowsCount++;
+    }
+
+    protected final void onRowsReceived(long rowsCount) {
+        receivedRowsCount += rowsCount;
+    }
+
+    protected final void onRewind() {
+        rewindCount++;
     }
 }

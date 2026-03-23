@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -29,9 +30,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccessOrTimeout;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -49,10 +52,15 @@ import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test suite for {@link IgniteUtils}.
@@ -161,7 +169,7 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
             } catch (ExecutionException e) {
                 throw new RuntimeException(e);
             }
-        }).get(1, TimeUnit.SECONDS);
+        }).get(1, SECONDS);
     }
 
     @Test
@@ -216,5 +224,112 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
 
         ByteBuffer smallDirectBuffer = bigDirectBuffer.position(1).limit(4).slice();
         assertArrayEquals(new byte[] {1, 2, 3}, byteBufferToByteArray(smallDirectBuffer));
+    }
+
+    @Test
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_SuccessOnFirstAttempt() {
+        Executor executor = Executors.newSingleThreadExecutor();
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                () -> {
+                    callCount.incrementAndGet();
+                    return completedFuture("success");
+                },
+                1000,
+                executor
+        );
+
+        assertThat(result, willBe(equalTo("success")));
+        assertThat(callCount.get(), equalTo(1));
+    }
+
+    @Test
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_SuccessAfterRetries() {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            AtomicInteger callCount = new AtomicInteger(0);
+
+            CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                    () -> {
+                        int count = callCount.incrementAndGet();
+                        if (count < 3) {
+                            return failedFuture(new IOException("Temporary failure"));
+                        }
+                        return completedFuture("success");
+                    },
+                    1000,
+                    executor
+            );
+
+            assertThat(result, willBe(equalTo("success")));
+            assertThat(callCount.get(), equalTo(3));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_Timeout() {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            AtomicInteger callCount = new AtomicInteger(0);
+
+            CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                    () -> {
+                        callCount.incrementAndGet();
+                        return failedFuture(new IOException("Persistent failure"));
+                    },
+                    100,
+                    executor
+            );
+
+            assertThat(result, willThrow(TimeoutException.class));
+            // Should have made multiple attempts before timing out
+            assertThat(callCount.get(), greaterThan(1));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    @Timeout(value = 10, unit = SECONDS)
+    void testRetryOperationUntilSuccessOrTimeout_StopsWhenFutureCompletedExternally() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        try {
+            AtomicInteger callCount = new AtomicInteger(0);
+
+            CompletableFuture<Void> firstAttemptStarted = new CompletableFuture<>();
+
+            CompletableFuture<String> result = retryOperationUntilSuccessOrTimeout(
+                    () -> {
+                        int attempt = callCount.incrementAndGet();
+
+                        if (attempt == 1) {
+                            firstAttemptStarted.complete(null);
+
+                            return new CompletableFuture<>();
+                        }
+
+                        return failedFuture(new IOException("Should not be retried after external completion"));
+                    },
+                    10_000,
+                    executor
+            );
+
+            firstAttemptStarted.get(1, SECONDS);
+
+            assertTrue(result.complete("external"));
+
+            assertThat(result, willBe(equalTo("external")));
+
+            assertThat(callCount.get(), equalTo(1));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }

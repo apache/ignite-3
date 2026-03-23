@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.Collections.emptyNavigableMap;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
@@ -34,6 +35,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.dr
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.escape;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.findEx;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ignoreLegacyKeys;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -44,9 +46,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.StringJoiner;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -71,11 +76,11 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,7 +94,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final ConfigurationUpdateListener configurationUpdateListener;
 
     /** Root keys. Mapping: {@link RootKey#key()} -> identity (itself). */
-    private final Map<String, RootKey<?, ?>> rootKeys;
+    private final Map<String, RootKey<?, ?, ?>> rootKeys;
+
+    private final Lazy<Map<String, Serializable>> defaultsMap = new Lazy<>(this::createDefaultsMap);
 
     /** Configuration storage. */
     private final ConfigurationStorage storage;
@@ -156,8 +163,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /** Immutable forest, so to say. */
         private final SuperRoot roots;
 
+        /** Change ID that corresponds to this state. */
+        private final long changeId;
+
         /** Full storage data. */
-        private final Data data;
+        private final NavigableMap<String, ? extends Serializable> storageData;
 
         /** Future that signifies update of current configuration. */
         private final CompletableFuture<Void> changeFuture = new CompletableFuture<>();
@@ -167,12 +177,19 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          *
          * @param rootsWithoutDefaults Forest without the defaults
          * @param roots Forest with the defaults filled in
-         * @param data Configuration storage state.
+         * @param changeId Change ID that corresponds to this state.
+         * @param storageData Full storage data.
          */
-        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, Data data) {
+        private StorageRoots(
+                SuperRoot rootsWithoutDefaults,
+                SuperRoot roots,
+                long changeId,
+                NavigableMap<String, ? extends Serializable> storageData
+        ) {
             this.rootsWithoutDefaults = rootsWithoutDefaults;
             this.roots = roots;
-            this.data = data;
+            this.changeId = changeId;
+            this.storageData = storageData;
 
             makeImmutable(roots);
             makeImmutable(rootsWithoutDefaults);
@@ -221,7 +238,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     public ConfigurationChanger(
             ConfigurationUpdateListener configurationUpdateListener,
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
@@ -244,7 +261,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param rootKey Root key.
      * @return New {@link InnerNode} instance that represents root.
      */
-    public abstract InnerNode createRootNode(RootKey<?, ?> rootKey);
+    public abstract InnerNode createRootNode(RootKey<?, ?, ?> rootKey);
 
     /**
      * Utility method to create {@link SuperRoot} parameter value.
@@ -253,7 +270,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     private Function<String, RootInnerNode> rootCreator() {
         return key -> {
-            RootKey<?, ?> rootKey = rootKeys.get(key);
+            RootKey<?, ?, ?> rootKey = rootKeys.get(key);
 
             return rootKey == null ? null : new RootInnerNode(rootKey, createRootNode(rootKey));
         };
@@ -285,7 +302,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         Map<String, ?> dataValuesPrefixMap = toPrefixMap(storageValues);
 
-        for (RootKey<?, ?> rootKey : rootKeys.values()) {
+        for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
             Map<String, ?> rootPrefixMap = (Map<String, ?>) dataValuesPrefixMap.get(rootKey.key());
 
             InnerNode rootNode = createRootNode(rootKey);
@@ -315,7 +332,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         // The root WITHOUT the defaults is used to calculate which properties to write to the underlying storage,
         // in other words it allows us to persist the defaults from the code.
         // After the storage listener fires for the first time both roots are supposed to become equal.
-        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data);
+        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data.changeId(), new TreeMap<>(data.values()));
 
         storage.registerConfigurationListener(configurationStorageListener());
 
@@ -333,7 +350,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private void persistModifiedConfiguration() {
         // If the storage version is 0, it indicates that the storage is empty.
         // In this case, write the defaults along with the initial configuration.
-        ConfigurationSource cfgSrc = storageRoots.data.changeId() == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
+        ConfigurationSource cfgSrc = storageRoots.changeId == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
 
         changeInternally(cfgSrc, true)
                 .whenComplete((v, e) -> {
@@ -555,7 +572,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** {@inheritDoc} */
     @Override
-    public InnerNode getRootNode(RootKey<?, ?> rootKey) {
+    public InnerNode getRootNode(RootKey<?, ?, ?> rootKey) {
         return storageRoots.roots.getRoot(rootKey);
     }
 
@@ -619,7 +636,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // This read and the following comparison MUST be performed while holding read lock.
             StorageRoots localRoots = storageRoots;
 
-            if (localRoots.data.changeId() < storageRevision) {
+            if (localRoots.changeId < storageRevision) {
                 // Need to wait for the configuration updates from the storage, then try to update again (loop).
                 return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup));
             }
@@ -639,7 +656,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             Map<String, Serializable> allChanges = createFlattenedUpdatesMap(
                     localRoots.rootsWithoutDefaults,
                     changes,
-                    localRoots.data.values()
+                    localRoots.storageData
             );
 
             if (onStartup) {
@@ -659,11 +676,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             validateConfiguration(curRoots, changes);
 
+            // In some cases some storages may not want to persist configuration defaults.
+            // Need to filter it from change map before write to storage.
+            if (!storage.supportDefaults()) {
+                removeDefaultValues(allChanges);
+            }
+
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
             // fail and the update will be recalculated and there is a chance that the new local configuration will produce a non-empty
             // update.
-            return storage.write(allChanges, localRoots.data.changeId())
+            return storage.write(allChanges, localRoots.changeId)
                     .thenCompose(casWroteSuccessfully -> {
                         if (casWroteSuccessfully) {
                             return localRoots.changeFuture;
@@ -685,7 +708,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             throw new ConfigurationValidationException(validationIssues);
         }
     }
-
 
     private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
         List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes);
@@ -709,10 +731,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
                 // We need to ignore deletion of deprecated values.
                 ignoreDeleted(changedValues, keyIgnorer);
-                // We need to ignore deletion of legacy values.
-                ignoreLegacyKeys(oldStorageRoots, changedValues);
 
                 Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
+                ignoreLegacyKeys(oldStorageRoots.roots, dataValuesPrefixMap);
 
                 compressDeletedEntries(dataValuesPrefixMap);
 
@@ -721,7 +742,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
                 long newChangeId = changedEntries.changeId();
 
-                var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
+                NavigableMap<String, ? extends Serializable> newData = mergeData(oldStorageRoots.storageData, changedEntries.values());
+                var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, newChangeId, newData);
 
                 rwLock.writeLock().lock();
 
@@ -751,12 +773,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         };
     }
 
-    private static Data mergeData(Data currentData, Data delta) {
-        assert delta.changeId() > currentData.changeId() : currentData.changeId() + " " + delta.changeId();
+    private static NavigableMap<String, ? extends Serializable> mergeData(
+            NavigableMap<String, ? extends Serializable> currentData,
+            Map<String, ? extends Serializable> delta
+    ) {
+        NavigableMap<String, Serializable> newState = new TreeMap<>(currentData);
 
-        Map<String, Serializable> newState = new HashMap<>(currentData.values());
-
-        for (Entry<String, ? extends Serializable> entry : delta.values().entrySet()) {
+        for (Entry<String, ? extends Serializable> entry : delta.entrySet()) {
             if (entry.getValue() == null) {
                 newState.remove(entry.getKey());
             } else {
@@ -764,42 +787,39 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             }
         }
 
-        return new Data(newState, delta.changeId());
-    }
-
-    private static void ignoreLegacyKeys(StorageRoots oldStorageRoots, Map<String, ? extends Serializable> changedValues) {
-        oldStorageRoots.roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
-            @Override
-            protected Object doVisitLeafNode(Field field, String key, Serializable val) {
-                processLegacyPaths(changedValues::remove);
-
-                return null;
-            }
-        }, true);
+        return newState;
     }
 
     /**
-     * Remove keys from {@code allChanges}, that are associated with nulls in this map, and already absent in {@link StorageRoots#data}.
+     * Remove keys from {@code allChanges}, that are associated with nulls in this map, and already absent in
+     * {@link StorageRoots#storageData}.
      */
     private static void dropUnnecessarilyDeletedKeys(Map<String, Serializable> allChanges, StorageRoots localRoots) {
-        allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.data.values().containsKey(entry.getKey()));
+        allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.storageData.containsKey(entry.getKey()));
     }
 
-    /**
-     * Notifies all listeners of the current configuration.
-     *
-     * @return Future that must signify when processing is completed.
-     */
-    CompletableFuture<Void> notifyCurrentConfigurationListeners() {
-        StorageRoots storageRoots = this.storageRoots;
+    private void removeDefaultValues(Map<String, Serializable> allChanges) {
+        defaultsMap.get().forEach((key, defaultValue) -> {
+            Serializable change = allChanges.get(key);
+            if (Objects.deepEquals(change, defaultValue)) {
+                allChanges.put(key, null);
+            }
+        });
+    }
 
-        long notificationCount = notificationListenerCnt.incrementAndGet();
+    private Map<String, Serializable> createDefaultsMap() {
+        SuperRoot superRoot = new SuperRoot(rootCreator());
+        for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
+            superRoot.addRoot(rootKey, createRootNode(rootKey));
+        }
 
-        return configurationUpdateListener.onConfigurationUpdated(
-                null,
-                storageRoots.roots,
-                storageRoots.data.changeId(),
-                notificationCount
+        SuperRoot defaults = superRoot.copy();
+        addDefaults(defaults);
+
+        return createFlattenedUpdatesMap(
+                superRoot,
+                defaults,
+                emptyNavigableMap()
         );
     }
 

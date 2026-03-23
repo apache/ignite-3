@@ -24,25 +24,22 @@ import org.apache.ignite.raft.jraft.core.State;
  */
 public enum LocalPartitionStateEnum {
     /** This state might be used when partition is not yet started, or it's already stopping, for example. */
-    UNAVAILABLE,
+    UNAVAILABLE(0),
 
     /** Alive partition with a healthy state machine. */
-    HEALTHY,
+    HEALTHY(1),
 
     /** Partition is starting right now. */
-    INITIALIZING,
+    INITIALIZING(2),
 
     /** Partition is installing a Raft snapshot from the leader. */
-    INSTALLING_SNAPSHOT,
+    INSTALLING_SNAPSHOT(3),
 
     /** Partition is catching up, meaning that it's not replicated part of the log yet. */
-    CATCHING_UP,
+    CATCHING_UP(4),
 
     /** Partition is in broken state, usually it means that its state machine thrown an exception. */
-    BROKEN;
-
-    /** Cached array with all enum values. */
-    private static final LocalPartitionStateEnum[] VALUES = values();
+    BROKEN(5);
 
     /** Converts internal raft node state into public local partition state. */
     public static LocalPartitionStateEnum convert(State raftNodeState) {
@@ -70,17 +67,32 @@ public enum LocalPartitionStateEnum {
         }
     }
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static LocalPartitionStateEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
+    private final int id;
 
-        return VALUES[ordinal];
+    LocalPartitionStateEnum(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Returns the enumerated value from its id.
+     *
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
+     */
+    public static LocalPartitionStateEnum fromId(int id) throws IllegalArgumentException {
+        switch (id) {
+            case 0: return UNAVAILABLE;
+            case 1: return HEALTHY;
+            case 2: return INITIALIZING;
+            case 3: return INSTALLING_SNAPSHOT;
+            case 4: return CATCHING_UP;
+            case 5: return BROKEN;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + id);
+        }
+    }
+
+    public int id() {
+        return id;
     }
 }

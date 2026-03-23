@@ -21,12 +21,13 @@
 #include "ignite/odbc/app/parameter_set.h"
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
-#include "ignite/odbc/meta/column_meta.h"
 #include "ignite/odbc/query/query.h"
 
 #include <cstdint>
 #include <map>
 #include <memory>
+
+#include "ignite/protocol/sql/column_meta.h"
 
 namespace ignite {
 class sql_connection;
@@ -254,7 +255,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta();
+    const protocol::column_meta_vector *get_meta();
 
     /**
      * Check if data is available.

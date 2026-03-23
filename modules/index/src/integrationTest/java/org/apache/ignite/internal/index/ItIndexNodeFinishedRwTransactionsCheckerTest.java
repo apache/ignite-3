@@ -17,25 +17,21 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema.TEST_PROFILE_NAME;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -43,22 +39,27 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -70,9 +71,34 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
     private static final String ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY = "FAKE_TEST_ZONE";
 
+    private static volatile @Nullable IntConsumer beforeAddWriteCommittedFunction;
+
     @Override
     protected int initialNodes() {
         return 1;
+    }
+
+    @BeforeAll
+    @Override
+    protected void startCluster(TestInfo testInfo) {
+        TestMvTableStorage.partitionStorageFactory((tableId, partitionId) -> new TestMvPartitionStorage(partitionId) {
+            @Override
+            public synchronized AddWriteCommittedResult addWriteCommitted(
+                    RowId rowId,
+                    @Nullable BinaryRow row,
+                    HybridTimestamp commitTimestamp
+            ) throws StorageException {
+                IntConsumer function = beforeAddWriteCommittedFunction;
+
+                if (function != null) {
+                    function.accept(tableId);
+                }
+
+                return super.addWriteCommitted(rowId, row, commitTimestamp);
+            }
+        });
+
+        super.startCluster(testInfo);
     }
 
     @BeforeEach
@@ -86,6 +112,8 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     void tearDown() {
         dropAllTables();
         dropAllZonesExceptDefaultOne();
+
+        beforeAddWriteCommittedFunction = null;
     }
 
     @Test
@@ -175,24 +203,28 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     @Test
-    void testOnePhaseCommitViaKeyValue() throws Exception {
+    void testOnePhaseCommitViaKeyValue() {
         int oldLatestCatalogVersion = latestCatalogVersion();
 
         TableImpl tableImpl = tableImpl();
 
+        var awaitStartUpdateAnyMvPartitionStorageFuture = new CompletableFuture<Void>();
         var continueUpdateMvPartitionStorageFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<Void> awaitAddWriteCommittedForAnyMvPartitionStorageFuture = awaitAddWriteCommittedForAnyMvPartitionStorage(
-                tableImpl.internalTable().storage(),
-                continueUpdateMvPartitionStorageFuture
-        );
+        beforeAddWriteCommittedFunction = tableId -> {
+            if (tableId == tableImpl.tableId()) {
+                awaitStartUpdateAnyMvPartitionStorageFuture.complete(null);
+
+                assertThat(continueUpdateMvPartitionStorageFuture, willCompleteSuccessfully());
+            }
+        };
 
         CompletableFuture<Void> putAsync = tableImpl.keyValueView().putAsync(
                 null,
                 Tuple.create().set("ID", 0), Tuple.create().set("NAME", "0").set("SALARY", 0.0)
         );
 
-        assertThat(awaitAddWriteCommittedForAnyMvPartitionStorageFuture, willCompleteSuccessfully());
+        assertThat(awaitStartUpdateAnyMvPartitionStorageFuture, willCompleteSuccessfully());
 
         fakeUpdateCatalog();
 
@@ -279,45 +311,5 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         assertThat(invokeFuture, willCompleteSuccessfully());
 
         return ((IsNodeFinishedRwTransactionsStartedBeforeResponse) invokeFuture.join()).finished();
-    }
-
-    private static CompletableFuture<Void> awaitAddWriteCommittedForAnyMvPartitionStorage(
-            MvTableStorage mvTableStorage,
-            CompletableFuture<Void> continueUpdateFuture
-    ) throws InterruptedException {
-        var awaitStartUpdateAnyMvPartitionStorageFuture = new CompletableFuture<Void>();
-
-        for (int partitionId = 0; partitionId < mvTableStorage.getTableDescriptor().getPartitions(); partitionId++) {
-            MvPartitionStorage mvPartitionStorage = waitForMvPartitionStorage(mvTableStorage, partitionId);
-
-            // Since the update will be one-phase, it will be enough for us to wait for any addWriteCommitted.
-            // Waiting for any runConsistently can lead to flaky fail.
-            doAnswer(invocation -> {
-                awaitStartUpdateAnyMvPartitionStorageFuture.complete(null);
-
-                assertThat(continueUpdateFuture, willCompleteSuccessfully());
-
-                return invocation.callRealMethod();
-            }).when(mvPartitionStorage).addWriteCommitted(any(), any(), any());
-        }
-
-        return awaitStartUpdateAnyMvPartitionStorageFuture;
-    }
-
-    private static MvPartitionStorage waitForMvPartitionStorage(MvTableStorage mvTableStorage, int partitionId)
-            throws InterruptedException {
-        waitForCondition(() -> getMvPartitionStorage(mvTableStorage, partitionId) != null, SECONDS.toMillis(10));
-
-        MvPartitionStorage storage = getMvPartitionStorage(mvTableStorage, partitionId);
-        assertThat(storage, is(notNullValue()));
-
-        return storage;
-    }
-
-    private static @Nullable MvPartitionStorage getMvPartitionStorage(MvTableStorage mvTableStorage, int partitionId) {
-        return Wrappers.unwrapNullable(
-                mvTableStorage.getMvPartition(partitionId),
-                TestMvPartitionStorage.class
-        );
     }
 }

@@ -82,10 +82,10 @@ public class ExecutionTargetFactorySelfTest {
     @ParameterizedTest
     @MethodSource("clusterFactory")
     void emptyTargets(ExecutionTargetFactory f) {
-        assertThrows(AssertionError.class, () -> f.allOf(List.of()), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.someOf(List.of()), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.oneOf(List.of()), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.partitioned(List.of()), "Empty target is not allowed");
+        assertThrows(MappingException.class, () -> f.allOf(List.of()), "Empty target is not allowed");
+        assertThrows(MappingException.class, () -> f.someOf(List.of()), "Empty target is not allowed");
+        assertThrows(MappingException.class, () -> f.oneOf(List.of()), "Empty target is not allowed");
+        assertThrows(MappingException.class, () -> f.partitioned(List.of()), "Empty target is not allowed");
     }
 
     @ParameterizedTest
@@ -94,10 +94,10 @@ public class ExecutionTargetFactorySelfTest {
         List<String> invalidNodeSet = List.of("node100");
 
         assertThrows(MappingException.class, () -> f.allOf(invalidNodeSet), "Mandatory node was excluded from mapping: node100");
-        assertThrows(MappingException.class, () -> f.someOf(invalidNodeSet), "Mandatory nodes was excluded from mapping: [node100]");
-        assertThrows(MappingException.class, () -> f.oneOf(invalidNodeSet), "Mandatory nodes was excluded from mapping: [node100]");
+        assertThrows(MappingException.class, () -> f.someOf(invalidNodeSet), "Mandatory nodes were excluded from mapping: [node100]");
+        assertThrows(MappingException.class, () -> f.oneOf(invalidNodeSet), "Mandatory nodes were excluded from mapping: [node100]");
         assertThrows(MappingException.class, () -> f.partitioned(
-                assignmentFromPrimaries(invalidNodeSet)), "Mandatory nodes was excluded from mapping: [node100]");
+                assignmentFromPrimaries(invalidNodeSet)), "Mandatory nodes were excluded from mapping: [node100]");
     }
 
     @ParameterizedTest

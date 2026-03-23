@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
@@ -80,19 +81,22 @@ public class BinaryRowConverter implements ColumnsExtractor {
             parser.fetch(columnIndex, stats);
         }
 
-        // Now compose the tuple.
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.estimatedValueSize);
+        var builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.estimatedValueSize);
 
+        Sink builderSink = (index, begin, end) -> {
+            if (begin == end) {
+                builder.appendNull();
+            } else {
+                builder.appendElementBytes(tupleBuffer, begin, end - begin);
+            }
+        };
+
+        // Now compose the tuple.
         for (int elementIndex = 0; elementIndex < dstSchema.elementCount(); elementIndex++) {
             int columnIndex = dstSchema.columnIndex(elementIndex);
-            parser.fetch(columnIndex, (index, begin, end) -> {
-                if (begin == end) {
-                    builder.appendNull();
-                } else {
-                    builder.appendElementBytes(tupleBuffer, begin, end - begin);
-                }
-            });
+            parser.fetch(columnIndex, builderSink);
         }
+
         return new BinaryTuple(dstSchema.elementCount(), builder.build());
     }
 

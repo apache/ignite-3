@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor.DeprecatedAlias;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessorException;
 
 /**
@@ -63,11 +64,24 @@ public class CppGenerator extends GenericGenerator {
         line("    // " + descriptor.className + " group. Group code: " + descriptor.groupCode);
 
         for (int i = 0; i < descriptor.errorCodes.size(); i++) {
-            var lastInGroup = i == descriptor.errorCodes.size() - 1;
+            var lastInGroup = (i == descriptor.errorCodes.size() - 1) && descriptor.deprecatedAliases.isEmpty();
             var ec = descriptor.errorCodes.get(i);
             var name = composeName(ec.name);
             var code = Integer.toHexString(composeCode(groupCode, ec.code));
             line(String.format("    %s = 0x%s%s", name, code, lastGroup && lastInGroup ? "" : ","));
+            if (lastInGroup && !lastGroup) {
+                line();
+            }
+        }
+
+        for (int i = 0; i < descriptor.deprecatedAliases.size(); i++) {
+            var lastInGroup = i == descriptor.deprecatedAliases.size() - 1;
+            DeprecatedAlias deprecatedAlias = descriptor.deprecatedAliases.get(i);
+            String composedName = composeName(deprecatedAlias.alias);
+            String composedIdentifier = composeName(deprecatedAlias.target);
+
+            line(String.format("    %s [[deprecated(\"%s is deprecated. Use %s instead.\")]] = %s%s", composedName,
+                    composedName, composedIdentifier, composedIdentifier, lastGroup && lastInGroup ? "" : ","));
             if (lastInGroup && !lastGroup) {
                 line();
             }

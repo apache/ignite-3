@@ -18,10 +18,12 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +37,7 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Fake catalog service.
@@ -68,24 +71,25 @@ public class FakeCatalogService implements CatalogService {
         lenient().doAnswer(invocation -> {
             int tableId = invocation.getArgument(0);
 
-            return new CatalogTableDescriptor(
-                    tableId,
-                    0,
-                    0,
-                    "table",
-                    zoneIdProvider.applyAsInt(tableId),
-                    List.of(mock(CatalogTableColumnDescriptor.class)),
-                    List.of(),
-                    null,
-                    DEFAULT_STORAGE_PROFILE
-            );
+            int zoneId = zoneIdProvider.applyAsInt(tableId);
+            return CatalogTableDescriptor.builder()
+                    .id(tableId)
+                    .schemaId(0)
+                    .primaryKeyIndexId(0)
+                    .name("table")
+                    .zoneId(zoneId)
+                    .newColumns(List.of(
+                            new CatalogTableColumnDescriptor(0, "c1", ColumnType.INT32, false, 0, 0, 0, null)
+                    ))
+                    .primaryKeyColumns(IntList.of(0))
+                    .storageProfile(DEFAULT_STORAGE_PROFILE)
+                    .build();
         }).when(catalog).table(anyInt());
 
         lenient().doAnswer(invocation -> new CatalogZoneDescriptor(
                 invocation.getArgument(0),
                 "zone",
                 partitions,
-                0,
                 0,
                 0,
                 0,
@@ -127,8 +131,13 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
+    public Catalog latestCatalog() {
+        return catalog;
+    }
+
+    @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver.wrappers;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.instanceOf;
@@ -112,7 +112,7 @@ class ExecutorInclinedPlacementDriverTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(AsyncOperation.class)
     void completesFuturesInGivenExecutorOrCurrentThreadForCompletedFuture(AsyncOperation operation) {
-        when(operation.execute(placementDriver, context)).thenReturn(completedFuture(null));
+        when(operation.execute(placementDriver, context)).thenReturn(nullCompletedFuture());
 
         AtomicReference<Thread> threadReference = new AtomicReference<>();
 

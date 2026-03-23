@@ -41,15 +41,13 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-storage-api')
-    testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation project(':ignite-schema')
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
+    testImplementation testFixtures(project(':ignite-schema'))
     testImplementation libs.jmh.core
 }
 

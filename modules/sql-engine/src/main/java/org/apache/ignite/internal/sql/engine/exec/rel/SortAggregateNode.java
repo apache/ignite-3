@@ -32,9 +32,9 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
@@ -105,6 +105,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
+        onRequestReceived();
+
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -119,6 +121,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
+
+        onRowReceived();
 
         waiting--;
 
@@ -205,7 +209,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private Group newGroup(RowT r) {
-        RowHandler<RowT> rowHandler = rowFactory.handler();
+        RowHandler<RowT> rowHandler = context().rowAccessor();
         ObjectArrayList<Object> grpKeys = new ObjectArrayList<>(grpSet.cardinality());
 
         grpSet.forEachInt(fldIdx -> grpKeys.add(rowHandler.get(fldIdx, r)));
@@ -265,7 +269,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            aggRow.update(accs, grpSet, context().rowHandler(), row);
+            aggRow.update(accs, grpSet, row);
         }
 
         private RowT row() {
@@ -277,7 +281,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            aggRow.writeTo(type, accs, fields, grpSet, AggregateRow.NO_GROUP_ID);
+            aggRow.writeTo(type, accs, fields, grpSet.cardinality(), grpSet, AggregateRow.NO_GROUP_ID);
 
             return rowFactory.create(fields);
         }

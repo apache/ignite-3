@@ -19,34 +19,9 @@ SELECT cast(date '2018-01-30' as varchar format 'YYY')
 018
 
 query T
-SELECT cast(date '2018-01-30' as varchar format 'MONTH')
-----
-JANUARY
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'MON')
-----
-JAN
-
-query T
 SELECT cast(date '2018-01-30' as varchar format 'MM')
 ----
 01
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'DAY')
-----
-TUESDAY
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'DY')
-----
-TUE
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'D')
-----
-3
 
 query T
 SELECT cast(date '2018-01-30' as varchar format 'DD')
@@ -63,17 +38,12 @@ SELECT cast(date '2018-01-30' as varchar format 'MM-DD-YY')
 ----
 01-30-18
 
-query T
-SELECT cast(date '2021-12-21' as varchar format 'YY Q MON DD')
-----
-21 4 DEC 21
-
 # Cast TIME to String
 
 query T
-SELECT cast(time '21:30:00' as varchar format 'HH12')
+SELECT cast(time '21:30:00' as varchar format 'HH12 A.M.')
 ----
-09
+09 P.M.
 
 query T
 SELECT cast(time '1:30:00' as varchar format 'HH24')
@@ -91,9 +61,9 @@ SELECT cast(time '21:30:25.16' as varchar format 'SS')
 25
 
 query T
-SELECT cast(time '15:45:10' as varchar format 'HH12:MI')
+SELECT cast(time '15:45:10' as varchar format 'HH12:MI A.M.')
 ----
-03:45
+03:45 P.M.
 
 query T
 SELECT cast(time '21:30:25.16' as varchar format 'SSSSS')
@@ -105,30 +75,26 @@ SELECT cast(time '00:00:00.23' as varchar format 'SSSSS')
 ----
 00000
 
-query T
-SELECT cast(time '23:30:55.43' as varchar format 'AM')
-----
-PM
+statement error: Expected both fields: 12-hour / am pm
+SELECT cast(time '23:30:55.43' as varchar format 'A.M.')
+
+statement error: Expected both fields: 12-hour / am pm
+SELECT cast(time '12:30:55' as varchar format 'P.M.')
 
 query T
-SELECT cast(time '12:30:55' as varchar format 'PM')
+SELECT cast(time '08:45:12' as varchar format 'HH12:MI:SS P.M.')
 ----
-PM
+08:45:12 A.M.
 
 query T
-SELECT cast(time '08:45:12' as varchar format 'P.M.')
+SELECT cast(time '16:17:12' as varchar format 'HH12:MI:SS a.m.')
 ----
-A.M.
+04:17:12 P.M.
 
 query T
-SELECT cast(time '16:17:12' as varchar format 'am')
+SELECT cast(time '02:23:23' as varchar format 'HH12:MI:SS p.m.')
 ----
-pm
-
-query T
-SELECT cast(time '02:23:23' as varchar format 'p.m.')
-----
-a.m.
+02:23:23 A.M.
 
 query T
 SELECT cast(time '23:30:55.4757' as varchar format 'FF2')
@@ -162,15 +128,21 @@ SELECT cast('18-12-03' as date format 'YY-MM-DD')
 ----
 2018-12-03
 
-query T
+statement error: Unexpected element <MON>
 SELECT cast('JUN 30, 2018' as date format 'MON DD, YYYY')
-----
-2018-06-30
+
+statement error: Invalid format. Expected both fields: 12-hour / am pm
+SELECT cast('17:30' as time format 'HH12:MI')
 
 query T
-SELECT cast('17:30' as time format 'HH12:MI')
+SELECT cast('07:30 A.M.' as time format 'HH12:MI A.M.')
 ----
-17:30:00
+07:30:00
+
+query T
+SELECT cast('07:30 P.M.' as time format 'HH12:MI P.M.')
+----
+19:30:00
 
 query T
 SELECT cast('01:05:07.161' as time format 'HH24:MI:SS.FF4')
@@ -183,17 +155,14 @@ SELECT cast('2017-05-12' as timestamp format 'YYYY-MM-DD')
 2017-05-12 00:00:00
 
 query T
-SELECT cast('2020.06.03 12:42:53' as timestamp format 'YYYY.MM.DD HH:MI:SS')
+SELECT cast('2020.06.03 12:42:53' as timestamp format 'YYYY.MM.DD HH24:MI:SS')
 ----
 2020-06-03 12:42:53
 
-# Seems will be supported after resolve CALCITE_6367
-statement error: Invalid format: 'YYYY.MM.DD HH24:MI:SSTZH:TZM' for datetime string: '2020.06.03 00:00:53+06:30'
+query T
 SELECT cast('2020.06.03 00:00:53+06:30' as timestamp format 'YYYY.MM.DD HH24:MI:SSTZH:TZM')
-
-# Seems will be supported after resolve CALCITE_6367
-statement error: Invalid format: 'HH:MI P.M.' for datetime string: '03:30 P.M.'
-SELECT cast('03:30 P.M.' as time format 'HH:MI P.M.')
+----
+2020-06-02 17:30:53
 
 # Seems will be supported after resolve CALCITE_6270
 statement error: Cast function cannot convert value of type BINARY(5) to type VARCHAR

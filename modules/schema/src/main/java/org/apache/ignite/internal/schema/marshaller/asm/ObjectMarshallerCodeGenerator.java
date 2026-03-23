@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.PojoMapper;
 
 /**
@@ -70,7 +71,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                 Field field = mapper.targetType().getDeclaredField(fldName);
                 flds.put(fldName.toUpperCase(), field);
             } catch (NoSuchFieldException e) {
-                throw new IllegalArgumentException(
+                throw new MarshallerException(
                         "Field " + fldName + " is returned from mapper of type " + mapper.getClass().getName()
                                 + ", but is not present in target class " + mapper.targetType().getName(), e);
             }
@@ -83,7 +84,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
             var fldNames = flds.values().stream().map(Field::getName).sorted().collect(Collectors.toList());
 
-            throw new IllegalArgumentException(
+            throw new MarshallerException(
                     "Fields " + fldNames + " of type " + targetClass.getName() + " are not mapped to columns");
         }
 
@@ -93,7 +94,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             Field field = flds.get(column.name());
 
             if (field == null) {
-                throw new IllegalArgumentException("No field found for column " + column.name());
+                throw new MarshallerException("No field found for column " + column.name());
             }
 
             validateColumnType(column, field.getType());

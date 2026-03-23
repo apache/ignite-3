@@ -139,7 +139,7 @@ public class PolymorphicTraversableTreeNodeTest {
 
         Collection<String> keys = new HashSet<>();
 
-        parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
+        parentNode.traverseChildren(new ConfigurationVisitor<>() {
             @Override
             public Object visitLeafNode(@Nullable Field field, String key, Serializable val) {
                 assertEquals("type", key);
@@ -169,7 +169,7 @@ public class PolymorphicTraversableTreeNodeTest {
 
         Collection<String> keys = new HashSet<>();
 
-        parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
+        parentNode.traverseChildren(new ConfigurationVisitor<>() {
             @Override
             public Object visitLeafNode(@Nullable Field field, String key, Serializable val) {
                 return keys.add(key);
@@ -193,7 +193,7 @@ public class PolymorphicTraversableTreeNodeTest {
         keys.clear();
         parentNode.convert(ParentWithElementsChange.class);
 
-        parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
+        parentNode.traverseChildren(new ConfigurationVisitor<>() {
             @Override
             public Object visitLeafNode(@Nullable Field field, String key, Serializable val) {
                 return keys.add(key);
@@ -221,7 +221,7 @@ public class PolymorphicTraversableTreeNodeTest {
         parentNode.convert(ParentWithChildChange.class);
 
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("type", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("type", new ConfigurationVisitor<>() {
                     @Override
                     public Void visitLeafNode(@Nullable Field field, String key, Serializable val) {
                         assertEquals("type", key);
@@ -232,7 +232,7 @@ public class PolymorphicTraversableTreeNodeTest {
         );
 
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("my-child", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-child", new ConfigurationVisitor<>() {
                     @Override
                     public @Nullable Void visitInnerNode(@Nullable Field field, String key, InnerNode node) {
                         assertEquals("my-child", key);
@@ -249,7 +249,7 @@ public class PolymorphicTraversableTreeNodeTest {
         parentNode.convert(ParentWithElementsChange.class);
 
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("my-elements", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-elements", new ConfigurationVisitor<>() {
                     @Override
                     public @Nullable Void visitNamedListNode(@Nullable Field field, String key, NamedListNode<?> node) {
                         assertEquals("my-elements", key);

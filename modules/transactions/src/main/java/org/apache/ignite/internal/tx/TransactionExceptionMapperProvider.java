@@ -46,6 +46,10 @@ public class TransactionExceptionMapperProvider implements IgniteExceptionMapper
                 err -> new MismatchingTransactionOutcomeException(err.traceId(), err.code(), err.getMessage(), err)));
         mappers.add(unchecked(IncompatibleSchemaAbortException.class,
                 err -> new IncompatibleSchemaException(err.traceId(), err.code(), err.getMessage(), err)));
+        mappers.add(unchecked(DelayedAckException.class,
+                err -> new TransactionException(err.traceId(), err.code(), err.getMessage(), err.getCause())));
+        mappers.add(unchecked(TransactionKilledException.class,
+                err -> new TransactionException(err.traceId(), err.code(), err.getMessage(), err)));
 
         return mappers;
     }

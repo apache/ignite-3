@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -27,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersReques
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Change peers request processor.
@@ -55,7 +55,11 @@ public class ChangePeersAndLearnersRequestProcessor extends BaseCliRequestProces
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final List<PeerId> oldLearners = ctx.node.listLearners();
 
-        final Configuration conf = new Configuration();
+        assert request.sequenceToken() != null: "Sequence token is null";
+
+        long sequenceToken = request.sequenceToken();
+
+        final Configuration conf = new Configuration(sequenceToken);
         for (final String peerIdStr : request.newPeersList()) {
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {

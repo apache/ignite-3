@@ -71,11 +71,11 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
+    public CompletableFuture<Void> updateLowWatermarkAsync(HybridTimestamp newLowWatermark) {
         var currentTs = ts;
 
         if (currentTs == null || newLowWatermark.compareTo(currentTs) > 0) {
-            supplyAsync(() -> updateAndNotifyInternal(newLowWatermark))
+            return supplyAsync(() -> updateAndNotifyInternal(newLowWatermark))
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -83,6 +83,13 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
                         }
                     });
         }
+
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public void setLowWatermarkOnRecovery(HybridTimestamp newLowWatermark) {
+        setLowWatermark(newLowWatermark);
     }
 
     @Override

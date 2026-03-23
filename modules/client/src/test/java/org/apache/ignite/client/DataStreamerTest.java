@@ -727,12 +727,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         return ignite2;
     }
 
-    private static class TestReceiver implements DataStreamerReceiver<Long, Object, String> {
+    static class TestReceiver implements DataStreamerReceiver<Long, Object, String> {
         @Override
         public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
             var parsedArgs = TestReceiverArs.from(arg);
 
-            // noinspection resource
             RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
             List<String> res = new ArrayList<>(page.size());
 

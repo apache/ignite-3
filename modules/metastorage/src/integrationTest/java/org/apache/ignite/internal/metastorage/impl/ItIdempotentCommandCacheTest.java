@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -25,12 +26,16 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +43,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,12 +60,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -68,6 +79,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -94,9 +107,10 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -110,14 +124,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Integration tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
+ * Integration tests for idempotency of {@link IdempotentCommand}.
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
+class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final MetaStorageCommandsFactory CMD_FACTORY = new MetaStorageCommandsFactory();
 
     private static final int NODES_COUNT = 2;
@@ -136,22 +151,29 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.retryTimeoutMillis = 10000")
     private RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100")
-    private SystemDistributedConfiguration systemConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
 
     private List<Node> nodes;
 
-    private static class Node implements AutoCloseable {
+    private TestInfo testInfo;
+
+    private static class Node implements ManuallyCloseable {
+        private static final IgniteLogger log = Loggers.forClass(Node.class);
+
         ClusterService clusterService;
 
         Loza raftManager;
 
-        LogStorageFactory partitionsLogStorageFactory;
+        LogStorageManager partitionsLogStorageManager;
 
-        LogStorageFactory msLogStorageFactory;
+        LogStorageManager msLogStorageManager;
 
         KeyValueStorage storage;
 
@@ -166,7 +188,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         Node(
                 TestInfo testInfo,
                 RaftConfiguration raftConfiguration,
-                SystemDistributedConfiguration systemConfiguration,
+                SystemLocalConfiguration systemLocalConfiguration,
+                SystemDistributedConfiguration systemDistributedConfiguration,
                 Path workDir,
                 int index,
                 ScheduledExecutorService scheduledExecutorService
@@ -174,10 +197,10 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             List<NetworkAddress> addrs = new ArrayList<>();
 
             for (int i = 0; i < NODES_COUNT; i++) {
-                addrs.add(new NetworkAddress("localhost", 10_000 + i));
+                addrs.add(new NetworkAddress("127.0.0.1", 10_000 + i));
             }
 
-            var localAddr = new NetworkAddress("localhost", 10_000 + index);
+            var localAddr = new NetworkAddress("127.0.0.1", 10_000 + index);
 
             clusterService = clusterService(testInfo, localAddr.port(), new StaticNodeFinder(addrs));
 
@@ -189,14 +212,22 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(lozaDir);
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
 
-            raftManager = TestLozaFactory.create(clusterService, raftConfiguration, clock, raftGroupEventsClientListener);
+            raftManager = TestLozaFactory.create(
+                    clusterService,
+                    raftConfiguration,
+                    systemLocalConfiguration,
+                    clock,
+                    raftGroupEventsClientListener
+            );
 
             var logicalTopologyService = mock(LogicalTopologyService.class);
+
+            when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -210,11 +241,11 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
 
-            msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            msLogStorageManager =
+                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -235,7 +266,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    systemConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -245,20 +276,19 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             clockService = new ClockServiceImpl(
                     clock,
                     clockWaiter,
-                    () -> TEST_MAX_CLOCK_SKEW_MILLIS
+                    () -> TEST_MAX_CLOCK_SKEW_MILLIS,
+                    skew -> {}
             );
         }
 
         void start(CompletableFuture<Set<String>> metaStorageNodesFut) {
-            if (metaStorageNodesFut != null) {
-                when(cmgManager.metaStorageInfo()).thenReturn(
-                        metaStorageNodesFut.thenApply(nodes -> new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(nodes).build())
-                );
-            }
+            when(cmgManager.metaStorageInfo()).thenReturn(
+                    metaStorageNodesFut.thenApply(nodes -> new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(nodes).build())
+            );
 
             assertThat(
                     startAsync(new ComponentContext(),
-                            clusterService, partitionsLogStorageFactory, msLogStorageFactory, raftManager, metaStorageManager, clockWaiter),
+                            clusterService, partitionsLogStorageManager, msLogStorageManager, raftManager, metaStorageManager, clockWaiter),
                     willCompleteSuccessfully()
             );
         }
@@ -269,7 +299,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         void stop() throws Exception {
             List<IgniteComponent> components =
-                    List.of(clockWaiter, metaStorageManager, raftManager, partitionsLogStorageFactory, msLogStorageFactory, clusterService);
+                    List.of(clockWaiter, metaStorageManager, raftManager, partitionsLogStorageManager, msLogStorageManager, clusterService);
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
@@ -293,29 +323,80 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         boolean checkValueInStorage(byte[] testKey, byte[] testValueExpected) {
             Entry e = storage.get(testKey);
 
-            return e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
+            boolean res = e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
+
+            if (!res) {
+                log.warn("Test: checkValueInStorage found no value [node=" + clusterService.nodeName()
+                        + ", empty=" + (e == null ? "null" : e.empty())
+                        + ", tombstone=" + (e == null ? "null" : e.tombstone())
+                        + ", value=" + (e == null ? "null" : Arrays.toString(e.value()))
+                        + "].");
+            }
+
+            return res;
         }
     }
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        startCluster(testInfo);
+        this.testInfo = testInfo;
+
+        if (testInfo.getTestMethod().orElseThrow().isAnnotationPresent(DisableIdleSafeTimePropagation.class)) {
+            // The test asked to disable idle safe time propagation, so set it to a super-long period.
+            assertThat(
+                    systemDistributedConfiguration.idleSafeTimeSyncIntervalMillis().update(DAYS.toMillis(1)),
+                    willCompleteSuccessfully()
+            );
+        }
+
+        startCluster();
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAll(nodes.stream());
+        closeAllManually(nodes.stream());
     }
 
-    @Test
-    public void testIdempotentInvoke() throws InterruptedException {
+    @ParameterizedTest
+    @EnumSource(Invoker.class)
+    void testIdempotentInvoke(Invoker invoker) {
+        Node leader = leader(raftClient());
+
+        boolean result = doRetriedInvoke(invoker, leader);
+
+        assertTrue(result);
+        assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+    }
+
+    private boolean doRetriedInvoke(Invoker invoker, Node leader) {
         AtomicInteger writeActionReqCount = new AtomicInteger();
         CompletableFuture<Void> retryBlockingFuture = new CompletableFuture<>();
 
         log.info("Test: blocking messages.");
 
-        Node leader = leader(raftClient());
+        dropResponseToFirstInvoke(leader, writeActionReqCount, retryBlockingFuture);
 
+        MetaStorageManager metaStorageManager = leader.metaStorageManager;
+
+        CompletableFuture<Boolean> fut = invoker.invokeOn(metaStorageManager);
+
+        await().until(() -> leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+
+        log.info("Test: value appeared in storage.");
+
+        assertTrue(retryBlockingFuture.complete(null));
+
+        await().until(() -> writeActionReqCount.get() == 2);
+
+        leader.stopDroppingMessages();
+
+        assertThat(fut, willCompleteSuccessfully());
+        log.info("Test: invoke complete.");
+
+        return fut.join();
+    }
+
+    private void dropResponseToFirstInvoke(Node leader, AtomicInteger writeActionReqCount, CompletableFuture<Void> retryBlockingFuture) {
         leader.dropMessages((n, msg) -> {
             // Dropping the first response, this will cause timeout on first response, and then retry.
             if (msg instanceof ActionResponse && ((ActionResponse) msg).result() != null && writeActionReqCount.get() == 1) {
@@ -328,11 +409,11 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 WriteActionRequest request = (WriteActionRequest) msg;
 
                 if (!(request.deserializedCommand() instanceof SyncTimeCommand)) {
-                    writeActionReqCount.incrementAndGet();
-                    log.info("Test: WriteActionRequest intercepted, count=" + writeActionReqCount.get());
+                    int incrementedCount = writeActionReqCount.incrementAndGet();
+                    log.info("Test: WriteActionRequest intercepted, count=" + incrementedCount);
 
                     // Second request: retry.
-                    if (writeActionReqCount.get() == 2) {
+                    if (incrementedCount == 2) {
                         log.info("Test: retry blocked.");
 
                         retryBlockingFuture.orTimeout(10, TimeUnit.SECONDS).join();
@@ -344,34 +425,30 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             return false;
         });
+    }
 
-        MetaStorageManager metaStorageManager = leader.metaStorageManager;
+    /**
+     * This makes sure that a gap between KV storage last applied index and last applied index from the point of view of JRaft does
+     * not happen (due to idempotent command retries not advancing the last applied index in the KV storage).
+     * If it does, and a Raft snapshot is taken in exactly that moment, the JRaft node will fail on recovery.
+     */
+    @ParameterizedTest
+    @EnumSource(Invoker.class)
+    // Disable safe time propagation to prevent safe time commands in the log, so that they don't close the index
+    // gap we are trying to reproduce.
+    @DisableIdleSafeTimePropagation
+    void retriedInvokeDoesNotBreakIndexConsistency(Invoker invoker) throws Exception {
+        Node leader = leader(raftClient());
 
-        CompletableFuture<Boolean> fut = metaStorageManager.invoke(
-                notExists(TEST_KEY),
-                put(TEST_KEY, TEST_VALUE),
-                put(TEST_KEY, ANOTHER_VALUE)
-        );
+        doRetriedInvoke(invoker, leader);
 
-        assertTrue(waitForCondition(() -> leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE), 10_000));
+        nodes.forEach(n -> assertThat(raftClient().snapshot(new Peer(n.clusterService.nodeName()), true), willCompleteSuccessfully()));
 
-        log.info("Test: value appeared in storage.");
-
-        assertTrue(retryBlockingFuture.complete(null));
-
-        assertTrue(waitForCondition(() -> writeActionReqCount.get() == 2, 10_000));
-
-        leader.stopDroppingMessages();
-
-        assertThat(fut, willCompleteSuccessfully());
-        log.info("Test: invoke complete.");
-
-        assertTrue(fut.join());
-        assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+        restartCluster();
     }
 
     @Test
-    public void testIdempotentInvokeAfterLeaderChange() {
+    void testIdempotentInvokeAfterLeaderChange() {
         InvokeCommand invokeCommand = (InvokeCommand) buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE);
 
         RaftGroupService raftClient = raftClient();
@@ -379,6 +456,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         CompletableFuture<Boolean> fut = raftClient.run(invokeCommand);
 
         Node currentLeader = leader(raftClient);
+
+        log.info("Test: current leader is " + currentLeader.clusterService.nodeName());
 
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
@@ -404,7 +483,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("idempotentCommandProvider")
-    public void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand, TestInfo testInfo) throws Exception {
+    void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand) throws Exception {
         RaftGroupService raftClient = raftClient();
         Node leader = leader(raftClient);
 
@@ -418,19 +497,13 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         } else {
             assertEquals(YIELD_RESULT, ((StatementResult) commandProcessingResult).getAsInt());
             assertTrue(leader.checkValueInStorage(TEST_KEY_2.bytes(), TEST_VALUE_2));
-
         }
 
         // Do the snapshot.
         nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName()), false));
 
         // Restart nodes in order to trigger idempotent volatile cache initialization from snapshot.
-        for (Node node : nodes) {
-            node.stop();
-        }
-
-        // Restart cluster.
-        startCluster(testInfo);
+        restartCluster();
 
         ClockService node0ClockService = nodes.get(0).clockService;
         long timestampAfterRestartPhysicalLong = node0ClockService.now().getPhysical();
@@ -478,12 +551,22 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
     }
 
+    private void restartCluster() throws Exception {
+        for (Node node : nodes) {
+            node.stop();
+        }
+
+        startCluster();
+    }
+
     private Node leader(RaftGroupService raftClient) {
-        CompletableFuture<Void> refreshLeaderFut = raftClient.refreshLeader();
+        CompletableFuture<LeaderWithTerm> refreshLeaderFut = raftClient.refreshAndGetLeaderWithTerm();
 
         assertThat(refreshLeaderFut, willCompleteSuccessfully());
 
-        String currentLeader = raftClient.leader().consistentId();
+        Peer leader = refreshLeaderFut.join().leader();
+        assertThat(leader, is(notNullValue()));
+        String currentLeader = leader.consistentId();
 
         return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
     }
@@ -496,7 +579,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         try {
             return node.raftManager
-                    .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
+                    .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration, true);
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }
@@ -550,11 +633,19 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 .build();
     }
 
-    private void startCluster(TestInfo testInfo) {
+    private void startCluster() {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, systemConfiguration, workDir, i, scheduledExecutorService);
+            Node node = new Node(
+                    testInfo,
+                    raftConfiguration,
+                    systemLocalConfiguration,
+                    systemDistributedConfiguration,
+                    workDir,
+                    i,
+                    scheduledExecutorService
+            );
             nodes.add(node);
         }
 
@@ -566,5 +657,35 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         metaStorageNodesFut.complete(nodeNames);
 
         nodes.forEach(Node::deployWatches);
+    }
+
+    @Target(ElementType.METHOD)
+    @Retention(RetentionPolicy.RUNTIME)
+    private @interface DisableIdleSafeTimePropagation {
+    }
+
+    private enum Invoker {
+        INVOKE {
+            @Override
+            CompletableFuture<Boolean> invokeOn(MetaStorageManager metaStorageManager) {
+                return metaStorageManager.invoke(
+                        notExists(TEST_KEY),
+                        put(TEST_KEY, TEST_VALUE),
+                        put(TEST_KEY, ANOTHER_VALUE)
+                );
+            }
+        },
+        MULTI_INVOKE {
+            @Override
+            CompletableFuture<Boolean> invokeOn(MetaStorageManager metaStorageManager) {
+                return metaStorageManager.invoke(iif(
+                        notExists(TEST_KEY),
+                        ops(put(TEST_KEY, TEST_VALUE)).yield(true),
+                        ops(put(TEST_KEY, ANOTHER_VALUE)).yield(false)
+                )).thenApply(StatementResult::getAsBoolean);
+            }
+        };
+
+        abstract CompletableFuture<Boolean> invokeOn(MetaStorageManager metaStorageManager);
     }
 }

@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.compute.BroadcastJobTarget;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJobWithCustomMarshallers;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -52,9 +54,9 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void pojoWithCustomMarshallersExecOnAnotherNode() {
         // Given entry node that are not supposed to execute job.
-        var node = node(0);
+        Ignite node = node(0);
         // And another target node.
-        var targetNode = clusterNode(1);
+        ClusterNode targetNode = clusterNode(1);
 
         // When run job with custom marshaller for pojo argument and result but for embedded.
         PojoResult result = node.compute().execute(
@@ -73,9 +75,9 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void pojoWithCustomMarshallersExecOnSame() {
         // Given entry node.
-        var node = node(0);
+        Ignite node = node(0);
         // And target node.
-        var targetNode = clusterNode(0);
+        ClusterNode targetNode = clusterNode(0);
 
         // When run job with custom marshaller for pojo argument and result but for embedded.
         PojoResult result = node.compute().execute(
@@ -94,9 +96,9 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void pojoExecOnAnotherNode() {
         // Given entry node that are not supposed to execute job.
-        var node = node(0);
+        Ignite node = node(0);
         // And another target node.
-        var targetNode = clusterNode(1);
+        ClusterNode targetNode = clusterNode(1);
 
         // When run job with custom marshaller for pojo argument and result but for embedded.
         PojoResult result = node.compute().execute(
@@ -112,9 +114,9 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void pojoExecOnSame() {
         // Given entry node.
-        var node = node(0);
+        Ignite node = node(0);
         // And target node.
-        var targetNode = clusterNode(0);
+        ClusterNode targetNode = clusterNode(0);
 
         // When run job with custom marshaller for pojo argument and result but for embedded.
         PojoResult result = node.compute().execute(
@@ -130,7 +132,7 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void local() {
         // Given entry node.
-        var node = node(0);
+        Ignite node = node(0);
 
         // When.
         String result = node.compute().execute(
@@ -149,7 +151,7 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void broadcastExecute() {
         // Given entry node.
-        var node = node(0);
+        Ignite node = node(0);
 
         // When.
         Collection<String> result = node.compute().execute(
@@ -173,7 +175,7 @@ public class ItEmbeddedMarshallingTest extends ClusterPerClassIntegrationTest {
     @Test
     void broadcastSubmit() {
         // Given entry node.
-        var node = node(0);
+        Ignite node = node(0);
 
         // When.
         Map<String, String> result = node.compute().submitAsync(

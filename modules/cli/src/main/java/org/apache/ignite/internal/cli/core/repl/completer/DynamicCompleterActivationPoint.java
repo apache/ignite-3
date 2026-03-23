@@ -68,7 +68,6 @@ public class DynamicCompleterActivationPoint {
     @Inject
     private MetricSourceDynamicCompleterFactory metricSourceDynamicCompleterFactory;
 
-
     /**
      * Registers all dynamic completers in given {@link DynamicCompleterRegistry}.
      */
@@ -189,6 +188,30 @@ public class DynamicCompleterActivationPoint {
                         .singlePositionalParameter()
                         .build(),
                 metricSourceDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("recovery", "partitions", "states")
+                        .enableOptions(Options.RECOVERY_NODE_NAMES)
+                        .build(),
+                nodeNameDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("recovery", "partitions", "restart")
+                        .enableOptions(Options.RECOVERY_NODE_NAMES)
+                        .build(),
+                nodeNameDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("recovery", "cluster", "reset")
+                        .enableOptions(Options.RECOVERY_CMG_NODES)
+                        .build(),
+                nodeNameDynamicCompleterFactory
         );
     }
 }

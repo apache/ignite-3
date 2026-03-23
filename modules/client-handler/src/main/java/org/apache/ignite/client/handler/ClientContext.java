@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import java.net.SocketAddress;
 import java.util.BitSet;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
@@ -26,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Client connection context.
  */
-class ClientContext {
+public class ClientContext {
     /** Version. */
     private final ProtocolVersion version;
 
@@ -38,6 +39,8 @@ class ClientContext {
 
     private final UserDetails userDetails;
 
+    private final SocketAddress remoteAddress;
+
     /**
      * Constructor.
      *
@@ -45,12 +48,14 @@ class ClientContext {
      * @param clientCode Client type code.
      * @param features Feature set.
      * @param userDetails User details.
+     * @param remoteAddress Remote address
      */
-    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails) {
+    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails, SocketAddress remoteAddress) {
         this.version = version;
         this.clientCode = clientCode;
         this.features = features;
         this.userDetails = userDetails;
+        this.remoteAddress = remoteAddress;
     }
 
     /**
@@ -100,7 +105,10 @@ class ClientContext {
         return userDetails;
     }
 
-    /** {@inheritDoc} */
+    public SocketAddress remoteAddress() {
+        return remoteAddress;
+    }
+
     @Override
     public String toString() {
         return S.toString(ClientContext.class, this);

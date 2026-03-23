@@ -82,18 +82,53 @@ public class DotNetComputeExecutor {
     /**
      * Creates a callable for executing a job.
      *
-     * @param deploymentUnitPaths Paths to deployment units.
      * @param jobClassName Name of the job class.
-     * @param input Job argument.
+     * @param arg Job argument.
      * @param context Job execution context.
      * @return Callable that executes the job.
      */
     public Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
-            List<String> deploymentUnitPaths,
             String jobClassName,
-            ComputeJobDataHolder input,
-            JobExecutionContext context) {
-        return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
+            @Nullable ComputeJobDataHolder arg,
+            JobExecutionContext context
+    ) {
+        return () -> executeJobAsync(jobClassName, arg, context);
+    }
+
+    /**
+     * Starts undeploy process for the specified deployment units.
+     *
+     * @param unitPath Paths to deployment units to undeploy.
+     */
+    public synchronized void beginUndeployUnit(Path unitPath) {
+        try {
+            String unitPathStr = unitPath.toRealPath().toString();
+
+            if (process == null || isDead(process) || process.connectionFut().isCompletedExceptionally()) {
+                // Process is not started or already dead, nothing to undeploy.
+                return;
+            }
+
+            process.connectionFut()
+                    .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
+                    .exceptionally(e -> {
+                        var cause = unwrapCause(e);
+
+                        if (cause instanceof TraceableException) {
+                            TraceableException te = (TraceableException) cause;
+
+                            if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                // Connection was lost (process exited), nothing to do.
+                                return true;
+                            }
+                        }
+
+                        LOG.warn(".NET unit undeploy error: " + e.getMessage(), e);
+                        return false;
+                    });
+        } catch (Throwable t) {
+            LOG.warn(".NET unit undeploy error: " + t.getMessage(), t);
+        }
     }
 
     /**
@@ -106,10 +141,10 @@ public class DotNetComputeExecutor {
     }
 
     private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
-            List<String> deploymentUnitPaths,
             String jobClassName,
-            ComputeJobDataHolder input,
-            JobExecutionContext context) {
+            @Nullable ComputeJobDataHolder arg,
+            JobExecutionContext context
+    ) {
         if (context.isCancelled()) {
             return CompletableFuture.failedFuture(new CancellationException("Job was cancelled"));
         }
@@ -119,7 +154,7 @@ public class DotNetComputeExecutor {
 
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()
-                        .thenCompose(c -> c.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
+                        .thenCompose(c -> c.executeJobAsync(jobId, jobClassName, context, arg))
                         .exceptionally(e -> {
                             var cause = unwrapCause(e);
 

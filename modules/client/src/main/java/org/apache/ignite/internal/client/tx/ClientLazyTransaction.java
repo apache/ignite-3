@@ -18,13 +18,18 @@
 package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -34,27 +39,38 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private final HybridTimestampTracker observableTimestamp;
+    private final long observableTimestamp;
 
     private final @Nullable TransactionOptions options;
+
+    private final EnumSet<ClientInternalTxOptions> txOptions;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
     ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
-        this.observableTimestamp = observableTimestamp;
+        this(observableTimestamp, options, EnumSet.noneOf(ClientInternalTxOptions.class));
+    }
+
+    /**
+     * Create a transaction with public and internal options.
+     *
+     * @param observableTimestamp The timestamp tracker.
+     * @param options Options.
+     * @param txOptions Internal tx options.
+     */
+    public ClientLazyTransaction(
+            HybridTimestampTracker observableTimestamp,
+            @Nullable TransactionOptions options,
+            @Nullable EnumSet<ClientInternalTxOptions> txOptions
+    ) {
+        this.observableTimestamp = observableTimestamp.getLong();
         this.options = options;
+        this.txOptions = txOptions;
     }
 
     @Override
     public void commit() throws TransactionException {
-        var tx0 = tx;
-
-        if (tx0 == null) {
-            // No operations were performed, nothing to commit.
-            return;
-        }
-
-        tx0.join().commit();
+        ViewUtils.sync(commitAsync());
     }
 
     @Override
@@ -63,7 +79,7 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to commit.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::commitAsync);
@@ -71,14 +87,7 @@ public class ClientLazyTransaction implements Transaction {
 
     @Override
     public void rollback() throws TransactionException {
-        var tx0 = tx;
-
-        if (tx0 == null) {
-            // No operations were performed, nothing to rollback.
-            return;
-        }
-
-        tx0.join().rollback();
+        ViewUtils.sync(rollbackAsync());
     }
 
     @Override
@@ -87,14 +96,14 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::rollbackAsync);
     }
 
     @Override
-    public boolean isReadOnly() {
+    public final boolean isReadOnly() {
         return options != null && options.readOnly();
     }
 
@@ -178,6 +187,10 @@ public class ClientLazyTransaction implements Transaction {
         var tx0 = tx;
 
         if (tx0 != null) {
+            if (tx0.isDone()) {
+                tx0.join().validateOwnership(ch);
+            }
+
             return new IgniteBiTuple<>(tx0, false);
         }
 
@@ -198,5 +211,18 @@ public class ClientLazyTransaction implements Transaction {
         assert tx0.isDone() : "Transaction is starting";
 
         return tx0.join();
+    }
+
+    public long observableTimestamp() {
+        return observableTimestamp;
+    }
+
+    @Nullable EnumSet<ClientInternalTxOptions> options() {
+        return txOptions;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

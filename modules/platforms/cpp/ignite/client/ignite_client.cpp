@@ -21,22 +21,21 @@
 
 #include <ignite/common/ignite_error.h>
 
-#include <thread>
-
 namespace ignite {
 
 void ignite_client::start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
     ignite_callback<ignite_client> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
-    auto res = std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
+    auto fut = std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
         auto res =
             result_of_operation<ignite_client>([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
     });
-    UNUSED_VALUE res;
+    UNUSED_VALUE fut;
 }
 
 ignite_client ignite_client::start(ignite_client_configuration configuration, std::chrono::milliseconds timeout) {
+
     auto impl = std::make_shared<detail::ignite_client_impl>(std::move(configuration));
 
     auto promise = std::make_shared<std::promise<ignite_result<void>>>();
@@ -94,11 +93,11 @@ std::vector<cluster_node> ignite_client::get_cluster_nodes() {
 }
 
 detail::ignite_client_impl &ignite_client::impl() noexcept {
-    return *((detail::ignite_client_impl *) (m_impl.get()));
+    return *static_cast<detail::ignite_client_impl *>(m_impl.get());
 }
 
 const detail::ignite_client_impl &ignite_client::impl() const noexcept {
-    return *((detail::ignite_client_impl *) (m_impl.get()));
+    return *static_cast<detail::ignite_client_impl *>(m_impl.get());
 }
 
 } // namespace ignite

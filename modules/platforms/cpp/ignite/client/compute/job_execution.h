@@ -33,6 +33,8 @@ class job_execution_impl;
 }
 
 /**
+ * @brief Object for controlling job execution flow.
+ *
  * Job control object, provides information about the job execution process and result, allows cancelling the job.
  */
 class job_execution {

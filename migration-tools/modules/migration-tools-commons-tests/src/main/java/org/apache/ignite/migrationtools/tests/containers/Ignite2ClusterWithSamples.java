@@ -28,11 +28,9 @@ import org.apache.ignite.migrationtools.tests.clusters.FullSampleCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
 /** Ignite2ClusterWithSamples. */
@@ -44,7 +42,9 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
         this.targetPath = targetPath;
     }
 
-    /** TODO: Copied from IgniteTestUtils should reuse this. */
+    /** Waiting for condition. */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28149 Copied from IgniteTestUtils should reuse this.
+    @Deprecated
     public static boolean waitForCondition(BooleanSupplier cond, long sleepMillis, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 
@@ -59,27 +59,11 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
         return false;
     }
 
-    private static GenericContainer createIgnite2Container(String nodeId, String nodeName, Network network,
-            Consumer<OutputFrame> logConsumer) {
-        return new GenericContainer<>("apacheignite/ignite:2.15.0-jdk11")
-                .withLabel("ai2.sample-cluster.node", nodeName)
-                .withNetwork(network)
-                .withNetworkAliases(nodeName)
-                .withCopyFileToContainer(MountableFile.forHostPath(FullSampleCluster.CLUSTER_CFG_PATH), "/config-file.xml")
-                .withFileSystemBind(FullSampleCluster.TEST_CLUSTER_PATH.toString(), "/storage", BindMode.READ_WRITE)
-                .withEnv("CONFIG_URI", "/config-file.xml")
-                .withEnv("IGNITE_WORK_DIR", "/storage")
-                .withEnv("IGNITE_QUIET", "false")
-                .withEnv("IGNITE_NODE_NAME", nodeId)
-                .withLogConsumer(logConsumer)
-                .waitingFor(Wait.forLogMessage(".*Node started .*", 1));
-    }
-
     protected abstract Ignite2ClusterContainer createClusterContainers();
 
     private void recreateClusterFolder() throws InterruptedException, IOException {
         // Recreate the model cluster.
-        // TODO: This must be improved.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28150 This must be improved.
         System.out.println("Recreating the sample-cluster");
         System.out.println("Current Directory; " + Path.of(".").toAbsolutePath().toString());
 
@@ -110,7 +94,7 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
                     boolean success = waitForCondition(
                             () -> !seedDataContainer.isRunning(), pollingSeconds * 1_000, maxWaitSeconds * 1_000);
 
-                    // TODO: Status are not working. Should be a bug in test-containers??
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-28151 Status are not working. Should be a bug in test-containers?
                     var state = seedDataContainer.getContainerInfo().getState();
                     System.out.println("Seed data status: " + state);
 
@@ -127,7 +111,7 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
-        // TODO: Find a better way to produce the example cluster.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28156 Find a better way to produce the example cluster.
         // Currently we have to manually create a cluster and run the sample cluster generator in the tools folder.
         if (!Files.exists(targetPath)) {
             recreateClusterFolder();
@@ -135,7 +119,12 @@ public abstract class Ignite2ClusterWithSamples implements BeforeAllCallback {
     }
 
     protected GenericContainer createSeedDataCountainer(Network network) {
-        return new GenericContainer("ai3-migration-tools/e2e-tests:latest")
+        String imageName = System.getProperty("migrationtools.e2erunner.docker.image");
+        if (imageName == null) {
+            throw new IllegalArgumentException("'migrationtools.e2erunner.docker.image' property must be defined");
+        }
+
+        return new GenericContainer(imageName)
                 .withCopyFileToContainer(MountableFile.forHostPath(FullSampleCluster.CLUSTER_CFG_PATH), "/opt/app/config.xml")
                 .withNetwork(network);
     }

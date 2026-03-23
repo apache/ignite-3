@@ -25,6 +25,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     compileOnly project(":ignite-api")
+    compileOnly project(":migration-tools-e2e-implementations-custom-classes")
     compileOnly libs.ignite2.core
     compileOnly libs.ignite2.spring
     compileOnly libs.spotbugs.annotations

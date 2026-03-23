@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Configuration schema for {@link ConfigurationExtensionTest#notifications()}.
  */
-@Config
+@ConfigurationRoot(rootName = "basic")
 public class BasicConfigurationSchema {
     @Value(hasDefault = true)
     public int visible = 1;

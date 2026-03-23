@@ -39,7 +39,7 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
  * to make tests automatically register this extension, like this:
  *
  * <pre>
- * integrationTestImplementation(testFixtures(project(':ignite-core')))
+ * integrationTestImplementation testFixtures(project(':ignite-core'))
  * </pre>
  */
 @AutoService(Extension.class)

@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.prepare.bounds;
 
 import java.util.Objects;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,16 +29,14 @@ import org.jetbrains.annotations.Nullable;
  * Range bounds holder for search row.
  */
 public class RangeBounds extends SearchBounds {
-    /** Lower search bound. */
-    private final RexNode lowerBound;
+    private static final RexLiteral ALWAYS_TRUE = IgniteRexBuilder.INSTANCE.makeLiteral(true);
 
-    /** Upper search bound. */
-    private final RexNode upperBound;
-
-    /** Inclusive lower bound flag. */
+    private final @Nullable RexNode shouldComputeLower;
+    private final @Nullable RexNode lowerBound;
     private final boolean lowerInclude;
 
-    /** Inclusive upper bound flag. */
+    private final @Nullable RexNode shouldComputeUpper;
+    private final @Nullable RexNode upperBound;
     private final boolean upperInclude;
 
     /**
@@ -55,24 +55,57 @@ public class RangeBounds extends SearchBounds {
             boolean lowerInclude,
             boolean upperInclude
     ) {
+        this(condition, ALWAYS_TRUE, lowerBound, lowerInclude, ALWAYS_TRUE, upperBound, upperInclude);
+    }
+
+    /**
+     * Create range bounds.
+     *
+     * @param condition Condition.
+     * @param shouldComputeLower An expression denoting whether lower bound should be computed (if evaluates to {@code true}), or left open.
+     * @param lowerBound Range lower bound.
+     * @param lowerInclude Inclusive lower bound flag.
+     * @param shouldComputeUpper An expression denoting whether upper bound should be computed (if evaluates to {@code true}), or left open.
+     * @param upperBound Range upper bound.
+     * @param upperInclude Inclusive upper bound flag.
+     */
+    public RangeBounds(
+            RexNode condition,
+            @Nullable RexNode shouldComputeLower,
+            @Nullable RexNode lowerBound,
+            boolean lowerInclude,
+            @Nullable RexNode shouldComputeUpper,
+            @Nullable RexNode upperBound,
+            boolean upperInclude
+    ) {
         super(condition);
+        this.shouldComputeLower = shouldComputeLower;
         this.lowerBound = lowerBound;
-        this.upperBound = upperBound;
         this.lowerInclude = lowerInclude;
+        this.shouldComputeUpper = shouldComputeUpper;
+        this.upperBound = upperBound;
         this.upperInclude = upperInclude;
+    }
+
+    public @Nullable RexNode shouldComputeLower() {
+        return shouldComputeLower;
     }
 
     /**
      * Returns lower search bound.
      */
-    public RexNode lowerBound() {
+    public @Nullable RexNode lowerBound() {
         return lowerBound;
+    }
+
+    public @Nullable RexNode shouldComputeUpper() {
+        return shouldComputeUpper;
     }
 
     /**
      * Returns upper search bound.
      */
-    public RexNode upperBound() {
+    public @Nullable RexNode upperBound() {
         return upperBound;
     }
 
@@ -96,18 +129,23 @@ public class RangeBounds extends SearchBounds {
         return Type.RANGE;
     }
 
+    @SuppressWarnings("DataFlowIssue")
     @Override
     public SearchBounds accept(RexShuttle shuttle) {
         RexNode condition = condition();
         RexNode newCondition = shuttle.apply(condition);
         RexNode newLowerBound = shuttle.apply(lowerBound);
         RexNode newUpperBound = shuttle.apply(upperBound);
+        RexNode newShouldComputeLower = shuttle.apply(shouldComputeLower);
+        RexNode newShouldComputeUpper = shuttle.apply(shouldComputeUpper);
 
-        if (newLowerBound == lowerBound && newUpperBound == upperBound && newCondition == condition) {
+        if (newLowerBound == lowerBound && newUpperBound == upperBound && newCondition == condition
+                && newShouldComputeLower == shouldComputeLower && newShouldComputeUpper == shouldComputeUpper) {
             return this;
         }
 
-        return new RangeBounds(condition, newLowerBound, newUpperBound, lowerInclude, upperInclude);
+        return new RangeBounds(condition, newShouldComputeLower, newLowerBound,
+                lowerInclude, newShouldComputeUpper, newUpperBound, upperInclude);
     }
 
     /** {@inheritDoc} */
@@ -117,12 +155,15 @@ public class RangeBounds extends SearchBounds {
             return true;
         }
 
+        //noinspection SimplifiableIfStatement
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
         return lowerInclude == ((RangeBounds) o).lowerInclude
                 && upperInclude == ((RangeBounds) o).upperInclude
+                && Objects.equals(shouldComputeLower, ((RangeBounds) o).shouldComputeLower)
+                && Objects.equals(shouldComputeUpper, ((RangeBounds) o).shouldComputeUpper)
                 && Objects.equals(lowerBound, ((RangeBounds) o).lowerBound)
                 && Objects.equals(upperBound, ((RangeBounds) o).upperBound);
     }
@@ -130,7 +171,9 @@ public class RangeBounds extends SearchBounds {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(lowerBound, upperBound, lowerInclude, upperInclude);
+        return Objects.hash(
+                lowerBound, upperBound, shouldComputeLower, shouldComputeUpper, lowerInclude, upperInclude
+        );
     }
 
     /** {@inheritDoc} */

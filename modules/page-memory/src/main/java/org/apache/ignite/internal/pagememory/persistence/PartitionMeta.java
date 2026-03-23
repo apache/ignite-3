@@ -49,13 +49,17 @@ public abstract class PartitionMeta {
 
     private volatile int pageCount;
 
+    private final int partitionGeneration;
+
     /**
      * Protected Constructor. {@link #initSnapshot(UUID)} should be called right after the instance is created.
      *
      * @param pageCount Page count.
+     * @param partitionGeneration Partition generation at the time of its creation.
      */
-    protected PartitionMeta(int pageCount) {
+    protected PartitionMeta(int pageCount, int partitionGeneration) {
         this.pageCount = pageCount;
+        this.partitionGeneration = partitionGeneration;
     }
 
     /**
@@ -136,6 +140,9 @@ public abstract class PartitionMeta {
          */
         @Nullable
         UUID checkpointId();
+
+        /** Returns count of pages in the partition. */
+        int pageCount();
     }
 
     /**
@@ -146,5 +153,10 @@ public abstract class PartitionMeta {
      */
     public static long partitionMetaPageId(int partId) {
         return pageId(partId, FLAG_AUX, 0);
+    }
+
+    /** Returns partition generation at the time of its creation. */
+    public int partitionGeneration() {
+        return partitionGeneration;
     }
 }

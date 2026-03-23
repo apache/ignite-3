@@ -28,6 +28,8 @@
 
 namespace ignite::protocol {
 
+constexpr std::size_t HEADER_SIZE = 4;
+
 /**
  * Response flags.
  */
@@ -43,7 +45,7 @@ enum class response_flag : std::int32_t {
 };
 
 /**
- * Test whether flag is set.
+ * Test whether the flag is set.
  *
  * @param flags Flags.
  * @param to_test A specific flag to test.
@@ -64,7 +66,10 @@ struct handshake_response {
     protocol_context context{};
 
     /** Observable timestamp. */
-    int64_t observable_timestamp;
+    std::int64_t observable_timestamp;
+
+    /** Server idle timeout in ms. */
+    std::int64_t idle_timeout_ms;
 };
 
 /**

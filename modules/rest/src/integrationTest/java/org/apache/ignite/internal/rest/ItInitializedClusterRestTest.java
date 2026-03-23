@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
-import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCodeAndBody;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -31,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.micronaut.http.HttpStatus;
-import java.io.IOException;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.TestInfo;
 public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @BeforeEach
     @Override
-    void setUp(TestInfo testInfo) throws IOException, InterruptedException {
+    void setUp(TestInfo testInfo) {
         super.setUp(testInfo);
 
         // For each test case the cluster is already initialized
@@ -65,7 +65,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration is available when the cluster is initialized")
-    void nodeConfiguration() throws Exception {
+    void nodeConfiguration() {
         // When GET /management/v1/configuration/node
         HttpResponse<String> response = send(get("/management/v1/configuration/node"));
 
@@ -77,7 +77,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration by path is available when the cluster is initialized")
-    void nodeConfigurationByPath() throws Exception {
+    void nodeConfigurationByPath() {
         // When GET /management/v1/configuration/node and path selector is "rest"
         HttpResponse<String> response = send(get("/management/v1/configuration/node/ignite.rest"));
 
@@ -89,7 +89,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration can be changed when the cluster is initialized")
-    void nodeConfigurationUpdate() throws Exception {
+    void nodeConfigurationUpdate() {
         // When PATCH /management/v1/configuration/node rest.port=10333
         HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "ignite.rest.port=10333"));
         // Then
@@ -106,7 +106,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration is available when the cluster is initialized")
-    void clusterConfiguration() throws Exception {
+    void clusterConfiguration() {
         // When GET /management/v1/configuration/cluster
         HttpResponse<String> response = send(get("/management/v1/configuration/cluster"));
 
@@ -120,7 +120,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration can be updated when the cluster is initialized")
-    void clusterConfigurationUpdate() throws Exception {
+    void clusterConfigurationUpdate() {
         // When PATCH /management/v1/configuration/cluster
         HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "ignite.gc.batchSize=1"));
 
@@ -136,7 +136,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration can not be updated if provided config did not pass the validation")
-    void clusterConfigurationUpdateValidation() throws Exception {
+    void clusterConfigurationUpdateValidation() {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "ignite {\n"
                 + "    security.enabled:true\n"
@@ -144,8 +144,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 + "}"));
 
         // Then
-        assertThat(patchRequest.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(getProblem(patchRequest), isProblem()
+        assertThat(patchRequest, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail(containsString(
@@ -157,7 +156,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
-    void clusterConfigurationByPath() throws Exception {
+    void clusterConfigurationByPath() {
         // When GET /management/v1/configuration/cluster and path selector is "gc"
         HttpResponse<String> response = send(get("/management/v1/configuration/cluster/ignite.gc"));
 
@@ -171,7 +170,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Logical topology is available on initialized cluster")
-    void logicalTopology() throws Exception {
+    void logicalTopology() {
         // When GET /management/v1/cluster/topology/logical
         HttpResponse<String> response = send(get("/management/v1/cluster/topology/logical"));
 
@@ -188,7 +187,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Physical topology is available on initialized cluster")
-    void physicalTopology() throws Exception {
+    void physicalTopology() {
         // When GET /management/v1/cluster/topology/physical
         HttpResponse<String> response = send(get("/management/v1/cluster/topology/physical"));
 
@@ -205,7 +204,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster state is available on initialized cluster")
-    void clusterState() throws Exception {
+    void clusterState() {
         // When GET /management/v1/cluster/status
         HttpResponse<String> response = send(get("/management/v1/cluster/state"));
 
@@ -222,7 +221,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node state is available on initialized cluster")
-    void nodeState() throws Exception {
+    void nodeState() {
         // When GET /management/v1/node/status
         HttpResponse<String> response = send(get("/management/v1/node/state"));
 
@@ -236,7 +235,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node version is available on initialized cluster")
-    void nodeVersion() throws Exception {
+    void nodeVersion() {
         // When GET /management/v1/node/version/
         HttpResponse<String> response = send(get("/management/v1/node/version/"));
 
@@ -248,4 +247,26 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$.product", is("Apache Ignite")))
         );
     }
+
+    @Test
+    void initializedProbes() {
+        cluster.runningNodes().forEach(node -> {
+            assertThat(
+                    send(get(getHost(node), "/health/liveness")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+
+            assertThat(
+                    send(get(getHost(node), "/health/readiness")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+
+            // Health probe is a combination of all indicators not qualified as "liveness".
+            assertThat(
+                    send(get(getHost(node), "/health")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+        });
+    }
+
 }

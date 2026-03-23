@@ -51,6 +51,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -64,12 +65,13 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.TestWriteCommand;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,15 +98,18 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     private static final List<NetworkAddress> ADDRS = List.of(
-            new NetworkAddress("localhost", 5001),
-            new NetworkAddress("localhost", 5002),
-            new NetworkAddress("localhost", 5003)
+            new NetworkAddress("127.0.0.1", 5001),
+            new NetworkAddress("127.0.0.1", 5002),
+            new NetworkAddress("127.0.0.1", 5003)
     );
 
     private static final int AWAIT_TIMEOUT_SECONDS = 10;
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
 
@@ -114,7 +119,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         final Loza loza;
 
-        final LogStorageFactory logStorageFactory;
+        final LogStorageManager logStorageManager;
 
         ComponentWorkingDir partitionsWorkDir;
 
@@ -125,12 +130,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             partitionsWorkDir = new ComponentWorkingDir(raftDir);
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(
+            logStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     partitionsWorkDir.raftLogPath()
             );
 
-            loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
         }
 
         String consistentId() {
@@ -142,18 +147,17 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(new ComponentContext(), clusterService, logStorageFactory, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, logStorageManager, loza), willCompleteSuccessfully());
         }
 
         @Override
         public void close() throws Exception {
-            List<IgniteComponent> components = Stream.of(loza, logStorageFactory, clusterService)
+            List<IgniteComponent> components = Stream.of(loza, logStorageManager, clusterService)
                     .filter(Objects::nonNull)
                     .collect(toList());
 
             closeAll(
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
-                    () -> closeAll(components.stream().map(component -> component::stopAsync)),
                     () -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
             );
         }
@@ -245,7 +249,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(service1.leader(), is(follower.asPeer()));
         assertThat(service1.learners(), is(empty()));
 
-        CompletableFuture<Void> addLearners = service1.addLearners(Arrays.asList(toPeerArray(learners)));
+        CompletableFuture<Void> addLearners = service1.addLearners(Arrays.asList(toPeerArray(learners)), Configuration.NO_SEQUENCE_TOKEN);
 
         assertThat(addLearners, willCompleteSuccessfully());
 
@@ -401,7 +405,11 @@ public class ItLearnersTest extends IgniteAbstractTest {
         PeersAndLearners newConfiguration = createConfiguration(followers, List.of(learner, newLearner));
 
         CompletableFuture<Void> changePeersFuture = learnerService.refreshAndGetLeaderWithTerm()
-                .thenCompose(leaderWithTerm -> learnerService.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term()));
+                .thenCompose(leaderWithTerm -> learnerService.changePeersAndLearnersAsync(
+                        newConfiguration,
+                        leaderWithTerm.term(),
+                        Configuration.NO_SEQUENCE_TOKEN
+                ));
 
         assertThat(changePeersFuture, willCompleteSuccessfully());
 
@@ -442,7 +450,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             RaftGroupOptions ops = RaftGroupOptions.defaults();
 
             RaftGroupOptionsConfigHelper.configureProperties(
-                    node.logStorageFactory,
+                    node.logStorageManager,
                     node.partitionsWorkDir.metaPath()
             ).configure(ops);
 

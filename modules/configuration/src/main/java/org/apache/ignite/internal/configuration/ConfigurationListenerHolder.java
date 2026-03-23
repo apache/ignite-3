@@ -68,9 +68,12 @@ public class ConfigurationListenerHolder<L> {
      *
      * <p>NOTE: {@link Iterator#remove} - not supported.
      *
+     * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-26175
+     *
      * @param notificationNumber Configuration notification listener number.
      * @see ConfigurationListenerHolder#addListener
      */
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Iterator<L> listeners(long notificationNumber) {
         Iterator<Container<L>> it = containers.iterator();
 

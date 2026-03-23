@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -38,15 +39,17 @@ public class TestLozaFactory {
      * Factory method for {@link Loza}.
      *
      * @param clusterNetSvc Cluster network service.
-     * @param raftConfiguration Raft configuration.
+     * @param raftConfig Raft configuration.
+     * @param systemLocalConfig Local system configuration.
      * @param clock A hybrid logical clock.
      */
     public static Loza create(
             ClusterService clusterNetSvc,
-            RaftConfiguration raftConfiguration,
+            RaftConfiguration raftConfig,
+            SystemLocalConfiguration systemLocalConfig,
             HybridClock clock
     ) {
-        return create(clusterNetSvc, raftConfiguration, clock, new RaftGroupEventsClientListener());
+        return create(clusterNetSvc, raftConfig, systemLocalConfig, clock, new RaftGroupEventsClientListener());
     }
 
     /**
@@ -54,12 +57,14 @@ public class TestLozaFactory {
      *
      * @param clusterNetSvc Cluster network service.
      * @param raftConfig Raft configuration.
+     * @param systemLocalConfig Local system configuration.
      * @param clock A hybrid logical clock.
      * @param raftGroupEventsClientListener Raft event listener.
      */
     public static Loza create(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfig,
+            SystemLocalConfiguration systemLocalConfig,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
@@ -67,6 +72,7 @@ public class TestLozaFactory {
                 clusterNetSvc,
                 new NoOpMetricManager(),
                 raftConfig,
+                systemLocalConfig,
                 clock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
@@ -78,6 +84,7 @@ public class TestLozaFactory {
      *
      * @param clusterNetSvc Cluster network service.
      * @param raftConfig Raft configuration.
+     * @param systemLocalConfig Local system configuration.
      * @param clock A hybrid logical clock.
      * @param raftGroupEventsClientListener Raft event listener.
      * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
@@ -86,6 +93,7 @@ public class TestLozaFactory {
     public static Loza create(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfig,
+            SystemLocalConfiguration systemLocalConfig,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             GroupStoragesDestructionIntents groupStoragesDestructionIntents,
@@ -95,6 +103,7 @@ public class TestLozaFactory {
                 clusterNetSvc,
                 new NoOpMetricManager(),
                 raftConfig,
+                systemLocalConfig,
                 clock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager(),

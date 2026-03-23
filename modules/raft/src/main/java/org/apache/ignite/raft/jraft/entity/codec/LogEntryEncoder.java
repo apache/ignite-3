@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 /**
@@ -29,4 +30,17 @@ public interface LogEntryEncoder {
      * @return encoded byte array
      */
     byte[] encode(LogEntry log);
+
+    /**
+     * Same as {@link #encode(LogEntry)} but writes the result into a buffer.
+     *
+     * @param buffer Buffer to write into. The buffer must be large enough to hold the encoded log entry.
+     * @param log Log entry.
+     */
+    void encode(ByteBuffer buffer, LogEntry log);
+
+    /**
+     * Returns the size in bytes of an encoded log entry.
+     */
+    int size(LogEntry logEntry);
 }

@@ -42,16 +42,16 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -61,20 +61,24 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
  * Tests for {@link VersatileReadWriteLock}.
  */
 @Timeout(20)
+@ExtendWith(ExecutorServiceExtension.class)
 class VersatileReadWriteLockTest {
-    private static final IgniteLogger LOG = Loggers.forClass(VersatileReadWriteLockTest.class);
-
     private static final String ASYNC_CONTINUATION_THREAD_PREFIX = "ace";
 
-    private final ExecutorService asyncContinuationExecutor = Executors.newCachedThreadPool(
-            new NamedThreadFactory(ASYNC_CONTINUATION_THREAD_PREFIX, LOG)
-    );
+    @InjectExecutorService(threadPrefix = ASYNC_CONTINUATION_THREAD_PREFIX)
+    private ExecutorService asyncContinuationExecutor;
 
     /** The lock under test. */
-    private final VersatileReadWriteLock lock = new VersatileReadWriteLock(asyncContinuationExecutor);
+    private VersatileReadWriteLock lock;
 
     /** Executor service used to run tasks in threads different from the main test thread. */
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    @InjectExecutorService
+    private ExecutorService executor;
+
+    @BeforeEach
+    void createLock() {
+        lock = new VersatileReadWriteLock(asyncContinuationExecutor);
+    }
 
     /**
      * Cleans up after a test.
@@ -375,7 +379,16 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void inReadLockAsyncReleasesReadLockInTheEndInCaseOfException() {
+    void inReadLockAsyncReleasesReadLockInTheEndInCaseOfExceptionInSyncPart() {
+        assertThat(lock.inReadLockAsync(() -> {
+            throw new RuntimeException("Oops");
+        }), willThrow(Exception.class));
+
+        assertThatNoReadLockIsHeld();
+    }
+
+    @Test
+    void inReadLockAsyncReleasesReadLockInTheEndInCaseOfExceptionInAsyncPart() {
         assertThat(lock.inReadLockAsync(() -> failedFuture(new Exception("Oops"))), willThrow(Exception.class));
 
         assertThatNoReadLockIsHeld();
@@ -494,7 +507,16 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void inWriteLockAsyncReleasesWriteLockInTheEndInCaseOfException() {
+    void inWriteLockAsyncReleasesWriteLockInTheEndInCaseOfExceptionInSyncPart() {
+        assertThat(lock.inWriteLockAsync(() -> {
+            throw new RuntimeException("Oops");
+        }), willThrow(Exception.class));
+
+        assertThatNoWriteLockIsHeld();
+    }
+
+    @Test
+    void inWriteLockAsyncReleasesWriteLockInTheEndInCaseOfExceptionInAsyncPart() {
         assertThat(lock.inWriteLockAsync(() -> failedFuture(new Exception("Oops"))), willThrow(Exception.class));
 
         assertThatNoWriteLockIsHeld();

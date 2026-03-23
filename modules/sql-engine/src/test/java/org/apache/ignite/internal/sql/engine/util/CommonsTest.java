@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -33,10 +36,15 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
@@ -140,6 +148,56 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         assertEquals(lt, project4.getRowType(), "Invalid types in projection for node4");
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "3, 3",
+            "5, 5",
+            "2, 7",
+    })
+    void targetOffset(int sourceSize, int offset) {
+        TargetMapping mapping = Commons.targetOffsetMapping(sourceSize, offset);
+
+        for (int i = 0; i < sourceSize; i++) {
+            assertThat(
+                    "Source <" + i + "> should be shifted by offset <" + offset + ">",
+                    mapping.getTarget(i), is(i + offset)
+            );
+        }
+    }
+
+    @Test
+    void compilationDoesNotFailOnThreadWithoutContextClassLoader() {
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+
+        // Nullify class loader. Compilation must not depend on the state of the thread.
+        Thread.currentThread().setContextClassLoader(null);
+
+        try {
+            //noinspection ConcatenationWithEmptyString
+            StringConcat concat = Commons.compile(StringConcat.class, ""
+                    + "public String apply(String first, String second) {"
+                    + "    return first + second;"
+                    + "}");
+
+            assertThat(concat.apply("foo", "bar"), is("foobar"));
+        } finally {
+            // Restore back original ClassLoader.
+            Thread.currentThread().setContextClassLoader(original);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("packIntsToLongTestCases")
+    void packIntsToLong(int num1, int num2) {
+        long packed = Commons.packIntsToLong(num1, num2);
+
+        int unpackedNum1 = (int) (packed >>> 32);
+        int unpackedNum2 = (int) packed;
+
+        assertThat(unpackedNum1, is(num1));
+        assertThat(unpackedNum2, is(num2));
+    }
+
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {
         assertEquals(expected, Mappings.apply(mapping, bitSet), "direct mapping");
 
@@ -151,5 +209,25 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         Mapping mapping = Commons.projectedMapping(source.size(), projection);
 
         assertEquals(expected, Mappings.apply(mapping, source));
+    }
+
+    private static Stream<Arguments> packIntsToLongTestCases() {
+        return Stream.of(
+                Arguments.of(123, 456),
+                Arguments.of(0, 0),
+                Arguments.of(1, 0),
+                Arguments.of(0, 1),
+                Arguments.of(-1, -1),
+                Arguments.of(100, -200),
+                Arguments.of(-100, 200),
+                Arguments.of(Integer.MAX_VALUE, Integer.MIN_VALUE),
+                Arguments.of(Integer.MIN_VALUE, Integer.MAX_VALUE)
+        );
+    }
+
+    /** For test purposes. */
+    @FunctionalInterface
+    public interface StringConcat {
+        String apply(String first, String second);
     }
 }

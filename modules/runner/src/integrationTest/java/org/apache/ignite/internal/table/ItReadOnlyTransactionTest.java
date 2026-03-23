@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -41,6 +42,8 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
@@ -48,7 +51,6 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -123,7 +125,8 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             // but we check that the new transaction does not appear.
             assertFalse(txRwStatesAfter > txRwStatesBefore, "RW transaction was stated unexpectedly.");
 
-            assertEquals(2, txFinishedAfter - txFinishedBefore, format(
+            // Implicit RO operations are not counted as transactions.
+            assertEquals(0, txFinishedAfter - txFinishedBefore, format(
                     "Unexpected finished transaction quantity [i={}, beforeOp={}, afterOp={}]",
                     i,
                     txFinishedBefore,
@@ -143,9 +146,11 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
             HybridClock clock = igniteImpl.clock();
 
-            Collection<ClusterNode> nodes = ignite.clusterNodes();
+            Collection<InternalClusterNode> nodes = ignite.cluster().nodes().stream()
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
+                    .collect(toUnmodifiableList());
 
-            for (ClusterNode clusterNode : nodes) {
+            for (InternalClusterNode clusterNode : nodes) {
                 CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, 100 + i), clock.now(), clusterNode);
 
                 assertNull(getFut.join());
@@ -155,7 +160,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
             long startTime = System.currentTimeMillis();
 
-            for (ClusterNode clusterNode : nodes) {
+            for (InternalClusterNode clusterNode : nodes) {
                 CompletableFuture<BinaryRow> getFut = internalTable.get(
                         createRowKey(schema, 100 + i),
                         new HybridTimestamp(clock.now().getPhysical() + FUTURE_GAP, 0),
@@ -195,11 +200,13 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
             HybridClock clock = igniteImpl.clock();
 
-            Collection<ClusterNode> nodes = ignite.clusterNodes();
+            Collection<InternalClusterNode> nodes = ignite.cluster().nodes().stream()
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
+                    .collect(toUnmodifiableList());
 
             int finalI = i;
             bypassingThreadAssertions(() -> {
-                for (ClusterNode clusterNode : nodes) {
+                for (InternalClusterNode clusterNode : nodes) {
                     CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), clock.now(), clusterNode);
 
                     assertNotNull(getFut.join());
@@ -213,7 +220,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             bypassingThreadAssertionsAsync(() -> internalTable.delete(createRowKey(schema, finalI), null)).get();
 
             bypassingThreadAssertions(() -> {
-                for (ClusterNode clusterNode : nodes) {
+                for (InternalClusterNode clusterNode : nodes) {
                     CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), clock.now(), clusterNode);
 
                     assertNull(getFut.join());
@@ -223,7 +230,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             log.info("Delay to remove a data record [node={}, delay={}]", ignite.name(), (System.currentTimeMillis() - startTime));
 
             bypassingThreadAssertions(() -> {
-                for (ClusterNode clusterNode : nodes) {
+                for (InternalClusterNode clusterNode : nodes) {
                     CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), pastTs, clusterNode);
 
                     assertNotNull(getFut.join());

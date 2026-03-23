@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -155,8 +156,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> getJobState(client, jobId),
-                NOT_FOUND,
-                isProblem().withDetail("Compute job not found [jobId=" + jobId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Compute job not found [jobId=" + jobId + "]")
         );
     }
 
@@ -196,8 +196,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> cancelJob(client, jobId),
-                NOT_FOUND,
-                isProblem().withDetail("Compute job not found [jobId=" + jobId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Compute job not found [jobId=" + jobId + "]")
         );
     }
 
@@ -217,8 +216,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> cancelJob(client, jobId),
-                CONFLICT,
-                isProblem().withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]")
+                isProblem().withStatus(CONFLICT).withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]")
         );
     }
 
@@ -270,8 +268,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> updatePriority(client, jobId, 1),
-                NOT_FOUND,
-                isProblem().withDetail("Compute job not found [jobId=" + jobId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Compute job not found [jobId=" + jobId + "]")
         );
     }
 
@@ -289,8 +286,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> updatePriority(client, jobId, 1),
-                CONFLICT,
-                isProblem().withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=EXECUTING]")
+                isProblem().withStatus(CONFLICT).withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=EXECUTING]")
         );
     }
 
@@ -312,8 +308,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> updatePriority(client, jobId, 1),
-                CONFLICT,
-                isProblem().withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]")
+                isProblem().withStatus(CONFLICT).withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]")
         );
     }
 
@@ -358,7 +353,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
                 try {
                     LOCK.wait();
                 } catch (InterruptedException e) {
-                    // No-op.
+                    throw new CancellationException();
                 }
             }
 

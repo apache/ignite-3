@@ -43,12 +43,21 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Component is responsible for building indexes and making them {@link CatalogIndexStatus#AVAILABLE available}. Both in a running cluster
@@ -88,7 +97,10 @@ public class IndexBuildingManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            TxManager txManager,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MetricManager metricManager
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -105,7 +117,26 @@ public class IndexBuildingManager implements IgniteComponent {
 
         executor.allowCoreThreadTimeOut(true);
 
-        indexBuilder = new IndexBuilder(executor, replicaService, failureProcessor);
+        TransactionStateResolver transactionStateResolver = new TransactionStateResolver(
+                txManager,
+                clockService,
+                clusterService.topologyService(),
+                clusterService.messagingService(),
+                new PlacementDriverHelper(new ExecutorInclinedPlacementDriver(placementDriver, executor), clockService),
+                new TxMessageSender(clusterService.messagingService(), replicaService, clockService),
+                new TxRecoveryEngine(txManager, clusterService.topologyService()),
+                new Lazy<>(() -> clusterService.topologyService().localMember()),
+                executor
+        );
+
+        indexBuilder = new IndexBuilder(
+                executor,
+                replicaService,
+                failureProcessor,
+                new RetryingFinalTransactionStateResolver(transactionStateResolver, executor),
+                indexMetaStorage,
+                metricManager
+        );
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, failureProcessor, indexBuilder);
 
@@ -116,6 +147,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 placementDriver,
                 clockService,
+                partitionReplicaLifecycleManager,
                 failureProcessor
         );
 

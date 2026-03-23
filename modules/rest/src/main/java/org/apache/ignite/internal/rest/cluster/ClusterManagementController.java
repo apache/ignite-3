@@ -50,18 +50,23 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
 
     private ClusterManagementGroupManager clusterManagementGroupManager;
 
+    private JoinFutureProvider joinFutureProvider;
+
     /**
      * Cluster management controller constructor.
      *
-     * @param clusterInitializer cluster initializer.
-     * @param clusterManagementGroupManager cluster management group manager.
+     * @param clusterInitializer Cluster initializer.
+     * @param clusterManagementGroupManager Cluster management group manager.
+     * @param joinFutureProvider Node join future provider.
      */
     public ClusterManagementController(
             ClusterInitializer clusterInitializer,
-            ClusterManagementGroupManager clusterManagementGroupManager
+            ClusterManagementGroupManager clusterManagementGroupManager,
+            JoinFutureProvider joinFutureProvider
     ) {
         this.clusterInitializer = clusterInitializer;
         this.clusterManagementGroupManager = clusterManagementGroupManager;
+        this.joinFutureProvider = joinFutureProvider;
     }
 
     @Override
@@ -80,13 +85,43 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         );
 
         return clusterInitializer.initCluster(
-                initCommand.metaStorageNodes(),
-                initCommand.cmgNodes(),
-                initCommand.clusterName(),
-                initCommand.clusterConfiguration()
-        ).exceptionally(ex -> {
-            throw mapException(ex);
-        });
+                        initCommand.metaStorageNodes(),
+                        initCommand.cmgNodes(),
+                        initCommand.clusterName(),
+                        initCommand.clusterConfiguration()
+                )
+                .thenCompose(unused -> joinFutureProvider.joinFuture())
+                .handle((unused, ex) -> {
+                    if (ex != null) {
+                        throw mapException(ex);
+                    }
+                    return null;
+                });
+    }
+
+    @Override
+    public CompletableFuture<ClusterTag> rename(String newName) {
+        LOG.info("Received rename command with new name = '{}'", newName);
+
+        return clusterManagementGroupManager.renameCluster(newName)
+                .thenCompose(unused -> clusterManagementGroupManager.clusterState())
+                .thenApply(ClusterManagementController::mapClusterTag)
+                .exceptionally(ex -> {
+                    throw mapException(ex);
+                });
+    }
+
+    private static ClusterTag mapClusterTag(@Nullable org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
+        if (clusterState == null) {
+            throw new IgniteException(
+                    CLUSTER_NOT_INIT_ERR,
+                    "Cluster has not yet been initialized or the node is in the process of being stopped."
+            );
+        }
+
+        var clusterTag = clusterState.clusterTag();
+
+        return new ClusterTag(clusterTag.clusterName(), clusterTag.clusterId());
     }
 
     private static ClusterState mapClusterState(@Nullable org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
@@ -124,5 +159,6 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
     public void cleanResources() {
         clusterInitializer = null;
         clusterManagementGroupManager = null;
+        joinFutureProvider = null;
     }
 }

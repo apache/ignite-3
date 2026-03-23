@@ -30,16 +30,21 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
     /**
      * Constructor with a default history size and no default value.
      */
-    public CompletableVersionedValue() {
-        this.versionedValue = new BaseVersionedValue<>(null);
+    public CompletableVersionedValue(String name) {
+        this.versionedValue = new BaseVersionedValue<>(name, null);
     }
 
-    public CompletableVersionedValue(int maxHistorySize) {
-        this.versionedValue = new BaseVersionedValue<>(maxHistorySize, null);
+    public CompletableVersionedValue(String name, int maxHistorySize) {
+        this.versionedValue = new BaseVersionedValue<>(name, maxHistorySize, null);
     }
 
-    public CompletableVersionedValue(Supplier<T> defaultValueSupplier) {
-        this.versionedValue = new BaseVersionedValue<>(defaultValueSupplier);
+    public CompletableVersionedValue(String name, Supplier<T> defaultValueSupplier) {
+        this.versionedValue = new BaseVersionedValue<>(name, defaultValueSupplier);
+    }
+
+    @Override
+    public String name() {
+        return versionedValue.name();
     }
 
     @Override
@@ -85,9 +90,10 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      *
      * @param causalityToken Causality token.
+     * @return A future that will be completed when all listeners complete.
      */
-    public void complete(long causalityToken) {
-        versionedValue.complete(causalityToken);
+    public CompletableFuture<Void> complete(long causalityToken) {
+        return versionedValue.complete(causalityToken);
     }
 
     /**
@@ -98,9 +104,10 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      * @param value Current value.
+     * @return A future that will be completed when all listeners complete.
      */
-    public void complete(long causalityToken, T value) {
-        versionedValue.complete(causalityToken, CompletableFuture.completedFuture(value));
+    public CompletableFuture<Void> complete(long causalityToken, T value) {
+        return versionedValue.complete(causalityToken, CompletableFuture.completedFuture(value));
     }
 
     /**
@@ -111,8 +118,9 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      * @param throwable An exception.
+     * @return A future that will be completed when all listeners complete.
      */
-    public void completeExceptionally(long causalityToken, Throwable throwable) {
-        versionedValue.complete(causalityToken, CompletableFuture.failedFuture(throwable));
+    public CompletableFuture<Void> completeExceptionally(long causalityToken, Throwable throwable) {
+        return versionedValue.complete(causalityToken, CompletableFuture.failedFuture(throwable));
     }
 }

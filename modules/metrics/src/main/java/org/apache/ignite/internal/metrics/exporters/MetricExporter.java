@@ -19,11 +19,12 @@ package org.apache.ignite.internal.metrics.exporters;
 
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for metric exporters to external recipients.
@@ -35,7 +36,7 @@ import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
  * <p>Pull exporters is the endpoint by itself (HTTP, JMX and etc.), which response with the metric data for request.
  * Pull exporters should extend {@link BasicMetricExporter}.
  */
-public interface MetricExporter<CfgT extends ExporterView> {
+public interface MetricExporter {
     /**
      * Start metrics exporter. Here all needed listeners, schedulers etc. should be started.
      *
@@ -44,7 +45,7 @@ public interface MetricExporter<CfgT extends ExporterView> {
      * @param clusterIdSupplier Cluster ID supplier.
      * @param nodeName Node name.
      */
-    void start(MetricProvider metricProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName);
+    void start(MetricProvider metricProvider, @Nullable ExporterView configuration, Supplier<UUID> clusterIdSupplier, String nodeName);
 
     /**
      * Stop and cleanup work for current exporter must be implemented here.
@@ -66,11 +67,10 @@ public interface MetricExporter<CfgT extends ExporterView> {
      *
      * @param newValue New configuration view.
      */
-    void reconfigure(CfgT newValue);
+    void reconfigure(ExporterView newValue);
 
     /**
-     * {@link MetricManagerImpl} invokes this method,
-     * when new metric source was enabled.
+     * {@link MetricManager} invokes this method, when new metric source was enabled.
      *
      * @param metricSet Named metric set.
      */
@@ -79,12 +79,11 @@ public interface MetricExporter<CfgT extends ExporterView> {
     }
 
     /**
-     * {@link MetricManagerImpl} invokes this method,
-     * when the metric source was disabled.
+     * {@link MetricManager} invokes this method, when the metric source was disabled.
      *
-     * @param metricSetName Name of metric set to remove.
+     * @param metricSet Named metric set to remove.
      */
-    default void removeMetricSet(String metricSetName) {
+    default void removeMetricSet(MetricSet metricSet) {
         // No-op.
     }
 }

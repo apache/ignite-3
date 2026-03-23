@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.deployunit.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -29,5 +30,9 @@ public class DeploymentConfigurationSchema {
      * Relative path to folder in node working directory where will store all deployment units content.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "deploymentLocation")
     public final String location = "deployment";
+
+    @Value(hasDefault = true)
+    public final String tempLocation = "deployment.tmp";
 }

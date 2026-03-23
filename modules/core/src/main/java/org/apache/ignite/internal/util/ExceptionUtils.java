@@ -23,6 +23,7 @@ import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.newSetFromMap;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -49,6 +50,7 @@ import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -58,7 +60,7 @@ public final class ExceptionUtils {
     /**
      * The names of methods commonly used to access a wrapped exception.
      */
-    private static final String[] CAUSE_METHOD_NAMES = new String[]{
+    private static final String[] CAUSE_METHOD_NAMES = {
             "getCause",
             "getNextException",
             "getTargetException",
@@ -113,10 +115,10 @@ public final class ExceptionUtils {
      * Finds a {@code Throwable} by method name.
      *
      * @param throwable The exception to examine.
-     * @param mtdName   The name of the method to find and invoke.
+     * @param mtdName The name of the method to find and invoke.
      * @return The wrapped exception, or {@code null} if not found.
      */
-    private static Throwable getCauseUsingMethodName(Throwable throwable, String mtdName) {
+    private static @Nullable Throwable getCauseUsingMethodName(Throwable throwable, String mtdName) {
         Method mtd = null;
 
         try {
@@ -143,7 +145,7 @@ public final class ExceptionUtils {
      * @param fieldName The name of the attribute to examine.
      * @return The wrapped exception, or {@code null} if not found.
      */
-    private static Throwable getCauseUsingFieldName(Throwable throwable, String fieldName) {
+    private static @Nullable Throwable getCauseUsingFieldName(Throwable throwable, String fieldName) {
         Field field = null;
 
         try {
@@ -196,7 +198,7 @@ public final class ExceptionUtils {
             try {
                 Method mtd = cls.getMethod(methodName, (Class<?>) null);
 
-                if (mtd != null && Throwable.class.isAssignableFrom(mtd.getReturnType())) {
+                if (Throwable.class.isAssignableFrom(mtd.getReturnType())) {
                     return true;
                 }
             } catch (NoSuchMethodException | SecurityException ignored) {
@@ -205,11 +207,9 @@ public final class ExceptionUtils {
         }
 
         try {
-            Field field = cls.getField("detail");
+            cls.getField("detail");
 
-            if (field != null) {
-                return true;
-            }
+            return true;
         } catch (NoSuchFieldException | SecurityException ignored) {
             // exception ignored
         }
@@ -223,7 +223,7 @@ public final class ExceptionUtils {
      * @param throwable The throwable to introspect for a cause, may be null.
      * @return The cause of the {@code Throwable}, {@code null} if none found or null throwable input.
      */
-    public static Throwable getCause(Throwable throwable) {
+    public static @Nullable Throwable getCause(Throwable throwable) {
         return getCause(throwable, CAUSE_METHOD_NAMES);
     }
 
@@ -231,7 +231,7 @@ public final class ExceptionUtils {
      * Introspects the {@code Throwable} to obtain the cause.
      *
      * @param throwable The throwable to introspect for a cause, may be null.
-     * @param mtdNames  The method names, null treated as default set.
+     * @param mtdNames The method names, null treated as default set.
      * @return The cause of the {@code Throwable}, {@code null} if none found or null throwable input.
      */
     @Nullable
@@ -269,8 +269,8 @@ public final class ExceptionUtils {
      * Returns the list of {@code Throwable} objects in the exception chain.
      *
      * <p>A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause
-     * will return a list containing two elements - the input throwable and the cause throwable.
-     * A {@code null} throwable will return a list of size zero.
+     * will return a list containing two elements - the input throwable and the cause throwable. A {@code null} throwable will return a list
+     * of size zero.
      *
      * <p>This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until
      * the end is reached, or until the next item in the chain is already in the result set.
@@ -281,6 +281,7 @@ public final class ExceptionUtils {
     public static List<Throwable> getThrowableList(Throwable throwable) {
         List<Throwable> list = new ArrayList<>();
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         while (throwable != null && !list.contains(throwable)) {
             list.add(throwable);
             throwable = getCause(throwable);
@@ -302,6 +303,7 @@ public final class ExceptionUtils {
             return result;
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         do {
             for (Throwable suppressed : t.getSuppressed()) {
                 result.add(suppressed);
@@ -338,17 +340,15 @@ public final class ExceptionUtils {
     /**
      * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
      * <b>including</b> that throwable itself.
-     * Note that this method follows includes {@link Throwable#getSuppressed()}
-     * into check.
+     * Note that this method follows includes {@link Throwable#getSuppressed()} into check.
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressed(throwable, null, clazz);
     }
@@ -356,19 +356,17 @@ public final class ExceptionUtils {
     /**
      * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
      * <b>including</b> that throwable itself.
-     * Note that this method follows includes {@link Throwable#getSuppressed()}
-     * into check.
+     * Note that this method follows includes {@link Throwable#getSuppressed()} into check.
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param message Error message fragment that should be in error message.
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCauseOrSuppressed(
             @Nullable Throwable throwable,
             @Nullable String message,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), true);
     }
@@ -380,12 +378,11 @@ public final class ExceptionUtils {
      *
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
             @Nullable Throwable throwable,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCause(throwable, null, clazz);
     }
@@ -398,13 +395,12 @@ public final class ExceptionUtils {
      * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
      * @param message Error message fragment that should be in error message.
      * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code true} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
             @Nullable Throwable throwable,
             @Nullable String message,
-            Class<?> @Nullable... clazz
+            Class<?> @Nullable ... clazz
     ) {
         return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), false);
     }
@@ -445,7 +441,7 @@ public final class ExceptionUtils {
 
             if (considerSuppressed) {
                 for (Throwable n : th.getSuppressed()) {
-                    if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu, considerSuppressed)) {
+                    if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu, true)) {
                         return true;
                     }
                 }
@@ -460,12 +456,38 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Checks if the given throwable is already present in the cause or suppressed hierarchy of the given throwable.
+     *
+     * @param t Throwable.
+     * @param dejaVu Known exceptions.
+     * @return True if seen before, false otherwise.
+     */
+    public static boolean existingCauseOrSuppressed(@Nullable Throwable t, Set<Throwable> dejaVu) {
+        if (t == null) {
+            return false;
+        }
+
+        if (!dejaVu.add(t)) {
+            return true;
+        }
+
+        for (Throwable sup : t.getSuppressed()) {
+            if (existingCauseOrSuppressed(sup, dejaVu)) {
+                return true;
+            }
+        }
+
+        return existingCauseOrSuppressed(t.getCause(), dejaVu);
+    }
+
+    /**
      * Unwraps exception cause from wrappers like CompletionException and ExecutionException.
      *
      * @param e Throwable.
      * @return Unwrapped throwable.
      */
     public static Throwable unwrapCause(Throwable e) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
             e = e.getCause();
         }
@@ -474,13 +496,77 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier and full error code are preserved.
-     * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
+     * Unwraps exception cause until the given cause type from the given wrapper exception. If there is no any cause of the expected type
+     * then {@code null} will be returned.
+     *
+     * @param e The exception to unwrap.
+     * @param causeType Expected type of a cause to look up.
+     * @return The desired cause of the exception or {@code null} if it wasn't found.
+     */
+    public static @Nullable <T extends Throwable> T unwrapCause(Throwable e, Class<T> causeType) {
+        Throwable cause = e;
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
+        while (!causeType.isAssignableFrom(cause.getClass()) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        if (!causeType.isInstance(cause)) {
+            return null;
+        }
+
+        return (T) cause;
+    }
+
+    /**
+     * Unwraps the root cause of the given exception.
+     *
+     * @param e The exception to unwrap.
+     * @return The root cause of the exception, or the exception itself if no cause is found.
+     */
+    public static Throwable unwrapRootCause(Throwable e) {
+        Throwable th = e.getCause();
+
+        if (th == null) {
+            return e;
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
+        while (th != e) {
+            Throwable t = th;
+            th = t.getCause();
+
+            if (th == t || th == null) {
+                return t;
+            }
+        }
+
+        return e;
+    }
+
+    /**
+     * Unwraps the cause from {@link CompletionException} if the provided exception is an instance of it.
+     *
+     * @param t Given throwable.
+     * @return Unwrapped throwable.
+     */
+    @Nullable
+    public static Throwable unwrapCompletionThrowable(@Nullable Throwable t) {
+        if (t instanceof CompletionException) {
+            return t.getCause();
+        } else {
+            return t;
+        }
+    }
+
+    /**
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause. In the case
+     * when the provided cause {@code t} is an instance of {@link TraceableException}, the original trace identifier and full error code are
+     * preserved. Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
-     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite
+     *         exception.
      * @param t Cause to be used.
      * @param <T> Type of a new exception.
      * @return New exception with the given cause.
@@ -490,13 +576,13 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier and full error code are preserved.
-     * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause. In the case
+     * when the provided cause {@code t} is an instance of {@link TraceableException}, the original trace identifier and full error code are
+     * preserved. Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
-     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite
+     *         exception.
      * @param message Detailed error message.
      * @param t Cause to be used.
      * @param <T> Type of a new exception.
@@ -512,11 +598,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause
-     * and full error code {@code code}.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier preserved.
-     * Otherwise, a newly generated trace identifier is used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause and full
+     * error code {@code code}. In the case when the provided cause {@code t} is an instance of {@link TraceableException}, the original
+     * trace identifier preserved. Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
      * @param code New error code.
@@ -529,11 +613,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause,
-     * full error code {@code code} and error message {@code message}.
-     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
-     * the original trace identifier preserved.
-     * Otherwise, a newly generated trace identifier is used.
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause, full error
+     * code {@code code} and error message {@code message}. In the case when the provided cause {@code t} is an instance of
+     * {@link TraceableException}, the original trace identifier preserved. Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
      * @param code New error code.
@@ -552,10 +634,12 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Extracts the trace identifier and full error code from ignite exception and creates a new one based on the provided {@code supplier}.
+     * Extracts the trace identifier and full error code from ignite exception and creates a new one based on the provided
+     * {@code supplier}.
      *
      * @param supplier Supplier to create a concrete exception instance.
-     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite
+     *         exception.
      * @param t Cause.
      * @param <T> Type of a new exception.
      * @return New
@@ -577,12 +661,11 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates and returns a copy of an exception that is a cause of the given {@code CompletionException}.
-     * If the original exception does not contain a cause, then the original exception will be returned.
-     * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
-     * <p>
-     *     For example, this method might be useful when you need to implement sync API over async one.
-     * </p>
+     * Creates and returns a copy of an exception that is a cause of the given {@code CompletionException}. If the original exception does
+     * not contain a cause, then the original exception will be returned. In order to preserve a stack trace, the original completion
+     * exception will be set as the cause of the newly created exception.
+     *
+     * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
      *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
@@ -604,12 +687,11 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates and returns a copy of an exception that is a cause of the given {@code ExecutionException}.
-     * If the original exception does not contain a cause, then the original exception will be returned.
-     * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
-     * <p>
-     *     For example, this method might be useful when you need to implement sync API over async one.
-     * </p>
+     * Creates and returns a copy of an exception that is a cause of the given {@code ExecutionException}. If the original exception does
+     * not contain a cause, then the original exception will be returned. In order to preserve a stack trace, the original completion
+     * exception will be set as the cause of the newly created exception.
+     *
+     * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
      *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
@@ -640,7 +722,7 @@ public final class ExceptionUtils {
      * @param cause Cause.
      * @return New exception of the given {@code clazz} and with the specified parameters.
      */
-    public static <T extends Throwable> T copyExceptionWithCause(
+    public static <T extends Throwable> @Nullable T copyExceptionWithCause(
             Class<? extends Throwable> clazz,
             @Nullable UUID traceId,
             int code,
@@ -655,8 +737,8 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Throws the given exception {@code e}.
-     * This method allows to throw any checked exception without defining it explicitly in the method signature.
+     * Throws the given exception {@code e}. This method allows to throw any checked exception without defining it explicitly in the method
+     * signature.
      *
      * @param e Exception to be thrown.
      * @return Actually, this method does not return anything, it just throws the provided exception.
@@ -718,6 +800,25 @@ public final class ExceptionUtils {
         return false;
     }
 
+    /**
+     * Determine if a particular error matches any of passed error codes.
+     *
+     * @param t Unwrapped throwable.
+     * @param codes The codes list.
+     * @return {@code True} if exception allows retry.
+     */
+    public static boolean matchAny(Throwable t, List<Integer> codes) {
+        int errCode = extractCodeFrom(t);
+
+        for (int c0 : codes) {
+            if (c0 == errCode) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19870
     // This method should be removed or re-worked and usages should be changed to IgniteExceptionMapperUtil.mapToPublicException.
     /**
@@ -731,7 +832,7 @@ public final class ExceptionUtils {
     public static IgniteException wrap(Throwable e) {
         Objects.requireNonNull(e);
 
-        e = ExceptionUtils.unwrapCause(e);
+        e = unwrapCause(e);
 
         if (e instanceof IgniteException) {
             IgniteException iex = (IgniteException) e;
@@ -765,9 +866,27 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Creates and return a copy of an exception that is a cause of the given {@code exception}.
-     * If the original exception does not contain a cause, then the original exception will be returned.
-     * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
+     * Returns {@code true} if the given throwable (or its cause) is a {@link TransactionException} with
+     * {@link ErrorGroups.Transactions#TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR}.
+     *
+     * @param e Throwable to inspect.
+     * @return {@code true} when the transaction was finished due to timeout, {@code false} otherwise.
+     */
+    public static boolean isFinishedDueToTimeout(Throwable e) {
+        Throwable unwrapped = unwrapCause(e);
+        if (!(unwrapped instanceof TransactionException)) {
+            return false;
+        }
+
+        TransactionException ex = (TransactionException) unwrapped;
+
+        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+    }
+
+    /**
+     * Creates and return a copy of an exception that is a cause of the given {@code exception}. If the original exception does not contain
+     * a cause, then the original exception will be returned. In order to preserve a stack trace, the original completion exception will be
+     * set as the cause of the newly created exception.
      *
      * @param exception Original exception.
      * @return Copy of an exception that is a cause of the given {@code exception}.
@@ -786,10 +905,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Returns base Ignite exception class for the given {@code exception}.
-     * The returned class can be one of the following: IgniteException, IgniteCheckedException, IgniteInternalException,
-     * IgniteInternalCheckedException.
-     * If the given {@code t} does not inherits any of these Ignite classes, then Throwable.class is returned.
+     * Returns base Ignite exception class for the given {@code exception}. The returned class can be one of the following: IgniteException,
+     * IgniteCheckedException, IgniteInternalException, IgniteInternalCheckedException. If the given {@code t} does not inherits any of
+     * these Ignite classes, then Throwable.class is returned.
      *
      * @param t Exception to be used in order to determine a base Ignite exception class.
      * @param <T> Exception type.
@@ -834,8 +952,8 @@ public final class ExceptionUtils {
          * @param message Detailed error message.
          * @param cause Cause.
          * @param <T> Type of returned exception.
-         * @return a new instance of exception.
-         *      Returned value can be {@code null} if the exception class cannot be constructed using a specific signature.
+         * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed using a
+         *         specific signature.
          */
         final <T extends Throwable> @Nullable T createCopy(
                 Class<? extends Throwable> clazz,
@@ -868,7 +986,7 @@ public final class ExceptionUtils {
 
                 return exc;
             } catch (NoSuchMethodException | IllegalAccessException | SecurityException | ClassCastException
-                    | WrongMethodTypeException ignore) {
+                     | WrongMethodTypeException ignore) {
                 // NoSuchMethodException, IllegalAccessException, SecurityException means that the required signature is not available.
                 // ClassCastException - argument cannot be converted by reference casting.
                 // WrongMethodTypeException - target's type cannot be adjusted to take the given parameters.
@@ -889,10 +1007,10 @@ public final class ExceptionUtils {
          * @param message Detailed error message.
          * @param cause Cause.
          * @param <T> Type of returned exception.
-         *
-         * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed
-         *          using a specific signature.
+         * @return a new instance of exception. Returned value can be {@code null} if the exception class cannot be constructed using a
+         *         specific signature.
          */
+        @Nullable
         abstract <T extends Throwable> T copy(
                 MethodHandle constructor,
                 @Nullable UUID traceId,
@@ -905,172 +1023,171 @@ public final class ExceptionUtils {
     private static final List<ExceptionFactory> EXCEPTION_FACTORIES;
 
     static {
-        EXCEPTION_FACTORIES = new ArrayList<>();
-
-        // The most specific signatures should go in the first place.
-        // Exception(UUID traceId, int code, String message, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                return (T) constructor.invokeWithArguments(traceId, code, message, cause);
-            }
-        });
-        // Exception(UUID traceId, int code, String message)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(traceId, code, message);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
+        EXCEPTION_FACTORIES = List.of(
+                // The most specific signatures should go in the first place.
+                // Exception(UUID traceId, int code, String message, Throwable cause)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        return (T) constructor.invokeWithArguments(traceId, code, message, cause);
+                    }
+                },
+                // Exception(UUID traceId, int code, String message)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(traceId, code, message);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(UUID traceId, int code, Throwable cause)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        if (cause != null) {
+                            // Workaround to avoid error code duplication in exception message.
+                            cause = new UtilException(message, cause);
+                        }
+                        return (T) constructor.invokeWithArguments(traceId, code, cause);
+                    }
+                },
+                // Exception(int code, String message, Throwable cause)
+                new ExceptionFactory(methodType(void.class, int.class, String.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        return (T) constructor.invokeWithArguments(code, message, cause);
+                    }
+                },
+                // Exception(int code, String message)
+                new ExceptionFactory(methodType(void.class, int.class, String.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(code, message);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(int code, Throwable cause)
+                new ExceptionFactory(methodType(void.class, int.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        if (cause != null) {
+                            // Workaround to avoid error code duplication in exception message.
+                            cause = new UtilException(message, cause);
+                        }
+                        return (T) constructor.invokeWithArguments(code, cause);
+                    }
+                },
+                // Exception(UUID traceId, int code)
+                new ExceptionFactory(methodType(void.class, UUID.class, int.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(traceId, code);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(String msg, Throwable cause)
+                new ExceptionFactory(methodType(void.class, String.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        return (T) constructor.invokeWithArguments(message, cause);
+                    }
+                },
+                // Exception(int code)
+                new ExceptionFactory(methodType(void.class, int.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(code);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception(Throwable cause)
+                new ExceptionFactory(methodType(void.class, Throwable.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        if (cause != null) {
+                            // Workaround to avoid error code duplication in exception message.
+                            cause = new UtilException(message, cause);
+                        }
+                        return (T) constructor.invokeWithArguments(cause);
+                    }
+                },
+                // Exception(String msg)
+                new ExceptionFactory(methodType(void.class, String.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments(message);
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
+                    }
+                },
+                // Exception()
+                new ExceptionFactory(methodType(void.class)) {
+                    @Override
+                    <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
+                            throws Throwable {
+                        T copy = (T) constructor.invokeWithArguments();
+                        if (cause != null) {
+                            try {
+                                copy.initCause(cause);
+                            } catch (IllegalStateException ignore) {
+                                // No-op.
+                            }
+                        }
+                        return copy;
                     }
                 }
-                return copy;
-            }
-        });
-        // Exception(UUID traceId, int code, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                if (cause != null) {
-                    // Workaround to avoid error code duplication in exception message.
-                    cause = new UtilException(message, cause);
-                }
-                return (T) constructor.invokeWithArguments(traceId, code, cause);
-            }
-        });
-        // Exception(int code, String message, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, String.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                return (T) constructor.invokeWithArguments(code, message, cause);
-            }
-        });
-        // Exception(int code, String message)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, String.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(code, message);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(int code, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                if (cause != null) {
-                    // Workaround to avoid error code duplication in exception message.
-                    cause = new UtilException(message, cause);
-                }
-                return (T) constructor.invokeWithArguments(code, cause);
-            }
-        });
-        // Exception(UUID traceId, int code)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(traceId, code);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(String msg, Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, String.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                return (T) constructor.invokeWithArguments(message, cause);
-            }
-        });
-        // Exception(int code)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(code);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(String msg)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, String.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments(message);
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
-        // Exception(Throwable cause)
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, Throwable.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                if (cause != null) {
-                    // Workaround to avoid error code duplication in exception message.
-                    cause = new UtilException(message, cause);
-                }
-                return (T) constructor.invokeWithArguments(cause);
-            }
-        });
-        // Exception()
-        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class)) {
-            @Override
-            <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
-                    throws Throwable {
-                T copy = (T) constructor.invokeWithArguments();
-                if (cause != null) {
-                    try {
-                        copy.initCause(cause);
-                    } catch (IllegalStateException ignore) {
-                        // No-op.
-                    }
-                }
-                return copy;
-            }
-        });
+        );
     }
 
     /**
-     * This class is used as workaround to avoid error code and trace id duplication in the error message.
-     * The root cause of this issue is that the constructor Throwable(Throwable cause) uses cause.toString() method
-     * to create a detailedMessage instead of getMessage(), and so this message will be enriched by class name, error code and trace id.
-     * For example,
+     * This class is used as workaround to avoid error code and trace id duplication in the error message. The root cause of this issue is
+     * that the constructor Throwable(Throwable cause) uses cause.toString() method to create a detailedMessage instead of getMessage(), and
+     * so this message will be enriched by class name, error code and trace id. For example,
      * <pre><code>
      *     class CustomException extends IgniteException {
      *         public CustomException(Throwable cause) {

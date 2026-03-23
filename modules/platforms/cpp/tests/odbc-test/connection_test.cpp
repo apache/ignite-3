@@ -97,3 +97,13 @@ TEST_F(connection_test, timezone_passed) {
 
     EXPECT_NE(ts0, ts1);
 }
+
+TEST_F(connection_test, heartbeat_on_disconnected) {
+    using namespace std::chrono_literals;
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string(2s)));
+
+    odbc_disconnect();
+
+    // Wait for at least one heartbeat to ensure we do not crash on disconnected connection.
+    std::this_thread::sleep_for(3s);
+}

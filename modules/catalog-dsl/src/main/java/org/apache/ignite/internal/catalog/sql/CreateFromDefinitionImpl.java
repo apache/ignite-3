@@ -32,6 +32,7 @@ import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
@@ -40,7 +41,7 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
 
     private CreateTableImpl createTable;
 
-    private String tableName;
+    private QualifiedName tableName;
 
     CreateFromDefinitionImpl(IgniteSql sql) {
         super(sql);
@@ -74,12 +75,10 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
             createZone.distributionAlgorithm(def.distributionAlgorithm());
         }
 
-        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjust())) {
-            createZone.dataNodesAutoAdjust(def.dataNodesAutoAdjust());
-        }
         if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleUp())) {
             createZone.dataNodesAutoAdjustScaleUp(def.dataNodesAutoAdjustScaleUp());
         }
+
         if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleDown())) {
             createZone.dataNodesAutoAdjustScaleDown(def.dataNodesAutoAdjustScaleDown());
         }
@@ -96,9 +95,11 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
 
     CreateFromDefinitionImpl from(TableDefinition def) {
         createTable = new CreateTableImpl(sql);
-        String tableName = def.tableName();
-        this.tableName = tableName;
-        createTable.name(def.schemaName(), tableName);
+
+        QualifiedName qualifiedName = def.qualifiedName();
+        this.tableName = qualifiedName;
+        createTable.name(qualifiedName);
+
         if (def.ifNotExists()) {
             createTable.ifNotExists();
         }

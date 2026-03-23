@@ -112,8 +112,8 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     }
 
     @Override
-    public void cancelingJob(UUID jobId) {
-        changeJobStatus(jobId, currentStatus -> {
+    public JobState cancelingJob(UUID jobId) {
+        return changeJobStatus(jobId, currentStatus -> {
             if (currentStatus == QUEUED) {
                 cleaner.scheduleRemove(jobId);
                 return CANCELED;
@@ -135,8 +135,8 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
         changeJobStatus(jobId, ignored -> newStatus);
     }
 
-    private void changeJobStatus(UUID jobId, Function<JobStatus, JobStatus> newStatusFunction) {
-        changeStatus(jobId, currentState -> {
+    private JobState changeJobStatus(UUID jobId, Function<JobStatus, JobStatus> newStatusFunction) {
+        return changeStatus(jobId, currentState -> {
             JobStatus currentStatus = currentState.status();
             JobStatus newStatus = newStatusFunction.apply(currentStatus);
 
@@ -154,10 +154,12 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
         });
     }
 
-    private void changeStatus(UUID jobId, Function<JobState, JobState> newStateFunction) {
-        if (states.computeIfPresent(jobId, (k, v) -> newStateFunction.apply(v)) == null) {
+    private JobState changeStatus(UUID jobId, Function<JobState, JobState> newStateFunction) {
+        JobState state = states.computeIfPresent(jobId, (k, v) -> newStateFunction.apply(v));
+        if (state == null) {
             throw new IllegalJobStatusTransition(jobId);
         }
+        return state;
     }
 
     /**

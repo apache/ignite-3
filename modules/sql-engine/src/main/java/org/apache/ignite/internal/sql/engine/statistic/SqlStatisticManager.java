@@ -22,6 +22,7 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 /**
  * Defined interface to manage SQL statistics.
  */
+@FunctionalInterface
 public interface SqlStatisticManager extends LifecycleAware {
     /**
      * Returns approximate number of rows in table by their id.

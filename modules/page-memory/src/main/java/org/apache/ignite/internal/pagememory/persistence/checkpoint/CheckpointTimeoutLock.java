@@ -244,6 +244,17 @@ public class CheckpointTimeoutLock {
         return checkpointReadWriteLock.checkpointLockIsHeldByThread();
     }
 
+    /**
+     * Returns {@code true} if there are threads waiting to acquire the checkpoint write lock.
+     * This can be used by user code to determine if it should stop execution preemptively
+     * to allow checkpointing to proceed.
+     *
+     * @return {@code true} if checkpoint is waiting for the write lock, {@code false} otherwise.
+     */
+    public boolean shouldReleaseReadLock() {
+        return checkpointReadWriteLock.hasQueuedWriters();
+    }
+
     private void failCheckpointReadLock() throws CheckpointReadLockTimeoutException {
         String msg = "Checkpoint read lock acquisition has been timed out.";
 

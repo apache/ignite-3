@@ -583,7 +583,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775809 AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(' -9223372036854775809' AS BIGINT)", true),
 
-
                 // INTEGER
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.1 AS INTEGER)", false),
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", false),
@@ -598,7 +597,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(' -2147483649' AS INTEGER)", true),
 
-
                 // SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.1 AS SMALLINT)", false),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", false),
@@ -612,7 +610,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST('32768' AS SMALLINT)", true),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(' -32769' AS SMALLINT)", true),
-
 
                 // TINYINT
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(127.1 AS TINYINT)", false),
@@ -806,7 +803,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 () -> sql("SELECT CAST(1 AS CHAR(0))")
         );
 
-
         // Varchar
 
         assertThrowsSqlException(
@@ -977,6 +973,61 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         );
     }
 
+    @Test
+    public void testNullDateToTimestamp() {
+        sql("CREATE TABLE test(id INT PRIMARY KEY, t1 DATE, t2 TIMESTAMP)");
+        sql("INSERT INTO test (id, t1) VALUES (1, null)");
+
+        assertQuery("SELECT id, t1::TIMESTAMP FROM test")
+                .returns(1, null)
+                .check();
+
+        assertQuery("SELECT id, t1::TIMESTAMP FROM (VALUES (1, null::DATE)) test(id, t1) ")
+                .returns(1, null)
+                .check();
+
+        // Update
+        sql("UPDATE test SET t2=t1::TIMESTAMP WHERE id=1");
+        assertQuery("SELECT id, t2 FROM test")
+                .returns(1, null)
+                .check();
+
+        // Insert
+        sql("CREATE TABLE test2(id INT PRIMARY KEY, t1 TIMESTAMP)");
+        sql("INSERT INTO test2 SELECT id, t1::TIMESTAMP FROM test");
+
+        assertQuery("SELECT id, t1 FROM test2")
+                .returns(1, null)
+                .check();
+    }
+
+    @Test
+    public void testNullDateToTimestampLtz() {
+        sql("CREATE TABLE test(id INT PRIMARY KEY, t1 DATE, t2 TIMESTAMP WITH LOCAL TIME ZONE)");
+        sql("INSERT INTO test (id, t1) VALUES (1, null)");
+
+        assertQuery("SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM test")
+                .returns(1, null)
+                .check();
+
+        assertQuery("SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM (VALUES (1, null::DATE)) test(id, t1) ")
+                .returns(1, null)
+                .check();
+
+        // Update
+        sql("UPDATE test SET t2=t1::TIMESTAMP WITH LOCAL TIME ZONE WHERE id=1");
+        assertQuery("SELECT id, t2 FROM test")
+                .returns(1, null)
+                .check();
+
+        // Insert
+        sql("CREATE TABLE test2(id INT PRIMARY KEY, t1 TIMESTAMP WITH LOCAL TIME ZONE)");
+        sql("INSERT INTO test2 SELECT id, t1::TIMESTAMP WITH LOCAL TIME ZONE FROM test");
+
+        assertQuery("SELECT id, t1 FROM test2")
+                .returns(1, null)
+                .check();
+    }
 
     private static RelDataType sqlType(SqlTypeName typeName) {
         return Commons.typeFactory().createSqlType(typeName);

@@ -27,6 +27,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
@@ -45,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 public class PredefinedSchemaManager implements SqlSchemaManager {
     private final IgniteSchemas root;
     private final Int2ObjectMap<IgniteTable> tableById;
+    private final SchemaPlus schemaPlus;
 
     /** Constructs schema manager from a single schema. */
     public PredefinedSchemaManager(IgniteSchema schema) {
@@ -59,15 +63,22 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
         for (IgniteSchema schema : schemas) {
             schemaPlus.add(schema.getName(), schema);
 
+            Lookup<Table> tables = schema.tables();
             tableById.putAll(
-                    schema.getTableNames().stream()
-                            .map(schema::getTable)
+                    tables.getNames(LikePattern.any()).stream()
+                            .map(tables::get)
                             .map(IgniteTable.class::cast)
                             .collect(toIntMapCollector(IgniteTable::id, identity()))
             );
         }
 
+        this.schemaPlus = schemaPlus;
+
         root = new IgniteSchemas(schemaPlus, 0);
+    }
+
+    SchemaPlus rootSchema() {
+        return schemaPlus;
     }
 
     /** {@inheritDoc} */

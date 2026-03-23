@@ -35,6 +35,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
@@ -51,11 +53,16 @@ import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.mockito.exceptions.misusing.UnfinishedStubbingException;
 
 /**
  * Test table storage implementation.
  */
 public class TestMvTableStorage implements MvTableStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(TestMvTableStorage.class);
+
+    private static volatile TestMvPartitionStorageFactory partitionStorageFactory = TestMvPartitionStorageFactory.DEFAULT;
+
     private final MvPartitionStorages<TestMvPartitionStorage> mvPartitionStorages;
 
     private final Map<Integer, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
@@ -125,7 +132,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) {
-        return busy(() -> mvPartitionStorages.create(partitionId, partId -> spy(new TestMvPartitionStorage(partId))));
+        return busy(() -> mvPartitionStorages.create(partitionId, id -> partitionStorageFactory.create(tableDescriptor.getId(), id)));
     }
 
     @Override
@@ -287,6 +294,10 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     private CompletableFuture<Void> startRebalancePartitionBusy(int partitionId) {
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", tableDescriptor.getId(), partitionId);
+        }
+
         return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
@@ -422,5 +433,21 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private String createStorageInfo() {
         return IgniteStringFormatter.format("tableId={}", tableDescriptor.getId());
+    }
+
+    /**
+     * Sets the {@link TestMvPartitionStorage} factory. Useful when you need to change the behavior of a method in a test, for example. If
+     * you use setting mock stubs after creating a storage, you can get into a race and as a result get {@link UnfinishedStubbingException}.
+     *
+     * <p>After running a test or test class, you must set the {@link TestMvPartitionStorageFactory#DEFAULT} or invoke
+     * {@link #resetPartitionStorageFactory}.</p>
+     */
+    public static void partitionStorageFactory(TestMvPartitionStorageFactory factory) {
+        partitionStorageFactory = factory;
+    }
+
+    /** Sets the {@link TestMvPartitionStorageFactory#DEFAULT} factory. */
+    public static void resetPartitionStorageFactory() {
+        partitionStorageFactory = TestMvPartitionStorageFactory.DEFAULT;
     }
 }

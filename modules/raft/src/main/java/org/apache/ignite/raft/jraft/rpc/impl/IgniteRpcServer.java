@@ -33,7 +33,7 @@ import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -113,13 +113,13 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new HeartbeatRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         // raft native cli service
         registerProcessor(new AddPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new RemovePeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ChangePeersAndLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ChangePeersAndLearnersAsyncRequestProcessor(rpcExecutor, raftMessagesFactory));
-        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new SnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new GetPeersRequestProcessor(rpcExecutor, raftMessagesFactory));
@@ -137,13 +137,13 @@ public class IgniteRpcServer implements RpcServer<Void> {
         service.messagingService().addMessageHandler(RaftMessageGroup.class, messageHandler);
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
-            @Override public void onAppeared(ClusterNode member) {
+            @Override public void onAppeared(InternalClusterNode member) {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-14837
                 // Perhaps, We can remove checking for dead nodes and replace it with SWIM node alive event
                 // and start replicator when the event is received.
             }
 
-            @Override public void onDisappeared(ClusterNode member) {
+            @Override public void onDisappeared(InternalClusterNode member) {
                 serviceEventInterceptor.unsubscribeNode(member);
 
                 for (ConnectionClosedEventListener listener : listeners)
@@ -157,7 +157,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        @Override public void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
 
             RpcProcessor<NetworkMessage> prc = getProcessor(cls, cls);
@@ -217,7 +217,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     private class NetworkRpcContext implements RpcContext {
         /** Sender node. */
-        private final ClusterNode sender;
+        private final InternalClusterNode sender;
 
         /** Correlation request id. */
         private final Long correlationId;
@@ -232,7 +232,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
          * @param sender Sender node.
          * @param correlationId Correlation id.
          */
-        public NetworkRpcContext(Executor executor, ClusterNode sender, Long correlationId) {
+        public NetworkRpcContext(Executor executor, InternalClusterNode sender, Long correlationId) {
             this.executor = executor;
             this.sender = sender;
             this.correlationId = correlationId;
@@ -259,7 +259,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         }
 
         @Override
-        public ClusterNode getSender() {
+        public InternalClusterNode getSender() {
             return sender;
         }
 

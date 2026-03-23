@@ -18,33 +18,57 @@
 package org.apache.ignite.deployment.version;
 
 import java.util.Objects;
+import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link Version} interface based on the three numbers format, like x.x.x. where x is short number.
+ * Implementation of {@link Version} interface based on the relaxed semantic versioning - minor and maintenance can be omitted.
  */
 class UnitVersion implements Version {
-    private final short major;
+    /**
+     * This pattern allows optional minor and maintenance to maintain compatibility with previous versions.
+     */
+    private static final Pattern VERSION_PATTERN = Pattern.compile(
+            "(?<major>\\d+)(?:\\.(?<minor>\\d+))?(?:\\.(?<maintenance>\\d+))?(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
+    );
 
-    private final short minor;
+    /** Major version number. */
+    private final int major;
 
-    private final short patch;
+    /** Minor version number. */
+    private final int minor;
+
+    /** Maintenance version number. */
+    private final int maintenance;
+
+    /** Patch version number. */
+    @Nullable
+    private final Integer patch;
+
+    /** Pre-release version. */
+    @Nullable
+    private final String preRelease;
 
     /**
      * Constructor.
      *
      * @param major Major part of version.
      * @param minor Minor part of version.
-     * @param patch Patch part of version.
+     * @param maintenance Maintenance part of version.
      */
-    UnitVersion(short major, short minor, short patch) {
+    UnitVersion(int major, int minor, int maintenance, @Nullable Integer patch, @Nullable String preRelease) {
         this.major = major;
         this.minor = minor;
+        this.maintenance = maintenance;
         this.patch = patch;
+        this.preRelease = preRelease;
     }
 
     @Override
     public String render() {
-        return major + "." + minor + "." + patch;
+        return toString();
     }
 
     /**
@@ -57,19 +81,31 @@ class UnitVersion implements Version {
     public static UnitVersion parse(String rawVersion) {
         Objects.requireNonNull(rawVersion);
         try {
-            String[] split = rawVersion.split("\\.", -1);
-            if (split.length > 3 || split.length == 0) {
+            Matcher matcher = VERSION_PATTERN.matcher(rawVersion);
+
+            if (!matcher.matches()) {
                 throw new VersionParseException(rawVersion, "Invalid version format");
             }
 
-            short major = Short.parseShort(split[0]);
-            short minor = split.length > 1 ? Short.parseShort(split[1]) : 0;
-            short patch = split.length > 2 ? Short.parseShort(split[2]) : 0;
+            String minor = matcher.group("minor");
+            String maintenance = matcher.group("maintenance");
+            String patch = matcher.group("patch");
+            String preRelease = matcher.group("preRelease");
 
-            return new UnitVersion(major, minor, patch);
+            return new UnitVersion(
+                    Integer.parseUnsignedInt(matcher.group("major")),
+                    nullOrBlank(minor) ? 0 : Integer.parseUnsignedInt(minor),
+                    nullOrBlank(maintenance) ? 0 : Integer.parseUnsignedInt(maintenance),
+                    nullOrBlank(patch) ? null : Integer.parseUnsignedInt(patch),
+                    nullOrBlank(preRelease) ? null : preRelease
+            );
         } catch (NumberFormatException e) {
             throw new VersionParseException(rawVersion, e);
         }
+    }
+
+    private static boolean nullOrBlank(String str) {
+        return str == null || str.isBlank();
     }
 
     @Override
@@ -78,19 +114,65 @@ class UnitVersion implements Version {
             return -1;
         }
 
-        UnitVersion version = (UnitVersion) o;
+        UnitVersion other = (UnitVersion) o;
+        int res;
 
-        int majorCompare = Short.compare(major, version.major);
-        if (majorCompare != 0) {
-            return majorCompare;
+        // Compare major, minor, maintenance
+        res = Integer.compare(major, other.major);
+        if (res != 0) {
+            return res;
         }
 
-        int minorCompare = Short.compare(minor, version.minor);
-        if (minorCompare != 0) {
-            return minorCompare;
+        res = Integer.compare(minor, other.minor);
+        if (res != 0) {
+            return res;
         }
 
-        return Short.compare(patch, version.patch);
+        res = Integer.compare(maintenance, other.maintenance);
+        if (res != 0) {
+            return res;
+        }
+
+        // Compare patch (nullable)
+        res = compareNullable(patch, other.patch);
+        if (res != 0) {
+            return res;
+        }
+
+        // Compare pre-release order (nullable)
+        res = compareNullable(preReleaseOrder(preRelease), preReleaseOrder(other.preRelease));
+        return res;
+    }
+
+    private static int compareNullable(@Nullable Integer a, @Nullable Integer b) {
+        if (a != null && b != null) {
+            return Integer.compare(a, b);
+        } else if (a != null) {
+            return 1;
+        } else if (b != null) {
+            return -1;
+        }
+        return 0;
+    }
+
+    @Nullable
+    private static Integer preReleaseOrder(@Nullable String preRelease) {
+        if (preRelease == null) {
+            return null;
+        }
+        switch (preRelease.toLowerCase()) {
+            case "alpha":
+                return 0;
+            case "beta":
+                return 1;
+            case "rc":
+                return 2;
+            case "final":
+            case "":
+                return 3;
+            default:
+                return 4; // Unknown or custom stages
+        }
     }
 
     @Override
@@ -102,27 +184,25 @@ class UnitVersion implements Version {
             return false;
         }
 
-        UnitVersion version = (UnitVersion) o;
+        UnitVersion that = (UnitVersion) o;
 
-        if (major != version.major) {
-            return false;
-        }
-        if (minor != version.minor) {
-            return false;
-        }
-        return patch == version.patch;
+        return major == that.major && minor == that.minor && maintenance == that.maintenance
+                && Objects.equals(patch, that.patch) && Objects.equals(preRelease, that.preRelease);
     }
 
     @Override
     public int hashCode() {
-        int result = major;
-        result = 31 * result + minor;
-        result = 31 * result + patch;
-        return result;
+        return Objects.hash(major, minor, maintenance, patch, preRelease);
     }
 
     @Override
     public String toString() {
-        return render();
+        StringJoiner joiner = new StringJoiner(".").add(String.valueOf(major)).add(String.valueOf(minor)).add(String.valueOf(maintenance));
+
+        if (patch != null) {
+            joiner.add(patch.toString());
+        }
+
+        return joiner + (preRelease == null ? "" : "-" + preRelease);
     }
 }

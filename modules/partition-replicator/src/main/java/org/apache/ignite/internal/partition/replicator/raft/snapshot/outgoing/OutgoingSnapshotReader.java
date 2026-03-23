@@ -24,6 +24,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -35,7 +36,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshotReader.class);
 
     /** Snapshot id. */
-    private final UUID id = UUID.randomUUID();
+    private final UUID id;
 
     /** Snapshot storage. */
     private final PartitionSnapshotStorage snapshotStorage;
@@ -44,21 +45,26 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     /**
      * Constructor.
-     *
-     * @param snapshotStorage Snapshot storage.
      */
-    public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
+    public OutgoingSnapshotReader(
+            UUID snapshotId,
+            PartitionSnapshotStorage snapshotStorage,
+            RaftSnapshotsMetricsSource snapshotMetricsSource
+    ) {
         this.snapshotStorage = snapshotStorage;
+
+        id = snapshotId;
 
         snapshot = new OutgoingSnapshot(
                 id,
                 snapshotStorage.partitionKey(),
                 snapshotStorage.partitionsByTableId(),
                 snapshotStorage.txState(),
-                snapshotStorage.catalogService()
+                snapshotStorage.catalogService(),
+                snapshotMetricsSource
         );
 
-        LOG.info("Starting snapshot reader for snapshot {}", id);
+        LOG.info("Starting snapshot reader [{}, snapshotId={}]", createPartitionInfo(), id);
 
         snapshotStorage.outgoingSnapshotsManager().startOutgoingSnapshot(id, snapshot);
     }
@@ -77,7 +83,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public void close() throws IOException {
-        LOG.info("Closing snapshot reader for snapshot {}", id);
+        LOG.info("Closing snapshot reader [{}, snapshotId={}]", createPartitionInfo(), id);
 
         snapshotStorage.outgoingSnapshotsManager().finishOutgoingSnapshot(id);
     }
@@ -107,5 +113,9 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     @Override
     public Message getFileMeta(String fileName) {
         throw new UnsupportedOperationException("No files in the snapshot");
+    }
+
+    private String createPartitionInfo() {
+        return snapshotStorage.partitionKey().toString();
     }
 }

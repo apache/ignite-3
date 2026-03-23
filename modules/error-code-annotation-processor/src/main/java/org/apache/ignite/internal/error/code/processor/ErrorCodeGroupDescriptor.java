@@ -45,5 +45,19 @@ public class ErrorCodeGroupDescriptor {
         public String name;
     }
 
+    /**
+     * Class that holds info about one (deprecated) alias for an error code .
+     */
+    public static class DeprecatedAlias {
+        public final String alias;
+        public final String target;
+
+        DeprecatedAlias(String alias, String target) {
+            this.alias = alias;
+            this.target = target;
+        }
+    }
+
     public List<ErrorCode> errorCodes = new ArrayList<>();
+    public List<DeprecatedAlias> deprecatedAliases = new ArrayList<>();
 }

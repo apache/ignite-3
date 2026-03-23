@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.api.configuration;
 
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
@@ -57,9 +58,9 @@ public interface NodeConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.PROBLEM_JSON)
+    @Produces({MediaType.TEXT_PLAIN, MediaType.PROBLEM_JSON})
     @Get
-    String getConfiguration();
+    HttpResponse<String> getConfiguration();
 
     /**
      * Returns configuration in HOCON format represented by path. This is represented as a plain text.
@@ -79,9 +80,9 @@ public interface NodeConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.PROBLEM_JSON)
+    @Produces({MediaType.TEXT_PLAIN, MediaType.PROBLEM_JSON})
     @Get("/{path}")
-    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
+    HttpResponse<String> getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
             description = "Configuration tree address. For example: `element.subelement`.") String path);
 
     /**
@@ -98,6 +99,10 @@ public interface NodeConfigurationApi {
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "405", description = "Configuration is read-only.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "422", description = "Configuration parse/apply error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)

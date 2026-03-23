@@ -150,8 +150,10 @@ if (project.hasProperty('prepareRelease')) {
     }
 }
 
+ext.docker_image_name = 'docker.io/ai3-migration-tools:' + project.version
+
 docker {
-    name 'ai3-migration-tools:' + project.version
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
     files tasks.distTar.outputs
     buildArgs(

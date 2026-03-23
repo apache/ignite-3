@@ -46,6 +46,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -81,8 +83,8 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -105,6 +107,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
@@ -208,7 +213,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         var res = new HashMap<String, ClusterService>(nodeNames.size());
 
         var nodeFinder = new StaticNodeFinder(IntStream.range(BASE_PORT, BASE_PORT + 5)
-                .mapToObj(p -> new NetworkAddress("localhost", p))
+                .mapToObj(p -> new NetworkAddress("127.0.0.1", p))
                 .collect(Collectors.toList()));
 
         int port = BASE_PORT;
@@ -268,7 +273,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
@@ -276,6 +281,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     nodeClock,
                     eventsClientListener
             );
@@ -288,11 +294,11 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_metastorage"));
 
-            LogStorageFactory msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            LogStorageManager msLogStorageManager =
+                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -323,15 +329,18 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     clockService,
                     mock(FailureProcessor.class),
-                    replicationConfiguration
+                    replicationConfiguration,
+                    Runnable::run,
+                    mock(MetricManager.class),
+                    zoneId -> completedFuture(Set.of())
             );
 
             res.add(new Node(
                     nodeName,
                     clusterService,
                     raftManager,
-                    partitionsLogStorageFactory,
-                    msLogStorageFactory,
+                    partitionsLogStorageManager,
+                    msLogStorageManager,
                     metaStorageManager,
                     placementDriverManager
             ));
@@ -406,7 +415,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         assertEquals(newLeader, msRaftClient.leader());
     }
-
 
     @Test
     public void testLeaseProlongAfterRedirect() throws Exception {

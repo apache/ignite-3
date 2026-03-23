@@ -32,7 +32,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.rest.client.model.ClusterNode;
-import org.apache.ignite.rest.client.model.ClusterNodeMetadata;
+import org.apache.ignite.rest.client.model.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link NodeNameRegistry}. */
@@ -87,7 +87,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, PeriodicSessionTa
     }
 
     @Nullable
-    static String urlFromClusterNode(@Nullable ClusterNodeMetadata metadata) {
+    static String urlFromClusterNode(@Nullable NodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }

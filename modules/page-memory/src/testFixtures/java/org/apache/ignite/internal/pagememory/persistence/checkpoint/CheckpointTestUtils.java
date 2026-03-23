@@ -24,12 +24,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -41,13 +43,18 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
  * Useful class for testing a checkpoint.
  */
 public class CheckpointTestUtils {
+    private static final CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(
+            new CollectionMetricSource("test", "storage", null)
+    );
+
     /**
      * Returns new instance of {@link CheckpointReadWriteLock}.
      *
      * @param log Logger.
+     * @param executorService Executor service.
      */
-    static CheckpointReadWriteLock newReadWriteLock(IgniteLogger log) {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000));
+    static CheckpointReadWriteLock newReadWriteLock(IgniteLogger log, ExecutorService executorService) {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService, metrics);
     }
 
     /**
@@ -77,7 +84,7 @@ public class CheckpointTestUtils {
      *
      * @param dirtyPagesView Checkpoint dirty pages view.
      */
-    public static List<FullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
+    public static List<DirtyFullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
         return IntStream.range(0, dirtyPagesView.size()).mapToObj(dirtyPagesView::get).collect(Collectors.toList());
     }
 

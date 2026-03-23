@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.jline.terminal.Terminal;
+import picocli.CommandLine.IFactory;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 
 /**
@@ -28,18 +29,17 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
  */
 @Singleton
 public class ReplExecutorProviderImpl implements ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
-
     @Inject
     private Terminal terminal;
 
-    @Override
-    public ReplExecutor get() {
-        return new ReplExecutorImpl(factory, terminal);
-    }
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
 
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    @Override
+    public ReplExecutor get(IFactory factory) {
+        PicocliCommandsFactory picocliCommandsFactory = new PicocliCommandsFactory(factory);
+        picocliCommandsFactory.setTerminal(terminal);
+
+        return new ReplExecutorImpl(picocliCommandsFactory, terminal, configManagerProvider);
     }
 }

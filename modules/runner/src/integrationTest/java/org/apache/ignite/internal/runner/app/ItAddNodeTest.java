@@ -44,7 +44,7 @@ public class ItAddNodeTest extends ClusterPerTestIntegrationTest {
 
         Ignite ignite0 = cluster.node(0);
 
-        try (ResultSet<SqlRow> unused = ignite0.sql().execute(null, "CREATE TABLE TEST_TABLE (\n"
+        try (ResultSet<SqlRow> unused = ignite0.sql().execute("CREATE TABLE TEST_TABLE (\n"
                 + "    key int PRIMARY KEY,\n"
                 + "    field1   int\n"
                 + ")"

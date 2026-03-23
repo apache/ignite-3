@@ -23,24 +23,15 @@ import org.jetbrains.annotations.Nullable;
 
 /** {@link TableTypeRegistry} implementation based on a in-memory map. */
 public class TableTypeRegistryMapImpl implements TableTypeRegistry {
-    private final Map<String, Map.Entry<String, String>> hints = new HashMap<>();
+    private final Map<String, TableTypeDescriptor> hints = new HashMap<>();
 
     @Override
-    public @Nullable Map.Entry<Class<?>, Class<?>> typesForTable(String tableName) {
-        var typeNames = hints.get(tableName);
-        if (typeNames == null) {
-            return null;
-        }
-
-        try {
-            return Map.entry(Class.forName(typeNames.getKey()), Class.forName(typeNames.getValue()));
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+    public @Nullable TableTypeDescriptor typesForTable(String tableName) {
+        return hints.get(tableName);
     }
 
     @Override
-    public void registerTypesForTable(String tableName, Map.Entry<String, String> tableTypes) {
-        this.hints.putIfAbsent(tableName, tableTypes);
+    public void registerTypesForTable(String tableName, TableTypeDescriptor tableDescriptor) {
+        this.hints.putIfAbsent(tableName, tableDescriptor);
     }
 }

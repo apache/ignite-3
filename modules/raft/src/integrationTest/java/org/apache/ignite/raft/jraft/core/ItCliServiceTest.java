@@ -21,6 +21,7 @@ import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.core.ItNodeTest.waitForTopologyOnEveryNode;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -150,7 +151,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(clientSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(stopAsync(new ComponentContext(), clientSvc), willCompleteSuccessfully());
             }
         };
 
@@ -218,7 +219,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         assertEquals(oldLearners, cliService.getAliveLearners(groupId, conf));
 
         // Add learner3
-        cliService.addLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()));
+        cliService.addLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()), conf.getSequenceToken() + 1);
 
         assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size() == 10, 5_000));
 
@@ -236,7 +237,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         assertEquals(newLearners, cliService.getAliveLearners(groupId, conf));
 
         // Remove  3
-        cliService.removeLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()));
+        cliService.removeLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()), conf.getSequenceToken() + 2);
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
         cluster.ensureSame(id -> id.equals(learner3.getPeerId()));
@@ -253,7 +254,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         assertEquals(oldLearners, cliService.getAliveLearners(groupId, conf));
 
         // Set learners into [learner3]
-        cliService.resetLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()));
+        cliService.resetLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()), conf.getSequenceToken() + 3);
 
         assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size() == 30, 5_000));
 
@@ -282,10 +283,10 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         TestPeer learner4 = new TestPeer(testInfo, TestUtils.INIT_PORT + LEARNER_PORT_STEP + 4);
         assertTrue(cluster.startLearner(learner4));
 
-        cliService.addLearners(groupId, conf, Collections.singletonList(learner4.getPeerId()));
+        cliService.addLearners(groupId, conf, Collections.singletonList(learner4.getPeerId()), conf.getSequenceToken() + 4);
         sleep(1000);
         assertEquals(1, cliService.getAliveLearners(groupId, conf).size());
-        assertTrue(cliService.learner2Follower(groupId, conf, learner4.getPeerId()).isOk());
+        assertTrue(cliService.learner2Follower(groupId, conf, learner4.getPeerId(), conf.getSequenceToken() + 5).isOk());
 
         sleep(1000);
         List<PeerId> currentLearners = cliService.getAliveLearners(groupId, conf);
@@ -305,7 +306,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         cluster.ensureSame(addr -> addr.equals(peer3.getPeerId()));
         assertEquals(0, cluster.getFsmByPeer(peer3.getPeerId()).getLogs().size());
 
-        assertTrue(cliService.addPeer(groupId, conf, peer3.getPeerId()).isOk());
+        assertTrue(cliService.addPeer(groupId, conf, peer3.getPeerId(), conf.getSequenceToken() + 1).isOk());
 
         assertTrue(waitForCondition(() -> cluster.getFsmByPeer(peer3.getPeerId()).getLogs().size() == 10, 5_000));
         sendTestTaskAndWait(cluster.getLeader(), 0);
@@ -319,7 +320,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         }
 
         //remove peer3
-        assertTrue(cliService.removePeer(groupId, conf, peer3.getPeerId()).isOk());
+        assertTrue(cliService.removePeer(groupId, conf, peer3.getPeerId(), conf.getSequenceToken() + 2).isOk());
         sleep(200);
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
@@ -355,7 +356,8 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
                 groupId,
                 conf,
                 new Configuration(newPeers.stream().map(TestPeer::getPeerId).collect(toList())),
-                oldLeaderNode.getCurrentTerm()
+                oldLeaderNode.getCurrentTerm(),
+                conf.getSequenceToken() + 1
         );
 
         assertTrue(status.isOk(), status.getErrorMsg());

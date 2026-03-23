@@ -34,47 +34,14 @@ registerJarTask(sourceSets.jobs, 'ignite-integration-test-jobs')
 registerJarTask(sourceSets.unit1, 'ignite-unit-test-job1')
 registerJarTask(sourceSets.unit2, 'ignite-unit-test-job2')
 
-processTestResources {
-    into('units/unit1') {
-        into('1.0.0') {
-            from unit1Jar
-        }
-        into('2.0.0') {
-            from unit2Jar
-        }
-        into('3.0.1') {
-            from unit1Jar
-            from unit2Jar
-        }
-        into('3.0.2') {
-            into('subdir') {
-                from unit2Jar
-            }
-            from unit1Jar
-        }
-    }
-    into('units/unit2') {
-        into('1.0.0') {
-            from unit1Jar
-        }
-        into('2.0.0') {
-            from unit2Jar
-        }
-    }
-
-    File corruptedJarFile = file("$destinationDir/units/unit1/4.0.0/unit1-1.0-corrupted.jar")
-    doLast {
-        // Generate a 100 bytes long file with random contents to simulate corrupted jar
-        byte[] randomBytes = new byte[100]
-        new Random().nextBytes(randomBytes)
-        corruptedJarFile.parentFile.mkdirs()
-        corruptedJarFile.bytes = randomBytes
-    }
-}
-
 processIntegrationTestResources {
     into('units') {
-        from jobsJar
+        from(jobsJar) {
+            // Remove the jar extension from the jobs jar to verify the deployment of non-jar files.
+            rename {
+                'ignite-integration-test-jobs-1.0-SNAPSHOT.bin'
+            }
+        }
         from unit1Jar
         from unit2Jar
     }
@@ -85,6 +52,4 @@ dependencies {
     jobsImplementation project(':ignite-core')
     unit1Implementation project(':ignite-api')
     unit2Implementation project(':ignite-api')
-
-    integrationTestImplementation sourceSets.jobs.output
 }

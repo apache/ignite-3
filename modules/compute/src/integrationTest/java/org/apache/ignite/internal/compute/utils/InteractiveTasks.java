@@ -45,7 +45,8 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
  */
 public final class InteractiveTasks {
     /**
-     * ACK for {@link Signal#CONTINUE}. Returned by a task that has received the signal. Used to check that the task is alive.
+     * ACK for {@link Signal#CONTINUE_REDUCE} and {@link Signal#CONTINUE_REDUCE}. Returned by a task that has received the signal. Used to
+     * check that the task is alive.
      */
     private static final Object ACK = new Object();
 
@@ -62,8 +63,8 @@ public final class InteractiveTasks {
     private static final BlockingQueue<Object> GLOBAL_CHANNEL = new LinkedBlockingQueue<>();
 
     /**
-     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, Object...)} methods are
-     * running now. This counter increased each time the {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, Object...)}
+     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, String)} methods are
+     * running now. This counter increased each time the {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, String)}
      * is called and decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_SPLIT_CNT = new AtomicInteger(0);
@@ -104,9 +105,14 @@ public final class InteractiveTasks {
      */
     private enum Signal {
         /**
-         * Signal to the task to continue running and send ACK as a response.
+         * Signal to the task to continue running split and send ACK as a response.
          */
-        CONTINUE,
+        CONTINUE_SPLIT,
+
+        /**
+         * Signal to the task to continue running reduce and send ACK as a response.
+         */
+        CONTINUE_REDUCE,
 
         /**
          * Ask task to throw an exception.
@@ -183,11 +189,11 @@ public final class InteractiveTasks {
                     switch (receivedSignal) {
                         case THROW:
                             throw new RuntimeException();
-                        case CONTINUE:
+                        case CONTINUE_SPLIT:
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case SPLIT_RETURN_ALL_NODES:
-                            return completedFuture(context.ignite().clusterNodes().stream().map(node ->
+                            return completedFuture(context.ignite().cluster().nodes().stream().map(node ->
                                     MapReduceJob.<String, String>builder()
                                             .jobDescriptor(InteractiveJobs.interactiveJobDescriptor())
                                             .nodes(Set.of(node))
@@ -216,7 +222,7 @@ public final class InteractiveTasks {
                     switch (receivedSignal) {
                         case THROW:
                             throw new RuntimeException();
-                        case CONTINUE:
+                        case CONTINUE_REDUCE:
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case REDUCE_RETURN:
@@ -241,11 +247,27 @@ public final class InteractiveTasks {
      */
     public static final class GlobalApi {
         /**
+         * Checks that {@link GlobalInteractiveMapReduceTask} is alive and in the split phase.
+         */
+        public static void assertSplitAlive() {
+            GLOBAL_SIGNALS.offer(Signal.CONTINUE_SPLIT);
+            try {
+                assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        /**
          * Checks that {@link GlobalInteractiveMapReduceTask} is alive.
          */
-        public static void assertAlive() throws InterruptedException {
-            GLOBAL_SIGNALS.offer(Signal.CONTINUE);
-            assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+        public static void assertReduceAlive() {
+            GLOBAL_SIGNALS.offer(Signal.CONTINUE_REDUCE);
+            try {
+                assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         /**

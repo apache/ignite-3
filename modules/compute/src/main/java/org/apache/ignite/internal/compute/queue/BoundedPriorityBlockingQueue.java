@@ -233,7 +233,6 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
         }
     }
 
-
     @Override
     public String toString() {
         lock.lock();

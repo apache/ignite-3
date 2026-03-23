@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -32,32 +32,33 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Correlated nested loop join execution tests. */
 public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest<Object[]> {
-
     @ParameterizedTest
     @EnumSource(value = JoinRelType.class, mode = Mode.INCLUDE, names = {"INNER", "LEFT"})
     public void testCorrelatedNestedLoopJoin(JoinRelType joinType) {
         ExecutionContext<Object[]> ctx = executionContext(true);
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         ScanNode<Object[]> left = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -77,14 +78,13 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightType));
-
         CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
+                ImmutableBitSet.of(),
                 joinType,
-                hnd.factory(rightRowSchema),
+                ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
                 identityProjection()
         );
 
@@ -119,6 +119,78 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
         } else {
             throw new IllegalStateException("Unexpected join type: " + joinType);
         }
+    }
+
+    /**
+     * Tests that correlated variables are correctly set by the correlation preparation logic.
+     */
+    @Test
+    public void testCorrelatedVariables() {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        // Left side: T0 (id, name, val)
+        ScanNode<Object[]> left = new ScanNode<>(ctx, Arrays.asList(
+                new Object[]{11, "A", 1},
+                new Object[]{12, "B", 2},
+                new Object[]{13, "C", 3}
+        ));
+
+        // Right side: T1 (id, val)
+        List<Object[]> deps = Arrays.asList(
+                new Object[]{11, 1},
+                new Object[]{12, 1},
+                new Object[]{13, 4}
+        );
+
+        StructNativeType rightType = NativeTypes.structBuilder()
+                .addField("ID", NativeTypes.INT32, false)
+                .addField("VAL", NativeTypes.INT32, true)
+                .build();
+
+        CorrelationId correlationId = new CorrelationId(0);
+        // Correlated columns: T0.id, T0.val
+        List<Integer> correlationColumns = List.of(0, 2);
+
+        ScanNode<Object[]> rightScan = new ScanNode<>(ctx, deps);
+
+        FilterNode<Object[]> rightFilter = new FilterNode<>(ctx, row -> {
+            // Can ignore correlationId because it is 0.
+            Object corr1 = ctx.correlatedVariable(correlationColumns.get(0));
+            Object corr2 = ctx.correlatedVariable(correlationColumns.get(1));
+
+            Object rightVal1 = ctx.rowAccessor().get(0, row);
+            Object rightVal2 = ctx.rowAccessor().get(1, row);
+
+            // Filter: t0.id = t1.id AND t0.val <> t1.val
+            return Objects.equals(corr1, rightVal1) && !Objects.equals(corr2, rightVal2);
+        });
+
+        rightFilter.register(rightScan);
+
+        CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
+                ctx,
+                (r1, r2) -> true,
+                Set.of(correlationId),
+                ImmutableBitSet.of(correlationColumns),
+                INNER,
+                ctx.rowFactoryFactory().create(rightType),
+                identityProjection()
+        );
+
+        join.register(Arrays.asList(left, rightFilter));
+
+        RootNode<Object[]> root = new RootNode<>(ctx);
+        root.register(join);
+
+        Object[][] result = StreamSupport.stream(Spliterators.spliteratorUnknownSize(root, Spliterator.ORDERED), false)
+                .toArray(Object[][]::new);
+
+        Object[][] expected = {
+                {12, "B", 2, 12, 1},
+                {13, "C", 3, 13, 4}
+        };
+
+        assert2DimArrayEquals(expected, result);
     }
 
     private static void assert2DimArrayEquals(Object[][] expected, Object[][] actual) {
@@ -233,16 +305,15 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
-        RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightType));
-
-        RowHandler<Object[]> hnd = ctx.rowHandler();
+        RowHandler<Object[]> hnd = ctx.rowAccessor();
 
         return new CorrelatedNestedLoopJoinNode<>(
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
+                ImmutableBitSet.of(),
                 joinType,
-                hnd.factory(rightRowSchema),
+                ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
                 identityProjection()
         );
     }
@@ -299,6 +370,11 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

@@ -20,6 +20,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.core.NotLeaderException;
+import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**
  * Abstract AsyncUserProcessor for RPC processors.
@@ -51,11 +53,15 @@ public abstract class RpcRequestProcessor<T extends Message> implements RpcProce
             if (msg != null) {
                 rpcCtx.sendResponse(msg);
             }
-        }
-        catch (final Throwable t) {
+        } catch (NotLeaderException t) {
+            // It is ok if we lost leadership while a request to us was in flight, there is no need to clutter up the log.
+            LOG.debug("handleRequest {} failed", t, request);
+            rpcCtx.sendResponse(RaftRpcFactory.DEFAULT
+                .newResponse(t.leaderId(), msgFactory, RaftError.EPERM, t.getMessage()));
+        } catch (Throwable t) {
             LOG.error("handleRequest {} failed", t, request);
-            rpcCtx.sendResponse(RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory, -1, "handleRequest internal error"));
+            rpcCtx.sendResponse(RaftRpcFactory.DEFAULT
+                .newResponse(msgFactory, RaftError.UNKNOWN.getNumber(), "handleRequest internal error"));
         }
     }
 

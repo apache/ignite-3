@@ -1,0 +1,9 @@
+/** @mainpage Apache Ignite C++ client
+Apache Ignite is a distributed database and computing platform designed for high-performance, in-memory data processing.<br>
+It combines in-memory data storage with powerful computing capabilities, enabling real-time analytics and transactional processing.<br>
+Apache Ignite supports SQL, key-value, and ACID-compliant transactions, and can be used as a caching layer, a persistent database, or a compute grid across clusters.<br>
+<br>
+The C++ client for Apache Ignite allows C++ applications to connect to an Ignite cluster and interact with it remotely.<br>
+It provides APIs for performing table and cache operations, executing SQL queries and compute jobs.<br>
+The client communicates with the cluster over a binary protocol, enabling high-performance, low-latency access to Ignite's in-memory data and services.<br>
+*/

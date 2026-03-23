@@ -1,0 +1,5 @@
+[Apache Ignite 3]
+Description=Apache Ignite 3 ODBC Driver
+Driver=@PACKAGE_SO_PATH@/libignite3-odbc.so
+Setup=@PACKAGE_SO_PATH@/libignite3-odbc.so
+DriverODBCVer=03.80

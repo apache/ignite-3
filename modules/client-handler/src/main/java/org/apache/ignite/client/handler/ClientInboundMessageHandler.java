@@ -17,13 +17,21 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -37,7 +45,10 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
+import java.io.IOException;
+import java.net.SocketException;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +62,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
+import org.apache.ignite.client.handler.requests.ClientOperationCancelRequest;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
@@ -73,9 +85,9 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetada
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlCancelRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextResultRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
@@ -108,7 +120,10 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.partition.ClientTablePartitionPrimaryReplicasNodesGetRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionDiscardRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
@@ -123,10 +138,14 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerOp;
 import org.apache.ignite.internal.client.proto.ServerOpResponseFlags;
+import org.apache.ignite.internal.client.proto.tx.ErrorFlags;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -136,6 +155,9 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.IgniteClusterImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
@@ -149,18 +171,25 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationEv
 import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
+import org.apache.ignite.internal.tx.DelayedAckException;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -169,7 +198,6 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler
         extends ChannelInboundHandlerAdapter
         implements EventListener<AuthenticationEventParameters> {
@@ -194,14 +222,20 @@ public class ClientInboundMessageHandler
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
 
+    /** Tracks the number of sequential DDL queries executed and prints suggestion to use batching. */
+    private final Consumer<SqlQueryType> queryTypeListener;
+
     /** Configuration. */
     private final ClientConnectorView configuration;
 
     /** Compute. */
     private final IgniteComputeInternal compute;
 
-    /** Cluster. */
+    /** Cluster service. */
     private final ClusterService clusterService;
+
+    /** Ignite cluster. */
+    private final IgniteCluster cluster;
 
     /** Query processor. */
     private final QueryProcessor queryProcessor;
@@ -216,6 +250,9 @@ public class ClientInboundMessageHandler
     private final ClientHandlerMetricSource metrics;
 
     private final ClockService clockService;
+
+    /** Event log. */
+    private final EventLog eventLog;
 
     /** Context. */
     private ClientContext clientContext;
@@ -252,6 +289,8 @@ public class ClientInboundMessageHandler
 
     private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
 
+    private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
+
     /**
      * Constructor.
      *
@@ -271,6 +310,8 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param eventLog Event log.
+     * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -290,7 +331,10 @@ public class ClientInboundMessageHandler
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc
+            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            EventLog eventLog,
+            Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -308,19 +352,27 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
+        assert eventLog != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
+        this.cluster = new IgniteClusterImpl(clusterService.topologyService(), () -> {
+            ClusterInfo clusterInfo = clusterInfoSupplier.get();
+            List<UUID> idHistory = clusterInfo.idHistory();
+            return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
+        });
         this.queryProcessor = processor;
         this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
+        this.eventLog = eventLog;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
@@ -339,6 +391,8 @@ public class ClientInboundMessageHandler
         this.extensions = extensions;
 
         this.computeConnectionFunc = computeConnectionFunc;
+
+        this.queryTypeListener = queryTypeListener;
     }
 
     @Override
@@ -368,30 +422,34 @@ public class ClientInboundMessageHandler
 
         // Each inbound handler in a pipeline has to release the received messages.
         var unpacker = new ClientMessageUnpacker(byteBuf);
-        metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-        switch (state) {
-            case STATE_BEFORE_HANDSHAKE:
-                state = STATE_HANDSHAKE_REQUESTED;
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-                // Packer buffer is released by Netty on send, or by inner exception handlers below.
-                var packer = getPacker(ctx.alloc());
-                handshake(ctx, unpacker, packer);
+        try {
+            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-                break;
+            switch (state) {
+                case STATE_BEFORE_HANDSHAKE:
+                    state = STATE_HANDSHAKE_REQUESTED;
+                    metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                    handshake(ctx, unpacker);
 
-            case STATE_HANDSHAKE_REQUESTED:
-                // Handshake is in progress, any messages are not allowed.
-                throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
+                    break;
 
-            case STATE_HANDSHAKE_RESPONSE_SENT:
-                assert clientContext != null : "Client context != null";
-                processOperation(ctx, unpacker);
+                case STATE_HANDSHAKE_REQUESTED:
+                    // Handshake is in progress, any messages are not allowed.
+                    throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
 
-                break;
+                case STATE_HANDSHAKE_RESPONSE_SENT:
+                    assert clientContext != null : "Client context != null";
+                    processOperation(ctx, unpacker);
 
-            default:
-                throw new IllegalStateException("Unexpected state: " + state);
+                    break;
+
+                default:
+                    throw new IllegalStateException("Unexpected state: " + state);
+            }
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
         }
     }
 
@@ -410,11 +468,12 @@ public class ClientInboundMessageHandler
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
+
+        logConnectionClosed(ctx);
     }
 
-    private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
-        try {
-            writeMagic(ctx);
+    private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker) {
+        try (unpacker) {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER)) {
@@ -437,13 +496,13 @@ public class ClientInboundMessageHandler
 
                     LOG.debug(msg);
 
-                    handshakeError(ctx, packer, new IgniteException(PROTOCOL_ERR, msg));
+                    handshakeError(ctx, new IgniteException(PROTOCOL_ERR, msg));
                 } else {
                     LOG.debug("Compute executor connected [connectionId=" + connectionId
                             + ", remoteAddress=" + ctx.channel().remoteAddress() + ", executorId=" + computeExecutorId + "]");
 
                     // Bypass authentication for compute executor connections.
-                    handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
+                    handshakeSuccess(ctx, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
 
                     // Ready to handle compute requests now.
                     computeConnFut.complete(new ComputeConnection());
@@ -452,35 +511,38 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            authenticationManager
-                    .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
-                    .handleAsync((user, err) -> {
-                        if (err != null) {
-                            handshakeError(ctx, packer, err);
-                        } else {
-                            handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
-                        }
+            AuthenticationRequest<?, ?> authReq = createAuthenticationRequest(clientHandshakeExtensions);
 
-                        return null;
+            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel())
+                    .thenCompose(unused -> authenticationManager.authenticateAsync(authReq))
+                    .whenCompleteAsync((user, err) -> {
+                        if (err != null) {
+                            if (isAuthenticationException(err)) {
+                                LOG.warn("Client authentication failed [connectionId={}, remoteAddress={}, identity={}]: {}",
+                                        connectionId, ctx.channel().remoteAddress(), authReq.getIdentity(), err.getMessage());
+                            }
+
+                            handshakeError(ctx, err);
+                        } else {
+                            handshakeSuccess(ctx, user, clientFeatures, clientVer, clientCode);
+                        }
                     }, ctx.executor());
         } catch (Throwable t) {
-            handshakeError(ctx, packer, t);
-        } finally {
-            unpacker.close();
+            handshakeError(ctx, t);
         }
     }
 
     private void handshakeSuccess(
             ChannelHandlerContext ctx,
-            ClientMessagePacker packer,
             UserDetails user,
             BitSet clientFeatures,
             ProtocolVersion clientVer,
             int clientCode) {
-        // Disable direct mapping if not all required features are supported.
+        // Disable direct mapping if not all required features are supported alltogether.
         boolean supportsDirectMapping = features.get(TX_DIRECT_MAPPING.featureId()) && clientFeatures.get(TX_DIRECT_MAPPING.featureId())
                 && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
-                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId());
+                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId())
+                && features.get(TX_ALLOW_NOOP_ENLIST.featureId()) && clientFeatures.get(TX_ALLOW_NOOP_ENLIST.featureId());
 
         BitSet actualFeatures;
 
@@ -490,20 +552,26 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DIRECT_MAPPING.featureId());
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
+            actualFeatures.clear(TX_ALLOW_NOOP_ENLIST.featureId());
+
+            actualFeatures.clear(SQL_DIRECT_TX_MAPPING.featureId());
         } else {
             actualFeatures = this.features;
         }
 
-        clientContext = new ClientContext(clientVer, clientCode, HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures), user);
+        BitSet supportedFeatures = HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures);
+        clientContext = new ClientContext(clientVer, clientCode, supportedFeatures, user, ctx.channel().remoteAddress());
 
-        sendHandshakeResponse(ctx, packer, actualFeatures);
+        logConnectionEstablished(ctx);
+
+        sendHandshakeResponse(ctx, actualFeatures);
     }
 
-    private void handshakeError(ChannelHandlerContext ctx, ClientMessagePacker packer, Throwable t) {
-        LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                + t.getMessage(), t);
-
-        packer.close();
+    private void handshakeError(ChannelHandlerContext ctx, Throwable t) {
+        // Authentication failures are already logged by the caller with more details (e.g. username).
+        if (!isAuthenticationException(t)) {
+            LOG.warn("Handshake failed [connectionId={}, remoteAddress={}]", t, connectionId, ctx.channel().remoteAddress());
+        }
 
         var errPacker = getPacker(ctx.alloc());
 
@@ -512,7 +580,7 @@ public class ClientInboundMessageHandler
 
             writeErrorCore(t, errPacker);
 
-            write(errPacker, ctx);
+            writeAndFlushWithMagic(errPacker, ctx); // Releases packer.
         } catch (Throwable t2) {
             LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
                     + t2.getMessage(), t2);
@@ -524,13 +592,37 @@ public class ClientInboundMessageHandler
         metrics.sessionsRejectedIncrement();
     }
 
-    private void sendHandshakeResponse(ChannelHandlerContext ctx, ClientMessagePacker packer, BitSet mutuallySupportedFeatures) {
+    private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
+        ClientMessagePacker packer = getPacker(ctx.alloc());
+
+        try {
+            writeHandshakeResponse(mutuallySupportedFeatures, packer);
+            writeAndFlushWithMagic(packer, ctx); // Releases packer.
+        } catch (Throwable t) {
+            packer.close();
+            throw t;
+        }
+
+        metrics.sessionsAcceptedIncrement();
+        metrics.sessionsActiveIncrement();
+
+        ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                    + clientContext);
+        }
+    }
+
+    private void writeHandshakeResponse(BitSet mutuallySupportedFeatures, ClientMessagePacker packer) {
         ProtocolVersion.LATEST_VER.pack(packer);
         packer.packNil(); // No error.
 
         packer.packLong(configuration.idleTimeoutMillis());
 
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        InternalClusterNode localMember = clusterService.topologyService().localMember();
         packer.packUuid(localMember.id());
         packer.packString(localMember.name());
 
@@ -556,20 +648,6 @@ public class ClientInboundMessageHandler
 
         HandshakeUtils.packFeatures(packer, mutuallySupportedFeatures);
         HandshakeUtils.packExtensions(packer, extensions);
-
-        write(packer, ctx);
-
-        state = STATE_HANDSHAKE_RESPONSE_SENT;
-
-        metrics.sessionsAcceptedIncrement();
-        metrics.sessionsActiveIncrement();
-
-        ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                    + clientContext);
-        }
     }
 
     private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
@@ -588,12 +666,7 @@ public class ClientInboundMessageHandler
         throw new UnsupportedAuthenticationTypeException("Unsupported authentication type: " + authnType);
     }
 
-    private void writeMagic(ChannelHandlerContext ctx) {
-        ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
-        metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
-    }
-
-    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private void writeAndFlush(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
 
@@ -601,31 +674,44 @@ public class ClientInboundMessageHandler
             // writeAndFlush releases pooled buffer.
             ctx.writeAndFlush(buf);
         } catch (Throwable t) {
-            buf.release();
+            packer.close();
             throw t;
         }
 
         metrics.bytesSentAdd(bytes);
     }
 
+    private void writeAndFlushWithMagic(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+        ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
+        writeAndFlush(packer, ctx);
+        metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
+    }
+
     private void writeResponseHeader(
-            ClientMessagePacker packer, long requestId, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
+            ClientMessagePacker packer,
+            long requestId,
+            ChannelHandlerContext ctx,
+            boolean isNotification,
+            boolean isError,
+            long timestamp) {
         packer.packLong(requestId);
         writeFlags(packer, ctx, isNotification, isError);
 
         // Include server timestamp in error and notification responses as well:
         // an operation can modify data and then throw an exception (e.g. Compute task),
         // so we still need to update client-side timestamp to preserve causality guarantees.
-        packer.packLong(clockService.currentLong());
+        packer.packLong(Math.max(clockService.currentLong(), timestamp));
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (isNotification) {
-            LOG.warn("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
-        } else {
-            LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        if (LOG.isDebugEnabled() && shouldLogError(err)) {
+            if (isNotification) {
+                LOG.debug("Error processing client notification [connectionId={}, id={}, remoteAddress={}]",
+                        err, connectionId, requestId, ctx.channel().remoteAddress());
+            } else {
+                LOG.debug("Error processing client request [connectionId={}, id={}, op={}, remoteAddress={}]",
+                        err, connectionId, requestId, opCode, ctx.channel().remoteAddress());
+            }
         }
 
         ClientMessagePacker packer = getPacker(ctx.alloc());
@@ -633,10 +719,10 @@ public class ClientInboundMessageHandler
         try {
             assert err != null;
 
-            writeResponseHeader(packer, requestId, ctx, isNotification, true);
+            writeResponseHeader(packer, requestId, ctx, isNotification, true, NULL_HYBRID_TIMESTAMP);
             writeErrorCore(err, packer);
 
-            write(packer, ctx);
+            writeAndFlush(packer, ctx);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
@@ -644,12 +730,28 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+        int extCnt = 0;
+        boolean retriable = false;
+
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
+        DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
+        TransactionKilledException killedException = findException(err, TransactionKilledException.class);
+
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
+            extCnt = 1;
+        } else {
+            retriable = findException(err, RetriableTransactionException.class) != null;
+            if (retriable) {
+                extCnt++;
+            }
+        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
                 sqlBatchException,
+                delayedAckException,
+                killedException,
                 ExceptionUtils.unwrapCause(err)
         );
 
@@ -675,21 +777,51 @@ public class ClientInboundMessageHandler
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
         } else {
-            packer.packString("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true");
+            packer.packString("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server");
         }
 
         // Extensions.
-        if (schemaVersionMismatchException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
-            packer.packInt(schemaVersionMismatchException.expectedVersion());
-        } else if (sqlBatchException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
-            packer.packLongArray(sqlBatchException.updateCounters());
+        if (extCnt > 0) {
+            packer.packInt(extCnt);
+
+            if (retriable) {
+                packer.packString(ErrorExtensions.FLAGS);
+                packer.packInt(ErrorFlags.RETRIABLE.mask());
+            }
+
+            if (schemaVersionMismatchException != null) {
+                packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
+                packer.packInt(schemaVersionMismatchException.expectedVersion());
+            } else if (sqlBatchException != null) {
+                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
+                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                packer.packLongArray(sqlBatchException.updateCounters());
+            } else if (delayedAckException != null) {
+                packer.packString(ErrorExtensions.DELAYED_ACK);
+                packer.packUuid(delayedAckException.txId());
+            } else if (killedException != null) {
+                packer.packString(ErrorExtensions.TX_KILL);
+                packer.packUuid(killedException.txId());
+            }
         } else {
             packer.packNil(); // No extensions.
         }
+    }
+
+    private static boolean shouldLogError(Throwable e) {
+        Throwable cause = ExceptionUtils.unwrapRootCause(e);
+
+        // Do not log errors caused by cancellation (triggered by user action).
+        if (cause instanceof TraceableException) {
+            TraceableException te = (TraceableException) cause;
+            int c = te.code();
+
+            return c != Sql.EXECUTION_CANCELLED_ERR
+                    && c != Compute.COMPUTE_JOB_CANCELLED_ERR
+                    && c != Compute.CANCELLING_ERR;
+        }
+
+        return true;
     }
 
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
@@ -717,7 +849,7 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            if (isPartitionOperation(opCode)) {
+            if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
 
@@ -778,7 +910,8 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
+                return ClientTupleGetAllRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
                 return ClientTupleGetAndUpsertRequest.process(in, igniteTables, resources, txManager, clockService,
@@ -828,10 +961,11 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsKeyRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
+                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
 
             case ClientOp.JDBC_CONNECT:
-                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler);
+                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler, resolveCurrentUsername());
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, jdbcQueryEventHandler, tsTracker);
@@ -870,28 +1004,26 @@ public class ClientInboundMessageHandler
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker);
+                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker, notificationSender(requestId));
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
-                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS), tsTracker);
+                        clientContext.hasFeature(TX_PIGGYBACK), clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES), tsTracker);
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources, metrics, igniteTables,
-                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
+                        clientContext.hasFeature(TX_PIGGYBACK), clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES));
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId), clientContext);
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext
                 );
 
             case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
@@ -899,13 +1031,12 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
-                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId));
+                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId), clientContext);
 
             case ClientOp.COMPUTE_GET_STATE:
                 return ClientComputeGetStateRequest.process(in, compute);
@@ -917,14 +1048,35 @@ public class ClientInboundMessageHandler
                 return ClientComputeChangePriorityRequest.process(in, compute);
 
             case ClientOp.CLUSTER_GET_NODES:
-                return ClientClusterGetNodesRequest.process(clusterService);
+                return ClientClusterGetNodesRequest.process(cluster);
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
-                        partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker);
+                        partitionOperationsExecutor,
+                        in,
+                        requestId,
+                        cancelHandles,
+                        queryProcessor,
+                        resources,
+                        metrics,
+                        tsTracker,
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS),
+                        clientContext.hasFeature(SQL_DIRECT_TX_MAPPING),
+                        txManager,
+                        igniteTables,
+                        clockService,
+                        notificationSender(requestId),
+                        resolveCurrentUsername(),
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT),
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS_TABLE_NAME),
+                        queryTypeListener
+                );
 
-            case ClientOp.SQL_CANCEL_EXEC:
-                return ClientSqlCancelRequest.process(in, cancelHandles);
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientSqlCursorNextResultRequest.process(in, resources, partitionOperationsExecutor, metrics);
+
+            case ClientOp.OPERATION_CANCEL:
+                return ClientOperationCancelRequest.process(in, cancelHandles);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, resources);
@@ -940,7 +1092,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker
+                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker, resolveCurrentUsername()
                 );
 
             case ClientOp.SQL_QUERY_META:
@@ -950,11 +1102,15 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker
+                        in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        resolveCurrentUsername()
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
-                return ClientStreamerBatchSendRequest.process(in, igniteTables);
+                return ClientStreamerBatchSendRequest.process(in, igniteTables).thenApply(w -> {
+                    tsTracker.update(clockService.current());
+                    return w;
+                });
 
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, igniteTables);
@@ -963,7 +1119,8 @@ public class ClientInboundMessageHandler
                 return ClientStreamerWithReceiverBatchSendRequest.process(
                         in,
                         igniteTables,
-                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
+                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS),
+                        tsTracker);
 
             case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientTablesGetQualifiedRequest.process(igniteTables).thenApply(x -> {
@@ -974,40 +1131,21 @@ public class ClientInboundMessageHandler
             case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientTableGetQualifiedRequest.process(in, igniteTables);
 
+            case ClientOp.TX_DISCARD:
+                return ClientTransactionDiscardRequest.process(in, txManager, igniteTables);
+
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
     }
 
-    private static boolean isPartitionOperation(int opCode) {
-        return opCode == ClientOp.TABLES_GET
-                || opCode == ClientOp.TUPLE_UPSERT
-                || opCode == ClientOp.TUPLE_GET
-                || opCode == ClientOp.TUPLE_GET_AND_UPSERT
-                || opCode == ClientOp.TUPLE_INSERT
-                || opCode == ClientOp.TUPLE_REPLACE
-                || opCode == ClientOp.TUPLE_REPLACE_EXACT
-                || opCode == ClientOp.TUPLE_GET_AND_REPLACE
-                || opCode == ClientOp.TUPLE_DELETE
-                || opCode == ClientOp.TUPLE_DELETE_EXACT
-                || opCode == ClientOp.TUPLE_GET_AND_DELETE
-                || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.STREAMER_BATCH_SEND;
-
-                // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
-                // (for instance, cancellation must not be processed until execution request is registered).
-                // || opCode == ClientOp.SQL_EXEC
-                // || opCode == ClientOp.SQL_EXEC_BATCH
-                // || opCode == ClientOp.SQL_EXEC_SCRIPT
-                // || opCode == ClientOp.SQL_QUERY_META;
-
-                // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
-                // || opCode == ClientOp.TUPLE_UPSERT_ALL
-                // || opCode == ClientOp.TUPLE_GET_ALL
-                // || opCode == ClientOp.TUPLE_INSERT_ALL
-                // || opCode == ClientOp.TUPLE_DELETE_ALL
-                // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
-                // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
+    /**
+     * Return authenticated user name or {@code unknown} if not authorized.
+     *
+     * @see UserDetails#UNKNOWN
+     */
+    private String resolveCurrentUsername() {
+        return clientContext.userDetails().username();
     }
 
     private void processOperationInternal(
@@ -1049,7 +1187,7 @@ public class ClientInboundMessageHandler
 
                 out.setLong(observableTsIdx, tsTracker.getLong());
 
-                write(out, ctx);
+                writeAndFlush(out, ctx);
 
                 metrics.requestsProcessedIncrement();
 
@@ -1074,8 +1212,8 @@ public class ClientInboundMessageHandler
         boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
                 && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
-            LOG.info("Partition primary replica changed, notifying client [connectionId=" + connectionId + ", remoteAddress="
+        if (primaryReplicasUpdated && LOG.isDebugEnabled()) {
+            LOG.debug("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 
@@ -1090,20 +1228,33 @@ public class ClientInboundMessageHandler
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        boolean logWarn = true;
+        boolean logThrowable = true;
+
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTlsIncrement();
-        }
 
-        if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
+            logWarn = false;
+        } else if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
             var err = (IgniteException) cause.getCause();
 
             if (err.code() == HANDSHAKE_HEADER_ERR) {
                 metrics.sessionsRejectedIncrement();
             }
+
+            logWarn = false;
+        } else if (cause instanceof SocketException) {
+            // SocketExceptions seem to well known and have a nice messages. If a stranger exception happens we can always enable debug.
+            logThrowable = false;
         }
 
-        LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
-                + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+        if (logWarn) {
+            LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
+                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), (logThrowable) ? cause : null);
+        } else if (LOG.isDebugEnabled()) {
+            LOG.debug("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
+                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+        }
 
         ctx.close();
     }
@@ -1120,7 +1271,7 @@ public class ClientInboundMessageHandler
         return null;
     }
 
-    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
+    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err, long timestamp) {
         if (err != null) {
             writeError(requestId, -1, err, channelHandlerContext, true);
             return;
@@ -1129,13 +1280,13 @@ public class ClientInboundMessageHandler
         var packer = getPacker(channelHandlerContext.alloc());
 
         try {
-            writeResponseHeader(packer, requestId, channelHandlerContext, true, false);
+            writeResponseHeader(packer, requestId, channelHandlerContext, true, false, timestamp);
 
             if (writer != null) {
                 writer.accept(packer);
             }
 
-            write(packer, channelHandlerContext);
+            writeAndFlush(packer, channelHandlerContext);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(channelHandlerContext, t);
@@ -1145,7 +1296,8 @@ public class ClientInboundMessageHandler
     private NotificationSender notificationSender(long requestId) {
         // Notification can be sent before the response to the current request.
         // This is fine, because the client registers a listener before sending the request.
-        return (writer, err) -> sendNotification(requestId, writer, err);
+        return (writer, err, hybridTimestamp) ->
+                sendNotification(requestId, writer, err, hybridTimestamp);
     }
 
     @Override
@@ -1224,6 +1376,11 @@ public class ClientInboundMessageHandler
         return cancelHandles.size();
     }
 
+    @TestOnly
+    public Consumer<SqlQueryType> queryTypeListener() {
+        return queryTypeListener;
+    }
+
     private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
         // Server and client request ids do not clash, but we use negative to simplify the debugging.
         var requestId = serverToClientRequestId.decrementAndGet();
@@ -1241,7 +1398,7 @@ public class ClientInboundMessageHandler
             var fut = new CompletableFuture<ClientMessageUnpacker>();
             serverToClientRequests.put(requestId, fut);
 
-            write(packer, channelHandlerContext);
+            writeAndFlush(packer, channelHandlerContext);
 
             return fut;
         } catch (Throwable t) {
@@ -1272,9 +1429,8 @@ public class ClientInboundMessageHandler
                 fut.completeExceptionally(err);
             }
         } catch (Throwable t) {
-            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id=" + requestId
-                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
-                    + ", message=" + t.getMessage() + ']', t);
+            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id={}, connectionId={}, remoteAddress={}]",
+                    t, requestId, connectionId, channelHandlerContext.channel().remoteAddress());
         }
     }
 
@@ -1302,21 +1458,80 @@ public class ClientInboundMessageHandler
         return new IgniteException(traceId, code, message, cause);
     }
 
+    private static void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
+        packer.packInt(deploymentUnitPaths.size());
+        for (String path : deploymentUnitPaths) {
+            packer.packString(path);
+        }
+    }
+
+    private static void packDeploymentUnitPaths(Collection<DeploymentUnitInfo> deploymentUnits, ClientMessagePacker packer) {
+        packer.packInt(deploymentUnits.size());
+        for (DeploymentUnitInfo unit : deploymentUnits) {
+            try {
+                packer.packString(unit.path().toRealPath().toString());
+            } catch (IOException e) {
+                throw sneakyThrow(e);
+            }
+        }
+    }
+
+    private void logConnectionEstablished(ChannelHandlerContext ctx) {
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_ESTABLISHED);
+    }
+
+    private void logConnectionClosed(ChannelHandlerContext ctx) {
+        if (clientContext == null) {
+            // Connection was closed before handshake completion, no event needed
+            return;
+        }
+
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_CLOSED);
+    }
+
+    private void logIgniteEvent(ChannelHandlerContext ctx, IgniteEventType igniteEventType) {
+        assert clientContext != null : "clientContext should not be null when logging connection events";
+
+        eventLog.log(
+                igniteEventType.name(),
+                () -> igniteEventType.builder()
+                        .user(EventUser.of(
+                                clientContext.userDetails().username(),
+                                clientContext.userDetails().providerName()
+                        ))
+                        .timestamp(System.currentTimeMillis())
+                        .fields(Map.of(
+                                "connectionId", connectionId,
+                                "remoteAddress", ctx.channel().remoteAddress().toString()
+                        ))
+                        .build()
+        );
+    }
+
+    private static boolean isAuthenticationException(Throwable t) {
+        Throwable cause = ExceptionUtils.unwrapCause(t);
+        return cause instanceof InvalidCredentialsException || cause instanceof UnsupportedAuthenticationTypeException;
+    }
+
     private class ComputeConnection implements PlatformComputeConnection {
         @Override
-        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(long jobId, List<String> deploymentUnitPaths, String jobClassName,
-                ComputeJobDataHolder arg) {
+        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+                long jobId,
+                String jobClassName,
+                JobExecutionContext ctx,
+                @Nullable ComputeJobDataHolder arg
+        ) {
             return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
                     packer -> {
                         packer.packLong(jobId);
                         packer.packString(jobClassName);
-                        packDeploymentUnitPaths(deploymentUnitPaths, packer);
+                        packDeploymentUnitPaths(ctx.deploymentUnits(), packer);
                         packer.packBoolean(false); // Retain deployment units in cache.
-                        ClientComputeJobPacker.packJobArgument(arg, null, packer);
+                        ClientComputeJobPacker.packJobArgument(arg, null, packer, null);
                     })
                     .thenApply(unpacker -> {
                         try (unpacker) {
-                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker);
+                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker, false);
                         }
                     });
         }
@@ -1325,14 +1540,22 @@ public class ClientInboundMessageHandler
         public CompletableFuture<Boolean> cancelJobAsync(long jobId) {
             return sendServerToClientRequest(ServerOp.COMPUTE_JOB_CANCEL,
                     packer -> packer.packLong(jobId))
-                    .thenApply(ClientMessageUnpacker::unpackBoolean);
+                    .thenApply(unpacker -> {
+                        try (unpacker) {
+                            return unpacker.unpackBoolean();
+                        }
+                    });
         }
 
         @Override
         public CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths) {
             return sendServerToClientRequest(ServerOp.DEPLOYMENT_UNITS_UNDEPLOY,
                     packer -> packDeploymentUnitPaths(deploymentUnitPaths, packer))
-                    .thenApply(ClientMessageUnpacker::unpackBoolean);
+                    .thenApply(unpacker -> {
+                        try (unpacker) {
+                            return unpacker.unpackBoolean();
+                        }
+                    });
         }
 
         @Override
@@ -1344,13 +1567,6 @@ public class ClientInboundMessageHandler
         public boolean isActive() {
             ChannelHandlerContext ctx = channelHandlerContext;
             return ctx != null && ctx.channel().isActive();
-        }
-
-        private void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
-            packer.packInt(deploymentUnitPaths.size());
-            for (String path : deploymentUnitPaths) {
-                packer.packString(path);
-            }
         }
     }
 }

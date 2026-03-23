@@ -37,9 +37,19 @@ namespace Apache.Ignite
         public const int DefaultPort = 10800;
 
         /// <summary>
+        /// Default SQL partition awareness metadata cache size.
+        /// </summary>
+        public const int DefaultSqlPartitionAwarenessMetadataCacheSize = 1024;
+
+        /// <summary>
         /// Default socket timeout.
         /// </summary>
         public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// Default socket timeout.
+        /// </summary>
+        public static readonly TimeSpan DefaultOperationTimeout = Timeout.InfiniteTimeSpan;
 
         /// <summary>
         /// Default heartbeat interval.
@@ -50,6 +60,11 @@ namespace Apache.Ignite
         /// Default reconnect interval.
         /// </summary>
         public static readonly TimeSpan DefaultReconnectInterval = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// Default DNS re-resolve interval.
+        /// </summary>
+        public static readonly TimeSpan DefaultReResolveAddressesInterval = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
@@ -91,6 +106,8 @@ namespace Apache.Ignite
             ReconnectInterval = other.ReconnectInterval;
             SslStreamFactory = other.SslStreamFactory;
             Authenticator = other.Authenticator;
+            ReResolveAddressesInterval = other.ReResolveAddressesInterval;
+            SqlPartitionAwarenessMetadataCacheSize = other.SqlPartitionAwarenessMetadataCacheSize;
         }
 
         /// <summary>
@@ -107,7 +124,7 @@ namespace Apache.Ignite
         /// <para />
         /// Use <see cref="Timeout.InfiniteTimeSpan"/> for infinite timeout.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        [DefaultValue("00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>
@@ -116,8 +133,8 @@ namespace Apache.Ignite
         /// An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
         /// which case the operation timeout is applied to each individual network call.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
-        public TimeSpan OperationTimeout { get; set; } = Timeout.InfiniteTimeSpan;
+        [DefaultValue("-00:00:00.001")]
+        public TimeSpan OperationTimeout { get; set; } = DefaultOperationTimeout;
 
         /// <summary>
         /// Gets endpoints to connect to.
@@ -158,7 +175,7 @@ namespace Apache.Ignite
         /// When client connection is idle (no operations are performed), heartbeat messages are sent periodically
         /// to keep the connection alive and detect potential half-open state.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        [DefaultValue("00:00:30")]
         public TimeSpan HeartbeatInterval { get; set; } = DefaultHeartbeatInterval;
 
         /// <summary>
@@ -171,13 +188,25 @@ namespace Apache.Ignite
         /// However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
         /// client will check all configured endpoints and try to reconnect them in case of failure.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        [DefaultValue("00:00:30")]
         public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
+
+        /// <summary>
+        /// Gets or sets how long the resolved addresses will be considered valid.
+        /// <para />
+        /// Default is <see cref="DefaultReResolveAddressesInterval"/>.
+        /// Set to <see cref="TimeSpan.Zero"/> to disable periodic DNS re-resolve.
+        /// <para />
+        /// Ignite client resolves the provided hostnames into multiple IP addresses, each corresponds to a cluster node.
+        /// This property controls how often the client will re-resolve provided hostnames.
+        /// </summary>
+        [DefaultValue("00:00:30")]
+        public TimeSpan ReResolveAddressesInterval { get; set; } = DefaultReResolveAddressesInterval;
 
         /// <summary>
         /// Gets or sets the SSL stream factory.
         /// <para />
-        /// When not null, secure socket connection will be established.
+        /// When not null, a secure socket connection will be established.
         /// <para />
         /// See <see cref="SslStreamFactory"/>.
         /// </summary>
@@ -189,5 +218,32 @@ namespace Apache.Ignite
         /// See <see cref="BasicAuthenticator"/>.
         /// </summary>
         public IAuthenticator? Authenticator { get; set; }
+
+        /// <summary>
+        /// Gets or sets the size of cache to store partition awareness metadata of SQL queries, in number of entries.
+        /// Default is <see cref="DefaultSqlPartitionAwarenessMetadataCacheSize"/>.
+        /// <para />
+        /// Set to zero to disable SQL partition awareness.
+        /// </summary>
+        /// <remarks>
+        /// SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
+        /// relevant data, minimizing network overhead. Ignite client builds the metadata cache during the initial query execution and leverages
+        /// this cache to speed up subsequent queries.
+        /// <para />
+        /// In general, metadata is available for queries
+        /// which have equality predicate over all colocation columns, or which insert the whole tuple. For example:
+        /// <code>
+        /// // Create reservations table colocated by floor_no.
+        /// CREATE TABLE RoomsReservations (room_no INT, floor_no INT, PRIMARY_KEY (room_no, floor_no)) COLOCATE BY (floor_no);
+        ///
+        /// // Select reserved rooms by floor_no - allows computing a partition and routing.
+        /// SELECT room_no FROM RoomsReservations WHERE floor_no = ?;
+        ///
+        /// // INSERT: parametrized by floor_no - allows computing a partition and routing.
+        /// INSERT INTO RoomsReservations(room_no, floor_no) VALUES(?, ?);
+        /// </code>
+        /// </remarks>
+        /// <value>Cache size, in number of entries.</value>
+        public int SqlPartitionAwarenessMetadataCacheSize { get; set; } = DefaultSqlPartitionAwarenessMetadataCacheSize;
     }
 }

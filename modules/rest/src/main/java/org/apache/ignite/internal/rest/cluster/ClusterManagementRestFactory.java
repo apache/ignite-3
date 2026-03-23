@@ -37,15 +37,19 @@ public class ClusterManagementRestFactory implements RestFactory {
 
     private ClusterManagementGroupManager cmgManager;
 
+    private JoinFutureProvider joinFutureProvider;
+
     /** Constructor. */
     public ClusterManagementRestFactory(
             ClusterService clusterService,
             ClusterInitializer clusterInitializer,
-            ClusterManagementGroupManager cmgManager
+            ClusterManagementGroupManager cmgManager,
+            JoinFutureProvider joinFutureProvider
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
         this.cmgManager = cmgManager;
+        this.joinFutureProvider = joinFutureProvider;
     }
 
     @Bean
@@ -66,10 +70,17 @@ public class ClusterManagementRestFactory implements RestFactory {
         return clusterService.topologyService();
     }
 
+    @Bean
+    @Singleton
+    public JoinFutureProvider joinFutureProvider() {
+        return joinFutureProvider;
+    }
+
     @Override
     public void cleanResources() {
         clusterService = null;
         clusterInitializer = null;
         cmgManager = null;
+        joinFutureProvider = null;
     }
 }

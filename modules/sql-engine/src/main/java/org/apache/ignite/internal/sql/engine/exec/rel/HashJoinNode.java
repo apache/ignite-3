@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -29,15 +29,14 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.BiPredicate;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /** HashJoin implementor. */
@@ -91,7 +90,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     /** Supplied algorithm implementation. */
-    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection<RowT> projection,
+    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection projection,
             RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, JoinInfo joinInfo,
             @Nullable BiPredicate<RowT, RowT> nonEquiCondition) {
 
@@ -104,27 +103,27 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             case LEFT: {
                 assert projection != null;
 
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new LeftHashJoin<>(ctx, joinInfo, projection, rightRowFactory, nonEquiCondition);
             }
             case RIGHT: {
                 assert projection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
 
                 return new RightHashJoin<>(ctx, joinInfo, projection, leftRowFactory, nonEquiCondition);
             }
             case FULL: {
                 assert projection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new FullOuterHashJoin<>(
                         ctx, joinInfo, projection, leftRowFactory, rightRowFactory, nonEquiCondition
@@ -146,7 +145,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private static class InnerHashJoin<RowT> extends HashJoinNode<RowT> {
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         /**
          * Creates HashJoinNode for INNER JOIN operator.
@@ -158,7 +157,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private InnerHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, nonEquiCondition);
@@ -249,8 +248,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class LeftHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final RowFactory<RowT> rightRowFactory;
+        private final SqlJoinProjection outputProjection;
+
+        private boolean matched;
 
         /**
          * Creates HashJoinNode for LEFT OUTER JOIN operator.
@@ -263,16 +264,22 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private LeftHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> rightRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in LEFT join";
-
             this.outputProjection = outputProjection;
             this.rightRowFactory = rightRowFactory;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void rewindInternal() {
+            matched = false;
+
+            super.rewindInternal();
         }
 
         /** {@inheritDoc} */
@@ -283,15 +290,33 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                        boolean checkNonEquiCondition = nonEquiCondition != ALWAYS_TRUE;
+
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
+                            // If this is not the first iteration and row wasn't previously matched,
+                            // then before advancing to the next one we should emit current as non-matched.
+                            if (left != null && !matched) {
+                                --requested;
+                                RowT row = outputProjection.project(context(), left, rightRowFactory.create());
+                                downstream().push(row);
+
+                                left = null;
+                            }
+
+                            if (leftInBuf.isEmpty()) {
+                                break;
+                            }
+
                             left = leftInBuf.remove();
+                            matched = false;
 
                             Collection<RowT> rightRows = lookup(left);
 
                             if (rightRows.isEmpty()) {
                                 // Emit empty right row for unmatched left row.
                                 rightIt = Collections.singletonList(rightRowFactory.create()).iterator();
+                                checkNonEquiCondition = false;
                             } else {
                                 rightIt = rightRows.iterator();
                             }
@@ -309,6 +334,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                                 RowT right = rightIt.next();
 
+                                if (checkNonEquiCondition && !nonEquiCondition.test(left, right)) {
+                                    continue;
+                                }
+
+                                matched = true;
                                 --requested;
 
                                 RowT row = outputProjection.project(context(), left, right);
@@ -316,7 +346,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             }
                         }
 
-                        if (!rightIt.hasNext()) {
+                        // Postpone nullification of `left` row if no match was found.
+                        // Left join should emit any non matched row from left side, but 
+                        // by this point we may run out of `requested` quota. Therefore we
+                        // handle this case during next iteration.
+                        if (!rightIt.hasNext() && matched) {
                             left = null;
                         }
                     }
@@ -331,8 +365,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class RightHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final RowFactory<RowT> leftRowFactory;
+        private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
 
@@ -347,13 +381,15 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private RightHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in RIGHT join";
+            if (nonEquiCondition != null) {
+                throw new IllegalStateException("Non equi condition is not supported in RIGHT join");
+            }
 
             this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
@@ -483,11 +519,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class FullOuterHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final RowFactory<RowT> leftRowFactory;
 
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final RowFactory<RowT> rightRowFactory;
+        private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
 
@@ -503,14 +539,16 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private FullOuterHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 RowFactory<RowT> rightRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in FULL OUTER join";
+            if (nonEquiCondition != null) {
+                throw new IllegalStateException("Non equi condition is not supported in FULL OUTER join");
+            }
 
             this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
@@ -746,7 +784,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in ANTI join";
+            if (nonEquiCondition != null) {
+                throw new IllegalStateException("Non equi condition is not supported in ANTI join");
+            }
         }
 
         /** {@inheritDoc} */
@@ -804,6 +844,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         return Collections.emptyList();
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
+    @SuppressWarnings("PMD.UseDiamondOperator")
     private static <RowT> Iterator<RowT> getUntouched(Map<Key, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
             private final Iterator<TouchedCollection<RowT>> it = entries.values().iterator();
@@ -862,7 +904,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private Key extractKey(RowT row, int[] mapping) {
-        RowHandler<RowT> handler = context().rowHandler();
+        RowHandler<RowT> handler = context().rowAccessor();
 
         for (int i : mapping) {
             if (handler.isNull(i, row)) {

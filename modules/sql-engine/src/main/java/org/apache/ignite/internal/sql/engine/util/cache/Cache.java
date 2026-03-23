@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util.cache;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -72,6 +74,9 @@ public interface Cache<K, V> {
      * @return The new value associated with the specified key, or null if none.
      */
     V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
+
+    /** Returns a {@link Set} view of the mappings contained in this cache. */
+    Set<Map.Entry<K, V>> entrySet();
 
     /**
      * Removes all cache entries whose values match the specified predicate.

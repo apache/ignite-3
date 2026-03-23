@@ -34,6 +34,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -50,6 +51,7 @@ public class MockStateMachine extends StateMachineAdapter {
     private volatile int onStopFollowingTimes = 0;
     private volatile long appliedIndex = -1;
     private volatile long snapshotIndex = -1L;
+    private volatile Configuration conf = new Configuration();
     private final List<ByteBuffer> logs = new ArrayList<>();
     private final PeerId peerId;
     private final AtomicInteger saveSnapshotTimes = new AtomicInteger(0);
@@ -60,7 +62,7 @@ public class MockStateMachine extends StateMachineAdapter {
     }
 
     public MockStateMachine(final PeerId peerId) {
-        super();
+        super("test");
         this.peerId = peerId;
     }
 
@@ -100,6 +102,16 @@ public class MockStateMachine extends StateMachineAdapter {
         this.lock.lock();
         try {
             return this.logs;
+        }
+        finally {
+            this.lock.unlock();
+        }
+    }
+
+    public Configuration getConf() {
+        this.lock.lock();
+        try {
+            return conf;
         }
         finally {
             this.lock.unlock();
@@ -221,6 +233,12 @@ public class MockStateMachine extends StateMachineAdapter {
     public void onLeaderStop(final Status status) {
         super.onLeaderStop(status);
         this.leaderTerm = -1;
+    }
+
+    @Override
+    public void onConfigurationCommitted(Configuration conf) {
+        super.onConfigurationCommitted(conf);
+        this.conf = conf;
     }
 
     @Override

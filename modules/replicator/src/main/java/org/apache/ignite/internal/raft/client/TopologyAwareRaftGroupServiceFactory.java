@@ -24,6 +24,7 @@ import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftServiceFactory;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -69,7 +70,8 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
             RaftConfiguration raftConfiguration,
             ScheduledExecutorService raftClientExecutor,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         return TopologyAwareRaftGroupService.start(
                 groupId,
@@ -82,7 +84,8 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
                 eventsClientListener,
                 true,
                 commandsMarshaller,
-                stoppingExceptionFactory
+                stoppingExceptionFactory,
+                throttlingContextHolder
         );
     }
 }

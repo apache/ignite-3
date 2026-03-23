@@ -35,7 +35,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -45,10 +44,10 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for full state transfer. */
@@ -121,13 +120,16 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      */
     public List<IndexIdAndTableVersion> chooseForAddWrite(int catalogVersion, int tableId, HybridTimestamp beginTs) {
         return inBusyLock(busyLock, () -> {
-            Catalog catalog = catalogService.activeCatalog(beginTs.longValue());
-
             List<Integer> fromCatalog = chooseFromCatalogBusy(catalogVersion, tableId, index -> {
                 if (index.status() == REGISTERED) {
-                    CatalogIndexDescriptor indexAtBeginTs = catalog.index(index.id());
+                    IndexMeta indexMeta = indexMetaStorage.indexMeta(index.id());
+                    if (indexMeta == null) {
+                        // No index meta, allow the index to be used.
+                        return true;
+                    }
 
-                    return indexAtBeginTs != null && indexAtBeginTs.status() == REGISTERED;
+                    MetaIndexStatus statusAtTxBegin = indexMeta.statusAt(beginTs.longValue());
+                    return statusAtTxBegin == MetaIndexStatus.REGISTERED;
                 }
 
                 return true;

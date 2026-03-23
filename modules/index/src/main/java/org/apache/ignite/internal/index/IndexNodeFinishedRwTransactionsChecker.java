@@ -39,13 +39,13 @@ import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -151,6 +151,18 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
+    public void clear() {
+        readWriteLock.writeLock().lock();
+
+        try {
+            txCatalogVersionByBeginTxTs.clear();
+            txCountByCatalogVersion.clear();
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public long minimumRequiredTime() {
         int minRequiredVer;
 
@@ -180,9 +192,9 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     /**
      * Handles {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} of {@link IndexMessageGroup}.
      *
-     * @see NetworkMessageHandler#onReceived(NetworkMessage, ClusterNode, Long)
+     * @see NetworkMessageHandler#onReceived(NetworkMessage, InternalClusterNode, Long)
      */
-    private void onReceiveIndexNetworkMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    private void onReceiveIndexNetworkMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         inBusyLock(busyLock, () -> {
             if (!(message instanceof IsNodeFinishedRwTransactionsStartedBeforeRequest)) {
                 return;

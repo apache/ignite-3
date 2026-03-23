@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -57,16 +58,19 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -78,7 +82,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageManager;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -93,21 +97,21 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -119,6 +123,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
+    private static final int ZONE_ID = 0;
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "client";
@@ -137,6 +142,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService testClockService = new TestClockService(clock);
 
     private final TestInfo testInfo;
 
@@ -192,12 +199,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
+                IgniteThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
         replicaService = new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         );
 
@@ -205,19 +212,22 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 cmgManager,
-                new TestClockService(clock),
+                groupId -> completedFuture(Assignments.EMPTY),
+                testClockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
+                new PermissiveSafeTimeValidator(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
-                view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool(),
-                replicaGrpId -> nullCompletedFuture()
+                view -> new LocalLogStorageManager(),
+                Executors.newSingleThreadScheduledExecutor(),
+                replicaGrpId -> nullCompletedFuture(),
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -227,7 +237,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {
@@ -236,7 +246,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
-        ClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -286,7 +296,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .groupId(toTablePartitionIdMessage(replicaMessageFactory, tablePartitionId))
                 .tableId(TABLE_ID)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
+                .commitPartitionId(zonePartitionId())
                 .timestamp(clock.now())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
@@ -298,7 +308,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testStopReplicaException() {
-        ClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -333,7 +343,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithNotStartedReplica() {
-        ClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -363,7 +373,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithNotReadyReplica() {
-        ClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -416,9 +426,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         return rowBuilder.build();
     }
 
-    private TablePartitionIdMessage tablePartitionId() {
-        return replicaMessageFactory.tablePartitionIdMessage()
-                .tableId(TABLE_ID)
+    private ZonePartitionIdMessage zonePartitionId() {
+        return replicaMessageFactory.zonePartitionIdMessage()
+                .zoneId(ZONE_ID)
                 .partitionId(1)
                 .build();
     }

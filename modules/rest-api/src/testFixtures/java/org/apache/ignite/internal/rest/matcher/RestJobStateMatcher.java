@@ -134,7 +134,6 @@ public class RestJobStateMatcher extends TypeSafeMatcher<JobState> {
                 .withFinishTime(notNullValue(Instant.class));
     }
 
-
     public RestJobStateMatcher withStatus(JobStatus status) {
         return withStatus(equalTo(status));
     }
@@ -143,7 +142,6 @@ public class RestJobStateMatcher extends TypeSafeMatcher<JobState> {
         this.statusMatcher = statusMatcher;
         return this;
     }
-
 
     public RestJobStateMatcher withId(UUID id) {
         return withId(equalTo(id));

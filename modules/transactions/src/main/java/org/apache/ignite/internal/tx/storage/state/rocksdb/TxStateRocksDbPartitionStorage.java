@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
-import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage.BYTE_ORDER;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.ZONE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
@@ -36,6 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -64,8 +66,10 @@ import org.rocksdb.WriteBatch;
  * Tx state storage implementation based on RocksDB.
  */
 public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
-    /** Prefix length for the payload. Consists of tableId (4 bytes) and partitionId (2 bytes), both in Big Endian. */
-    private static final int PREFIX_SIZE_BYTES = TABLE_PREFIX_SIZE_BYTES + Short.BYTES;
+    private static final IgniteLogger LOG = Loggers.forClass(TxStateRocksDbPartitionStorage.class);
+
+    /** Prefix length for the payload. Consists of tableId/zoneId (4 bytes) and partitionId (2 bytes), both in Big Endian. */
+    public static final int PREFIX_SIZE_BYTES = ZONE_PREFIX_SIZE_BYTES + Short.BYTES;
 
     /** Size of the key in the storage. Consists of {@link #PREFIX_SIZE_BYTES} and a UUID (2x {@link Long#BYTES}. */
     private static final int FULL_KEY_SIZE_BYES = PREFIX_SIZE_BYTES + 2 * Long.BYTES;
@@ -85,8 +89,8 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     /** Shared TX state storage. */
     private final TxStateRocksDbSharedStorage sharedStorage;
 
-    /** Table ID. */
-    private final int tableId;
+    /** Zone ID. */
+    private final int zoneId;
 
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
@@ -98,17 +102,17 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
      * The constructor.
      *
      * @param partitionId Partition id.
-     * @param tableStorage Table storage.
+     * @param parentStorage Parent storage.
      */
-    TxStateRocksDbPartitionStorage(int partitionId, TxStateRocksDbStorage tableStorage) {
+    TxStateRocksDbPartitionStorage(int partitionId, TxStateRocksDbStorage parentStorage) {
         this.partitionId = partitionId;
-        this.sharedStorage = tableStorage.sharedStorage;
-        this.tableId = tableStorage.id;
-        this.dataColumnFamily = tableStorage.sharedStorage.txStateColumnFamily();
+        this.sharedStorage = parentStorage.sharedStorage;
+        this.zoneId = parentStorage.id;
+        this.dataColumnFamily = parentStorage.sharedStorage.txStateColumnFamily();
 
         this.metaStorage = new TxStateMetaRocksDbPartitionStorage(
-                tableStorage.sharedStorage.txStateMetaColumnFamily(),
-                tableId,
+                parentStorage.sharedStorage.txStateMetaColumnFamily(),
+                zoneId,
                 partitionId
         );
     }
@@ -126,19 +130,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     public void start() {
         busy(() -> {
             try {
-                // Read last applied index and term. This is only actual for older storage versions, where this information was not saved
-                // in the meta storage, but rather in the data storage.
-                // TODO: remove this after the colocation track migration, see https://issues.apache.org/jira/browse/IGNITE-22522.
-                byte[] indexAndTermBytes = readLastAppliedIndexAndTerm();
-
-                if (indexAndTermBytes == null) {
-                    metaStorage.start();
-                } else {
-                    long lastAppliedIndex = bytesToLong(indexAndTermBytes);
-                    long lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
-
-                    metaStorage.startInCompatibilityMode(lastAppliedIndex, lastAppliedTerm);
-                }
+                metaStorage.start();
             } catch (RocksDBException e) {
                 throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
@@ -278,14 +270,16 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         });
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance();
 
             // This lower bound is the lowest possible key that goes after "lastAppliedIndexAndTermKey".
-            byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BIG_ENDIAN)
-                    .putInt(tableId)
+            byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BYTE_ORDER)
+                    .putInt(zoneId)
                     .putShort(shortPartitionId(partitionId))
                     .put((byte) 0)
                     .array();
@@ -367,15 +361,6 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         updateData(writeBatch -> null, lastAppliedIndex, lastAppliedTerm);
     }
 
-    private byte @Nullable [] readLastAppliedIndexAndTerm() throws RocksDBException {
-        byte[] lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
-                .putInt(tableId)
-                .putShort(shortPartitionId(partitionId))
-                .array();
-
-        return dataColumnFamily.get(lastAppliedIndexAndTermKey);
-    }
-
     @Override
     public void destroy() {
         transitionToDestroyedState(state);
@@ -392,22 +377,22 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     private byte[] partitionStartPrefix() {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
-                .putInt(tableId)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BYTE_ORDER)
+                .putInt(zoneId)
                 .putShort(shortPartitionId(partitionId))
                 .array();
     }
 
     private byte[] partitionEndPrefix() {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
-                .putInt(tableId)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BYTE_ORDER)
+                .putInt(zoneId)
                 .putShort(shortPartitionId(partitionId + 1))
                 .array();
     }
 
     private byte[] txIdToKey(UUID txId) {
-        return ByteBuffer.allocate(FULL_KEY_SIZE_BYES).order(BIG_ENDIAN)
-                .putInt(tableId)
+        return ByteBuffer.allocate(FULL_KEY_SIZE_BYES).order(BYTE_ORDER)
+                .putInt(zoneId)
                 .putShort(shortPartitionId(partitionId))
                 .putLong(txId.getMostSignificantBits())
                 .putLong(txId.getLeastSignificantBits())
@@ -439,6 +424,8 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
+        LOG.info("Starting rebalance for transaction state storage [zoneId={}, partitionId={}]", zoneId, partitionId);
+
         transitionFromRunningStateTo(StorageState.REBALANCE);
 
         busyLock.block();
@@ -665,7 +652,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     private String createStorageInfo() {
-        return "table=" + tableId + ", partitionId=" + partitionId;
+        return "zone=" + zoneId + ", partitionId=" + partitionId;
     }
 
     private <V> V busy(Supplier<V> supplier) {

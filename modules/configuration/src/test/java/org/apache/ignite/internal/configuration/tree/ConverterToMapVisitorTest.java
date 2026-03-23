@@ -50,7 +50,6 @@ class ConverterToMapVisitorTest extends BaseIgniteAbstractTest {
     @Mock
     Field notSecretField;
 
-
     @BeforeEach
     void setUp() {
         lenient().when(secretField.isAnnotationPresent(Secret.class)).thenReturn(true);

@@ -70,10 +70,11 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void testImplicitTransactionAttributes() {
         prepareTransactionsMocks();
 
-        when(transactionInflights.addInflight(any(), anyBoolean())).thenReturn(true);
+        when(transactionInflights.track(any())).thenReturn(true);
+        when(transactionInflights.addScanInflight(any())).thenReturn(true);
 
         QueryTransactionContext transactionHandler = new QueryTransactionContextImpl(txManager, observableTimeTracker, null,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
         QueryTransactionWrapper transactionWrapper = transactionHandler.getOrStartSqlManaged(false, false);
 
         assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
@@ -87,7 +88,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         NoOpTransaction externalTx = new NoOpTransaction("test", false);
 
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(externalTx, false,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
         wrapper.finalise();
         assertFalse(externalTx.commitFuture().isDone());
     }
@@ -96,7 +97,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void testCommitImplicit() {
         NoOpTransaction tx = new NoOpTransaction("test", false);
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
 
         wrapper.finalise();
 
@@ -108,7 +109,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void testRollbackImplicit() {
         NoOpTransaction tx = new NoOpTransaction("test", false);
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
 
         wrapper.finalise(new RuntimeException("Test exception"));
 
@@ -118,7 +119,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
-        var operationTracker = new InflightTransactionalOperationTracker(transactionInflights);
+        var operationTracker = new InflightTransactionalOperationTracker(transactionInflights, txManager);
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
                 new QueryTransactionContextImpl(txManager, observableTimeTracker, new NoOpTransaction("test", false),
                         operationTracker),
@@ -130,7 +131,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForNestedScriptTransaction() {
-        var operationTracker = new InflightTransactionalOperationTracker(transactionInflights);
+        var operationTracker = new InflightTransactionalOperationTracker(transactionInflights, txManager);
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
                 new QueryTransactionContextImpl(txManager, observableTimeTracker, null, operationTracker),
                 operationTracker
@@ -143,6 +144,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
             return NoOpTransaction.readWrite("test", implicit);
         });
 
+        when(transactionInflights.track(any())).thenReturn(true);
         txCtx.handleControlStatement(txStartStmt);
 
         assertThrowsSqlException(
@@ -161,33 +163,34 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         prepareTransactionsMocks();
 
         QueryTransactionContext implicitDmlTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, null,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
         implicitDmlTxCtx.getOrStartSqlManaged(false, false);
-        // Check that RW txns do not create tx inflights.
+        // Check that RW txns are tracked.
         log.info("inflights={}", inflights);
-        assertTrue(inflights.isEmpty());
+        assertEquals(1, inflights.size());
 
         QueryTransactionContext implicitQueryTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, null,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
         QueryTransactionWrapper implicitQueryTxWrapper = implicitQueryTxCtx.getOrStartSqlManaged(true, false);
         assertTrue(inflights.contains(implicitQueryTxWrapper.unwrap().id()));
-        implicitQueryTxWrapper.finalise();
-        assertTrue(inflights.isEmpty());
+        implicitQueryTxWrapper.finalise().join();
+        assertEquals(1, inflights.size());
 
         NoOpTransaction rwTx = NoOpTransaction.readWrite("test-rw", false);
         QueryTransactionContext explicitRwTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, rwTx,
-                new InflightTransactionalOperationTracker(transactionInflights));
-        explicitRwTxCtx.getOrStartSqlManaged(true, false);
-        // Check that RW txns do not create tx inflights.
-        assertTrue(inflights.isEmpty());
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
+        QueryTransactionWrapper explicitRwTxWrapper = explicitRwTxCtx.getOrStartSqlManaged(true, false);
+        assertTrue(inflights.contains(explicitRwTxWrapper.unwrap().id()));
+        // Check that RW txns are tracked.
+        assertEquals(2, inflights.size());
 
         NoOpTransaction roTx = NoOpTransaction.readOnly("test-ro", false);
         QueryTransactionContext explicitRoTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, roTx,
-                new InflightTransactionalOperationTracker(transactionInflights));
+                new InflightTransactionalOperationTracker(transactionInflights, txManager));
         QueryTransactionWrapper explicitRoTxWrapper = explicitRoTxCtx.getOrStartSqlManaged(true, false);
         assertTrue(inflights.contains(explicitRoTxWrapper.unwrap().id()));
         explicitRoTxWrapper.finalise();
-        assertTrue(inflights.isEmpty());
+        assertEquals(2, inflights.size());
     }
 
     @Test
@@ -198,7 +201,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         prepareTransactionsMocks();
 
-        var operationTracker = new InflightTransactionalOperationTracker(transactionInflights);
+        var operationTracker = new InflightTransactionalOperationTracker(transactionInflights, txManager);
         QueryTransactionContext txCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, null,
                 operationTracker);
         ScriptTransactionContext scriptRwTxCtx = new ScriptTransactionContext(txCtx, operationTracker);
@@ -207,25 +210,25 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         when(sqlStartRwTx.getMode()).thenAnswer(inv -> IgniteSqlStartTransactionMode.READ_WRITE);
 
         scriptRwTxCtx.handleControlStatement(sqlStartRwTx);
-        assertTrue(inflights.isEmpty());
+        assertFalse(inflights.isEmpty());
 
         ScriptTransactionContext scriptRoTxCtx = new ScriptTransactionContext(txCtx, operationTracker);
         IgniteSqlStartTransaction sqlStartRoTx = mock(IgniteSqlStartTransaction.class);
         when(sqlStartRoTx.getMode()).thenAnswer(inv -> IgniteSqlStartTransactionMode.READ_ONLY);
 
         scriptRoTxCtx.handleControlStatement(sqlStartRoTx);
-        assertEquals(1, inflights.size());
+        assertEquals(2, inflights.size());
 
         QueryTransactionWrapper wrapper = scriptRoTxCtx.getOrStartSqlManaged(true, false);
-        assertEquals(1, inflights.size());
+        assertEquals(2, inflights.size());
 
         // ScriptTransactionWrapperImpl.commitImplicit is noop.
         wrapper.finalise();
-        assertEquals(1, inflights.size());
+        assertEquals(2, inflights.size());
 
         IgniteSqlCommitTransaction sqlCommitTx = mock(IgniteSqlCommitTransaction.class);
         scriptRoTxCtx.handleControlStatement(sqlCommitTx);
-        assertTrue(inflights.isEmpty());
+        assertEquals(1, inflights.size());
     }
 
     private void prepareTransactionsMocks() {
@@ -239,8 +242,10 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareTxInflightsMocks(Set<UUID> inflights) {
-        when(transactionInflights.addInflight(any(), anyBoolean())).thenAnswer(inv -> inflights.add(inv.getArgument(0)));
+        when(transactionInflights.addScanInflight(any())).thenAnswer(inv -> inflights.add(inv.getArgument(0)));
 
         doAnswer(inv -> inflights.remove(inv.getArgument(0))).when(transactionInflights).removeInflight(any());
+
+        when(transactionInflights.track(any())).thenAnswer(inv -> inflights.add(inv.getArgument(0)));
     }
 }

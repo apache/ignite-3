@@ -16,11 +16,19 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -28,12 +36,6 @@ import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
@@ -98,7 +100,7 @@ public abstract class AbstractRpcTest {
 
         CountDownLatch l1 = new CountDownLatch(1);
         AtomicReference<TestMessages.Response1> resp1 = new AtomicReference<>();
-        client.invokeAsync(peerId, msgFactory.request1().build(), new InvokeContext(), (result, err) -> {
+        client.invokeAsync(peerId, msgFactory.request1().build(), new InvokeContext(), (InvokeCallbackInCommonPool) (result, err) -> {
             resp1.set((TestMessages.Response1) result);
             l1.countDown();
         }, 5000);
@@ -107,7 +109,7 @@ public abstract class AbstractRpcTest {
 
         CountDownLatch l2 = new CountDownLatch(1);
         AtomicReference<TestMessages.Response2> resp2 = new AtomicReference<>();
-        client.invokeAsync(peerId, msgFactory.request2().build(), new InvokeContext(), (result, err) -> {
+        client.invokeAsync(peerId, msgFactory.request2().build(), new InvokeContext(), (InvokeCallbackInCommonPool) (result, err) -> {
             resp2.set((TestMessages.Response2) result);
             l2.countDown();
         }, 5000);
@@ -141,8 +143,8 @@ public abstract class AbstractRpcTest {
 
         CountDownLatch l = new CountDownLatch(2);
 
-        client1.invokeAsync(peerId, msgFactory.request1().build(), null, (result, err) -> l.countDown(), 500);
-        client1.invokeAsync(peerId, msgFactory.request2().build(), null, (result, err) -> l.countDown(), 500);
+        client1.invokeAsync(peerId, msgFactory.request1().build(), null, (InvokeCallbackInCommonPool) (result, err) -> l.countDown(), 500);
+        client1.invokeAsync(peerId, msgFactory.request2().build(), null, (InvokeCallbackInCommonPool) (result, err) -> l.countDown(), 500);
 
         l.await();
 
@@ -163,7 +165,7 @@ public abstract class AbstractRpcTest {
 
             CompletableFuture<Object> fut = new CompletableFuture<>();
 
-            client1.invokeAsync(peerId, request, null, (result, err) -> {
+            client1.invokeAsync(peerId, request, null, (InvokeCallbackInCommonPool) (result, err) -> {
                 if (err == null)
                     fut.complete(result);
                 else
@@ -193,7 +195,8 @@ public abstract class AbstractRpcTest {
 
         CompletableFuture<Object> resp = new CompletableFuture<>();
 
-        client1.invokeAsync(peerId, msgFactory.request1().build(), null, (result, err) -> resp.complete(result), 30_000);
+        client1.invokeAsync(peerId, msgFactory.request1().build(), null,
+                (InvokeCallbackInCommonPool) (result, err) -> resp.complete(result), 30_000);
 
         Thread.sleep(500);
 
@@ -241,6 +244,16 @@ public abstract class AbstractRpcTest {
         /** {@inheritDoc} */
         @Override public String interest() {
             return TestMessages.Request2.class.getName();
+        }
+    }
+
+    /**
+     * The callback is used a common pool to execute.
+     */
+    private interface InvokeCallbackInCommonPool extends InvokeCallback {
+        @Override
+        default Executor executor() {
+            return ForkJoinPool.commonPool();
         }
     }
 

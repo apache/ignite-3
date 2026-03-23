@@ -23,9 +23,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 
@@ -36,18 +39,24 @@ public class TxRecoveryMessageHandler {
     private static final IgniteLogger LOG = Loggers.forClass(TxRecoveryMessageHandler.class);
 
     private final TxStatePartitionStorage txStatePartitionStorage;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
     private final TxRecoveryEngine txRecoveryEngine;
+    private final TxManager txManager;
+    private final InternalClusterNode localNode;
 
     /** Constructor. */
     public TxRecoveryMessageHandler(
             TxStatePartitionStorage txStatePartitionStorage,
-            ReplicationGroupId replicationGroupId,
-            TxRecoveryEngine txRecoveryEngine
+            ZonePartitionId replicationGroupId,
+            TxRecoveryEngine txRecoveryEngine,
+            TxManager txManager,
+            InternalClusterNode localNode
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.replicationGroupId = replicationGroupId;
         this.txRecoveryEngine = txRecoveryEngine;
+        this.txManager = txManager;
+        this.localNode = localNode;
     }
 
     /**
@@ -56,7 +65,7 @@ public class TxRecoveryMessageHandler {
      * @param request Tx recovery request.
      * @return The future is complete when the transaction state is finalized.
      */
-    public CompletableFuture<Void> handle(TxRecoveryMessage request, UUID senderId) {
+    public CompletableFuture<?> handle(TxRecoveryMessage request, UUID senderId) {
         UUID txId = request.txId();
 
         TxMeta txMeta = txStatePartitionStorage.get(txId);
@@ -67,8 +76,18 @@ public class TxRecoveryMessageHandler {
             return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
         }
 
-        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
+        LOG.info(
+                "Orphan transaction has to be aborted [{}, meta={}].",
+                TransactionLogUtils.formatTxInfo(txId, txManager, false),
+                txMeta
+        );
 
-        return txRecoveryEngine.triggerTxRecovery(txId, senderId);
+        return txRecoveryEngine.triggerTxRecovery(
+                txId,
+                replicationGroupId,
+                localNode.name(),
+                null,
+                null
+        );
     }
 }

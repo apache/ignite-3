@@ -48,15 +48,15 @@ public:
 
     inline static const std::string ENABLE_AUTHN_JOB = PLATFORM_TEST_NODE_RUNNER + "$EnableAuthenticationJob";
 
-    inline static const std::string IT_THIN_CLIENT_COMPUTE_TEST =
-        "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
+    inline static const std::string JOBS = "org.apache.ignite.internal.runner.app.Jobs";
 
-    inline static const std::string NODE_NAME_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$NodeNameJob";
-    inline static const std::string SLEEP_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$SleepJob";
-    inline static const std::string TO_STRING_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ToStringJob";
-    inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
-    inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
-    inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
+    inline static const std::string NODE_NAME_JOB = JOBS + "$NodeNameJob";
+    inline static const std::string SLEEP_JOB = JOBS + "$SleepJob";
+    inline static const std::string TO_STRING_JOB = JOBS + "$ToStringJob";
+    inline static const std::string CONCAT_JOB = JOBS + "$ConcatJob";
+    inline static const std::string ERROR_JOB = JOBS + "$IgniteExceptionJob";
+    inline static const std::string ECHO_JOB = JOBS + "$EchoJob";
+    inline static const std::string RETURN_NULL_JOB = JOBS + "$ReturnNullJob";
 
     static constexpr const char *KEY_COLUMN = "KEY";
     static constexpr const char *VAL_COLUMN = "VAL";
@@ -107,14 +107,14 @@ public:
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::SSL_NODE_ADDRS; }
+    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::get_ssl_node_addrs(); }
 
     /**
      * Get node addresses to use for tests.
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::SSL_NODE_CA_ADDRS; }
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::get_ssl_node_ca_addrs(); }
 
     /**
      * Clear table @c TABLE_1.
@@ -128,7 +128,7 @@ public:
     }
 
     /**
-     * Get a path to a SSL file.
+     * Get a path to an SSL file.
      * @param file
      * @return
      */
@@ -143,7 +143,7 @@ public:
     }
 
     /**
-     * Try connect to ssl server successfully.
+     * Try to connect to ssl server successfully.
      * @param timeout Timeout.
      * @return Client.
      */

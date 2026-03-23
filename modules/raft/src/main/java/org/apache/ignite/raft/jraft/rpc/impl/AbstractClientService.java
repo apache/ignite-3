@@ -32,7 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -80,7 +80,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         return initRpcClient(this.rpcOptions.getRpcProcessorThreadPoolSize());
     }
 
-    @Override public void onAppeared(ClusterNode member) {
+    @Override public void onAppeared(InternalClusterNode member) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-14837
         // Perhaps, We can remove checking for dead nodes and replace it with SWIM node alive event
         // and start replicator when the event is received.
@@ -88,7 +88,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         // No-op.
     }
 
-    @Override public void onDisappeared(ClusterNode member) {
+    @Override public void onDisappeared(InternalClusterNode member) {
         readyConsistentIds.remove(member.name());
     }
 
@@ -129,7 +129,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             if (!deadPeers.contains(peerId)) {
                 deadPeers.add(peerId);
 
-                LOG.error("Fail to connect {}, exception: {}.", peerId, e.getMessage());
+                LOG.info("Fail to connect {}, exception: {}.", peerId, e.getMessage());
             }
         }
 

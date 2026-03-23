@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogNotFoundException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,43 +37,10 @@ class CatalogManagerCompactionFacade {
         this.catalogManager = catalogManager;
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this method.
-    /**
-     * Scans catalog versions in a given time interval (including interval boundaries).
-     * Extracts all tables contained in these catalog versions and creates a mapping
-     * tableId -> number of partitions in this table.
-     *
-     * @param minTsInclusive Lower timestamp (inclusive).
-     * @param maxTsInclusive Upper timestamp (inclusive).
-     * @return Mapping tableId to number of partitions in this table.
-     */
-    Int2IntMap collectTablesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive) {
-        Int2IntMap tableIdsWithPartitions = new Int2IntOpenHashMap();
-        int curVer = catalogManager.activeCatalogVersion(minTsInclusive);
-        int lastVer = catalogManager.activeCatalogVersion(maxTsInclusive);
-
-        do {
-            Catalog catalog = catalogManager.catalog(curVer);
-
-            assert catalog != null : "Failed to find a catalog for the given version [version=" + curVer + ", lastVersion=" + lastVer + ']';
-
-            for (CatalogTableDescriptor table : catalog.tables()) {
-                CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
-
-                assert zone != null :
-                        "Failed to find a zone for the given catalog version [version=" + curVer + ", tableId=" + table.id() + ']';
-
-                tableIdsWithPartitions.put(table.id(), zone.partitions());
-            }
-        } while (++curVer <= lastVer);
-
-        return tableIdsWithPartitions;
-    }
-
     /**
      * Scans catalog versions in a given time interval (including interval boundaries).
      * Extracts all zones contained in these catalog versions and creates a mapping
-     * zoneId -> number of partitions in this table.
+     * zoneId -> number of partitions in the corresponding distribution zone.
      *
      * @param minTsInclusive Lower timestamp (inclusive).
      * @param maxTsInclusive Upper timestamp (inclusive).

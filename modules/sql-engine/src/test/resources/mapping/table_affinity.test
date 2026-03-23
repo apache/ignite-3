@@ -1,79 +1,128 @@
 N1
 SELECT * FROM t1_n1
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: single
   executionNodes: [N1]
-  remoteFragments: [1]
-  exchangeSourceNodes: {1=[N1]}
-  tree:
-    Receiver(sourceFragment=1, exchange=1, distribution=single)
+  exchangeSourceNodes: {2=[N1]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Receiver
+        fieldNames: [ID, C1, C2]
+        sourceFragmentId: 2
+        est: (rows=1)
 
-Fragment#1
-  targetNodes: [N1]
+Fragment#2
+  distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
-  tables: [T1_N1]
-  partitions: {N1=[0:1]}
-  tree:
-    Sender(targetFragment=0, exchange=1, distribution=single)
-      TableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+  targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  partitions: [T1_N1=[N1={0}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 1
+        est: (rows=100001)
+      TableScan
+          table: PUBLIC.T1_N1
+          fieldNames: [ID, C1, C2]
+          est: (rows=100001)
 ---
 
 N2
 SELECT * FROM t1_n1
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: single
   executionNodes: [N2]
-  remoteFragments: [1]
-  exchangeSourceNodes: {1=[N1]}
-  tree:
-    Receiver(sourceFragment=1, exchange=1, distribution=single)
+  exchangeSourceNodes: {2=[N1]}
+  colocationGroup[-1]: {nodes=[N2], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N2=[]}}
+  colocationGroup[2]: {nodes=[N2], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N2=[]}}
+  tree: 
+    Receiver
+        fieldNames: [ID, C1, C2]
+        sourceFragmentId: 2
+        est: (rows=1)
 
-Fragment#1
-  targetNodes: [N2]
+Fragment#2
+  distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
-  tables: [T1_N1]
-  partitions: {N1=[0:1]}
-  tree:
-    Sender(targetFragment=0, exchange=1, distribution=single)
-      TableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+  targetNodes: [N2]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  partitions: [T1_N1=[N1={0}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 1
+        est: (rows=100001)
+      TableScan
+          table: PUBLIC.T1_N1
+          fieldNames: [ID, C1, C2]
+          est: (rows=100001)
 ---
 
 N1
 SELECT * FROM t1_n1 WHERE ID = 0
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: single
   executionNodes: [N1]
-  remoteFragments: [1]
-  exchangeSourceNodes: {1=[N1]}
-  tree:
-    Receiver(sourceFragment=1, exchange=1, distribution=single)
+  exchangeSourceNodes: {2=[N1]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Receiver
+        fieldNames: [ID, C1, C2]
+        sourceFragmentId: 2
+        est: (rows=1)
 
-Fragment#1
-  targetNodes: [N1]
+Fragment#2
+  distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
-  tables: [T1_N1]
-  partitions: {N1=[0:1]}
-  tree:
-    Sender(targetFragment=0, exchange=1, distribution=single)
-      TableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+  targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  partitions: [T1_N1=[N1={0}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 1
+        est: (rows=1)
+      TableScan
+          table: PUBLIC.T1_N1
+          predicate: =(ID, 0)
+          fieldNames: [ID, C1, C2]
+          est: (rows=1)
 ---
 
 N1
 SELECT * FROM t2_n1n2
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: single
   executionNodes: [N1]
-  remoteFragments: [1]
-  exchangeSourceNodes: {1=[N1, N2]}
-  tree:
-    Receiver(sourceFragment=1, exchange=1, distribution=single)
+  exchangeSourceNodes: {2=[N1, N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Receiver
+        fieldNames: [ID, C1, C2]
+        sourceFragmentId: 2
+        est: (rows=1)
 
-Fragment#1
-  targetNodes: [N1]
+Fragment#2
+  distribution: table PUBLIC.T2_N1N2 in zone ZONE_2
   executionNodes: [N1, N2]
-  tables: [T2_N1N2]
-  partitions: {N1=[0:2], N2=[1:2]}
-  tree:
-    Sender(targetFragment=0, exchange=1, distribution=single)
-      TableScan(name=PUBLIC.T2_N1N2, source=2, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
+  targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1, N2], sourceIds=[0], assignments={part_0=N1:2, part_1=N2:2}, partitionsWithConsistencyTokens={N1=[part_0:2], N2=[part_1:2]}}
+  partitions: [T2_N1N2=[N1={0}, N2={1}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 1
+        est: (rows=100002)
+      TableScan
+          table: PUBLIC.T2_N1N2
+          fieldNames: [ID, C1, C2]
+          est: (rows=100002)
 ---

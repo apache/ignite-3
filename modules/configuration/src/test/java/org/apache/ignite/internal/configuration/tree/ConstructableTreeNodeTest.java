@@ -182,7 +182,6 @@ public class ConstructableTreeNodeTest {
         assertEquals("value", elementsNode.get("name").strCfg());
     }
 
-
     @Test
     public void constructDefault() {
         // Inner node with no leaves.

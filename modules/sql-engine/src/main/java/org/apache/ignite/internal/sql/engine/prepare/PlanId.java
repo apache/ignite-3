@@ -60,4 +60,9 @@ public class PlanId implements Serializable {
         result = 31 * result + (int) (planNumber ^ (planNumber >>> 32));
         return result;
     }
+
+    @Override
+    public String toString() {
+        return prepareServiceId + "-" + planNumber;
+    }
 }

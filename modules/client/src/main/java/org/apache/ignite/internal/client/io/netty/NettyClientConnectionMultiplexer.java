@@ -26,6 +26,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
@@ -89,8 +90,10 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                     }
 
                     ch.pipeline().addLast(
+                            new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                             new ClientMessageDecoder(),
-                            new NettyClientMessageHandler());
+                            new NettyClientMessageHandler(),
+                            new DefaultExceptionHandler(clientCfg));
                 }
             });
 
@@ -112,6 +115,9 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                     .trustManager(loadTrustManagerFactory(ssl))
                     .keyManager(loadKeyManagerFactory(ssl))
                     .ciphers(ssl.ciphers());
+
+            // TODO IGNITE-26240 Make endpointIdentificationAlgorithm configurable
+            builder.endpointIdentificationAlgorithm(null);
 
             return builder.build();
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {

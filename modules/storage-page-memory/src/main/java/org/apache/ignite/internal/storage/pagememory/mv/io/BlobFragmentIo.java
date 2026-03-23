@@ -40,7 +40,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
  * </ul>
  */
 public class BlobFragmentIo extends PageIo {
-    private static final int NEXT_PAGE_ID_OFF = PageIo.COMMON_HEADER_END;
+    private static final int NEXT_PAGE_ID_OFF = COMMON_HEADER_END;
 
     private static final int FRAGMENT_BYTES_OR_TOTAL_LENGTH_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;
 

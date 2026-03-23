@@ -39,11 +39,16 @@ public interface StatementResult extends NetworkMessage, Serializable {
      */
     default boolean getAsBoolean() {
         if (result().capacity() != 1) {
-            throw new IllegalStateException("Result can't be interpreted as boolean");
+            throw new IllegalStateException("Result is too big and can't be interpreted as boolean");
         }
 
-        return result().rewind().get() != 0;
+        byte value = result().rewind().get();
 
+        if ((value | 1) != 1) {
+            throw new IllegalStateException("Result is ambiguous and can't be interpreted as boolean");
+        }
+
+        return value != 0;
     }
 
     /**

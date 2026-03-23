@@ -1,17 +1,27 @@
 N1
 SELECT 1
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: broadcast
   executionNodes: [N1]
-  tree:
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
     Values
+        fieldNames: [EXPR$0]
+        tuples: [[1]]
+        est: (rows=1)
 ---
 
 N2
 SELECT 1
 ---
-Fragment#0 root
+Fragment#1 root
+  distribution: broadcast
   executionNodes: [N2]
-  tree:
+  colocationGroup[-1]: {nodes=[N2], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N2=[]}}
+  tree: 
     Values
+        fieldNames: [EXPR$0]
+        tuples: [[1]]
+        est: (rows=1)
 ---

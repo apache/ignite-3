@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.tx.TransactionException;
 
@@ -30,16 +34,37 @@ import org.apache.ignite.tx.TransactionException;
  */
 class InflightTransactionalOperationTracker implements TransactionalOperationTracker {
     private final TransactionInflights delegate;
+    private final TxManager txManager;
 
-    InflightTransactionalOperationTracker(TransactionInflights delegate) {
+    InflightTransactionalOperationTracker(TransactionInflights delegate, TxManager txManager) {
         this.delegate = delegate;
+        this.txManager = txManager;
     }
 
     @Override
     public void registerOperationStart(InternalTransaction tx) {
         if (shouldBeTracked(tx)) {
-            if (!delegate.addInflight(tx.id(), tx.isReadOnly())) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
+            boolean result = tx.isReadOnly() ? delegate.addScanInflight(tx.id()) : delegate.track(tx.id());
+
+            if (!result) {
+                TxStateMeta meta = txManager.stateMeta(tx.id());
+                Throwable cause = meta == null ? null : meta.lastException();
+                boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
+                boolean isFinishedDueToError = meta != null && !isFinishedDueToTimeout && meta.lastExceptionErrorCode() != null;
+                Throwable publicCause = isFinishedDueToError ? cause : null;
+                Integer causeErrorCode = meta == null ? null : meta.lastExceptionErrorCode();
+
+                throw new TransactionException(
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format(finishedTransactionErrorMessage(
+                                isFinishedDueToTimeout,
+                                isFinishedDueToError,
+                                causeErrorCode,
+                                publicCause != null
+                        ) + " [tx={}, {}]",
+                                tx, formatTxInfo(tx.id(), txManager, false)),
+                        publicCause
+                );
             }
         }
     }
@@ -47,11 +72,13 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
     @Override
     public void registerOperationFinish(InternalTransaction tx) {
         if (shouldBeTracked(tx)) {
-            delegate.removeInflight(tx.id());
+            if (tx.isReadOnly()) {
+                delegate.removeInflight(tx.id());
+            }
         }
     }
 
     private static boolean shouldBeTracked(InternalTransaction tx) {
-        return tx.isReadOnly() && !tx.implicit();
-    } 
+        return !tx.implicit();
+    }
 }

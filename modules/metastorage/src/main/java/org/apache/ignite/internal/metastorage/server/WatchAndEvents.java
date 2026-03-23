@@ -19,16 +19,20 @@ package org.apache.ignite.internal.metastorage.server;
 
 import java.util.List;
 import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.timebag.TimeBag;
 
 class WatchAndEvents {
     final Watch watch;
 
     final List<EntryEvent> events;
 
-    WatchAndEvents(Watch watch, List<EntryEvent> events) {
+    final TimeBag timeBag;
+
+    WatchAndEvents(Watch watch, List<EntryEvent> events, TimeBag timeBag) {
         assert !events.isEmpty();
 
         this.watch = watch;
         this.events = events;
+        this.timeBag = timeBag;
     }
 }

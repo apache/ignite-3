@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.lang.reflect.Type;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -32,15 +32,17 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
@@ -50,17 +52,20 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<RowT> implements DataContext {
+public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
+
+    public static final boolean DUMP_METRICS = IgniteSystemProperties.getBoolean("IGNITE_DUMP_QUERY_METRICS_TO_LOGS", false);
 
     /**
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15276 Support other locales.
@@ -77,14 +82,15 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final Map<String, Object> params;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final String originatingNodeName;
     private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
+    private final RowFactoryFactory<RowT> rowFactoryFactory;
 
-    private final ExpressionFactory<RowT> expressionFactory;
+    private final SqlExpressionFactory sqlExpressionFactory;
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
@@ -104,45 +110,55 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final ZoneId timeZoneId;
 
+    private final String currentUser;
+
     private SharedState sharedState = new SharedState();
+
+    private final @Nullable Long topologyVersion;
 
     /**
      * Constructor.
      *
-     * @param expressionFactory Expression factory.
+     * @param sqlExpressionFactory Expression factory.
      * @param executor Task executor.
      * @param executionId Execution ID.
      * @param localNode Local node.
      * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
      * @param handler Row handler.
+     * @param rowFactoryFactory Factory that produces factories to create row..
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
      * @param clock The clock to use to get the system time.
+     * @param username Authenticated user name or {@code null} for unknown user.
+     * @param topologyVersion Topology version the query was mapped on.
      */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
-            ExpressionFactory<RowT> expressionFactory,
+            SqlExpressionFactory sqlExpressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             String originatingNodeName,
             UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
             int inBufSize,
-            Clock clock
+            Clock clock,
+            @Nullable String username,
+            @Nullable Long topologyVersion
     ) {
-        this.expressionFactory = expressionFactory;
+        this.sqlExpressionFactory = sqlExpressionFactory;
         this.executor = executor;
         this.executionId = executionId;
         this.description = description;
         this.handler = handler;
+        this.rowFactoryFactory = rowFactoryFactory;
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
@@ -150,6 +166,8 @@ public class ExecutionContext<RowT> implements DataContext {
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
+        this.currentUser = username;
+        this.topologyVersion = topologyVersion;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
@@ -216,18 +234,21 @@ public class ExecutionContext<RowT> implements DataContext {
         return description.group(sourceId);
     }
 
-    /**
-     * Get handler to access row fields.
-     */
-    public RowHandler<RowT> rowHandler() {
+    @Override
+    public RowHandler<RowT> rowAccessor() {
         return handler;
+    }
+
+    @Override
+    public RowFactoryFactory<RowT> rowFactoryFactory() {
+        return rowFactoryFactory;
     }
 
     /**
      * Get expression factory.
      */
-    public ExpressionFactory<RowT> expressionFactory() {
-        return expressionFactory;
+    public SqlExpressionFactory expressionFactory() {
+        return sqlExpressionFactory;
     }
 
     /**
@@ -247,7 +268,7 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Get local node.
      */
-    public ClusterNode localNode() {
+    public InternalClusterNode localNode() {
         return localNode;
     }
 
@@ -296,16 +317,24 @@ public class ExecutionContext<RowT> implements DataContext {
         if (Variable.TIME_ZONE.camelName.equals(name)) {
             return TimeZone.getTimeZone(timeZoneId);
         }
+        if (Variable.USER.camelName.equals(name)) {
+            return currentUser;
+        }
 
         if (name.startsWith("?")) {
-            return getParameter(name, null);
+            return getParameter(name);
         } else {
             return params.get(name);
         }
     }
 
+    /** Returns the topology version the query was mapped on. */
+    public @Nullable Long topologyVersion() {
+        return topologyVersion;
+    }
+
     /** Gets dynamic parameters by name. */
-    public @Nullable Object getParameter(String name, @Nullable Type storageType) {
+    private @Nullable Object getParameter(String name) {
         assert name.startsWith("?") : name;
 
         Object param = params.get(name);
@@ -318,26 +347,31 @@ public class ExecutionContext<RowT> implements DataContext {
             return null;
         }
 
-        return TypeUtils.toInternal(param, storageType == null ? param.getClass() : storageType);
+        NativeType nativeType = NativeTypes.fromObject(param);
+
+        if (nativeType == null) {
+            throw new IllegalArgumentException(format(
+                    "Dynamic parameter of unsupported type: parameterName={}, type={}",
+                    name,
+                    param.getClass()
+            ));
+        }
+
+        return TypeUtils.toInternal(param, nativeType.spec());
     }
 
-    /**
-     * Gets correlated value.
-     *
-     * @param id Correlation ID.
-     * @return Correlated value.
-     */
-    public Object correlatedVariable(int id) {
+    @Override
+    public @Nullable Object correlatedVariable(long id) {
         return sharedState.correlatedVariable(id);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(Object value, int id) {
+    public void correlatedVariable(long id, @Nullable Object value) {
         sharedState.correlatedVariable(id, value);
     }
 
@@ -378,7 +412,7 @@ public class ExecutionContext<RowT> implements DataContext {
                 Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
                 onError.accept(unwrappedException);
 
-                if (unwrappedException instanceof IgniteException 
+                if (unwrappedException instanceof IgniteException
                         || unwrappedException instanceof IgniteInternalException
                         || unwrappedException instanceof IgniteCheckedException
                         || unwrappedException instanceof IgniteInternalCheckedException
@@ -443,7 +477,7 @@ public class ExecutionContext<RowT> implements DataContext {
         String nodeName = localNode.name();
 
         if (columns == null) {
-            return new StaticPartitionProvider<>(nodeName, group, sourceId);
+            return new StaticPartitionProvider<>(nodeName, group);
         } else {
             return new DynamicPartitionProvider<>(nodeName, group.assignments(), columns, table);
         }

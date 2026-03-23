@@ -22,13 +22,18 @@ namespace Apache.Ignite.Tests.Table
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common;
+    using Common.Table;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for POCO view.
     /// </summary>
-    public class RecordViewPocoTests : IgniteTestsBase
+    [TestFixture("reflective")]
+    [TestFixture("mapper")]
+    public class RecordViewPocoTests(string mode) : IgniteTestsBase(useMapper: mode == "mapper")
     {
         [TearDown]
         public async Task CleanTable()
@@ -848,7 +853,7 @@ namespace Apache.Ignite.Tests.Table
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, poco));
             Assert.AreEqual(
                 "Can't map field 'PocoUnsignedByteEnum.<Int8>k__BackingField' of type " +
-                "'Apache.Ignite.Tests.Table.PocoEnums+UnsignedByteEnum' to column 'INT8' of type 'System.SByte' - types do not match.",
+                "'Apache.Ignite.Tests.Common.Table.PocoEnums+UnsignedByteEnum' to column 'INT8' of type 'System.SByte' - types do not match.",
                 ex!.Message);
         }
 
@@ -863,6 +868,57 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsTrue(await PocoView.ContainsKeyAsync(null, keyPoco));
             Assert.IsTrue(await PocoView.ContainsKeyAsync(null, poco));
             Assert.IsFalse(await PocoView.ContainsKeyAsync(null, GetPoco(-128)));
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+        {
+            var result = await PocoView.ContainsAllKeysAsync(null, []);
+
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetPoco(x, x.ToString(CultureInfo.InvariantCulture)));
+            await PocoView.UpsertAllAsync(null, records);
+
+            var result = await PocoView.ContainsAllKeysAsync(null, Enumerable.Range(1, 10).Select(x => GetPoco(x)));
+
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWithAllNonExistingKeysReturnsFalse()
+        {
+            var result = await PocoView.ContainsAllKeysAsync(null, [GetPoco(1), GetPoco(2)]);
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWithNonExistingKeysReturnsFalse()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetPoco(x, x.ToString(CultureInfo.InvariantCulture)));
+            await PocoView.UpsertAllAsync(null, records);
+
+            var result = await PocoView.ContainsAllKeysAsync(null, Enumerable.Range(5, 10).Select(x => GetPoco(x)));
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void TestContainsAllKeysThrowsArgumentExceptionOnNullCollectionElement()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await PocoView.ContainsAllKeysAsync(null, [GetPoco(1), null!]));
+
+            Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
         }
 
         [Test]

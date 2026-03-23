@@ -19,33 +19,32 @@ package org.apache.ignite.internal.replicator.exception;
 
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
-import java.util.UUID;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * The exception is thrown when a replica is not ready to handle a request.
  */
 public class ReplicaUnavailableException extends ReplicationException {
+    private static final long serialVersionUID = 9142077461528136559L;
+
     /**
      * The constructor.
      *
      * @param groupId Replication group id.
      * @param node Node.
      */
-    public ReplicaUnavailableException(ReplicationGroupId groupId, ClusterNode node) {
-        super(REPLICA_UNAVAILABLE_ERR, "Replica is not ready [replicationGroupId=" + groupId + ", nodeName=" + node.name() + ']');
+    public ReplicaUnavailableException(ReplicationGroupId groupId, InternalClusterNode node) {
+        this(REPLICA_UNAVAILABLE_ERR, "Replica is not ready [replicationGroupId=" + groupId + ", nodeName=" + node.name() + ']');
     }
 
     /**
-     * The constructor is used for creating an exception instance that is thrown from a remote server.
+     * The constructor.
      *
-     * @param traceId Trace id.
      * @param code Error code.
      * @param message Error message.
-     * @param cause Cause exception.
      */
-    public ReplicaUnavailableException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
+    public ReplicaUnavailableException(int code, String message) {
+        super(code, message);
     }
 }

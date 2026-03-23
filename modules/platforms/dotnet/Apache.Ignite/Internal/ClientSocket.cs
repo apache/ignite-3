@@ -51,10 +51,13 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.TableReqsUseQualifiedName |
             ProtocolBitmaskFeature.PlatformComputeJob |
             ProtocolBitmaskFeature.PlatformComputeExecutor |
-            ProtocolBitmaskFeature.StreamerReceiverExecutionOptions;
+            ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
+            ProtocolBitmaskFeature.SqlPartitionAwareness |
+            ProtocolBitmaskFeature.SqlPartitionAwarenessTableName |
+            ProtocolBitmaskFeature.ComputeObservableTs;
 
-        /** Features as byte array */
-        private static readonly byte[] FeatureBytes = [(byte)Features];
+        /** Features as a byte array */
+        private static readonly byte[] FeatureBytes = Features.ToBytes();
 
         /** Version 3.0.0. */
         private static readonly ClientProtocolVersion Ver300 = new(3, 0, 0);
@@ -75,7 +78,7 @@ namespace Apache.Ignite.Internal
         private readonly IgniteClientConfigurationInternal _config;
 
         /** Current async operations, map from request id. */
-        private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
+        private readonly ConcurrentDictionary<long, PendingRequest> _requests = new();
 
         /** Current notification handlers, map from request id. */
         private readonly ConcurrentDictionary<long, NotificationHandler> _notificationHandlers = new();
@@ -285,17 +288,20 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            bool expectNotifications = false) =>
-            DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
-                .WaitAsync(_operationTimeout);
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default) =>
+            DoOutInOpAsyncInternal(clientOp, request, expectNotifications, cancellationToken)
+                .WaitAsync(_operationTimeout, CancellationToken.None); // Do not cancel WaitAsync - wait for server response.
 
         /// <inheritdoc/>
         public void Dispose()
         {
+            // There is no finalizer because _heartbeatTimer holds a reference to this instance.
             Dispose(null);
         }
 
@@ -428,10 +434,7 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Patch.
             reader.Skip(); // Pre-release.
 
-            ReadOnlySpan<byte> featureBits = reader.ReadBinary();
-            ProtocolBitmaskFeature features = featureBits.Length > 0
-                ? (ProtocolBitmaskFeature)featureBits[0] // Only one byte is used for now.
-                : 0;
+            ProtocolBitmaskFeature features = ProtocolBitmaskFeatureExtensions.FromBytes(reader.ReadBinary());
 
             int extensionMapSize = reader.ReadInt32();
             for (int i = 0; i < extensionMapSize; i++)
@@ -457,6 +460,12 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+
+            if (javaStackTrace != null)
+            {
+                javaStackTrace += $"{Environment.NewLine}---- End of server-side stack trace ----{Environment.NewLine}";
+            }
+
             var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
@@ -655,8 +664,9 @@ namespace Apache.Ignite.Internal
 
         private async Task<PooledBuffer> DoOutInOpAsyncInternal(
             ClientOp clientOp,
-            PooledArrayBuffer? request = null,
-            bool expectNotifications = false)
+            PooledArrayBuffer? request,
+            bool expectNotifications,
+            CancellationToken cancellationToken)
         {
             var ex = _exception;
 
@@ -676,9 +686,11 @@ namespace Apache.Ignite.Internal
                     new ObjectDisposedException(nameof(ClientSocket)));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
-            _requests[requestId] = taskCompletionSource;
+            _requests[requestId] = new PendingRequest(taskCompletionSource, Stopwatch.GetTimestamp(), clientOp);
 
             NotificationHandler? notificationHandler = null;
             if (expectNotifications)
@@ -691,7 +703,10 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
+
+                await using var cancellation = RegisterCancellation(requestId, cancellationToken).ConfigureAwait(false);
+
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
 
@@ -701,13 +716,17 @@ namespace Apache.Ignite.Internal
             {
                 if (_requests.TryRemove(requestId, out _))
                 {
-                    AddFailedRequest();
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        AddFailedRequest();
+                    }
+
                     Metrics.RequestsActiveDecrement();
                 }
 
                 _notificationHandlers.TryRemove(requestId, out _);
 
-                if (e is OperationCanceledException or ObjectDisposedException)
+                if (!cancellationToken.IsCancellationRequested && e is OperationCanceledException or ObjectDisposedException)
                 {
                     // Canceled task means Dispose was called.
                     throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
@@ -717,13 +736,39 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        private CancellationTokenRegistration RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
+            cancellationToken == CancellationToken.None
+                ? default
+                : cancellationToken.Register(() => _ = CancelRequestAsync(requestId));
+
+        private async Task CancelRequestAsync(long requestId)
+        {
+            // Do not remove from _requests.
+            // - The client sends a cancellation request to the server.
+            // - The server response determines the outcome (canceled or completed).
+            // - Some operations can't be canceled, so the server will ignore the cancellation request.
+            if (IsDisposed || !_requests.ContainsKey(requestId))
+            {
+                return;
+            }
+
+            using var buf = ProtoCommon.GetMessageWriter();
+            buf.MessageWriter.Write(requestId);
+
+            using var resBuf = await DoOutInOpAsync(ClientOp.OperationCancel, buf).ConfigureAwait(false);
+        }
+
         [SuppressMessage(
             "Microsoft.Design",
             "CA1031:DoNotCatchGeneralExceptionTypes",
             Justification = "Any exception during socket write should be handled to close the socket.")]
-        private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
+        private async ValueTask SendRequestAsync(
+            PooledArrayBuffer? request,
+            ClientOp op,
+            long requestId,
+            CancellationToken cancellationToken = default)
         {
-            // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            // Reset heartbeat timer - don't send heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
             _logger.LogSendingRequestTrace(requestId, op, ConnectionContext.ClusterNode.Address);
@@ -732,6 +777,9 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                // Last chance check for cancellation.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var prefixMem = _prefixBuffer.AsMemory()[4..];
                 var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem.Span, (ulong)op);
                 prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..].Span, (ulong)requestId);
@@ -765,7 +813,7 @@ namespace Apache.Ignite.Internal
 
                 Metrics.RequestsSent.Add(1, MetricsContext.Tags);
             }
-            catch (Exception e)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
                 var message = "Exception while writing to socket, connection closed: " + e.Message;
 
@@ -861,12 +909,19 @@ namespace Apache.Ignite.Internal
             var requestId = reader.ReadInt64();
             var flags = (ResponseFlags)reader.ReadInt32();
 
-            _logger.LogReceivedResponseTrace(requestId, flags, ConnectionContext.ClusterNode.Address);
+            var isServerOp = (flags & ResponseFlags.ServerOp) != 0;
+            var isError = (flags & ResponseFlags.Error) != 0;
+            var isNotification = (flags & ResponseFlags.Notification) != 0;
 
             HandlePartitionAssignmentChange(flags, ref reader);
-            HandleObservableTimestamp(ref reader);
+            long observableTs = HandleObservableTimestamp(ref reader);
 
-            if ((flags & ResponseFlags.ServerOp) != 0)
+            if (isServerOp || isNotification)
+            {
+                _logger.LogReceivedResponseTrace(requestId, ClientOp.None, flags,  ConnectionContext.ClusterNode.Address, null, observableTs);
+            }
+
+            if (isServerOp)
             {
                 Debug.Assert((flags & ResponseFlags.Error) == 0, "Server op should not have an exception.");
                 var serverOp = (ServerOp)reader.ReadInt32();
@@ -875,15 +930,15 @@ namespace Apache.Ignite.Internal
                 return QueueServerOp(requestId, serverOp, response);
             }
 
-            var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
+            var exception = isError ? ReadError(ref reader) : null;
             response.Position += reader.Consumed;
 
-            if ((flags & ResponseFlags.Notification) != 0)
+            if (isNotification)
             {
                 return HandleNotification(requestId, exception, response);
             }
 
-            if (!_requests.TryRemove(requestId, out var taskCompletionSource))
+            if (!_requests.TryRemove(requestId, out var pendingReq))
             {
                 var message = $"Unexpected response ID ({requestId}) received from the server " +
                               $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
@@ -892,19 +947,22 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message);
             }
 
+            _logger.LogReceivedResponseTrace(
+                requestId, pendingReq.Op, flags,  ConnectionContext.ClusterNode.Address, Stopwatch.GetElapsedTime(pendingReq.StartTs), observableTs);
+
             Metrics.RequestsActiveDecrement();
 
             if (exception != null)
             {
                 AddFailedRequest();
 
-                taskCompletionSource.TrySetException(exception);
+                pendingReq.TaskCompletionSource.TrySetException(exception);
                 return false;
             }
 
             Metrics.RequestsCompleted.Add(1, MetricsContext.Tags);
 
-            return taskCompletionSource.TrySetResult(response);
+            return pendingReq.TaskCompletionSource.TrySetResult(response);
         }
 
         /// <summary>
@@ -936,10 +994,11 @@ namespace Apache.Ignite.Internal
             return notificationHandler.TrySetResult(response);
         }
 
-        private void HandleObservableTimestamp(ref MsgPackReader reader)
+        private long HandleObservableTimestamp(ref MsgPackReader reader)
         {
             var observableTimestamp = reader.ReadInt64();
             _listener.OnObservableTimestampChanged(observableTimestamp);
+            return observableTimestamp;
         }
 
         private void HandlePartitionAssignmentChange(ResponseFlags flags, ref MsgPackReader reader)
@@ -957,17 +1016,43 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Disposes this socket and completes active requests with the specified exception.
         /// </summary>
-        /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
+        /// <param name="ex">Exception that caused this socket to close. Null when the socket is closed by the user.</param>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed.")]
         private void Dispose(Exception? ex)
         {
             lock (_disposeLock)
             {
+                // State check.
                 if (_disposeTokenSource.IsCancellationRequested)
                 {
                     return;
                 }
 
                 _disposeTokenSource.Cancel();
+
+                // Actual dispose.
+                try
+                {
+                    _heartbeatTimer.Dispose();
+                }
+                catch (Exception e)
+                {
+                    _logger.LogFailedSocketDispose(e);
+                }
+
+                try
+                {
+                    _stream.Dispose();
+                }
+                catch (Exception e)
+                {
+                    _logger.LogFailedSocketDispose(e);
+                }
+
+                // Metrics and logging.
+                _exception = ex;
+
+                Metrics.ConnectionsActiveDecrement();
 
                 if (ex != null)
                 {
@@ -985,10 +1070,6 @@ namespace Apache.Ignite.Internal
                     _logger.LogConnectionClosedGracefullyDebug(ConnectionContext.ClusterNode.Address);
                 }
 
-                _heartbeatTimer.Dispose();
-                _exception = ex;
-                _stream.Dispose();
-
                 ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
 
                 while (!_requests.IsEmpty)
@@ -997,7 +1078,7 @@ namespace Apache.Ignite.Internal
                     {
                         if (_requests.TryRemove(reqId, out var req))
                         {
-                            req.TrySetException(ex);
+                            req.TaskCompletionSource.TrySetException(ex);
                             Metrics.RequestsActiveDecrement();
                         }
                     }
@@ -1014,14 +1095,19 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
-                Metrics.ConnectionsActiveDecrement();
-
                 if (ComputeJobExecutor.IgniteComputeExecutorId != null)
                 {
                     // Shut down the executor process on disconnect.
                     Environment.Exit(0);
                 }
             }
+
+            _listener.OnDisconnect(ex);
         }
+
+        private readonly record struct PendingRequest(
+            TaskCompletionSource<PooledBuffer> TaskCompletionSource,
+            long StartTs,
+            ClientOp Op);
     }
 }

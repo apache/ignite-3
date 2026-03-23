@@ -19,27 +19,29 @@ package org.apache.ignite.internal.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
 import static io.scalecube.cluster.membership.MembershipEvent.createRemoved;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
-import io.scalecube.net.Address;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -47,8 +49,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class ScaleCubeTopologyServiceTest {
     private final ScaleCubeTopologyService topologyService = new ScaleCubeTopologyService();
 
-    private final Member member1 = new Member(new UUID(0, 1).toString(), "first", Address.create("host", 1001), "default");
-    private final Member member2 = new Member(new UUID(0, 2).toString(), "second", Address.create("host", 1002), "default");
+    private final Member member1 = new Member(new UUID(0, 1).toString(), "first", "host:1001", "default");
+    private final Member member2 = new Member(new UUID(0, 2).toString(), "second", "host:1002", "default");
 
     @Test
     void addedEventAddsNodeToTopology() {
@@ -93,7 +95,7 @@ class ScaleCubeTopologyServiceTest {
     void getByAddressWorksWithConcurrentModifications(@InjectExecutorService ExecutorService executor) {
         testGetNodeWorksWithConcurrentModifications(
                 executor,
-                member -> topologyService.getByAddress(new NetworkAddress(member.address().host(), member.address().port()))
+                member -> topologyService.getByAddress(NetworkAddress.from(member.address()))
         );
     }
 
@@ -104,9 +106,9 @@ class ScaleCubeTopologyServiceTest {
 
     private void testGetNodeWorksWithConcurrentModifications(
             @InjectExecutorService ExecutorService executor,
-            Function<Member, ClusterNode> getter
+            Function<Member, InternalClusterNode> getter
     ) {
-        Member member = new Member(UUID.randomUUID().toString(), "test", Address.create("host", 1001), "default");
+        Member member = new Member(randomUUID().toString(), "test", "host:1001", "default");
 
         AtomicBoolean proceed = new AtomicBoolean(true);
 
@@ -124,5 +126,32 @@ class ScaleCubeTopologyServiceTest {
         }, executor).whenComplete((res, ex) -> proceed.set(false));
 
         assertThat(allOf(updaterFuture, readerFuture), willCompleteSuccessfully());
+    }
+
+    @Test
+    void readdedEventReplacesNodeInTopology() {
+        Member member1NewVersion = new Member(randomUUID().toString(), member1.alias(), member1.address(), member1.namespace());
+
+        topologyService.onMembershipEvent(createAdded(member1, null, 1));
+        topologyService.onMembershipEvent(createAdded(member1NewVersion, null, 2));
+
+        assertThat(topologyService.allMembers(), hasSize(1));
+
+        assertThat(topologyService.getById(UUID.fromString(member1.id())), is(nullValue()));
+
+        InternalClusterNode firstById = topologyService.getById(UUID.fromString(member1NewVersion.id()));
+        assertThatMatchesFirstMemberNewVersion(firstById, member1NewVersion);
+
+        InternalClusterNode firstByConsistentId = topologyService.getByConsistentId("first");
+        assertThatMatchesFirstMemberNewVersion(firstByConsistentId, member1NewVersion);
+
+        InternalClusterNode firstByAddress = topologyService.getByAddress(NetworkAddress.from(member1.address()));
+        assertThatMatchesFirstMemberNewVersion(firstByAddress, member1NewVersion);
+    }
+
+    private static void assertThatMatchesFirstMemberNewVersion(@Nullable InternalClusterNode clusterNode, Member member1NewVersion) {
+        assertThat(clusterNode, is(notNullValue()));
+        assertThat(clusterNode.name(), is("first"));
+        assertThat(clusterNode.id().toString(), is(member1NewVersion.id()));
     }
 }

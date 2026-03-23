@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.tx;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +28,6 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -79,7 +77,7 @@ public class ClientTransactions implements IgniteTransactions {
     static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
             @Nullable TransactionOptions options,
-            HybridTimestampTracker observableTimestamp,
+            long observableTimestamp,
             Supplier<CompletableFuture<ClientChannel>> channelResolver
     ) {
         boolean readOnly = options != null && options.readOnly();
@@ -87,13 +85,12 @@ public class ClientTransactions implements IgniteTransactions {
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
-                ch0 -> nullCompletedFuture(),
                 w -> {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(timeout);
-                    w.out().packLong(observableTimestamp.get().longValue());
+                    w.out().packLong(observableTimestamp);
                 },
-                r -> readTx(r, readOnly, timeout),
+                r -> readTx(r, ch, readOnly, timeout),
                 channelResolver,
                 null,
                 false);
@@ -101,6 +98,7 @@ public class ClientTransactions implements IgniteTransactions {
 
     private static ClientTransaction readTx(
             PayloadInputChannel r,
+            ReliableChannel ch,
             boolean isReadOnly,
             long timeout
     ) {
@@ -108,6 +106,6 @@ public class ClientTransactions implements IgniteTransactions {
 
         long id = in.unpackLong();
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
+        return new ClientTransaction(r.clientChannel(), ch, id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
     }
 }

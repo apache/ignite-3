@@ -35,21 +35,26 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -92,6 +97,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     @Language("HOCON")
     protected static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
+            + "  network.listenAddresses: [127.0.0.1],\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
             + "  network.membership: {\n"
@@ -137,53 +143,105 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      */
     @AfterEach
     public void afterEachTest() throws Exception {
-        var closeables = new ArrayList<AutoCloseable>();
+        var nonCmgMsNodesToStop = new ArrayList<AutoCloseable>();
+        var cmgMsNodesToStop = new ArrayList<AutoCloseable>();
 
-        for (IgniteServer node : IGNITE_SERVERS) {
-            if (node != null) {
-                closeables.add(node::shutdown);
+        List<String> serverNames = IGNITE_SERVERS.stream()
+                .filter(Objects::nonNull)
+                .map(IgniteServer::name)
+                .collect(toList());
+
+        List<String> partialNodeNames = this.partialNodes.stream()
+                .filter(Objects::nonNull)
+                .map(PartialNode::name)
+                .collect(toList());
+
+        log.info("Shutting the cluster down [serverNodes={}, partialNodes={}]", serverNames, partialNodeNames);
+
+        Optional<PartialNode> anyPartialNode = this.partialNodes.stream()
+                .filter(Objects::nonNull)
+                .findAny();
+
+        if (anyPartialNode.isPresent()) {
+            ClusterManagementGroupManager component = findComponent(
+                    anyPartialNode.get().startedComponents(),
+                    ClusterManagementGroupManager.class
+            );
+
+            Set<String> cmgMsPartialNodesNames = cmgMsNodes(component);
+
+            for (PartialNode partialNode : partialNodes.stream().filter(Objects::nonNull).collect(toList())) {
+                if (!cmgMsPartialNodesNames.contains(partialNode.name())) {
+                    nonCmgMsNodesToStop.add(partialNode::stop);
+                } else {
+                    cmgMsNodesToStop.add(partialNode::stop);
+                }
             }
         }
 
-        if (!partialNodes.isEmpty()) {
-            for (PartialNode partialNode : partialNodes) {
-                closeables.add(partialNode::stop);
+        Optional<IgniteServer> anyServerNode = IGNITE_SERVERS.stream()
+                .filter(Objects::nonNull)
+                .findAny();
+
+        if (anyServerNode.isPresent()) {
+            IgniteImpl ignite = unwrapIgniteImpl(anyServerNode.get().api());
+
+            Set<String> cmgMsNodesNames = cmgMsNodes(ignite.clusterManagementGroupManager());
+
+            for (IgniteServer node : IGNITE_SERVERS.stream().filter(Objects::nonNull).collect(toList())) {
+                if (!cmgMsNodesNames.contains(node.name())) {
+                    nonCmgMsNodesToStop.add(node::shutdown);
+                } else {
+                    cmgMsNodesToStop.add(node::shutdown);
+                }
             }
         }
 
-        closeAll(closeables);
+        closeAll(nonCmgMsNodesToStop);
+        closeAll(cmgMsNodesToStop);
 
+        partialNodes.clear();
         IGNITE_SERVERS.clear();
     }
 
     /**
-     * Load configuration modules.
+     * Returns the set of nodes' names that host Meta Storage and CMG.
+     *
+     * @param cmgManager Cluster management group manager.
+     * @return Set of node names.
+     * @throws Exception If failed to get cluster state.
+     */
+    private static Set<String> cmgMsNodes(ClusterManagementGroupManager cmgManager) throws Exception {
+        CompletableFuture<ClusterState> stateFut = cmgManager.clusterState();
+
+        assertThat(stateFut, willCompleteSuccessfully());
+
+        if (stateFut.get() == null) {
+            return Set.of();
+        }
+
+        return Stream.concat(
+                stateFut.get().metaStorageNodes().stream(),
+                stateFut.get().cmgNodes().stream()
+        ).collect(Collectors.toSet());
+    }
+
+    /**
+     * Load configuration modules from the classpath.
      *
      * @param log Log.
      * @param classLoader Class loader.
-     * @return Configuration modules.
+     * @return All configuration modules loaded from the classpath.
      */
-    public static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
+    public static List<ConfigurationModule> loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(classLoader);
 
         if (log.isInfoEnabled()) {
-            log.info("Configuration modules loaded: {}", modules);
+            log.info("Local root keys: {}", CompoundModule.local(allModules).rootKeys());
+            log.info("Distributed root keys: {}", CompoundModule.distributed(allModules).rootKeys());
         }
 
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        var configModules = new ConfigurationModules(modules);
-
-        if (log.isInfoEnabled()) {
-            log.info("Local root keys: {}", configModules.local().rootKeys());
-            log.info("Distributed root keys: {}", configModules.distributed().rootKeys());
-        }
-
-        return configModules;
+        return allModules;
     }
 
     /**
@@ -255,8 +313,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * so returned partial node is started and ready to work.
      *
      * @param name Node name.
-     * @param nodeCfgMgr Node configuration manager.
-     * @param clusterCfgMgr Cluster configuration manager.
+     * @param nodeConfigRegistry Node configuration registry.
+     * @param clusterConfigRegistry Cluster configuration registry.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
@@ -267,25 +325,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      */
     public PartialNode partialNode(
             String name,
-            ConfigurationManager nodeCfgMgr,
-            ConfigurationManager clusterCfgMgr,
+            ConfigurationRegistry nodeConfigRegistry,
+            ConfigurationRegistry clusterConfigRegistry,
             MetaStorageManager metaStorageMgr,
             List<IgniteComponent> components,
             ConfigurationTreeGenerator localConfigurationGenerator,
             LogicalTopologyImpl logicalTopology,
             DistributedConfigurationStorage cfgStorage,
             ConfigurationTreeGenerator distributedConfigurationGenerator,
-            ConfigurationRegistry clusterConfigRegistry,
             HybridClock clock
     ) {
-        CompletableFuture<?> startFuture = CompletableFuture.allOf(
-                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterConfigRegistry.notifyCurrentConfigurationListeners(),
-                ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
-        ).thenCompose(unused ->
-                // Deploy all registered watches because all components are ready and have registered their listeners.
-                metaStorageMgr.deployWatches()
-        );
+        CompletableFuture<?> startFuture = ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
+                .thenCompose(unused ->
+                        // Deploy all registered watches because all components are ready and have registered their listeners.
+                        metaStorageMgr.deployWatches()
+                );
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 

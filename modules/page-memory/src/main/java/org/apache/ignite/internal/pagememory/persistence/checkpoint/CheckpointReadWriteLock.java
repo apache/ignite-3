@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,10 +35,20 @@ public class CheckpointReadWriteLock {
      */
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
+    private static final long LONG_LOCK_THRESHOLD_MILLIS = 1000;
+
+    private static final String LONG_LOCK_THROTTLE_KEY = "long-lock";
+
+    private final IgniteThrottledLogger log;
+
+    private final ThreadLocal<Long> checkpointReadLockAcquiredTime = new ThreadLocal<>();
+
     private final ThreadLocal<Integer> checkpointReadLockHoldCount = ThreadLocal.withInitial(() -> 0);
 
     /** Checkpoint lock. */
     private final ReentrantReadWriteLockWithTracking checkpointLock;
+
+    private final CheckpointReadWriteLockMetrics metrics;
 
     /** Current write lock holder thread. */
     private volatile @Nullable Thread currentWriteLockHolder;
@@ -44,9 +57,17 @@ public class CheckpointReadWriteLock {
      * Constructor.
      *
      * @param checkpointLock Checkpoint lock.
+     * @param throttledLogExecutor Executor for the throttled logger.
+     * @param metrics Read/write lock metrics.
      */
-    public CheckpointReadWriteLock(ReentrantReadWriteLockWithTracking checkpointLock) {
+    public CheckpointReadWriteLock(
+            ReentrantReadWriteLockWithTracking checkpointLock,
+            Executor throttledLogExecutor,
+            CheckpointReadWriteLockMetrics metrics
+    ) {
         this.checkpointLock = checkpointLock;
+        this.log = Loggers.toThrottledLogger(Loggers.forClass(CheckpointReadWriteLock.class), throttledLogExecutor);
+        this.metrics = metrics;
     }
 
     /**
@@ -59,9 +80,12 @@ public class CheckpointReadWriteLock {
             return;
         }
 
+        long startNanos = System.nanoTime();
+
+        metrics.incrementReadLockWaitingThreads();
         checkpointLock.readLock().lock();
 
-        checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
+        onReadLock(startNanos, true);
     }
 
     /**
@@ -76,11 +100,12 @@ public class CheckpointReadWriteLock {
             return true;
         }
 
+        long startNanos = System.nanoTime();
+
+        metrics.incrementReadLockWaitingThreads();
         boolean res = checkpointLock.readLock().tryLock(timeout, unit);
 
-        if (res) {
-            checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
-        }
+        onReadLock(startNanos, res);
 
         return res;
     }
@@ -95,11 +120,12 @@ public class CheckpointReadWriteLock {
             return true;
         }
 
+        long startNanos = System.nanoTime();
+
+        metrics.incrementReadLockWaitingThreads();
         boolean res = checkpointLock.readLock().tryLock();
 
-        if (res) {
-            checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
-        }
+        onReadLock(startNanos, res);
 
         return res;
     }
@@ -110,7 +136,7 @@ public class CheckpointReadWriteLock {
     public boolean checkpointLockIsHeldByThread() {
         return isWriteLockHeldByCurrentThread()
                 || checkpointReadLockHoldCount.get() > 0
-                || Thread.currentThread().getName().startsWith(CHECKPOINT_RUNNER_THREAD_PREFIX);
+                || Thread.currentThread() instanceof IgniteCheckpointThread;
     }
 
     /**
@@ -123,7 +149,7 @@ public class CheckpointReadWriteLock {
 
         checkpointLock.readLock().unlock();
 
-        checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() - 1);
+        onReadUnlock();
     }
 
     /**
@@ -157,5 +183,46 @@ public class CheckpointReadWriteLock {
      */
     public int getReadHoldCount() {
         return checkpointLock.getReadHoldCount();
+    }
+
+    /**
+     * Returns {@code true} if there are threads waiting to acquire the write lock.
+     */
+    public boolean hasQueuedWriters() {
+        return checkpointLock.hasQueuedWriters();
+    }
+
+    private void onReadLock(long startNanos, boolean taken) {
+        metrics.decrementReadLockWaitingThreads();
+
+        long currentNanos = System.nanoTime();
+        long elapsedNanos = currentNanos - startNanos;
+
+        if (taken) {
+            int newLockCount = checkpointReadLockHoldCount.get() + 1;
+            checkpointReadLockHoldCount.set(newLockCount);
+
+            // We only record acquisition time on first lock acquisition (not on reentry).
+            if (newLockCount == 1) {
+                checkpointReadLockAcquiredTime.set(currentNanos);
+            }
+            metrics.recordReadLockAcquisitionTime(elapsedNanos);
+        }
+
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
+        if (elapsedMillis > LONG_LOCK_THRESHOLD_MILLIS) {
+            log.warn(LONG_LOCK_THROTTLE_KEY, "Checkpoint read lock took {} ms to acquire.", elapsedMillis);
+        }
+    }
+
+    private void onReadUnlock() {
+        int newLockCount = checkpointReadLockHoldCount.get() - 1;
+        checkpointReadLockHoldCount.set(newLockCount);
+        if (newLockCount == 0) {
+            // Fully unlocked - record hold duration.
+            Long acquiredTimeNanos = checkpointReadLockAcquiredTime.get();
+            long holdDurationNanos = System.nanoTime() - acquiredTimeNanos;
+            metrics.recordReadLockHoldDuration(holdDurationNanos);
+        }
     }
 }

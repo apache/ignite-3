@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
@@ -52,9 +52,9 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
@@ -104,8 +104,6 @@ public class ClientPrimaryReplicaTracker {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructor.
@@ -177,7 +175,7 @@ public class ClientPrimaryReplicaTracker {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
-                ReplicationGroupId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
+                ZonePartitionId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
 
                 futures[partition] = placementDriver.getPrimaryReplica(replicationGroupId, timestamp).thenAccept(replicaMeta -> {
                     if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
@@ -200,7 +198,7 @@ public class ClientPrimaryReplicaTracker {
                     throw new CompletionException(cause);
                 }
 
-                assert false : "Unexpected error: " + err;
+                throw sneakyThrow(err);
             }
 
             PrimaryReplicasResult res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
@@ -234,7 +232,7 @@ public class ClientPrimaryReplicaTracker {
         boolean hasKnown = false;
 
         for (int partition = 0; partition < partitions; partition++) {
-            ReplicationGroupId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
+            ZonePartitionId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
             ReplicaHolder holder = primaryReplicas.get(replicationGroupId);
 
             if (holder == null || holder.nodeName == null || holder.leaseStartTime == null) {
@@ -253,13 +251,9 @@ public class ClientPrimaryReplicaTracker {
         return hasKnown ? new PrimaryReplicasResult(res, currentMaxStartTime) : null;
     }
 
-    private ReplicationGroupId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
-        if (enabledColocation) {
-            CatalogTableDescriptor table = requiredTable(tableId, timestamp);
-            return new ZonePartitionId(table.zoneId(), partition);
-        } else {
-            return new TablePartitionId(tableId, partition);
-        }
+    private ZonePartitionId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
+        CatalogTableDescriptor table = requiredTable(tableId, timestamp);
+        return new ZonePartitionId(table.zoneId(), partition);
     }
 
     private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {
@@ -339,7 +333,7 @@ public class ClientPrimaryReplicaTracker {
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         inBusyLockSafe(busyLock, () -> {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-24345 - support zone destruction.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25017 - support zone destruction.
             int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);

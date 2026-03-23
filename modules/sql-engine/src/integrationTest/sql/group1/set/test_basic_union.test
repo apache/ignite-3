@@ -111,6 +111,18 @@ SELECT 1.1::FLOAT AS two UNION SELECT 2 UNION ALL SELECT 2.0::FLOAT ORDER BY 1;
 2
 2
 
+# Test Char to Varchar conversion
+query I
+SELECT 'aa' UNION ALL SELECT 'a'
+----
+aa
+a
+
+query II
+SELECT i, TYPEOF(i) FROM (SELECT 'a' i UNION ALL SELECT 'aa' i) t1 WHERE i='a'
+----
+a	VARCHAR(2)
+
 # Implicit type coercion for set operation should not happen 
 
 statement error: Type mismatch in column 1 of UNION

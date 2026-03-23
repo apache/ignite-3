@@ -30,7 +30,7 @@ class transactions_impl;
 }
 
 /**
- * Ignite transaction.
+ * @brief Ignite transaction.
  */
 class transaction {
     friend class detail::sql_impl;
@@ -45,7 +45,7 @@ public:
      * Commits the transaction.
      */
     IGNITE_API void commit() {
-        return sync<void>([this](auto callback) { commit_async(std::move(callback)); });
+        return sync<void>([this](const auto& callback) { commit_async(std::move(callback)); });
     }
 
     /**
@@ -53,13 +53,13 @@ public:
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void commit_async(ignite_callback<void> callback);
+    IGNITE_API void commit_async(const ignite_callback<void> &callback);
 
     /**
      * Rollbacks the transaction.
      */
     IGNITE_API void rollback() {
-        sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
+        sync<void>([this](const auto& callback) { rollback_async(std::move(callback)); });
     }
 
     /**
@@ -67,7 +67,7 @@ public:
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void rollback_async(ignite_callback<void> callback);
+    IGNITE_API void rollback_async(const ignite_callback<void> &callback);
 
 private:
     /**

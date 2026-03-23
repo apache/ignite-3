@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
@@ -33,7 +35,17 @@ import org.junit.jupiter.api.Test;
 /**
  * Test LimitNode execution.
  */
+@SuppressWarnings({"ThrowableNotThrown", "ResultOfObjectAllocationIgnored", "resource"})
 public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
+    @Test
+    void offsetOnlyCaseIsNotSupportedBySortNode() {
+        assertThrowsWithCause(
+                () -> new SortNode<>(executionContext(), LimitExecutionTest::compareArrays, 10, -1),
+                AssertionError.class,
+                "Offset-only case is not supported by Sort node"
+        );
+    }
+
     /** Tests correct results fetched with Limit node. */
     @Test
     public void testLimit() {
@@ -61,13 +73,10 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
         int bufSize = IN_BUFFER_SIZE;
 
         checkLimitSort(0, 1);
-        checkLimitSort(1, 0);
         checkLimitSort(1, 1);
         checkLimitSort(0, bufSize);
-        checkLimitSort(bufSize, 0);
         checkLimitSort(bufSize, bufSize);
         checkLimitSort(bufSize - 1, 1);
-        checkLimitSort(2000, 0);
         checkLimitSort(0, 3000);
         checkLimitSort(2000, 3000);
     }
@@ -99,7 +108,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
         sortNode.register(srcNode);
 
-        for (int i = 0; i < offset + fetch; i++) {
+        for (int i = offset; i < offset + fetch; i++) {
             assertTrue(rootNode.hasNext());
             assertEquals(i, rootNode.next()[0]);
         }
@@ -183,6 +192,11 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

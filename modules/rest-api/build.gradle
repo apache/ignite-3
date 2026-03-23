@@ -26,11 +26,14 @@ dependencies {
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.micronaut.openapi
 
+    compileOnly libs.spotbugs.annotations
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.annotations
     implementation libs.jackson.databind
     implementation libs.jakarta.annotations
@@ -44,19 +47,14 @@ dependencies {
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.core
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
     testImplementation libs.micronaut.http.server.netty
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 
+    testFixturesApi libs.micronaut.http.core // exposed by the MicronautHttpResponseMatcher
     testFixturesImplementation testFixtures(project(":ignite-core"))
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.micronaut.http.core
     testFixturesImplementation libs.micronaut.http.client
+    testFixturesCompileOnly libs.swaggerv3.annotations // Fix unknown enum constant warning
 }
 
 ext {
@@ -78,8 +76,8 @@ compileJava {
         options.forkOptions.jvmArgs += "-D$key=$val".toString()
     }
 
-    // Force to rebuild each time (without caching) because we need to regenerate openapi spec.
-    outputs.upToDateWhen { false }
+    // Add the OpenAPI spec file to outputs so that it is saved to cache (if enabled) and can be found by other tasks.
+    outputs.file(openapiFile)
 }
 
 configurations {

@@ -125,6 +125,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Gets all hash codes in the order defined by <see cref="IHashedColumnIndexProvider"/>.
+        /// The number of hash codes is defined by <see cref="IHashedColumnIndexProvider.HashedColumnCount"/>.
+        /// </summary>
+        /// <returns>Span with hash codes.</returns>
+        public ReadOnlySpan<int> GetHashes() => _hashedColumnsPredicate == null
+            ? throw new InvalidOperationException("No hash codes were reserved in the buffer.")
+            : GetHashSpan();
+
+        /// <summary>
         /// Appends a null value.
         /// </summary>
         public void AppendNull()
@@ -1556,7 +1565,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void OnWrite()
         {
-            Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");
+            if (_elementIndex >= _numElements)
+            {
+                throw new InvalidOperationException("BinaryTuple is full.");
+            }
 
             int offset = _buffer.Position - _valueBase;
 
@@ -1581,11 +1593,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _elementIndex++;
         }
 
-        private Span<byte> GetSpan(int size)
+        private readonly Span<byte> GetSpan(int size)
         {
             var span = _buffer.GetSpan(size)[..size];
 
             _buffer.Advance(size);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(255);
+#endif
 
             return span;
         }

@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryPlan interface.
@@ -31,7 +34,7 @@ public interface QueryPlan {
     PlanId id();
 
     /**
-     * Get query type, or {@code null} if this is a fragment.
+     * Get query type.
      */
     SqlQueryType type();
 
@@ -44,4 +47,26 @@ public interface QueryPlan {
      * Returns parameters metadata.
      */
     ParameterMetadata parameterMetadata();
+
+    /**
+     * Returns partition-awareness metadata or {@code null} if it not present.
+     */
+    @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata();
+
+    /**
+     * Returns partition-pruning metadata or {@code null} if it not present.
+     */
+    @Nullable PartitionPruningMetadata partitionPruningMetadata();
+
+    /**
+     * Returns the number of source relations used by this plan. Each relation is reported the number of times it is used. 
+     */
+    int numSources();
+
+    /**
+     * Returns a flag indicating that the query cursor can be published without waiting for the first page preloading.
+     */
+    default boolean lazyCursorPublication() {
+        return type() == SqlQueryType.QUERY;
+    }
 }

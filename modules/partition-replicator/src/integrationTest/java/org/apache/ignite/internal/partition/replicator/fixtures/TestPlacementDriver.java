@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,7 +55,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
      *
      * @param node Primary replica node.
      */
-    public void setPrimary(ClusterNode node, HybridTimestamp leaseStartTime) {
+    public void setPrimary(InternalClusterNode node, HybridTimestamp leaseStartTime) {
         primary = new ReplicaMeta() {
             @Override
             public @Nullable String getLeaseholder() {
@@ -79,7 +79,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         };
     }
 
-    public void setPrimary(ClusterNode node) {
+    public void setPrimary(InternalClusterNode node) {
         setPrimary(node, HybridTimestamp.MIN_VALUE);
     }
 
@@ -127,6 +127,20 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         }
     }
 
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    ) {
+        List<TokenizedAssignments> assignments = tokenizedAssignments;
+
+        if (assignments == null) {
+            return failedFuture(new AssertionError("Pre-calculated assignments are not defined in test PlacementDriver yet."));
+        } else {
+            return completedFuture(assignments);
+        }
+    }
+
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {
         if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == DEFAULT_ZONE_ID) {
             return nullCompletedFuture();
@@ -136,7 +150,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             throw new IllegalStateException("Primary replica is not defined in test PlacementDriver");
         }
 
-        return CompletableFuture.completedFuture(primary);
+        return completedFuture(primary);
     }
 
     @Override

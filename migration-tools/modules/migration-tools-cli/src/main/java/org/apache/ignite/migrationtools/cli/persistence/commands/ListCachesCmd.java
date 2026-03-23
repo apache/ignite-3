@@ -18,6 +18,7 @@
 package org.apache.ignite.migrationtools.cli.persistence.commands;
 
 import java.util.concurrent.Callable;
+import org.apache.ignite.migrationtools.cli.exceptions.ErrorLoadingInputConfigurationHandlers;
 import org.apache.ignite.migrationtools.cli.persistence.calls.ListCachesCall;
 import org.apache.ignite3.internal.cli.commands.BaseCommand;
 import org.apache.ignite3.internal.cli.core.call.CallExecutionPipeline;
@@ -37,7 +38,8 @@ public class ListCachesCmd extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         var call = new ListCachesCall();
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new ListCachesCall.Input(parent.params()))
+                .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
+                .input(new ListCachesCall.Input(parent.params()))
                 .decorator(data -> () -> PlainTableRenderer.render(new String[] {"id", "name"},
                         data.stream().map(o -> new String[] {String.valueOf(o.cacheId()), o.cacheName()}).toArray(Object[][]::new)))
         );

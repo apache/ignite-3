@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 
-
 /**
  * Implementation of {@link Subscriber} based on {@link Accumulator}.
  *

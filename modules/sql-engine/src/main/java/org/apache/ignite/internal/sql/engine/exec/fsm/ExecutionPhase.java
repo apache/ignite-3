@@ -20,13 +20,15 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 /** Enumerates possible phases of query execution. */
 public enum ExecutionPhase {
     /** Query is registered on server. */
-    REGISTERED(RegisteredPhaseHandler.INSTANCE),
+    REGISTERED(NoOpHandler.INSTANCE),
     /** Query string is parsed at the moment. Parsed AST may or may not be available yet. */
     PARSING(ParsingPhaseHandler.INSTANCE),
     /** AST is available now, optimization task is submitted. */
     OPTIMIZING(OptimizingPhaseHandler.INSTANCE),
     /** Query has been validated, plan is ready as well. At this point plan is mapped on cluster and cursor are initialised. */
     CURSOR_INITIALIZATION(CursorInitializationPhaseHandler.INSTANCE),
+    /** Additional step to make sure cursor won't be published too early. */
+    CURSOR_PUBLICATION(CursorPublicationPhaseHandler.INSTANCE),
     /** Multiple queries must be scheduled in a way to not to interfere with each other. */
     SCRIPT_INITIALIZATION(ScriptInitializationPhaseHandler.INSTANCE),
     /**

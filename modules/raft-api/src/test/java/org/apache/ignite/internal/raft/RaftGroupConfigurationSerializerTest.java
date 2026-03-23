@@ -34,6 +34,8 @@ class RaftGroupConfigurationSerializerTest {
         RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
                 13L,
                 37L,
+                11L,
+                10L,
                 List.of("peer1", "peer2"),
                 List.of("learner1", "learner2"),
                 List.of("old-peer1", "old-peer2"),
@@ -51,6 +53,8 @@ class RaftGroupConfigurationSerializerTest {
         RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
                 13L,
                 37L,
+                11L,
+                10L,
                 List.of("peer1", "peer2"),
                 List.of("learner1", "learner2"),
                 null,
@@ -73,6 +77,8 @@ class RaftGroupConfigurationSerializerTest {
         assertThat(restoredConfig.learners(), is(List.of("learner1", "learner2")));
         assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
         assertThat(restoredConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
+        assertThat(restoredConfig.sequenceToken(), is(0L));
+        assertThat(restoredConfig.oldSequenceToken(), is(0L));
     }
 
     @Test
@@ -88,5 +94,24 @@ class RaftGroupConfigurationSerializerTest {
         assertThat(restoredConfig.learners(), is(List.of("learner1", "learner2")));
         assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
         assertThat(restoredConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
+        assertThat(restoredConfig.sequenceToken(), is(0L));
+        assertThat(restoredConfig.oldSequenceToken(), is(0L));
+    }
+
+    @Test
+    void v3CanBeDeserialized() {
+        byte[] bytes = Base64.getDecoder().decode("A+++Qw0AAAAAAAAAJQAAAAAAAAADBnBlZXIxBnBlZXIyAwlsZWFybmVyMQ"
+                + "lsZWFybmVyMgMKb2xkLXBlZXIxCm9sZC1wZWVyMgMNb2xkLWxlYXJuZXIxDW9sZC1sZWFybmVyMgwL");
+
+        RaftGroupConfiguration restoredConfig = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredConfig.index(), is(13L));
+        assertThat(restoredConfig.term(), is(37L));
+        assertThat(restoredConfig.peers(), is(List.of("peer1", "peer2")));
+        assertThat(restoredConfig.learners(), is(List.of("learner1", "learner2")));
+        assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
+        assertThat(restoredConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
+        assertThat(restoredConfig.sequenceToken(), is(11L));
+        assertThat(restoredConfig.oldSequenceToken(), is(10L));
     }
 }

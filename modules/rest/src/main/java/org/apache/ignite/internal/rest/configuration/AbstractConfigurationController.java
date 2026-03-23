@@ -19,9 +19,9 @@ package org.apache.ignite.internal.rest.configuration;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.MediaType;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.lang.IgniteException;
@@ -43,8 +43,8 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      *
      * @return the presentation of configuration.
      */
-    public String getConfiguration() {
-        return cfgPresentation.represent();
+    public HttpResponse<String> getConfiguration() {
+        return plainTextResponse(cfgPresentation.represent());
     }
 
     /**
@@ -53,12 +53,16 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      * @param path to represent a configuration.
      * @return system configuration represented by given path.
      */
-    public String getConfigurationByPath(String path) {
+    public HttpResponse<String> getConfigurationByPath(String path) {
         try {
-            return cfgPresentation.representByPath(path);
+            return plainTextResponse(cfgPresentation.representByPath(path));
         } catch (IllegalArgumentException ex) {
             throw new IgniteException(INTERNAL_ERR, ex);
         }
+    }
+
+    private static HttpResponse<String> plainTextResponse(String text) {
+        return HttpResponse.ok(text).contentType(MediaType.TEXT_PLAIN);
     }
 
     /**
@@ -67,17 +71,7 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      * @param updatedConfiguration the configuration to update.
      */
     public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
-        return cfgPresentation.update(updatedConfiguration)
-                .exceptionally(ex -> {
-                    if (ex instanceof CompletionException) {
-                        var cause = ex.getCause();
-                        if (cause instanceof IllegalArgumentException
-                                || cause instanceof ConfigurationValidationException) {
-                            throw new IgniteException(INTERNAL_ERR, cause);
-                        }
-                    }
-                    throw new IgniteException(INTERNAL_ERR, ex);
-                });
+        return cfgPresentation.update(updatedConfiguration);
     }
 
     @Override

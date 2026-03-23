@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.calcite.DataContexts;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
@@ -53,7 +54,7 @@ public class PlanUtilsTest {
                 .build();
 
         AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1, inputType).get();
+        Accumulator acc1 = accumulators.accumulatorFactory(DataContexts.EMPTY, call1, inputType).get();
 
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
@@ -83,7 +84,7 @@ public class PlanUtilsTest {
                 .build();
 
         AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1, inputType).get();
+        Accumulator acc1 = accumulators.accumulatorFactory(DataContexts.EMPTY, call1, inputType).get();
 
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))

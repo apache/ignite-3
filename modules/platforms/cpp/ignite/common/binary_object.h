@@ -22,7 +22,9 @@
 namespace ignite {
 
 /**
- * Ignite binary_object type.
+ * @brief Ignite binary object type.
+ *
+ * Wrapper for @ref ignite::primitive.
  */
 class binary_object {
 public:

@@ -84,7 +84,7 @@ false
 NULL
 
 query T rowsort
-SELECT d IN (d + INTERVAL 1 DAYS) FROM test
+SELECT d IN (d + INTERVAL '1' DAYS) FROM test
 ----
 false
 false
