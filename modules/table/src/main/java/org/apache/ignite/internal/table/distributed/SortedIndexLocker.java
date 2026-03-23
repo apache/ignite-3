@@ -46,7 +46,7 @@ public class SortedIndexLocker implements IndexLocker {
     /** Index INF+ value object. */
     private final Object positiveInf;
 
-    private final int indexId;
+    private final PartitionIndexId indexId;
 
     private final LockManager lockManager;
 
@@ -74,7 +74,7 @@ public class SortedIndexLocker implements IndexLocker {
             ColumnsExtractor indexRowResolver,
             boolean unique
     ) {
-        this.indexId = indexId;
+        this.indexId = new PartitionIndexId(partId, indexId);
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
@@ -84,7 +84,7 @@ public class SortedIndexLocker implements IndexLocker {
 
     @Override
     public int id() {
-        return indexId;
+        return indexId.indexId;
     }
 
     @Override
@@ -207,5 +207,35 @@ public class SortedIndexLocker implements IndexLocker {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
         return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
+    }
+
+    /**
+     * Composite context ID for lock keys, that includes partition ID and index ID.
+     */
+    private static class PartitionIndexId {
+        final int partitionId;
+        final int indexId;
+
+        PartitionIndexId(int partitionId, int indexId) {
+            this.partitionId = partitionId;
+            this.indexId = indexId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            PartitionIndexId that = (PartitionIndexId) o;
+            return partitionId == that.partitionId && indexId == that.indexId;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = partitionId;
+            result = 65537 * result + indexId;
+            return result;
+        }
     }
 }
