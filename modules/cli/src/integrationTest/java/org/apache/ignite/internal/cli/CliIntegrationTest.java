@@ -66,6 +66,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("os").enabled(true),
             new MetricSource().name("raft").enabled(true),
             new MetricSource().name("metastorage").enabled(true),
+            new MetricSource().name("schemaSync").enabled(true),
             new MetricSource().name("client.handler").enabled(true),
             new MetricSource().name("sql.client").enabled(true),
             new MetricSource().name("sql.plan.cache").enabled(true),
