@@ -279,6 +279,7 @@ class ApacheIgnite3Teamcity {
 
         private val integrationTestGradleModulesList: List<GradleModule> = listOf(
             IGNITE__CLI,
+            IGNITE__CLIENT,
             IGNITE__CLIENT_HANDLER,
             IGNITE__CLUSTER_MANAGEMENT,
             IGNITE__CODE_DEPLOYMENT,
