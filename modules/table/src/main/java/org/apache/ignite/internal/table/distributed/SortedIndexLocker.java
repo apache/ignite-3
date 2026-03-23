@@ -35,6 +35,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -213,8 +214,8 @@ public class SortedIndexLocker implements IndexLocker {
      * Composite context ID for lock keys, that includes partition ID and index ID.
      */
     public static class PartitionIndexId {
-        final int partitionId;
-        final int indexId;
+        private final int partitionId;
+        private final int indexId;
         private final int hash;
 
         /**
@@ -223,7 +224,7 @@ public class SortedIndexLocker implements IndexLocker {
         public PartitionIndexId(int partitionId, int indexId) {
             this.partitionId = partitionId;
             this.indexId = indexId;
-            this.hash = 65537 * partitionId + indexId;
+            this.hash = IgniteUtils.hash(65535 * partitionId + indexId);
         }
 
         @Override
