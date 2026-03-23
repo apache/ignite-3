@@ -71,13 +71,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -876,12 +874,12 @@ public class PersistentPageMemory implements PageMemory {
     public int partGeneration(int grpId, int partId) {
         Segment seg = segment(grpId, partId);
 
-        seg.readLock().lock();
+        seg.readLock();
 
         try {
             return seg.partGeneration(grpId, partId);
         } finally {
-            seg.readLock().unlock();
+            seg.readLock();
         }
     }
 
