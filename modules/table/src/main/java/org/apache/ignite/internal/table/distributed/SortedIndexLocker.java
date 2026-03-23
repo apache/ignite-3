@@ -46,7 +46,7 @@ public class SortedIndexLocker implements IndexLocker {
     /** Index INF+ value object. */
     private final Object positiveInf;
 
-    private final PartitionIndexId indexId;
+    private final PartitionIndexId contextId;
 
     private final LockManager lockManager;
 
@@ -74,7 +74,7 @@ public class SortedIndexLocker implements IndexLocker {
             ColumnsExtractor indexRowResolver,
             boolean unique
     ) {
-        this.indexId = new PartitionIndexId(partId, indexId);
+        this.contextId = new PartitionIndexId(partId, indexId);
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
@@ -84,12 +84,12 @@ public class SortedIndexLocker implements IndexLocker {
 
     @Override
     public int id() {
-        return indexId.indexId;
+        return contextId.indexId;
     }
 
     @Override
     public CompletableFuture<Void> locksForLookupByKey(UUID txId, BinaryTuple key) {
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
@@ -131,7 +131,7 @@ public class SortedIndexLocker implements IndexLocker {
     private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
         IndexRow peekedRow = peekCursor.peek();
 
-        LockKey lockKey = new LockKey(indexId, indexKey(peekedRow));
+        LockKey lockKey = new LockKey(contextId, indexKey(peekedRow));
 
         return lockManager.acquire(txId, lockKey, LockMode.S)
                 .thenCompose(ignore -> {
@@ -179,12 +179,12 @@ public class SortedIndexLocker implements IndexLocker {
             return nullCompletedFuture();
         }
 
-        var nextLockKey = new LockKey(indexId, indexKey(nextRow));
+        var nextLockKey = new LockKey(contextId, indexKey(nextRow));
 
         return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
             LockMode modeToLock = currentKeyLockMode(shortLock.lockMode());
 
-            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modeToLock)
+            return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), modeToLock)
                     .thenApply(lock -> new Lock(nextLockKey, LockMode.IX, txId));
         });
     }
@@ -206,7 +206,7 @@ public class SortedIndexLocker implements IndexLocker {
     public CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
     }
 
     /**
@@ -215,10 +215,12 @@ public class SortedIndexLocker implements IndexLocker {
     public static class PartitionIndexId {
         final int partitionId;
         final int indexId;
+        private final int hash;
 
         public PartitionIndexId(int partitionId, int indexId) {
             this.partitionId = partitionId;
             this.indexId = indexId;
+            this.hash = 65537 * partitionId + indexId;
         }
 
         @Override
@@ -233,9 +235,7 @@ public class SortedIndexLocker implements IndexLocker {
 
         @Override
         public int hashCode() {
-            int result = partitionId;
-            result = 65537 * result + indexId;
-            return result;
+            return hash;
         }
     }
 }
