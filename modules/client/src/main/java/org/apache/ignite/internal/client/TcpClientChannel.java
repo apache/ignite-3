@@ -105,7 +105,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
             ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
-            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD,
             ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2
     ));
