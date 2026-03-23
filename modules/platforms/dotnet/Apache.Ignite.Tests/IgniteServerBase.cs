@@ -69,6 +69,8 @@ public abstract class IgniteServerBase : IDisposable
         set => _dropNewConnections = value;
     }
 
+    public int ConnectionCount => _handlers.Count;
+
     protected Socket Listener => _listener;
 
     public void DropExistingConnection()
