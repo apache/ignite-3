@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
@@ -794,8 +795,15 @@ public class ClientInboundMessageHandler
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
-                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
-                packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
+                if (features.get(SQL_UPDATE_COUNTERS_2.featureId())) {
+                    // New format: single binary value (protocol-compliant).
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
+                    packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
+                } else {
+                    // Old format: array of longs (for backward compatibility with older clients).
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                    packer.packLongArray(sqlBatchException.updateCounters());
+                }
             } else if (delayedAckException != null) {
                 packer.packString(ErrorExtensions.DELAYED_ACK);
                 packer.packUuid(delayedAckException.txId());

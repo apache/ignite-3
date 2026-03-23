@@ -68,5 +68,10 @@ internal enum ProtocolBitmaskFeature
     /// <summary>
     /// Partition awareness for SQL requests with table name in metadata.
     /// </summary>
-    SqlPartitionAwarenessTableName = 1 << 16
+    SqlPartitionAwarenessTableName = 1 << 16,
+
+    /// <summary>
+    /// SQL_UPDATE_COUNTERS_2 error extension (single binary value instead of array).
+    /// </summary>
+    SqlUpdateCounters2 = 1 << 18
 }
