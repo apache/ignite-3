@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.metastorage.metrics;
 
 import java.util.List;
+import java.util.function.IntSupplier;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource.Holder;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -33,13 +35,23 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
 
     private final MetaStorageMetrics metaStorageMetrics;
 
+    private final IntSupplier availablePeersSupplier;
+
+    private final IntSupplier availableSupplier;
+
     /**
      * Constructor.
      */
-    public MetaStorageMetricSource(MetaStorageMetrics metaStorageMetrics) {
+    public MetaStorageMetricSource(
+            MetaStorageMetrics metaStorageMetrics,
+            IntSupplier availablePeersSupplier,
+            IntSupplier availableSupplier
+    ) {
         super(SOURCE_NAME);
 
         this.metaStorageMetrics = metaStorageMetrics;
+        this.availablePeersSupplier = availablePeersSupplier;
+        this.availableSupplier = availableSupplier;
     }
 
     @Override
@@ -63,7 +75,7 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
     protected class Holder implements AbstractMetricSource.Holder<Holder> {
         private final LongMetric safeTimeLag = new LongGauge(
                 "SafeTimeLag",
-                "Number of milliseconds the local MetaStorage SafeTime lags behind the local logical clock.",
+                "Number of milliseconds the local Meta Storage SafeTime lags behind the local logical clock.",
                 metaStorageMetrics::safeTimeLag
         );
 
@@ -72,9 +84,23 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
                 "The current size of the cache of idempotent commands' results."
         );
 
+        private final IntGauge availablePeers = new IntGauge(
+                "AvailablePeers",
+                "Number of available members of the Meta Storage voting set based on the current logical topology.",
+                availablePeersSupplier
+        );
+
+        private final IntGauge availableMajority = new IntGauge(
+                "AvailableMajority",
+                "1 if the Meta Storage majority is available (can execute commands), 0 otherwise.",
+                availableSupplier
+        );
+
         private final List<Metric> metrics = List.of(
                 safeTimeLag,
-                idempotentCacheSize
+                idempotentCacheSize,
+                availablePeers,
+                availableMajority
         );
 
         @Override

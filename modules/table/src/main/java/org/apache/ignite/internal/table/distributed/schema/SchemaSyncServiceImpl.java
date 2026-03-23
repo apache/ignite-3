@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
@@ -31,17 +32,38 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
 
     private final LongSupplier delayDurationMs;
 
+    private final LongConsumer waitDurationMsRecorder;
+
     /**
      * Constructor.
      */
     public SchemaSyncServiceImpl(SchemaSafeTimeTracker schemaSafeTimeTracker, LongSupplier delayDurationMs) {
+        this(schemaSafeTimeTracker, delayDurationMs, durationMs -> {});
+    }
+
+    /**
+     * Constructor with metrics recording.
+     *
+     * @param schemaSafeTimeTracker Schema safe time tracker.
+     * @param delayDurationMs Supplier of the delay duration in milliseconds.
+     * @param waitDurationMsRecorder Consumer that receives the duration (in ms) of each completed wait.
+     */
+    public SchemaSyncServiceImpl(
+            SchemaSafeTimeTracker schemaSafeTimeTracker,
+            LongSupplier delayDurationMs,
+            LongConsumer waitDurationMsRecorder
+    ) {
         this.schemaSafeTimeTracker = schemaSafeTimeTracker;
         this.delayDurationMs = delayDurationMs;
+        this.waitDurationMsRecorder = waitDurationMsRecorder;
     }
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return schemaSafeTimeTracker.waitFor(metastoreSafeTimeToWait(ts));
+        long startMs = System.currentTimeMillis();
+
+        return schemaSafeTimeTracker.waitFor(metastoreSafeTimeToWait(ts))
+                .whenComplete((v, ex) -> waitDurationMsRecorder.accept(System.currentTimeMillis() - startMs));
     }
 
     private HybridTimestamp metastoreSafeTimeToWait(HybridTimestamp ts) {
