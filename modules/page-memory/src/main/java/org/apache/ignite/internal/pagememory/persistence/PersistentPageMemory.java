@@ -879,7 +879,7 @@ public class PersistentPageMemory implements PageMemory {
         try {
             return seg.partGeneration(grpId, partId);
         } finally {
-            seg.readLock();
+            seg.readUnlock();
         }
     }
 
@@ -1341,16 +1341,22 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         void readLock() {
-            rwLock.readLock(ptr + curIdx() * PADDING, -1);
+            long addr = ptr + curIdx() * PADDING;
+            System.out.println(Thread.currentThread() + " readLock " + addr);
+            rwLock.readLock(addr, -1);
         }
 
         void readUnlock() {
-            rwLock.readUnlock(ptr + curIdx() * PADDING);
+            long addr = ptr + curIdx() * PADDING;
+            System.out.println(Thread.currentThread() + " readUnlock " + addr);
+            rwLock.readUnlock(addr);
         }
 
         void writeLock() {
             for (long i = 0; i < concLvl; i++) {
-                rwLock.writeLock(ptr + i * PADDING, -1);
+                long addr = ptr + i * PADDING;
+                System.out.println(Thread.currentThread() + " writeLock(" + i + ") " + addr);
+                rwLock.writeLock(addr, -1);
             }
 
             writeLockHolder = Thread.currentThread();
@@ -1360,7 +1366,9 @@ public class PersistentPageMemory implements PageMemory {
             writeLockHolder = null;
 
             for (long i = concLvl - 1; i >= 0; i--) {
-                rwLock.writeUnlock(ptr + i * PADDING, -1);
+                long addr = ptr + i * PADDING;
+                System.out.println(Thread.currentThread() + " writeUnlock(" + i + ") " + addr);
+                rwLock.writeUnlock(addr, -1);
             }
         }
 
