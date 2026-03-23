@@ -48,6 +48,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
@@ -58,6 +59,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -65,6 +69,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests tx labels usage in exception messages / logs on OrphanDetector-related flows.
  */
 @ExtendWith(MockitoExtension.class)
+@ParameterizedClass
+@ValueSource(classes = {WaitDieDeadlockPreventionPolicy.class, WoundWaitDeadlockPreventionPolicy.class})
 public class OrphanDetectorTxLabelTest extends BaseIgniteAbstractTest {
     private static final UUID LOCAL_NODE_ID = randomUUID();
     private static final String LOCAL_NODE_NAME = "local";
@@ -94,6 +100,17 @@ public class OrphanDetectorTxLabelTest extends BaseIgniteAbstractTest {
 
     private InternalClusterNode remoteNode;
 
+    @Parameter
+    private Class<DeadlockPreventionPolicy> policy;
+
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        try {
+            return policy.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @BeforeEach
     void setUp() {
         idGenerator = new TransactionIdGenerator(LOCAL_NODE_NAME.hashCode());
@@ -103,7 +120,7 @@ public class OrphanDetectorTxLabelTest extends BaseIgniteAbstractTest {
         txStateMetaStorage = VolatileTxStateMetaStorage.createStarted();
 
         lockManager = new HeapLockManager(1024, txStateMetaStorage);
-        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        lockManager.start(deadlockPreventionPolicy());
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 

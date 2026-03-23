@@ -979,20 +979,25 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
 
             boolean[] needWait = {false};
+            boolean[] notified = {false};
 
             findConflicts(waiter, owner -> {
                 assert !waiter.txId.equals(owner.txId);
                 @Nullable WaiterImpl toFail = (WaiterImpl) deadlockPreventionPolicy.allowWait(waiter, owner);
 
-                // Waiting is allowed.
-                if (toFail == null) {
-                    // If there is an abandoned owner, fail waiter. TODO ticket
+                if (!notified[0]) {
+                    // Notify once on first found conflict.
+                    notified[0] = true;
                     if (notifyListeners(waiter.txId(), owner.txId())) {
+                        // If there is an abandoned owner, fail waiter. TODO ticket
                         failWaiter(waiter, notifications, createLockException(waiter, owner, true));
 
                         return true;
                     }
+                }
 
+                // Waiting is allowed.
+                if (toFail == null) {
                     // Set upper wait bound.
                     if (deadlockPreventionPolicy.waitTimeout() > 0 && !unlock) {
                         // Do not add wait timeout again on unlock.
