@@ -146,6 +146,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final int PK_INDEX_ID = 1;
     private static final int HASH_INDEX_ID = 2;
     private static final int SORTED_INDEX_ID = 3;
+    private static final SortedIndexLocker.PartitionIndexId SORTED_INDEX_CONTEXT_ID
+            = new SortedIndexLocker.PartitionIndexId(PART_ID, SORTED_INDEX_ID);
     private static final int ZONE_ID = 4;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
@@ -417,7 +419,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         )),
                         hasItem(lockThat(
                                 arg.expectedLockOnSort + " on sorted index",
-                                lock -> Objects.equals(SORTED_INDEX_ID, lock.lockKey().contextId())
+                                lock -> Objects.equals(SORTED_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                         && lock.lockMode() == arg.expectedLockOnSort
                         ))
                 )
@@ -512,7 +514,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnSort + " on sorted index",
-                                    lock -> Objects.equals(SORTED_INDEX_ID, lock.lockKey().contextId())
+                                    lock -> Objects.equals(SORTED_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                             && row2SortKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnSort
                             ))

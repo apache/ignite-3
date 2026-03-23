@@ -212,11 +212,11 @@ public class SortedIndexLocker implements IndexLocker {
     /**
      * Composite context ID for lock keys, that includes partition ID and index ID.
      */
-    private static class PartitionIndexId {
+    public static class PartitionIndexId {
         final int partitionId;
         final int indexId;
 
-        PartitionIndexId(int partitionId, int indexId) {
+        public PartitionIndexId(int partitionId, int indexId) {
             this.partitionId = partitionId;
             this.indexId = indexId;
         }
