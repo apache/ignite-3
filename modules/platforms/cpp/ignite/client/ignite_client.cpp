@@ -45,24 +45,10 @@ ignite_client ignite_client::start(ignite_client_configuration configuration, st
 
     auto status = future.wait_for(timeout);
 
-    std::cout << "Status: " << int(status) << std::endl;
-    std::cout << "std::future_status::ready: " << int(std::future_status::ready) << std::endl;
-    std::cout << "std::future_status::deferred: " << int(std::future_status::deferred) << std::endl;
-    std::cout << "std::future_status::timeout: " << int(std::future_status::timeout) << std::endl;
-
-    std::cout << "status == std::future_status::ready: " << bool(status == std::future_status::ready) << std::endl;
-    std::cout << "status == std::future_status::deferred: " << bool(status == std::future_status::deferred) << std::endl;
-    std::cout << "status == std::future_status::timeout: " << bool(status == std::future_status::timeout) << std::endl;
-
     if (status == std::future_status::timeout) {
         impl->stop();
-        std::cout << "Before throw" << std::endl;
         throw ignite_error(error::code::CONNECTION, "Can not establish connection within timeout");
-        std::cout << "After throw" << std::endl;
     }
-
-    std::cout << "After throw 2" << std::endl;
-
 
     assert(status == std::future_status::ready);
     auto res = future.get();
