@@ -42,6 +42,19 @@ set(PUBLIC_HEADERS
     uuid.h
 )
 
+set(PRIVATE_HEADERS
+    detail/defer.h
+    detail/duration_min_max.h
+    detail/factory.h
+    detail/ignite_mbedtls_config.h
+    detail/server_version.h
+    detail/string_utils.h
+    detail/thread_timer.h
+    detail/utils.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
 set(SOURCES
     big_decimal.cpp
     big_integer.cpp

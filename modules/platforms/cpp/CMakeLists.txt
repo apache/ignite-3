@@ -64,8 +64,6 @@ option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analyzer" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck static analyzer" OFF)
-option(ENABLE_ABI_COMPLIANCE_CHECKER "Enable ABI compatibility check with abi-compliance-checker" OFF)
-option(ENABLE_HEADER_SELF_CONTAINMENT_CHECK "Enable header self-containment check (each public header compiles in isolation via find_package)" OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -160,6 +158,7 @@ include(CPack)
 
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
+include(ignite_check_headers)
 
 # Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
@@ -244,10 +243,7 @@ if (${ENABLE_TESTS})
     endif()
 endif()
 
-# ABI and source-level API compatibility checks (must come after all library subdirectories are added).
-if (ENABLE_ABI_COMPLIANCE_CHECKER OR ENABLE_HEADER_SELF_CONTAINMENT_CHECK)
-    include(abi_check)
-endif()
+include(ignite_compile_headers)
 
 # Source code formatting with clang-format.
 # TODO: require clang-format version 13 or higher

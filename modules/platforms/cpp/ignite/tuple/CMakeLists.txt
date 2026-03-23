@@ -28,6 +28,10 @@ set(PUBLIC_HEADERS
     binary_tuple_parser.h
 )
 
+set(PRIVATE_HEADERS)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
 add_library(${TARGET} STATIC ${SOURCES})
 
 target_link_libraries(${TARGET} ignite-common)
