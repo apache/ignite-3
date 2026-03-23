@@ -19,14 +19,13 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
-import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -35,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -47,7 +45,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -56,11 +53,9 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
@@ -110,7 +105,7 @@ public class TransactionStateResolver {
      * @param clockService Clock service.
      * @param clusterNodeResolver Cluster node resolver.
      * @param messagingService Messaging service.
-     * @param placementDriver Placement driver.
+     * @param placementDriverHelper Placement drive helper.
      * @param txMessageSender Tx message sender.
      * @param txRecoveryEngine Transaction recovery engine.
      * @param localNode Local cluster node.
@@ -121,7 +116,7 @@ public class TransactionStateResolver {
             ClockService clockService,
             ClusterNodeResolver clusterNodeResolver,
             MessagingService messagingService,
-            PlacementDriver placementDriver,
+            PlacementDriverHelper placementDriverHelper,
             TxMessageSender txMessageSender,
             TxRecoveryEngine txRecoveryEngine,
             Lazy<InternalClusterNode> localNode,
@@ -131,7 +126,7 @@ public class TransactionStateResolver {
         this.clockService = clockService;
         this.clusterNodeResolver = clusterNodeResolver;
         this.messagingService = messagingService;
-        this.placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
+        this.placementDriverHelper = placementDriverHelper;
         this.txMessageSender = txMessageSender;
         this.txRecoveryEngine = txRecoveryEngine;
         this.localNode = localNode;
@@ -170,79 +165,27 @@ public class TransactionStateResolver {
     /**
      * Resolves transaction state locally, if possible, or distributively, if needed.
      *
-     * @param txId Transaction id.
-     * @param commitGrpId Commit partition group id.
-     * @param timestamp Timestamp.
-     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
-     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}.
+     * @param p Parameters for tx state resolution.
      * @return Future with the transaction state meta as a result.
      */
-    public CompletableFuture<TransactionMeta> resolveTxState(
-            UUID txId,
-            ZonePartitionId commitGrpId,
-            @Nullable HybridTimestamp timestamp,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
-    ) {
-        return resolveTxState(
-                txId,
-                commitGrpId,
-                timestamp,
-                AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                SECONDS,
-                senderCurrentConsistencyToken,
-                senderGroupId
-        );
-    }
-
-    /**
-     * Resolves transaction state locally, if possible, or distributively, if needed.
-     *
-     * @param txId Transaction id.
-     * @param commitGrpId Commit partition group id.
-     * @param timestamp Timestamp.
-     * @param awaitCommitPartitionAvailabilityTimeout Timeout for awaiting commit partition primary replica.
-     * @param awaitCommitPartitionAvailabilityTimeUnit Time unit for awaiting commit partition primary replica timeout.
-     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
-     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}.
-     * @return Future with the transaction state meta as a result.
-     */
-    public CompletableFuture<TransactionMeta> resolveTxState(
-            UUID txId,
-            ZonePartitionId commitGrpId,
-            @Nullable HybridTimestamp timestamp,
-            long awaitCommitPartitionAvailabilityTimeout,
-            TimeUnit awaitCommitPartitionAvailabilityTimeUnit,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
-    ) {
-        TxStateMeta localMeta = txManager.stateMeta(txId);
+    public CompletableFuture<TransactionMeta> resolveTxState(TxStateResolutionParameters p) {
+        TxStateMeta localMeta = txManager.stateMeta(p.txId());
 
         if (localMeta != null && isFinalState(localMeta.txState())) {
             return completedFuture(localMeta);
         }
 
-        CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
+        CompletableFuture<TransactionMeta> future = txStateFutures.compute(p.txId(), (k, v) -> {
             if (v == null) {
                 v = new CompletableFuture<>();
 
-                resolveDistributiveTxState(
-                        txId,
-                        localMeta,
-                        commitGrpId,
-                        timestamp,
-                        awaitCommitPartitionAvailabilityTimeout,
-                        awaitCommitPartitionAvailabilityTimeUnit,
-                        senderCurrentConsistencyToken,
-                        senderGroupId,
-                        v
-                );
+                resolveDistributiveTxState(p, localMeta, v);
             }
 
             return v;
         });
 
-        future.whenComplete((v, e) -> txStateFutures.remove(txId));
+        future.whenComplete((v, e) -> txStateFutures.remove(p.txId()));
 
         return future;
     }
@@ -250,56 +193,26 @@ public class TransactionStateResolver {
     /**
      * Resolve the transaction state distributively. This method doesn't process final tx states.
      *
-     * @param txId Transaction id.
+     * @param p Parameters for tx state resolution.
      * @param localMeta Local tx meta.
-     * @param commitGrpId Commit partition group id.
-     * @param timestamp Timestamp to pass to target node.
-     * @param awaitCommitPartitionAvailabilityTimeout Timeout for awaiting commit partition primary replica.
-     * @param awaitCommitPartitionAvailabilityTimeUnit Time unit for awaiting commit partition primary replica timeout.
-     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
-     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}
      * @param txMetaFuture Tx meta future to complete with the result.
      */
     private void resolveDistributiveTxState(
-            UUID txId,
+            TxStateResolutionParameters p,
             @Nullable TxStateMeta localMeta,
-            ZonePartitionId commitGrpId,
-            @Nullable HybridTimestamp timestamp,
-            long awaitCommitPartitionAvailabilityTimeout,
-            TimeUnit awaitCommitPartitionAvailabilityTimeUnit,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        assert localMeta == null || !isFinalState(localMeta.txState()) : "Unexpected tx meta [txId" + txId + ", meta=" + localMeta + ']';
-
-        HybridTimestamp timestamp0 = timestamp == null ? HybridTimestamp.MIN_VALUE : timestamp;
+        if (localMeta != null && isFinalState(localMeta.txState())) {
+            throw new IllegalArgumentException("Unexpected tx meta [txId" + p.txId() + ", meta=" + localMeta + ']');
+        }
 
         if (localMeta == null) {
             // Fallback to commit partition path, because we don't have coordinator id.
-            resolveTxStateFromCommitPartition(
-                    txId,
-                    commitGrpId,
-                    awaitCommitPartitionAvailabilityTimeout,
-                    awaitCommitPartitionAvailabilityTimeUnit,
-                    txMetaFuture,
-                    senderCurrentConsistencyToken,
-                    senderGroupId
-            );
+            resolveTxStateFromCommitPartition(p, txMetaFuture);
         } else if (localMeta.txState() == PENDING) {
-            resolveTxStateFromTxCoordinator(
-                    txId,
-                    localMeta.txCoordinatorId(),
-                    commitGrpId,
-                    timestamp0,
-                    senderCurrentConsistencyToken,
-                    senderGroupId,
-                    txMetaFuture
-            );
+            resolveTxStateFromTxCoordinator(p, localMeta.txCoordinatorId(), txMetaFuture);
         } else if (localMeta.txState() == FINISHING) {
-            assert localMeta instanceof TxStateMetaFinishing;
-
-            ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
+            castToFinishing(p.txId(), localMeta).txFinishFuture().whenComplete((v, e) -> {
                 if (e == null) {
                     txMetaFuture.complete(v);
                 } else {
@@ -307,57 +220,38 @@ public class TransactionStateResolver {
                 }
             });
         } else {
-            assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
+            assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + p.txId() + ", txStateMeta=" + localMeta + ']';
 
             // Still try to resolve the state from commit partition.
-            resolveTxStateFromCommitPartition(txId,
-                    commitGrpId,
-                    senderCurrentConsistencyToken,
-                    senderGroupId,
-                    txMetaFuture
-            );
+            resolveTxStateFromCommitPartition(p, txMetaFuture);
         }
     }
 
     private void resolveTxStateFromTxCoordinator(
-            UUID txId,
+            TxStateResolutionParameters p,
             @Nullable UUID coordinatorId,
-            ZonePartitionId commitGrpId,
-            HybridTimestamp timestamp,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
+        updateLocalTxMapAfterDistributedStateResolved(p.txId(), txMetaFuture);
 
         InternalClusterNode coordinator = coordinatorId == null ? null : clusterNodeResolver.getById(coordinatorId);
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
-            markAbandoned(txId);
+            markAbandoned(p.txId());
 
-            resolveTxStateFromCommitPartition(txId, commitGrpId, senderCurrentConsistencyToken, senderGroupId, txMetaFuture);
+            resolveTxStateFromCommitPartition(p, txMetaFuture);
         } else {
-            txMessageSender.resolveTxStateFromCoordinator(
-                            coordinator,
-                            commitGrpId,
-                            txId,
-                            timestamp,
-                            senderCurrentConsistencyToken,
-                            senderGroupId
-                    )
+            txMessageSender.resolveTxStateFromCoordinator(p, coordinator)
                     .whenComplete((response, e) -> {
                         if (e == null && response.txStateMeta() != null && response.txStateMeta().txState() != UNKNOWN) {
                             txMetaFuture.complete(response.txStateMeta().asTransactionMeta());
                         } else {
                             if (e != null && e.getCause() instanceof RecipientLeftException) {
-                                markAbandoned(txId);
+                                markAbandoned(p.txId());
                             }
 
                             resolveTxStateFromCommitPartition(
-                                    txId,
-                                    commitGrpId,
-                                    senderCurrentConsistencyToken,
-                                    senderGroupId,
+                                    p,
                                     txMetaFuture
                             );
                         }
@@ -365,44 +259,10 @@ public class TransactionStateResolver {
         }
     }
 
-    private void resolveTxStateFromCommitPartition(
-            UUID txId,
-            ZonePartitionId commitGrpId,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId,
-            CompletableFuture<TransactionMeta> txMetaFuture
-    ) {
-        resolveTxStateFromCommitPartition(
-                txId,
-                commitGrpId,
-                AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                SECONDS,
-                txMetaFuture,
-                senderCurrentConsistencyToken,
-                senderGroupId
-        );
-    }
+    private void resolveTxStateFromCommitPartition(TxStateResolutionParameters p, CompletableFuture<TransactionMeta> txMetaFuture) {
+        updateLocalTxMapAfterDistributedStateResolved(p.txId(), txMetaFuture);
 
-    private void resolveTxStateFromCommitPartition(
-            UUID txId,
-            ZonePartitionId commitGrpId,
-            long awaitPrimaryReplicaTimeout,
-            TimeUnit awaitPrimaryReplicaTimeUnit,
-            CompletableFuture<TransactionMeta> txMetaFuture,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
-    ) {
-        updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
-
-        sendAndRetry(
-                txMetaFuture,
-                commitGrpId,
-                txId,
-                awaitPrimaryReplicaTimeout,
-                awaitPrimaryReplicaTimeUnit,
-                senderCurrentConsistencyToken,
-                senderGroupId
-        );
+        sendAndRetry(p, txMetaFuture);
     }
 
     /**
@@ -425,32 +285,23 @@ public class TransactionStateResolver {
     /**
      * Tries to send a request to primary replica of the replication group.
      *
+     * @param p Transaction state resolution parameters.
      * @param resFut Response future.
-     * @param replicaGrp Replication group id.
-     * @param txId Transaction id.
-     * @param awaitPrimaryReplicaTimeout Primary replica await timeout.
-     * @param awaitPrimaryReplicaTimeUnit Primary replica await timeout time unit.
-     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
-     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}
      */
     private void sendAndRetry(
-            CompletableFuture<TransactionMeta> resFut,
-            ZonePartitionId replicaGrp,
-            UUID txId,
-            long awaitPrimaryReplicaTimeout,
-            TimeUnit awaitPrimaryReplicaTimeUnit,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
+            TxStateResolutionParameters p,
+            CompletableFuture<TransactionMeta> resFut
     ) {
-        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp, awaitPrimaryReplicaTimeout, awaitPrimaryReplicaTimeUnit)
+        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(
+                        p.commitGroupId(),
+                        p.awaitCommitPartitionAvailabilityTimeout(),
+                        p.awaitCommitPartitionAvailabilityTimeUnit()
+                )
                 .thenCompose(replicaMeta ->
                         txMessageSender.resolveTxStateFromCommitPartition(
+                                p,
                                 replicaMeta.getLeaseholder(),
-                                txId,
-                                replicaGrp,
-                                replicaMeta.getStartTime().longValue(),
-                                senderCurrentConsistencyToken,
-                                senderGroupId
+                                replicaMeta.getStartTime().longValue()
                         ))
                 .whenComplete((txMeta, e) -> {
                     if (e == null) {
@@ -459,15 +310,7 @@ public class TransactionStateResolver {
                         resFut.complete(txMeta);
                     } else {
                         if (e instanceof PrimaryReplicaMissException) {
-                            sendAndRetry(
-                                    resFut,
-                                    replicaGrp,
-                                    txId,
-                                    awaitPrimaryReplicaTimeout,
-                                    awaitPrimaryReplicaTimeUnit,
-                                    senderCurrentConsistencyToken,
-                                    senderGroupId
-                            );
+                            sendAndRetry(p, resFut);
                         } else {
                             resFut.completeExceptionally(e);
                         }
@@ -497,11 +340,7 @@ public class TransactionStateResolver {
             if (isFinalState(txStateMeta.txState())) {
                 return completedFuture(txStateMeta);
             } else if (txStateMeta.txState() == FINISHING) {
-                assert txStateMeta instanceof TxStateMetaFinishing;
-
-                TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
-
-                return txStateMetaFinishing.txFinishFuture();
+                return castToFinishing(request.txId(), txStateMeta).txFinishFuture();
             } else if (request.readTimestamp() == null || request.readTimestamp().equals(HybridTimestamp.MIN_VALUE)) {
                 // If txn is in non-final state and resolution is requested by RW txn.
                 Long currentConsistencyToken = request.senderCurrentConsistencyToken();

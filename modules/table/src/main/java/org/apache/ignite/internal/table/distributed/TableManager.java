@@ -1691,6 +1691,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
     }
 
+    @TestOnly
+    public ReplicaService replicaService() {
+        return replicaSvc;
+    }
+
     /** Internal event. */
     private static class DestroyTableEvent {
         final int catalogVersion;

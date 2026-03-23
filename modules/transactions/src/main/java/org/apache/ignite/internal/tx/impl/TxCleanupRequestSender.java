@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.scheduleRetry;
 
@@ -156,12 +157,9 @@ public class TxCleanupRequestSender {
                                 String primaryNode = replicaMeta.getLeaseholder();
                                 HybridTimestamp startTime = replicaMeta.getStartTime();
                                 return txMessageSender.resolveTxStateFromCommitPartition(
+                                            txStateResolutionParameters().txId(txId).commitGroupId(commitPartitionId).build(),
                                             primaryNode,
-                                            txId,
-                                            commitPartitionId,
-                                            startTime.longValue(),
-                                            null,
-                                            null
+                                            startTime.longValue()
                                         )
                                         .thenApply(TransactionMeta::commitTimestamp);
                             }

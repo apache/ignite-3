@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,17 +33,29 @@ public class RowMeta {
     private final @Nullable Integer commitZoneId;
     private final int commitPartitionId;
 
-    /** Creates a RowMeta instance for a row without a write intent. */
+    private final HybridTimestamp newestCommitTimestamp;
+
+    /**
+     * Creates a RowMeta instance for a row without a write intent. Newest commit timestamp is not needed because this doesn't require
+     * write intent resolution.
+     */
     public static RowMeta withoutWriteIntent(RowId rowId) {
-        return new RowMeta(rowId, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID);
+        return new RowMeta(rowId, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, null);
     }
 
     /** Constructor. */
-    public RowMeta(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitZoneId, int commitPartitionId) {
+    public RowMeta(
+            RowId rowId,
+            @Nullable UUID transactionId,
+            @Nullable Integer commitZoneId,
+            int commitPartitionId,
+            @Nullable HybridTimestamp newestCommitTimestamp
+    ) {
         this.rowId = rowId;
         this.transactionId = transactionId;
         this.commitZoneId = commitZoneId;
         this.commitPartitionId = commitPartitionId;
+        this.newestCommitTimestamp = newestCommitTimestamp;
     }
 
     /** Returns the row ID. */
@@ -68,6 +81,16 @@ public class RowMeta {
     /** Returns the commit partition ID. If row has no write intent, it's {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID}. */
     public int commitPartitionId() {
         return commitPartitionId;
+    }
+
+    /**
+     * Returns the newest commit timestamp if this row has a write intent, or {@code null} otherwise.
+     *
+     * @return Newest commit timestamp.
+     */
+    @Nullable
+    public HybridTimestamp newestCommitTimestamp() {
+        return newestCommitTimestamp;
     }
 
     @Override

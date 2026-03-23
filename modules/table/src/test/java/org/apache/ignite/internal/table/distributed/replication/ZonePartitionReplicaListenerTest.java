@@ -140,7 +140,6 @@ import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -205,6 +204,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -612,7 +612,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService,
                 clusterNodeResolver,
                 messagingService,
-                mock(PlacementDriver.class),
+                mock(PlacementDriverHelper.class),
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
@@ -652,6 +652,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
+                new PlacementDriverHelper(placementDriver, clockService),
                 clusterNodeResolver,
                 mockRaftClient,
                 failureManager,
@@ -1380,6 +1381,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
+                .tableId(TABLE_ID)
+                .senderGroupId(zonePartitionIdMessage(grpId))
+                .senderCurrentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build(), randomUUID());
 
         assertThat(fut, willSucceedFast());
@@ -1404,6 +1409,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(txId)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThat(fut, willSucceedFast());
@@ -1655,6 +1661,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(10L)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThrowsWithCause(
@@ -1672,6 +1679,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThrowsWithCause(
