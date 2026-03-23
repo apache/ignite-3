@@ -254,7 +254,7 @@ public:
         result.reserve(count);
 
         for (std::size_t i = 0; i < count; ++i) {
-            std::int64_t value = detail::bytes::load<detail::endian::LITTLE, std::int64_t>(
+            std::int64_t value = detail::bytes::load<detail::endian::BIG, std::int64_t>(
                 binary_data.data() + i * 8);
             result.push_back(value);
         }
