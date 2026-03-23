@@ -778,10 +778,21 @@ namespace Apache.Ignite.Internal
                         $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterIds.StringJoin()}");
                 }
 
+                // Check if another endpoint already connected to this node.
+                var nodeName = socket.ConnectionContext.ClusterNode.Name;
+                if (_endpointsByName.TryGetValue(nodeName, out var existingEndpoint) && existingEndpoint != endpoint)
+                {
+                    _logger.LogMultipleEndpointsSameNodeWarn(
+                        nodeName,
+                        socket.ConnectionContext.ClusterNode.Id,
+                        existingEndpoint.EndPoint,
+                        endpoint.EndPoint);
+                }
+
                 // First update mapping, then set socket:
                 // - GetConnections does not lock and should not return connections that are not in the map.
                 // - GetSocketAsync uses a lock and will not see a null/old socket.
-                _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+                _endpointsByName[nodeName] = endpoint;
 
                 endpoint.Socket = socket;
 
