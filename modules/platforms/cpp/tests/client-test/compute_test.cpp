@@ -201,7 +201,7 @@ TEST_F(compute_test, job_error_propagates_to_client) {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19603
                 // EXPECT_THAT(e.what_str(),
                 //     testing::HasSubstr(
-                //         "org.apache.ignite.internal.client.ItThinClientComputeTest$CustomException"));
+                //         "org.apache.ignite.internal.runner.app.Jobs$CustomException"));
                 // EXPECT_THAT(e.what_str(), testing::HasSubstr("IGN-TBL-3"));
                 throw;
             }
