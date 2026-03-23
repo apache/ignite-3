@@ -15,17 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.table.distributed.replicator.handlers;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
-/** Supplier table index storages. */
+/**
+ * Handler for a specific type of {@link ReplicaRequest}.
+ *
+ * @param <T> Type of the request this handler processes.
+ */
 @FunctionalInterface
-public interface TableIndexStoragesSupplier {
+public interface ReplicaRequestHandler<T extends ReplicaRequest> {
     /**
-     * Returns indexes by their ID.
+     * Handles the given request.
      *
-     * <p>Waits for the primary key index and all other registered indexes to be created.
+     * @param request Request to handle.
+     * @param replicaPrimacy Replica primacy information.
+     * @return Future with the result.
      */
-    Int2ObjectMap<TableSchemaAwareIndexStorage> get();
+    CompletableFuture<?> handle(T request, ReplicaPrimacy replicaPrimacy);
 }

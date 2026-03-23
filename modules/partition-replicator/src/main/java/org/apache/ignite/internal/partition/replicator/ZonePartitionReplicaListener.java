@@ -55,6 +55,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
@@ -114,6 +115,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             LeasePlacementDriver placementDriver,
+            PlacementDriverHelper placementDriverHelper,
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
             FailureProcessor failureProcessor,
@@ -173,6 +175,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 clusterNodeResolver,
                 txRecoveryEngine,
                 txMessageSender,
+                placementDriverHelper,
                 replicationGroupId,
                 localNode
         );
