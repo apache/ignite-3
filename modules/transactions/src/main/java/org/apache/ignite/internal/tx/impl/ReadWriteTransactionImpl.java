@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -38,6 +40,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
@@ -52,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+    private static final IgniteLogger LOG = Loggers.forClass(ReadWriteTransactionImpl.class);
+
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ZonePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ZonePartitionId.class, "commitPart");
@@ -71,7 +77,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * {@code True} if a transaction is externally killed.
      */
-    private boolean killed;
+    private volatile boolean killed;
 
     /**
      * {@code True} if a remote(directly mapped) part of this transaction has no writes.
@@ -154,9 +160,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Fails the operation.
+     * Return the exception depending on a transaction state.
+     *
+     * @return The exception.
      */
-    private RuntimeException enlistFailedException() {
+    @Override
+    public RuntimeException enlistFailedException() {
         TxStateMeta meta = txManager.stateMeta(id());
         Throwable cause = meta == null ? null : meta.lastException();
         boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
@@ -243,6 +252,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean isComplete,
             @Nullable Throwable finishReason
     ) {
+        // LOG.info("DBG: finishInternal " + id() + ", commit=" + commit + ", killed=" + !isComplete);
+
         enlistPartitionLock.writeLock().lock();
 
         try {
@@ -275,6 +286,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     return finishFutureInternal;
                 } else {
+                    killed = !isComplete;
+
                     CompletableFuture<Void> finishFutureInternal = txManager.finish(
                             observableTsTracker,
                             commitPart,
@@ -290,8 +303,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
                         this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
-                        killed = true;
-
                         return finishFutureInternal.handle((unused, throwable) -> {
                             // TODO https://issues.apache.org/jira/browse/IGNITE-25825 move before finish after async cleanup
                             if (killClosure != null) {
@@ -354,7 +365,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Fail the transaction with exception so finishing it is not possible.
+     * Fails the transaction with exception so finishing it is not possible.
      *
      * @param e Fail reason.
      */
@@ -364,7 +375,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Set no remote writes flag.
+     * Sets no remote writes flag.
      *
      * @param noRemoteWrites The value.
      */

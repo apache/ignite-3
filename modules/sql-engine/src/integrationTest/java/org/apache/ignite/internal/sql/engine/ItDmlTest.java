@@ -565,22 +565,22 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE test (id int primary key, val int)");
 
         Transaction olderTx = CLUSTER.aliveNode().transactions().begin();
-        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+        Transaction newerTx = CLUSTER.aliveNode().transactions().begin();
 
-        sql(tx, "INSERT INTO test VALUES (0, 0)");
+        sql(olderTx, "INSERT INTO test VALUES (0, 0)");
 
         // just inserted row should be visible within the same transaction
-        assertEquals(1, sql(tx, "select * from test").size());
+        assertEquals(1, sql(olderTx, "select * from test").size());
 
         // just inserted row should not be visible until related transaction is committed
         assertEquals(0,
                 sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
 
-        CompletableFuture<Integer> selectFut = runAsync(() -> sql(olderTx, "select * from test").size());
+        CompletableFuture<Integer> selectFut = runAsync(() -> sql(newerTx, "select * from test").size());
 
         assertFalse(selectFut.isDone());
 
-        tx.commit();
+        olderTx.commit();
 
         assertThat(selectFut, willCompleteSuccessfully());
 
@@ -589,7 +589,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         assertEquals(1,
                 sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
 
-        olderTx.commit();
+        newerTx.commit();
     }
 
     @Test

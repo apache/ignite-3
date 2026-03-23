@@ -23,8 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
+import org.apache.ignite.internal.tx.impl.NoWaitDeadlockPreventionPolicy;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,13 +31,9 @@ import org.junit.jupiter.api.Test;
  * another transaction.
  */
 public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
-    DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicyImpl(TxIdComparators.NONE, 0);
-    }
-
     @Override
-    protected LockManager lockManager() {
-        return lockManager(deadlockPreventionPolicy());
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        return new NoWaitDeadlockPreventionPolicy();
     }
 
     @Test
@@ -46,7 +41,7 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        var key = key("test");
+        var key = lockKey("test");
 
         for (LockMode m1 : LockMode.values()) {
             for (LockMode m2 : LockMode.values()) {
@@ -70,7 +65,7 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
-        var key = key("test");
+        var key = lockKey("test");
 
         for (LockMode m2 : LockMode.values()) {
             for (LockMode m1 : LockMode.values()) {
@@ -94,7 +89,7 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
         var tx0 = beginTx();
         var tx1 = beginTx();
 
-        var key = key("test0");
+        var key = lockKey("test0");
 
         assertThat(slock(tx0, key), willSucceedFast());
         assertThat(slock(tx1, key), willSucceedFast());
@@ -108,8 +103,8 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
         var tx0 = beginTx();
         var tx1 = beginTx();
 
-        var key0 = key("test0");
-        var key1 = key("test1");
+        var key0 = lockKey("test0");
+        var key1 = lockKey("test1");
 
         assertThat(xlock(tx0, key0), willSucceedFast());
         assertThat(xlock(tx1, key1), willSucceedFast());

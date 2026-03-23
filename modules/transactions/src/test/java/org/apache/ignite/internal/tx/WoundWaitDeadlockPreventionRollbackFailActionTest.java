@@ -18,55 +18,61 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.hamcrest.Matcher;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.tx.impl.WoundWaitDeadlockPreventionPolicy;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for NONE deadlock prevention policy, i.e. policy that doesn't prevent any deadlocks.
+ * Test for {@link WoundWaitDeadlockPreventionPolicy} with rollback fail action.
  */
-public class NoneDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
+public class WoundWaitDeadlockPreventionRollbackFailActionTest extends AbstractLockingTest {
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return DeadlockPreventionPolicy.NO_OP;
-    }
-
-    @Override
-    protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
-        return waitsFor(txId);
-    }
-
-    @Test
-    public void allowDeadlockOnOneKey() {
-        var tx0 = beginTx();
-        var tx1 = beginTx();
-
-        var key = lockKey("test0");
-
-        assertThat(slock(tx0, key), willSucceedFast());
-        assertThat(slock(tx1, key), willSucceedFast());
-
-        assertFalse(xlock(tx0, key).isDone());
-        assertFalse(xlock(tx1, key).isDone());
+        return new WoundWaitDeadlockPreventionPolicy() {
+            @Override
+            public void failAction(UUID owner) {
+                rollbackTx(owner);
+            }
+        };
     }
 
     @Test
-    public void allowDeadlockOnTwoKeys() {
-        var tx0 = beginTx();
+    public void testInvalidate() {
         var tx1 = beginTx();
+        var tx2 = beginTx();
+        var tx3 = beginTx();
 
-        var key0 = lockKey("test0");
-        var key1 = lockKey("test1");
+        var k = lockKey("test");
 
-        assertThat(xlock(tx0, key0), willSucceedFast());
-        assertThat(xlock(tx1, key1), willSucceedFast());
+        assertThat(slock(tx2, k), willSucceedFast());
+        assertThat(slock(tx3, k), willSucceedFast());
 
-        assertFalse(xlock(tx0, key1).isDone());
-        assertFalse(xlock(tx1, key0).isDone());
+        // Should invalidate younger owners.
+        assertThat(xlock(tx1, k), willSucceedFast());
+    }
+
+    @Test
+    public void testInvalidate2() {
+        var tx1 = beginTx();
+        var tx2 = beginTx();
+        var tx3 = beginTx();
+
+        var k = lockKey("test");
+
+        assertThat(slock(tx1, k), willSucceedFast());
+        assertThat(slock(tx2, k), willSucceedFast());
+        assertThat(slock(tx3, k), willSucceedFast());
+
+        // Should invalidate younger owners.
+        assertThat(xlock(tx1, k), willSucceedFast());
     }
 }

@@ -29,6 +29,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
+import org.apache.ignite.internal.tx.message.TxKillMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
@@ -52,6 +55,8 @@ import org.jetbrains.annotations.Nullable;
  * This class is responsible for interacting with the messaging layer. Sends transaction messages.
  */
 public class TxMessageSender {
+    private static final IgniteLogger LOG = Loggers.forClass(TxMessageSender.class);
+
     private static final int RPC_TIMEOUT_MILLIS = 60 * 1000;
 
     /** Tx messages factory. */
@@ -132,6 +137,8 @@ public class TxMessageSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
+        //LOG.info("DBG: send cleanup " + txId);
+
         return messagingService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupMessage()
@@ -307,5 +314,17 @@ public class TxMessageSender {
         }
 
         return messages;
+    }
+
+    /**
+     * Sends a message to kill a transaction to it's coordinator.
+     *
+     * @param coordinator The coordinator.
+     * @param txId The id.
+     */
+    public void kill(InternalClusterNode coordinator, UUID txId) {
+        TxKillMessage message = TX_MESSAGES_FACTORY.txKillMessage().txId(txId).build();
+
+        messagingService.send(coordinator, message);
     }
 }

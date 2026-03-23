@@ -128,6 +128,7 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -651,32 +652,8 @@ public class InternalTableImpl implements InternalTable {
             if (req.isWrite()) {
                 // Track only write requests from explicit transactions.
                 if (!tx.remote() && !transactionInflights.addInflight(tx.id())) {
-                    TxStateMeta txStateMeta = txManager.stateMeta(tx.id());
-                    Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
-                    boolean isFinishedDueToTimeout = txStateMeta == null
-                            ? tx.isRolledBackWithTimeoutExceeded()
-                            : txStateMeta.isFinishedDueToTimeoutOrFalse();
-                    boolean isFinishedDueToError = !isFinishedDueToTimeout
-                            && txStateMeta != null
-                            && txStateMeta.lastExceptionErrorCode() != null;
-                    Throwable publicCause = isFinishedDueToError ? cause : null;
-                    Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
-                    int code = finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError);
-
-                    return failedFuture(
-                            new TransactionException(code, format(
-                                    finishedTransactionErrorMessage(
-                                            isFinishedDueToTimeout,
-                                            isFinishedDueToError,
-                                            causeErrorCode,
-                                            publicCause != null
-                                    )
-                                            + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
-                                    tableName,
-                                    partId,
-                                    tx.state(),
-                                    isFinishedDueToTimeout
-                            ), publicCause));
+                    // TODO can add inflight even if the error
+                    return failedFuture(tx.enlistFailedException());
                 }
 
                 return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).thenApply(res -> {

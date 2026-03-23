@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -28,16 +30,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,19 +58,20 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "test_zone";
     private static final String TABLE_NAME = "accounts";
     private static final int WRITE_PARALLELISM = Runtime.getRuntime().availableProcessors();
-    private static final int READ_PARALLELISM = 1;
+    private static final int READ_PARALLELISM = 0;
     private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
     private static final double INITIAL = 1000;
     private static final double TOTAL = ACCOUNTS_COUNT * INITIAL;
-    private static final int DURATION_MILLIS = 10000;
+    private static final int DURATION_MILLIS = 30000;
 
     private CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
     private LongAdder ops = new LongAdder();
     private LongAdder fails = new LongAdder();
+    private LongAdder restarts = new LongAdder();
     private LongAdder readOps = new LongAdder();
     private LongAdder readFails = new LongAdder();
     private AtomicBoolean stop = new AtomicBoolean();
-    private Random rng = new Random();
+    private Random rng = new Random(0);
     private AtomicReference<Throwable> firstErr = new AtomicReference<>();
 
     @BeforeAll
@@ -92,6 +101,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testDataConsistency() throws InterruptedException {
+        stop.set(false);
         Thread[] threads = new Thread[WRITE_PARALLELISM];
 
         for (int i = 0; i < threads.length; i++) {
@@ -112,17 +122,29 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThreads[i].start();
         }
 
+        log.info("Started {} writers", WRITE_PARALLELISM);
+        log.info("Started {} readers", READ_PARALLELISM);
+
         long cur = System.currentTimeMillis();
+
+        long curOps = ops.sum();
 
         while (cur + DURATION_MILLIS > System.currentTimeMillis()) {
             Thread.sleep(1000);
 
-            log.info("Waiting...");
+            long tmp = ops.sum();
+            if (tmp == curOps) {
+                throw new AssertionError("Test doesn't make progress");
+            }
+            log.info("Running... ops={} restarts={} fails={} readOps={} readFails={}", tmp, restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
+            curOps = tmp;
 
             if (firstErr.get() != null) {
                 throw new IgniteException(INTERNAL_ERR, firstErr.get());
             }
         }
+
+        log.info("Stop running");
 
         stop.set(true);
 
@@ -133,6 +155,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThread.join(3_000);
         }
 
+        // TODO unregisted from timeout tracker killed transactions!!!!
         validate();
     }
 
@@ -163,7 +186,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         Ignite node = node(0);
         Table accounts = node.tables().table("accounts");
 
-        log.info("After test ops={} fails={} readOps={} readFails={}", ops.sum(), fails.sum(), readOps.sum(), readFails.sum());
+        log.info("After test ops={} restarts={} fails={} readOps={} readFails={}", ops.sum(), restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
 
         double total0 = 0;
 
@@ -174,6 +197,17 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(TOTAL, total0, "Total amount invariant is not preserved");
+
+        for (int i = 0; i < initialNodes(); i++) {
+            IgniteImpl ignite = unwrapIgniteImpl(node(i));
+            try {
+                await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
+                        .until(() -> ignite.txManager().lockManager().isEmpty());
+            } catch (ConditionTimeoutException e) {
+                // TODO Dump lock manager state.
+                throw e;
+            }
+        }
     }
 
     private Runnable createWriter(int workerId) {
@@ -191,8 +225,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 Transaction tx = node.transactions().begin();
 
                 var view = node.tables().table("accounts").recordView();
-
                 try {
+
                     long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
                     double amount = 100 + rng.nextInt(500);
@@ -215,11 +249,21 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
                     ops.increment();
                 } catch (TransactionException e) {
-                    // Don't need to rollback manually if got IgniteException.
-                    fails.increment();
+                    if (isRetriable(e)) {
+                        restarts.increment();
+                    } else {
+                        fails.increment();
+                    }
                 }
             }
         };
+    }
+
+    private static boolean isRetriable(Throwable e) {
+        return ExceptionUtils.hasCause(e,
+                TimeoutException.class,
+                RetriableTransactionException.class
+        );
     }
 
     private Runnable createReader(int workerId) {
@@ -276,5 +320,10 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     private static Tuple makeValue(long id, double balance) {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
+    }
+
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 }

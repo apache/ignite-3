@@ -56,11 +56,32 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Whether transaction priority if used for conflict resolution.
+     * Invoke fail action on the owner.
      *
-     * @return Whether priority is used.
+     * @param owner The owner.
      */
-    default boolean usePriority() {
-        return txIdComparator() != null;
+    default void failAction(UUID owner) {
+        // No-op.
+    }
+
+    /**
+     * Test if waiter is allowed to wait for owner.
+     *
+     * @param waiter The waiter.
+     * @param owner The owner.
+     *
+     * @return Waiter to fail or null if waiting is allowed.
+     */
+    default @Nullable Waiter allowWait(Waiter waiter, Waiter owner) {
+        return null;
+    };
+
+    /**
+     * Return the order, in which the first conflicting waiter is searched.
+     *
+     * @return If {@code true}, searches for older first.
+     */
+    default boolean reverse() {
+        return false;
     }
 }

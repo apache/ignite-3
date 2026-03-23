@@ -19,13 +19,26 @@ package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.impl.WoundWaitDeadlockPreventionPolicy;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Class that contains the tests for lock manager events producing for {@link HeapLockManager}.
  */
+@ParameterizedClass
+@ValueSource(classes = {WaitDieDeadlockPreventionPolicy.class, WoundWaitDeadlockPreventionPolicy.class})
 public class HeapLockManagerEventsTest extends AbstractLockManagerEventsTest {
+    @Parameter
+    Class<DeadlockPreventionPolicy> policy;
+
     @Override
-    protected LockManager lockManager() {
-        return lockManager(new WaitDieDeadlockPreventionPolicy());
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        try {
+            return policy.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -28,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
+import org.apache.ignite.internal.tx.impl.NoWaitDeadlockPreventionPolicy;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,9 +36,8 @@ import org.junit.jupiter.api.Test;
  */
 public class LockManagerTxLabelTest extends AbstractLockingTest {
     @Override
-    protected LockManager lockManager() {
-        // NO-WAIT: conflicting lock requests fail fast with a deadlock-prevention exception.
-        return lockManager(new DeadlockPreventionPolicyImpl(TxIdComparators.NONE, 0));
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        return new NoWaitDeadlockPreventionPolicy();
     }
 
     @Test
@@ -53,7 +51,7 @@ public class LockManagerTxLabelTest extends AbstractLockingTest {
         txStateVolatileStorage.updateMeta(lockHolderTx, old -> TxStateMeta.builder(PENDING).txLabel(lockHolderLabel).build());
         txStateVolatileStorage.updateMeta(failedToAcquireTx, old -> TxStateMeta.builder(PENDING).txLabel(failedToAcquireLabel).build());
 
-        LockKey key = key("test");
+        LockKey key = lockKey("test");
 
         assertThat(xlock(lockHolderTx, key), willSucceedFast());
 
@@ -71,7 +69,7 @@ public class LockManagerTxLabelTest extends AbstractLockingTest {
         txStateVolatileStorage.updateMeta(lockHolderTx, old -> TxStateMeta.builder(PENDING).txLabel("").build());
         txStateVolatileStorage.updateMeta(failedToAcquireTx, old -> TxStateMeta.builder(PENDING).txLabel("").build());
 
-        LockKey key = key("test");
+        LockKey key = lockKey("test");
 
         assertThat(xlock(lockHolderTx, key), willSucceedFast());
 

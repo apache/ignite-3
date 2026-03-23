@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.HashUtils;
 
@@ -88,6 +89,14 @@ public class LockKey {
 
     @Override
     public String toString() {
-        return S.toString(LockKey.class, this, "ctx", contextId, "key", key);
+        return S.toString(LockKey.class, this, "ctx", contextId, "key", dump(key));
+    }
+
+    private static String dump(Object key) {
+        if (key instanceof ByteBuffer) {
+            return Arrays.toString(((ByteBuffer) key).array());
+        }
+
+        return key.toString();
     }
 }

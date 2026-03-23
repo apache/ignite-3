@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.tx;
 
 import static java.lang.String.format;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,10 +28,12 @@ import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Table;
@@ -89,6 +93,11 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
 
         AtomicInteger cnt = new AtomicInteger();
 
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+
+        Phaser phaser = new Phaser(2);
+
         CompletableFuture<Void> fut = IgniteTestUtils.runAsync(() -> {
             ignite().transactions().runInTransaction(youngerTx -> {
                 if (cnt.incrementAndGet() == 2) {
@@ -97,10 +106,25 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
 
                 ctx.put.apply(ignite(), youngerTx, key2);
                 assertTrue(txId(olderTx).compareTo(txId(youngerTx)) < 0);
-                // Younger is not allowed to wait for older.
-                ctx.put.apply(ignite(), youngerTx, key);
+
+                phaser.arriveAndAwaitAdvance();
+
+                if (reversed) {
+                    // Younger is not allowed to wait for older.
+                    ctx.put.apply(ignite(), youngerTx, key);
+                } else {
+                    phaser.arriveAndAwaitAdvance();
+                }
             });
         });
+
+        phaser.arriveAndAwaitAdvance();
+
+        if (!reversed) {
+            // Older will invalidate younger, so commit fails.
+            ctx.put.apply(ignite(), olderTx, key2);
+            phaser.arriveAndAwaitAdvance();
+        }
 
         assertThat(fut, willThrowWithCauseOrSuppressed(Exception.class, "retry"));
 
@@ -122,6 +146,11 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
 
         AtomicInteger cnt = new AtomicInteger();
 
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+
+        Phaser phaser = new Phaser(2);
+
         CompletableFuture<Void> fut = ignite().transactions().runInTransactionAsync(youngerTx -> {
             if (cnt.incrementAndGet() == 2) {
                 throw new RuntimeException("retry");
@@ -131,9 +160,25 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
                 assertTrue(txId(olderTx).compareTo(txId(youngerTx)) < 0,
                         "Wrong ordering: old=" + olderTx.toString() + ", new=" + youngerTx.toString());
                 // Younger is not allowed to wait for older.
-                return ctx.put.apply(ignite(), youngerTx, key);
+                phaser.arriveAndAwaitAdvance();
+
+                if (reversed) {
+                    // Younger is not allowed to wait for older.
+                    return ctx.put.apply(ignite(), youngerTx, key);
+                } else {
+                    phaser.arriveAndAwaitAdvance();
+                    return nullCompletedFuture();
+                }
             });
         });
+
+        phaser.arriveAndAwaitAdvance();
+
+        if (!reversed) {
+            // Older will invalidate younger, so commit fails.
+            ctx.put.apply(ignite(), olderTx, key2).join();
+            phaser.arriveAndAwaitAdvance();
+        }
 
         assertThat(fut, willThrowWithCauseOrSuppressed(Exception.class, "retry"));
 
