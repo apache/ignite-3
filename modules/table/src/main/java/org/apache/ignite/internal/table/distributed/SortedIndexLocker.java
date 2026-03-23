@@ -217,6 +217,9 @@ public class SortedIndexLocker implements IndexLocker {
         final int indexId;
         private final int hash;
 
+        /**
+         * Constructor.
+         */
         public PartitionIndexId(int partitionId, int indexId) {
             this.partitionId = partitionId;
             this.indexId = indexId;
