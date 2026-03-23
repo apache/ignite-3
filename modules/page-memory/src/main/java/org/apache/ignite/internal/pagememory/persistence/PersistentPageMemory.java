@@ -1341,22 +1341,16 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         void readLock() {
-            long addr = ptr + curIdx() * PADDING;
-            System.out.println(Thread.currentThread() + " readLock " + addr);
-            rwLock.readLock(addr, -1);
+            rwLock.readLock(ptr + curIdx() * PADDING, -1);
         }
 
         void readUnlock() {
-            long addr = ptr + curIdx() * PADDING;
-            System.out.println(Thread.currentThread() + " readUnlock " + addr);
-            rwLock.readUnlock(addr);
+            rwLock.readUnlock(ptr + curIdx() * PADDING);
         }
 
         void writeLock() {
             for (long i = 0; i < concLvl; i++) {
-                long addr = ptr + i * PADDING;
-                System.out.println(Thread.currentThread() + " writeLock(" + i + ") " + addr);
-                rwLock.writeLock(addr, -1);
+                rwLock.writeLock(ptr + i * PADDING, -1);
             }
 
             writeLockHolder = Thread.currentThread();
@@ -1366,9 +1360,7 @@ public class PersistentPageMemory implements PageMemory {
             writeLockHolder = null;
 
             for (long i = concLvl - 1; i >= 0; i--) {
-                long addr = ptr + i * PADDING;
-                System.out.println(Thread.currentThread() + " writeUnlock(" + i + ") " + addr);
-                rwLock.writeUnlock(addr, -1);
+                rwLock.writeUnlock(ptr + i * PADDING, -1);
             }
         }
 
