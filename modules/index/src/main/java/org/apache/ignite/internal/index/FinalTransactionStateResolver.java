@@ -19,8 +19,11 @@ package org.apache.ignite.internal.index;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.TxState;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Resolves the final state of a transaction.
@@ -32,6 +35,15 @@ public interface FinalTransactionStateResolver {
      *
      * @param transactionId Transaction ID.
      * @param commitGroupId Commit partition ID.
+     * @param senderGroupId Sender partition ID.
+     * @param rowId Row ID.
+     * @param newestCommitTimestamp Newest commit timestamp observed by the sender.
      */
-    CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ZonePartitionId commitGroupId);
+    CompletableFuture<TxState> resolveFinalTxState(
+            UUID transactionId,
+            ZonePartitionId commitGroupId,
+            ZonePartitionId senderGroupId,
+            RowId rowId,
+            @Nullable HybridTimestamp newestCommitTimestamp
+    );
 }
