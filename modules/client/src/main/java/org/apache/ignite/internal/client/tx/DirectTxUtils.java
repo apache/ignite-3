@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -280,6 +281,29 @@ public class DirectTxUtils {
                 return completedFuture(opCh);
             }
         });
+    }
+
+    /**
+     * If the current request is the first request of a direct translation, add a listener to the {@link PayloadWriter}.
+     *
+     * @param ctx The {@link WriteContext} that holds transactional context information.
+     * @param tx The client transaction associated with the request, or {@code null} if none.
+     * @param base Request native {@link PayloadWriter}.
+     * @return The {@link PayloadWriter} that should be used on the request.
+     */
+    public static PayloadWriter payloadWriter(WriteContext ctx, @Nullable Transaction tx, PayloadWriter base) {
+        if (ctx.firstReqFut != null && tx instanceof ClientLazyTransaction) {
+            return poc -> {
+                base.accept(poc);
+
+                var clientLazyTx = (ClientLazyTransaction) tx;
+                long requestId = poc.requestId();
+                ClientChannel cc = poc.clientChannel();
+                poc.onSent(() -> clientLazyTx.updateRequestInfo(requestId, cc));
+            };
+        } else {
+            return base;
+        }
     }
 
     private static CompletableFuture<ClientChannel> resolveChannelInner(

@@ -366,7 +366,11 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation),
+                DirectTxUtils.payloadWriter(
+                        ctx,
+                        transaction,
+                        payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation)
+                ),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -375,6 +379,18 @@ public class ClientSql implements IgniteSql {
             if (err != null) {
                 if (tx != null && shouldRecordTransactionFailure(err)) {
                     tx.recordOperationFailure(err);
+                }
+
+                // We should reconcile this code with ClientTable. Should be the same.
+                if (ctx.firstReqFut != null) {
+                    // Create failed transaction.
+                    long id = -1;
+                    ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null,
+                            ctx.pm, null, ch.observableTimestamp(), 0);
+                    failed.fail();
+                    ctx.firstReqFut.complete(failed);
+                    // Txn was not started, rollback is not required.
+                    return failedFuture(err);
                 }
 
                 if (tx == null || !shouldTrackOperation) {

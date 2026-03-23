@@ -20,7 +20,9 @@ package org.apache.ignite.client.handler.requests.table;
 import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.readAsync;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -42,6 +44,8 @@ public class ClientTupleReplaceExactRequest {
      * @param tables Ignite tables.
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -51,9 +55,11 @@ public class ClientTupleReplaceExactRequest {
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, of(READ_SECOND_TUPLE))
+        return readAsync(in, tables, resources, txManager, notificationSender, tsTracker, of(READ_SECOND_TUPLE), requestId, reqToTxMap)
                 .thenCompose(req -> req.table().recordView().replaceExactAsync(req.tx(), req.tuple(), req.tuple2())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

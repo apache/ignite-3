@@ -496,7 +496,7 @@ public class ClientTable implements Table {
                     return txStartFut.thenCompose(tx0 -> {
                         return ch.serviceAsync(
                                 opCode,
-                                w -> writer.accept(schema, w, ctx),
+                                DirectTxUtils.payloadWriter(ctx, tx, w -> writer.accept(schema, w, ctx)),
                                 r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
                                 () -> DirectTxUtils.resolveChannel(ctx, ch, ClientOp.isWrite(opCode), tx0, pm),
                                 retryPolicyOverride,

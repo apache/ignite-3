@@ -19,12 +19,15 @@ package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -44,6 +47,10 @@ public class ClientLazyTransaction implements Transaction {
     private final @Nullable TransactionOptions options;
 
     private final EnumSet<ClientInternalTxOptions> txOptions;
+
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+    private final CompletableFuture<RequestInfo> requestInfoFuture = new CompletableFuture<>();
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
@@ -94,12 +101,31 @@ public class ClientLazyTransaction implements Transaction {
     public CompletableFuture<Void> rollbackAsync() {
         var tx0 = tx;
 
+        // This is really fishy. It will probably let you reuse a transaction after calling a rollback :(
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
             return nullCompletedFuture();
         }
 
-        return tx0.thenCompose(ClientTransaction::rollbackAsync);
+        // If the transaction is not started. Issue the rollback and wait for the server response.
+        CompletableFuture<Void> ret;
+        if (!tx0.isDone() && cancelled.compareAndSet(false, true)) {
+            ret = requestInfoFuture
+                    .thenCompose(reqInfo ->
+                            reqInfo.ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(-reqInfo.firstReqId), r -> null)
+                    )
+                    .handle((res, e) -> {
+                        if (e != null) {
+                            throw sneakyThrow(ViewUtils.ensurePublicException(e));
+                        }
+
+                        return null;
+                    });
+        } else {
+            ret = nullCompletedFuture();
+        }
+
+        return ret.thenCompose(none -> tx0.thenCompose(ClientTransaction::rollbackAsync));
     }
 
     @Override
@@ -221,8 +247,23 @@ public class ClientLazyTransaction implements Transaction {
         return txOptions;
     }
 
+    public void updateRequestInfo(long firstReqId, ClientChannel ch) {
+        boolean s = this.requestInfoFuture.complete(new RequestInfo(firstReqId, ch));
+        assert s : "Transaction request info was previously set";
+    }
+
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    private static class RequestInfo {
+        private final long firstReqId;
+        private final ClientChannel ch;
+
+        private RequestInfo(long firstReqId, ClientChannel ch) {
+            this.firstReqId = firstReqId;
+            this.ch = ch;
+        }
     }
 }
