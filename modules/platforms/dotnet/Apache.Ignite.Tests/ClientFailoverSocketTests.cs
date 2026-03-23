@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests;
 
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Common;
 using Internal;
@@ -77,7 +76,7 @@ public class ClientFailoverSocketTests
         using var client = await IgniteClient.StartAsync(clientCfg);
 
         client.WaitForConnections(2);
-        Assert.AreEqual(2, server.ConnectionCount);
+        server.WaitForConnections(2);
 
         var log = logger.GetLogString();
         StringAssert.Contains("Multiple distinct endpoints resolve to the same server node", log);
@@ -88,6 +87,6 @@ public class ClientFailoverSocketTests
 
         // Ensure that duplicate connections are cleaned up properly.
         client.WaitForConnections(0);
-        Assert.AreEqual(0, server.ConnectionCount);
+        server.WaitForConnections(0);
     }
 }
