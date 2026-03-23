@@ -19,7 +19,9 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Common;
 using Internal;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -50,5 +52,33 @@ public class ClientFailoverSocketTests
 
         Assert.AreEqual(0, tables.Count);
         Assert.AreEqual(1, client.GetConnections().Count);
+    }
+
+    [Test]
+    public async Task TestMultipleEndpointsSameNodeLogsWarning()
+    {
+        ClientFailoverSocket.ResetGlobalEndpointIndex();
+
+        using var server = new FakeServer(nodeName: "test-node")
+        {
+            AllowMultipleConnections = true
+        };
+
+        var logger = new ListLoggerFactory([LogLevel.Warning]);
+
+        var clientCfg = new IgniteClientConfiguration
+        {
+            Endpoints = { $"127.0.0.1:{server.Port}", $"localhost:{server.Port}" },
+            LoggerFactory = logger,
+            ReconnectInterval = TimeSpan.Zero
+        };
+
+        using var client = await IgniteClient.StartAsync(clientCfg);
+
+        client.WaitForConnections(2);
+
+        var log = logger.GetLogString();
+        StringAssert.Contains("Multiple distinct endpoints resolve to the same server node", log);
+        StringAssert.Contains("test-node", log);
     }
 }
