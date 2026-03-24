@@ -483,6 +483,8 @@ namespace Apache.Ignite.Internal
                 }
             }
 
+            Debug.Assert(reader.End, "All error response bytes should be consumed.");
+
             return ex;
         }
 
