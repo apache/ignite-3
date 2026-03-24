@@ -522,7 +522,10 @@ public class SchemaCompatibilityValidator {
                 int registeredCatalogVersion = indexesJustStartedBeingBuilt.get(indexId);
 
                 if (context.initialSchemaCatalogVersion < registeredCatalogVersion) {
-                    return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Index was both created and started being built");
+                    // This means that the coordinator of the transaction has left and there was a race between it leaving and
+                    // this transaction being committed, that's why we mention the stale coordinator. We don't mention index building
+                    // as that might confuse the user.
+                    return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Transaction coordinator is stale");
                 }
             }
 

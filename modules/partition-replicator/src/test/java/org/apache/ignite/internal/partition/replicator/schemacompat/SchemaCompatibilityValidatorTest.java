@@ -671,7 +671,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         // to be committed.
                         tableSchema(3, 2, TABLE_NAME, someOtherColumns(), Int2IntMaps.singleton(10, 2))
                 ),
-                "Index was both created and started being built",
+                "Transaction coordinator is stale",
                 2
         );
 
