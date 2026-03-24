@@ -71,7 +71,6 @@ import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
-import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -578,7 +577,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static @NonNull List<CatalogTableColumnDescriptor> someOtherColumns() {
+    private static List<CatalogTableColumnDescriptor> someOtherColumns() {
         return List.of(intColumn("col1"), nullableIntColumn("col2"));
     }
 
@@ -710,7 +709,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static @NonNull List<CatalogTableColumnDescriptor> someColumns() {
+    private static List<CatalogTableColumnDescriptor> someColumns() {
         return List.of(intColumn("col1"));
     }
 
