@@ -264,15 +264,11 @@ public interface ClientCompatibilityTests {
                 () -> sql.executeBatch(null, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", args));
 
         // Verify error extensions: update counters should reflect 3 successful inserts before the error
-        // Note: Old clients (before SQL_UPDATE_COUNTERS_2 support) will have null updateCounters()
-        // because they don't support the new binary format extension
-        if (ex.updateCounters() != null) {
-            assertEquals(3, ex.updateCounters().length, "Expected 3 successful updates before error");
+        assertEquals(3, ex.updateCounters().length, "Expected 3 successful updates before error");
 
-            // Verify all successful inserts have counter = 1
-            for (long counter : ex.updateCounters()) {
-                assertEquals(1, counter, "Each successful insert should have update count = 1");
-            }
+        // Verify all successful inserts have counter = 1
+        for (long counter : ex.updateCounters()) {
+            assertEquals(1, counter, "Each successful insert should have update count = 1");
         }
 
         // Verify the successful rows were actually inserted
