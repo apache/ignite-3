@@ -381,8 +381,13 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat(result.toSchemaVersion(), is(2));
     }
 
+    /**
+     * In original implementation, we cached validation results for each schema diff. Now, when validation result can also depend on
+     * initial catalog version (that might well precede the versions for which a particular diff is produced), that approach
+     * would cause a bug (and it did). This test makes sure we don't inadvertently switch back to that now-buggy approach.
+     */
     @Test
-    void doesNotCacheStaleResultForDifferentInitialCatalogVersions() {
+    void doesNotCacheStaleValidationResultForDifferentInitialCatalogVersions() {
         HybridTimestamp beginTsA = new HybridTimestamp(1, 1);
         HybridTimestamp beginTsB = new HybridTimestamp(2, 1);
         HybridTimestamp sharedCommitTs = new HybridTimestamp(5, 1);
