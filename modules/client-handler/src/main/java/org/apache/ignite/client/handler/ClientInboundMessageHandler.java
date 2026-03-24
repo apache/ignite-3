@@ -795,7 +795,7 @@ public class ClientInboundMessageHandler
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
-                if (features.get(SQL_UPDATE_COUNTERS_2.featureId())) {
+                if (clientContext.hasFeature(SQL_UPDATE_COUNTERS_2)) {
                     // New format: single binary value (protocol-compliant).
                     packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
                     packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
