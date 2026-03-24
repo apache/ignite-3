@@ -39,4 +39,7 @@ set JAVA_CMD_WITH_ARGS="%JAVA_EXE%" ^
 %IGNITE3_EXTRA_JVM_ARGS% ^
 %CLASSPATH%
 
-set APPLICATION_ARGS=--config-path "%CONFIG_FILE%" --work-dir "%WORK_DIR%" --node-name %NODE_NAME%
+set APPLICATION_ARGS=--config-path "%CONFIG_FILE%" ^
+--work-dir "%WORK_DIR%" ^
+--node-name %NODE_NAME% ^
+--log-dir "%LOG_DIR%"
