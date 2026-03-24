@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 public class RaftMetricSource implements MetricSource {
     public static final String SOURCE_NAME = "raft";
 
-    public static final String RAFT_GROUP_LEADERS = "groups.LocalLeadersCount";
+    public static final String RAFT_GROUP_LEADERS = "groups.localLeadersCount";
 
     public static final String SAVE_META_DURATION = "SaveMetaDuration";
 
@@ -189,7 +189,7 @@ public class RaftMetricSource implements MetricSource {
 
     @Override
     public void disable() {
-        ENABLED.compareAndSet(this, false, true);
+        ENABLED.compareAndSet(this, true, false);
     }
 
     @Override

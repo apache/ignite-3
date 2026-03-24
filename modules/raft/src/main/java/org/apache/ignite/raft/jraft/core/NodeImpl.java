@@ -4288,7 +4288,7 @@ public class NodeImpl implements Node, RaftServerService {
             return null;
         }
         finally {
-            this.metrics.onInstallSnapshot( Utils.monotonicMs() - startMs);
+            this.metrics.onInstallSnapshot(Utils.monotonicMs() - startMs);
         }
     }
 

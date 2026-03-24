@@ -80,7 +80,7 @@ public class FSMCallerImpl implements FSMCaller {
         COMMITTED ("CommittedDuration"),
         SNAPSHOT_SAVE ("SnapshotSaveDuration"),
         SNAPSHOT_LOAD ("SnapshotLoadDuration"),
-        LEADER_STOP ("LeaderLoadDuration"),
+        LEADER_STOP ("LeaderStop    Duration"),
         LEADER_START ("LeaderStartDuration"),
         START_FOLLOWING ("StartFollowingDuration"),
         STOP_FOLLOWING ("StopFollowingDuration"),

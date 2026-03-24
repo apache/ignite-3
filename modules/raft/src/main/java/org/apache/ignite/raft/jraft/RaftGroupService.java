@@ -71,7 +71,7 @@ public class RaftGroupService {
      * @param serverId Server id.
      * @param nodeOptions Node options.
      * @param rpcServer RPC server.
-     * @param metricManager
+     * @param metricManager Metric manager.
      */
     public RaftGroupService(
             final String groupId,

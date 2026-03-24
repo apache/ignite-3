@@ -51,7 +51,7 @@ public class NodeMetricSourceTest extends BaseIgniteAbstractTest {
         Set<String> expectedMetrics = Set.of(
                 "OverloadCount",
                 "HandleAppendEntriesDuration",
-                "HeartbeatRequestTime",
+                "HeartbeatRequestDuration",
                 "AppendEntriesBatchSize",
                 "RequestVoteDuration",
                 "ReadRequestDuration",

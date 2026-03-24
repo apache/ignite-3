@@ -163,7 +163,7 @@ public class JraftServerImpl implements RaftServer {
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
-    private final   MetricManager metricManager;
+    private final MetricManager metricManager;
 
     /**
      * The constructor.

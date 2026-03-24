@@ -24,7 +24,7 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 
 /**
- * Metrics of fsm caller.
+ * Metrics of raft node.
  */
 public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Holder> {
     public static final String SOURCE_NAME = "raft.node";
@@ -181,17 +181,17 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
 
         private final AtomicLongMetric overloadCount = new AtomicLongMetric(
                 "OverloadCount",
-                "The number of times when node impl was overloaded."
+                "The number of times when node was overloaded."
         );
 
         private final DistributionMetric handleAppendEntriesDuration = new DistributionMetric(
                 "HandleAppendEntriesDuration",
-                "Duration of handling append entries request in node impl in milliseconds",
+                "Duration of handling append entries request on the node in milliseconds",
                 HISTOGRAM_BUCKETS
         );
 
         private final DistributionMetric heartBeatRequestTime = new DistributionMetric(
-                "HeartbeatRequestTime",
+                "HeartbeatRequestDuration",
                 "Duration of receiving heartbeat request in milliseconds",
                 HISTOGRAM_BUCKETS
         );
