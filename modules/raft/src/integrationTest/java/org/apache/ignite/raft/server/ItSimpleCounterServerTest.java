@@ -106,7 +106,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before() throws Exception {
-        var addr = new NetworkAddress("localhost", PORT);
+        var addr = new NetworkAddress("127.0.0.1", PORT);
 
         service = clusterService(PORT, List.of(addr), true);
 

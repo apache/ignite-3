@@ -37,6 +37,7 @@ import picocli.CommandLine.Command;
                 TopologyCommand.class,
                 ClusterUnitCommand.class,
                 ClusterMetricCommand.class,
+                ClusterRenameCommand.class,
         },
         description = "Manages an Ignite cluster")
 public class ClusterCommand extends BaseCommand {

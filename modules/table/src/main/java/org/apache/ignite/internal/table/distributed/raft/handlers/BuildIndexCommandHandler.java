@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.table.distributed.raft.handlers;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
 import java.util.List;
@@ -34,6 +34,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
@@ -47,10 +49,8 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.jetbrains.annotations.Nullable;
 
 /**

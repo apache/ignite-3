@@ -32,7 +32,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -53,7 +52,9 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -65,10 +66,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
@@ -96,8 +94,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-    private final TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
-
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
 
     private final IndexBuilder indexBuilder = new IndexBuilder(
@@ -112,8 +108,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
-
-        when(txRwOperationTracker.awaitCompleteTxRwOperations(anyInt())).thenReturn(nullCompletedFuture());
 
         when(safeTime.waitFor(any())).thenReturn(nullCompletedFuture());
     }
@@ -147,8 +141,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
-        InOrder inOrder = inOrder(txRwOperationTracker, safeTime, mvPartitionStorage);
-        inOrder.verify(txRwOperationTracker, timeout(SECONDS.toMillis(10))).awaitCompleteTxRwOperations(registerredStateCatalogVersion);
+        InOrder inOrder = inOrder(safeTime, mvPartitionStorage);
         inOrder.verify(safeTime, timeout(SECONDS.toMillis(10))).waitFor(hybridTimestamp(buildingStateActivationTs));
         inOrder.verify(mvPartitionStorage, timeout(SECONDS.toMillis(10))).highestRowId();
     }
@@ -248,7 +241,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage(),
                 mvPartitionStorage,
-                txRwOperationTracker,
                 safeTime,
                 mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
@@ -272,7 +264,6 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage(),
                 mvPartitionStorage,
-                txRwOperationTracker,
                 safeTime,
                 mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,

@@ -61,6 +61,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -74,6 +75,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -105,8 +107,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private static final ColumnsExtractor KEY_EXTRACTOR = BinaryRowConverter.keyExtractor(SCHEMA);
 
     /** Mock partition storage. */
-    @Mock
-    private MvPartitionStorage mockStorage;
+    @Spy
+    private MvPartitionStorage mockStorage = new TestMvPartitionStorage(0);
 
     /** Transaction mock. */
     @Mock

@@ -643,12 +643,22 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 for (int i = 0; i < limit && cursor.hasNext(); i++) {
                     VersionChain versionChain = cursor.next();
+
+                    HybridTimestamp newestCommitTs = null;
+
+                    if (versionChain.hasCommittedVersions()) {
+                        long newestCommitLink = versionChain.newestCommittedLink();
+                        newestCommitTs = readRowVersion(newestCommitLink, DONT_LOAD_VALUE).timestamp();
+                    }
+
                     RowMeta row = new RowMeta(
                             versionChain.rowId(),
                             versionChain.transactionId(),
                             versionChain.commitZoneId(),
-                            versionChain.commitPartitionId()
+                            versionChain.commitPartitionId(),
+                            newestCommitTs
                     );
+
                     result.add(row);
                 }
 

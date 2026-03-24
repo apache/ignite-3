@@ -107,6 +107,8 @@ dependencies {
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-table')
+    testFixturesImplementation project(':ignite-replicator')
+    testFixturesImplementation project(':ignite-partition-replicator')
     testFixturesImplementation testFixtures(project(':ignite-core'))
 }
 

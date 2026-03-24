@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.index;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;

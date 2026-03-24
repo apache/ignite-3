@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
+
 /**
  * Class for extracting a subset of columns from {@code BinaryRow}s.
  */

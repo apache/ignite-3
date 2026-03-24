@@ -18,23 +18,35 @@
   -->
 <Configuration>
   <Properties>
-    <!-- Set the `IGNITE_CI` environment variable to completely disable colors in the console output. -->
-    <Property name="disableAnsi">${env:IGNITE_CI:-false}</Property>
+    <!-- Set the `IGNITE_CI` environment variable to disable colors and route all output to stdout. -->
+    <Property name="ciMode">${env:IGNITE_CI:-false}</Property>
   </Properties>
 
   <Appenders>
     <Console name="CONSOLE" target="SYSTEM_OUT">
       <PatternLayout
         pattern="[%d{ISO8601}]%highlight{[%-5p]}{INFO=green, DEBUG=green bold, TRACE=blue}%style{[pid_%pid]}{blue}%style{[%t]}{magenta}%style{[%c{1}]}{cyan} %m%n"
-        disableAnsi="${disableAnsi}"/>
+        disableAnsi="${ciMode}"/>
       <LevelRangeFilter minLevel="INFO" maxLevel="TRACE"/>
     </Console>
 
-    <Console name="CONSOLE_ERR" target="SYSTEM_ERR">
-      <PatternLayout
-        pattern="%highlight{[%d{ISO8601}][%-5p][pid_%pid][%t][%c{1}] %m}{FATAL=red blink, ERROR=default, WARN=yellow bold}%n"
-        disableAnsi="${disableAnsi}"/>
-    </Console>
+    <!-- On CI (IGNITE_CI=true), route error logs to SYSTEM_OUT instead of SYSTEM_ERR to prevent interleaving. -->
+    <Routing name="CONSOLE_ERR">
+      <Routes pattern="${ciMode}">
+        <Route key="true">
+          <Console name="CONSOLE_ERR_OUT" target="SYSTEM_OUT">
+            <PatternLayout
+              pattern="[%d{ISO8601}][%-5p][pid_%pid][%t][%c{1}] %m%n"/>
+          </Console>
+        </Route>
+        <Route>
+          <Console name="CONSOLE_ERR_STDERR" target="SYSTEM_ERR">
+            <PatternLayout
+              pattern="%highlight{[%d{ISO8601}][%-5p][pid_%pid][%t][%c{1}] %m}{FATAL=red blink, ERROR=default, WARN=yellow bold}%n"/>
+          </Console>
+        </Route>
+      </Routes>
+    </Routing>
   </Appenders>
 
   <Loggers>

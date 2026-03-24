@@ -54,7 +54,8 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
             ProtocolBitmaskFeature.SqlPartitionAwareness |
             ProtocolBitmaskFeature.SqlPartitionAwarenessTableName |
-            ProtocolBitmaskFeature.ComputeObservableTs;
+            ProtocolBitmaskFeature.ComputeObservableTs |
+            ProtocolBitmaskFeature.SqlUpdateCounters2;
 
         /** Features as a byte array */
         private static readonly byte[] FeatureBytes = Features.ToBytes();
@@ -481,6 +482,8 @@ namespace Apache.Ignite.Internal
                     reader.Skip(); // Unknown extension - ignore.
                 }
             }
+
+            Debug.Assert(reader.End, "All error response bytes should be consumed.");
 
             return ex;
         }

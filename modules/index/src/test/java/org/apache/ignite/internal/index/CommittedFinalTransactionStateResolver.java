@@ -19,7 +19,9 @@ package org.apache.ignite.internal.index;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.TxState;
 
 /**
@@ -27,7 +29,13 @@ import org.apache.ignite.internal.tx.TxState;
  */
 public class CommittedFinalTransactionStateResolver implements FinalTransactionStateResolver {
     @Override
-    public CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ZonePartitionId commitGroupId) {
+    public CompletableFuture<TxState> resolveFinalTxState(
+            UUID transactionId,
+            ZonePartitionId commitGroupId,
+            ZonePartitionId senderGroupId,
+            RowId rowId,
+            HybridTimestamp newestCommitTimestamp
+    ) {
         return CompletableFuture.completedFuture(TxState.COMMITTED);
     }
 }

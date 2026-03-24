@@ -65,6 +65,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
@@ -104,8 +105,8 @@ import org.apache.ignite.internal.compute.configuration.ComputeExtensionConfigur
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.CompoundModule;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
@@ -198,7 +199,6 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -329,6 +329,8 @@ public class IgniteImpl implements Ignite {
     private final String name;
 
     private final Path workDir;
+
+    private final Executor asyncContinuationExecutor;
 
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
@@ -552,6 +554,7 @@ public class IgniteImpl implements Ignite {
     ) {
         this.name = node.name();
         this.workDir = workDir;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -567,26 +570,28 @@ public class IgniteImpl implements Ignite {
 
         CpuInformationProvider cpuInformationProvider = new JvmCpuInformationProvider();
 
-        ConfigurationModules modules = ConfigurationModules.create(serviceProviderClassLoader);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(serviceProviderClassLoader);
+        ConfigurationModule localModule = CompoundModule.local(allModules);
+        ConfigurationModule distributedModule = CompoundModule.distributed(allModules);
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                localModule.rootKeys(),
+                localModule.schemaExtensions(),
+                localModule.polymorphicSchemaExtensions()
         );
 
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
                 name,
                 configPath,
                 localConfigurationGenerator,
-                modules.local()
+                localModule
         );
 
         ConfigurationValidator localConfigurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, localModule.validators());
 
         nodeConfigRegistry = ConfigurationRegistry.create(
-                modules.local(),
+                localModule,
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
                 localConfigurationValidator
@@ -722,18 +727,18 @@ public class IgniteImpl implements Ignite {
         logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
-                modules.distributed().rootKeys(),
-                modules.distributed().schemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                distributedModule.rootKeys(),
+                distributedModule.schemaExtensions(),
+                distributedModule.polymorphicSchemaExtensions()
         );
 
         ConfigurationValidator distributedCfgValidator = ConfigurationValidatorImpl.withDefaultValidators(
                 distributedConfigurationGenerator,
-                modules.distributed().validators()
+                distributedModule.validators()
         );
 
         ConfigurationDynamicDefaultsPatcher clusterCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
-                modules.distributed(),
+                distributedModule,
                 distributedConfigurationGenerator
         );
 
@@ -766,6 +771,7 @@ public class IgniteImpl implements Ignite {
                 validationManager,
                 nodeAttributesCollector,
                 failureManager,
+                raftGroupEventsClientListener,
                 clusterIdService,
                 cmgRaftConfigurer,
                 metricManager
@@ -810,7 +816,7 @@ public class IgniteImpl implements Ignite {
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
         clusterConfigRegistry = ConfigurationRegistry.create(
-                modules.distributed(),
+                distributedModule,
                 cfgStorage,
                 distributedConfigurationGenerator,
                 distributedCfgValidator
@@ -942,7 +948,20 @@ public class IgniteImpl implements Ignite {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
-        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
+        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
+
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureManager,
+                clusterSvc.messagingService()
+        );
+
+        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
+        var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         replicaMgr = new ReplicaManager(
                 name,
@@ -973,8 +992,6 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = partitionsWorkDir.dbPath();
 
-        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
-
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
                 metricManager,
@@ -1000,17 +1017,6 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureManager,
-                clusterSvc.messagingService()
-        );
-
-        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -1129,7 +1135,8 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager,
                 metricManager,
                 messagingServiceReturningToStorageOperationsPool,
-                replicaSvc
+                replicaSvc,
+                indexMetaStorage
         );
 
         systemViewManager.register(txManager);
@@ -1258,6 +1265,7 @@ public class IgniteImpl implements Ignite {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
                 this,
+                this::createJobScopedIgnite,
                 stateMachine,
                 computeCfg,
                 clusterSvc.topologyService(),
@@ -1289,8 +1297,7 @@ public class IgniteImpl implements Ignite {
                 ),
                 computeExecutor,
                 computeCfg,
-                eventLog,
-                observableTimestampTracker
+                eventLog
         );
 
         systemViewManager.register(computeComponent);
@@ -1356,6 +1363,10 @@ public class IgniteImpl implements Ignite {
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
         publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService(), clusterIdService));
+    }
+
+    private JobScopedIgnite createJobScopedIgnite(HybridTimestampTracker tracker) {
+        return new JobScopedIgnite(this, tracker, txManager, sql, asyncContinuationExecutor);
     }
 
     private GroupStoragesContextResolver createGroupStoragesContextResolver() {

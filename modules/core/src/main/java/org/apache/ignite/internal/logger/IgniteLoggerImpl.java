@@ -23,6 +23,9 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
+// NOTE: The default logging backend is JUL. IgniteRunner.updateLoggingConfiguration() rewrites JUL log file
+// patterns at startup to include the node name. If the backend is switched away from JUL, that code must be
+// updated or removed.
 class IgniteLoggerImpl implements IgniteLogger {
     /** Logger delegate. */
     final System.Logger delegate;

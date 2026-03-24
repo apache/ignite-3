@@ -79,6 +79,8 @@ public interface ClusterManagementApi {
             content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterTag.class)))
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid name.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces({MediaType.APPLICATION_JSON, MediaType.PROBLEM_JSON})
     CompletableFuture<ClusterTag> rename(@Body String newName);

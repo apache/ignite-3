@@ -105,7 +105,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     protected MockNode createNode(int idx, int clusterSize, Consumer<RaftGroupConfiguration> onConfigurationCommittedListener) {
         return new MockNode(
                 testInfo,
-                new NetworkAddress("localhost", PORT_BASE + idx),
+                new NetworkAddress("127.0.0.1", PORT_BASE + idx),
                 new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
@@ -124,7 +124,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     ) {
         return new MockNode(
                 testInfo,
-                new NetworkAddress("localhost", PORT_BASE + idx),
+                new NetworkAddress("127.0.0.1", PORT_BASE + idx),
                 new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
@@ -143,7 +143,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
 
     private static List<NetworkAddress> createSeedAddresses(int clusterSize) {
         return IntStream.range(0, clusterSize)
-                .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
+                .mapToObj(i -> new NetworkAddress("127.0.0.1", PORT_BASE + i))
                 .collect(toUnmodifiableList());
     }
 }

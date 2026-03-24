@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.proto;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -83,7 +84,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @param b        Actual format.
      * @return Exception to throw.
      */
-    private static MessagePackException unexpected(String expected, byte b) {
+    private MessagePackException unexpected(String expected, byte b) {
         MessageFormat format = MessageFormat.valueOf(b);
 
         if (format == MessageFormat.NEVER_USED) {
@@ -91,7 +92,20 @@ public class ClientMessageUnpacker implements AutoCloseable {
         } else {
             String name = format.getValueType().name();
             String typeName = name.charAt(0) + name.substring(1).toLowerCase();
-            return new MessageTypeException(String.format("Expected %s, but got %s (%02x)", expected, typeName, b));
+
+            // Convert all bytes from the start of the buffer to the current position to a string for debugging
+            ByteBuf slice = buf.slice(0, buf.readerIndex());
+
+            int maxBufSliceLen = 256;
+            if (slice.readableBytes() > maxBufSliceLen) {
+                slice = slice.slice(slice.readableBytes() - maxBufSliceLen, maxBufSliceLen);
+            }
+
+            String bufContent = ByteBufUtil.hexDump(slice);
+            int problemPos = buf.readerIndex() - 1;
+
+            return new MessageTypeException(
+                    String.format("Expected %s, but got %s (%02x) at pos %s: '%s'", expected, typeName, b, problemPos, bufContent));
         }
     }
 
@@ -772,6 +786,33 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         for (int i = 0; i < size; i++) {
             res[i] = unpackInt();
+        }
+
+        return res;
+    }
+
+    /**
+     * Reads a long array from a single binary value.
+     *
+     * @return Array of longs.
+     */
+    public long @Nullable [] unpackLongArrayAsBinary() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        int binSize = unpackBinaryHeader();
+
+        if (binSize % 8 != 0) {
+            throw new MessageFormatException("Binary size should be a multiple of 8, but was " + binSize);
+        }
+
+        long[] res = new long[binSize / 8];
+
+        for (int i = 0; i < res.length; i++) {
+            res[i] = buf.readLong();
         }
 
         return res;

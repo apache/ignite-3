@@ -1285,6 +1285,10 @@ public abstract class GridUnsafe {
         return UNSAFE.getAndAddInt(null, ptr, 1) + 1;
     }
 
+    public static int getAndIncrementInt(long ptr) {
+        return UNSAFE.getAndAddInt(null, ptr, 1);
+    }
+
     /**
      * Atomically increments value stored in an integer pointed by {@code ptr}.
      *

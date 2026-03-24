@@ -55,6 +55,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
@@ -65,7 +66,6 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -114,6 +114,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             LeasePlacementDriver placementDriver,
+            PlacementDriverHelper placementDriverHelper,
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
             FailureProcessor failureProcessor,
@@ -173,6 +174,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 clusterNodeResolver,
                 txRecoveryEngine,
                 txMessageSender,
+                placementDriverHelper,
                 replicationGroupId,
                 localNode
         );
@@ -317,11 +319,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     public void removeTableReplicaProcessor(int tableId) {
         replicaProcessors.remove(tableId);
-    }
-
-    public @Nullable TableTxRwOperationTracker txRwOperationTracker(int tableId) {
-        ReplicaTableProcessor processor = replicaProcessors.get(tableId);
-        return processor == null ? null : processor.txRwOperationTracker();
     }
 
     /**

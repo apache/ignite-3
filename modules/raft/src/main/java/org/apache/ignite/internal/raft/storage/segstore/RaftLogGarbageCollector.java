@@ -23,11 +23,14 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.raft.storage.segstore.IndexFileManager.indexFileProperties;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.CRC_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.RESET_RECORD_MARKER;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_MARKER;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_MARKER;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayloadParser.endOfSegmentReached;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayloadParser.validateSegmentFileHeader;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -37,10 +40,8 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.storage.segstore.GroupInfoProvider.GroupInfo;
 import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -49,8 +50,8 @@ import org.jetbrains.annotations.VisibleForTesting;
  * Garbage Collector for Raft log segment files.
  *
  * <p>The garbage collector performs compaction of segment files by removing truncated log entries and creating new generations
- * of segment files. This process reclaims disk space occupied by log entries that have been truncated via
- * {@link LogStorage#truncatePrefix} or {@link LogStorage#truncateSuffix} operations.
+ * of segment files. This process reclaims disk space occupied by log entries that have been truncated via {@link LogStorage#truncatePrefix}
+ * or {@link LogStorage#truncateSuffix} operations.
  *
  * <h2>Compaction Process</h2>
  * When a segment file is selected for compaction, the GC:
@@ -70,18 +71,11 @@ class RaftLogGarbageCollector {
 
     private final IndexFileManager indexFileManager;
 
-    private final GroupInfoProvider groupInfoProvider;
+    private final AtomicLong logSizeBytes = new AtomicLong();
 
-    private final AtomicLong logSize = new AtomicLong();
-
-    RaftLogGarbageCollector(
-            Path segmentFilesDir,
-            IndexFileManager indexFileManager,
-            GroupInfoProvider groupInfoProvider
-    ) {
+    RaftLogGarbageCollector(Path segmentFilesDir, IndexFileManager indexFileManager) {
         this.segmentFilesDir = segmentFilesDir;
         this.indexFileManager = indexFileManager;
-        this.groupInfoProvider = groupInfoProvider;
     }
 
     void cleanupLeftoverFiles() throws IOException {
@@ -142,23 +136,63 @@ class RaftLogGarbageCollector {
         }
     }
 
-    // TODO: Optimize compaction of completely truncated files, see https://issues.apache.org/jira/browse/IGNITE-27964.
     @VisibleForTesting
-    void compactSegmentFile(SegmentFile segmentFile) throws IOException {
+    void runCompaction(SegmentFile segmentFile) throws IOException {
         LOG.info("Compacting segment file [path = {}].", segmentFile.path());
 
-        // Cache for avoiding excessive min/max log index computations.
-        var logStorageInfos = new Long2ObjectOpenHashMap<GroupInfo>();
+        Long2ObjectMap<IndexFileMeta> segmentFileDescription
+                = indexFileManager.describeSegmentFile(segmentFile.fileProperties().ordinal());
 
+        boolean canRemoveSegmentFile = segmentFileDescription.isEmpty();
+
+        Path indexFilePath = indexFileManager.indexFilePath(segmentFile.fileProperties());
+
+        long logSizeDelta;
+
+        if (canRemoveSegmentFile) {
+            indexFileManager.onIndexFileRemoved(segmentFile.fileProperties());
+
+            logSizeDelta = Files.size(segmentFile.path()) + Files.size(indexFilePath);
+        } else {
+            logSizeDelta = compactSegmentFile(segmentFile, indexFilePath, segmentFileDescription);
+        }
+
+        // Remove the previous generation of the segment file and its index. This is safe to do, because we rely on the file system
+        // guarantees that other threads reading from the segment file will still be able to do that even if the file is deleted.
+        Files.delete(segmentFile.path());
+        Files.delete(indexFilePath);
+
+        long newLogSize = logSizeBytes.addAndGet(-logSizeDelta);
+
+        if (LOG.isInfoEnabled()) {
+            if (canRemoveSegmentFile) {
+                LOG.info(
+                        "Segment file removed (all entries are truncated) [path = {}, log size freed = {} bytes, new log size = {} bytes].",
+                        segmentFile.path(), logSizeDelta, newLogSize
+                );
+            } else {
+                LOG.info(
+                        "Segment file compacted [path = {}, log size freed = {} bytes, new log size = {} bytes].",
+                        segmentFile.path(), logSizeDelta, newLogSize
+                );
+            }
+        }
+    }
+
+    private long compactSegmentFile(
+            SegmentFile segmentFile,
+            Path indexFilePath,
+            Long2ObjectMap<IndexFileMeta> segmentFileDescription
+    ) throws IOException {
         ByteBuffer buffer = segmentFile.buffer();
 
         validateSegmentFileHeader(buffer, segmentFile.path());
 
-        TmpSegmentFile tmpSegmentFile = null;
+        try (var tmpSegmentFile = new TmpSegmentFile(segmentFile)) {
+            tmpSegmentFile.writeHeader();
 
-        WriteModeIndexMemTable tmpMemTable = null;
+            var tmpMemTable = new SingleThreadMemTable();
 
-        try {
             while (!endOfSegmentReached(buffer)) {
                 int originalStartOfRecordOffset = buffer.position();
 
@@ -167,11 +201,31 @@ class RaftLogGarbageCollector {
                 int payloadLength = buffer.getInt();
 
                 if (payloadLength <= 0) {
-                    // Skip special entries (such as truncation records). They can always be omitted.
-                    // To identify such entries we rely on the fact that they have nonpositive length field value.
-                    int endOfRecordOffset = buffer.position() + Long.BYTES + CRC_SIZE_BYTES;
+                    switch (payloadLength) {
+                        case TRUNCATE_SUFFIX_RECORD_MARKER:
+                            long lastLogIndexKept = buffer.getLong();
 
-                    buffer.position(endOfRecordOffset);
+                            tmpMemTable.truncateSuffix(groupId, lastLogIndexKept);
+
+                            break;
+                        case TRUNCATE_PREFIX_RECORD_MARKER:
+                            long firstLogIndexKept = buffer.getLong();
+
+                            tmpMemTable.truncatePrefix(groupId, firstLogIndexKept);
+
+                            break;
+
+                        case RESET_RECORD_MARKER:
+                            long nextLogIndex = buffer.getLong();
+
+                            tmpMemTable.reset(groupId, nextLogIndex);
+
+                            break;
+                        default:
+                            throw new IllegalStateException(String.format("Unknown record marker [payloadLength = %d].]", payloadLength));
+                    }
+
+                    buffer.position(buffer.position() + CRC_SIZE_BYTES);
 
                     continue;
                 }
@@ -180,21 +234,13 @@ class RaftLogGarbageCollector {
 
                 long index = VarlenEncoder.readLong(buffer);
 
-                GroupInfo info = logStorageInfos.computeIfAbsent(groupId, groupInfoProvider::groupInfo);
+                IndexFileMeta indexFileMeta = segmentFileDescription.get(groupId);
 
-                if (info == null || index < info.firstLogIndexInclusive() || index >= info.lastLogIndexExclusive()) {
+                if (indexFileMeta == null || !isLogIndexInRange(index, indexFileMeta)) {
                     // We found a truncated entry, it should be skipped.
                     buffer.position(endOfRecordOffset);
 
                     continue;
-                }
-
-                if (tmpSegmentFile == null) {
-                    tmpSegmentFile = new TmpSegmentFile(segmentFile);
-
-                    tmpSegmentFile.writeHeader();
-
-                    tmpMemTable = new SingleThreadMemTable();
                 }
 
                 int oldLimit = buffer.limit();
@@ -202,7 +248,6 @@ class RaftLogGarbageCollector {
                 // Set the buffer boundaries to only write the current record to the new file.
                 buffer.position(originalStartOfRecordOffset).limit(endOfRecordOffset);
 
-                @SuppressWarnings("resource")
                 long newStartOfRecordOffset = tmpSegmentFile.fileChannel().position();
 
                 writeFully(tmpSegmentFile.fileChannel(), buffer);
@@ -212,53 +257,22 @@ class RaftLogGarbageCollector {
                 tmpMemTable.appendSegmentFileOffset(groupId, index, toIntExact(newStartOfRecordOffset));
             }
 
-            Path indexFilePath = indexFileManager.indexFilePath(segmentFile.fileProperties());
+            assert tmpMemTable.numGroups() != 0
+                    : String.format("All entries have been truncated, this should not happen [path = %s].", segmentFile.path());
 
-            long logSizeDelta;
+            tmpSegmentFile.syncAndRename();
 
-            if (tmpSegmentFile != null) {
-                tmpSegmentFile.syncAndRename();
+            // Create a new index file and update the in-memory state to point to it.
+            Path newIndexFilePath = indexFileManager.onIndexFileCompacted(
+                    tmpMemTable.transitionToReadMode(),
+                    segmentFile.fileProperties(),
+                    tmpSegmentFile.fileProperties()
+            );
 
-                // Create a new index file and update the in-memory state to point to it.
-                Path newIndexFilePath = indexFileManager.onIndexFileCompacted(
-                        tmpMemTable.transitionToReadMode(),
-                        segmentFile.fileProperties(),
-                        tmpSegmentFile.fileProperties()
-                );
-
-                logSizeDelta = Files.size(segmentFile.path())
-                        + Files.size(indexFilePath)
-                        - tmpSegmentFile.size()
-                        - Files.size(newIndexFilePath);
-            } else {
-                // We got lucky and the whole file can be removed.
-                logSizeDelta = Files.size(segmentFile.path()) + Files.size(indexFilePath);
-            }
-
-            // Remove the previous generation of the segment file and its index. This is safe to do, because we rely on the file system
-            // guarantees that other threads reading from the segment file will still be able to do that even if the file is deleted.
-            Files.delete(segmentFile.path());
-            Files.delete(indexFilePath);
-
-            long newLogSize = logSize.addAndGet(-logSizeDelta);
-
-            if (LOG.isInfoEnabled()) {
-                if (tmpSegmentFile == null) {
-                    LOG.info(
-                            "Segment file removed (all entries are truncated) [path = {}, log size freed = {}, new log size = {}].",
-                            segmentFile.path(), logSizeDelta, newLogSize
-                    );
-                } else {
-                    LOG.info(
-                            "Segment file compacted [path = {}, log size freed = {}, new log size = {}].",
-                            segmentFile.path(), logSizeDelta, newLogSize
-                    );
-                }
-            }
-        } finally {
-            if (tmpSegmentFile != null) {
-                tmpSegmentFile.close();
-            }
+            return Files.size(segmentFile.path())
+                    + Files.size(indexFilePath)
+                    - tmpSegmentFile.size()
+                    - Files.size(newIndexFilePath);
         }
     }
 
@@ -268,7 +282,11 @@ class RaftLogGarbageCollector {
         }
     }
 
-    private class TmpSegmentFile implements ManuallyCloseable {
+    private static boolean isLogIndexInRange(long index, IndexFileMeta indexFileMeta) {
+        return index >= indexFileMeta.firstLogIndexInclusive() && index < indexFileMeta.lastLogIndexExclusive();
+    }
+
+    private class TmpSegmentFile implements AutoCloseable {
         private final String fileName;
 
         private final Path tmpFilePath;

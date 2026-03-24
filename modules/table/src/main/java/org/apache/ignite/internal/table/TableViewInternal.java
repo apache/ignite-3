@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -87,7 +87,7 @@ public interface TableViewInternal extends Table {
     TableIndexStoragesSupplier indexStorageAdapters(int partitionId);
 
     /** Returns a supplier of index locker factories for given partition. */
-    Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId);
+    Supplier<Int2ObjectMap<IndexLocker>> indexesLockers(int partId);
 
     /**
      * Registers the index with given id in a table.

@@ -105,7 +105,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
             ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
-            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD,
+            ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -432,7 +433,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 try {
                     ClientMessageUnpacker unpacker = fut.join();
 
-                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
+                    return completedFuture(complete(payloadReader, notificationFut, unpacker, opCode));
                 } catch (Throwable t) {
                     expectedException = true;
                     throw sneakyThrow(ViewUtils.ensurePublicException(t));
@@ -443,7 +444,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             CompletableFuture<T> resFut = new CompletableFuture<>();
 
             fut.handle((unpacker, err) -> {
-                completeAsync(payloadReader, notificationFut, unpacker, err, resFut);
+                completeAsync(payloadReader, notificationFut, unpacker, err, resFut, opCode);
                 return null;
             });
 
@@ -476,7 +477,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
             ClientMessageUnpacker unpacker,
             @Nullable Throwable err,
-            CompletableFuture<T> resFut
+            CompletableFuture<T> resFut,
+            int opCode
     ) {
         if (err != null) {
             assert unpacker == null : "unpacker must be null if err is not null";
@@ -497,7 +499,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             // With handleAsync et al we can't close the unpacker in that case.
             asyncContinuationExecutor.execute(() -> {
                 try {
-                    resFut.complete(complete(payloadReader, notificationFut, unpacker));
+                    resFut.complete(complete(payloadReader, notificationFut, unpacker, opCode));
                 } catch (Throwable t) {
                     resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
                 }
@@ -516,11 +518,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadReader Payload reader.
      * @param notificationFut Notify future.
      * @param unpacker Unpacked message.
+     * @param opCode Op code.
      */
     private <T> @Nullable T complete(
             @Nullable PayloadReader<T> payloadReader,
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
-            ClientMessageUnpacker unpacker
+            ClientMessageUnpacker unpacker,
+            int opCode
     ) {
         try (unpacker) {
             if (payloadReader != null) {
@@ -529,9 +533,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return null;
         } catch (Throwable e) {
-            log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+            log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + ", opCode=" + opCode + "]: "
+                    + e.getMessage(), e);
 
-            throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
+            throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response for op " + opCode + ": " + e.getMessage(), e);
         }
     }
 
@@ -655,7 +660,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
                 expectedSchemaVersion = unpacker.unpackInt();
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
+                // Deprecated format, keep for compat with older servers.
                 return new SqlBatchException(traceId, code, unpacker.unpackLongArray(),
+                        errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
+            } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS_2)) {
+                return new SqlBatchException(traceId, code, unpacker.unpackLongArrayAsBinary(),
                         errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
@@ -736,7 +745,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         CompletableFuture<Object> resFut = new CompletableFuture<>();
 
         fut.handle((unpacker, err) -> {
-            completeAsync(r -> handshakeRes(r.in()), null, unpacker, err, resFut);
+            completeAsync(r -> handshakeRes(r.in()), null, unpacker, err, resFut, -1);
             return null;
         });
 

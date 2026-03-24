@@ -92,6 +92,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -115,6 +118,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.distributed.replicator.action.RequestTypes;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -143,6 +147,9 @@ import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -165,7 +172,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -185,7 +191,6 @@ import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -213,13 +218,9 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -236,6 +237,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -591,7 +593,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
         );
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
@@ -642,7 +644,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService,
                 clusterNodeResolver,
                 messagingService,
-                mock(PlacementDriver.class),
+                mock(PlacementDriverHelper.class),
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
@@ -665,9 +667,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 Runnable::run,
                 new ZonePartitionId(tableDescriptor.zoneId(), PART_ID),
                 TABLE_ID,
-                () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexLocker),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexLocker)),
                 pkStorageSupplier,
-                () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexStorage)),
                 clockService,
                 safeTimeClock,
                 transactionStateResolver,
@@ -1663,7 +1670,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns, Int2IntMaps.EMPTY_MAP);
     }
 
     private AtomicReference<Boolean> interceptFinishTxCommand() {
@@ -2628,39 +2635,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> invoke(UUID targetTxId, TestKey key);
     }
 
-    @ParameterizedTest(name = "readOnly = {0}")
-    @ValueSource(booleans = {true, false})
-    void testStaleTxOperationAfterIndexStartBuilding(boolean readOnly) {
-        int indexId = hashIndexStorage.id();
-        int indexCreationCatalogVersion = 1;
-        int startBuildingIndexCatalogVersion = 2;
-        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
-        long startBuildingIndexActivationTs = clock.nowLong();
-
-        setIndexMetaInBuildingStatus(
-                indexId,
-                indexCreationCatalogVersion,
-                indexCreationActivationTs,
-                startBuildingIndexCatalogVersion,
-                startBuildingIndexActivationTs
-        );
-
-        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
-
-        UUID txId = newTxId();
-        long beginTs = beginTimestamp(txId).longValue();
-
-        when(catalogService.activeCatalogVersion(eq(beginTs))).thenReturn(0);
-
-        BinaryRow row = binaryRow(0);
-
-        if (readOnly) {
-            assertThat(roGetAsync(row, clock.now()), willCompleteSuccessfully());
-        } else {
-            assertThat(upsertAsync(txId, row), willThrow(StaleTransactionOperationException.class));
-        }
-    }
-
     @Test
     void testBuildIndexReplicaRequest() {
         int indexId = hashIndexStorage.id();
@@ -2885,9 +2859,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 newestCommitTsIsPresent
         );
 
-        HybridTimestamp readTs = outdatedReadTs
-                ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
-                : new HybridTimestamp(100, 0);
+        HybridTimestamp readTs;
+
+        if (writeIntentHasThisTxId) {
+            readTs = HybridTimestamp.MIN_VALUE;
+        } else {
+            readTs = outdatedReadTs
+                    ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
+                    : new HybridTimestamp(100, 0);
+        }
+
         HybridTimestamp newestCommitTs = newestCommitTsIsPresent ? new HybridTimestamp(50, 0) : null;
 
         TxStatePrimaryReplicaRequest request = TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()
