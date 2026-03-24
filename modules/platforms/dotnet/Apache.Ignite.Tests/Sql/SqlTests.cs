@@ -765,6 +765,28 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExecuteBatchWithDuplicateKeyException()
+        {
+            int duplicateId = 1000;
+            var sql = "INSERT INTO TEST (ID, VAL) VALUES (?, ?)";
+            await Client.Sql.ExecuteAsync(null, sql, duplicateId, "initial");
+
+            object?[][] args =
+            [
+                [1001, "test1"],
+                [1002, "test2"],
+                [1003, "test3"],
+                [duplicateId, "duplicate"],
+                [1004, "test4"]
+            ];
+
+            // TODO IGNITE-22575 Propagate SqlBatchException.updateCounters
+            var ex = Assert.ThrowsAsync<SqlBatchException>(async () => await Client.Sql.ExecuteBatchAsync(null, sql, args));
+            Assert.AreEqual("x", ex.Message);
+            Assert.AreEqual("x", ex.CodeAsString);
+        }
+
+        [Test]
         public async Task TestCancelQueryCursor([Values(true, false)] bool beforeIter)
         {
             var cts = new CancellationTokenSource();
