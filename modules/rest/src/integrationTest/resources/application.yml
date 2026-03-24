@@ -1,4 +1,4 @@
 micronaut:
   http:
     client:
-      read-timeout: 1s
+      read-timeout: 30s
