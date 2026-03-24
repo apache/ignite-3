@@ -708,7 +708,7 @@ namespace Apache.Ignite.Internal
             {
                 await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
 
-                await using var cancellation = RegisterCancellation(requestId, cancellationToken).ConfigureAwait(false);
+                await using var cancellation = RegisterCancellation(requestId, clientOp, cancellationToken).ConfigureAwait(false);
 
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
