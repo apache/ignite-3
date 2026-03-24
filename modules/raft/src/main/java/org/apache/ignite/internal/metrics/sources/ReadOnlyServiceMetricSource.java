@@ -72,7 +72,7 @@ public class ReadOnlyServiceMetricSource extends AbstractMetricSource<ReadOnlySe
     /** Metric holder for read only service metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
         private static final long[] HISTOGRAM_BUCKETS =
-                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000};
 
         AtomicLongMetric overloadTimes = new AtomicLongMetric(
                 "OverloadTimes",

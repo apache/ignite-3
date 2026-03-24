@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.metrics.sources;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -115,7 +116,7 @@ public class FsmCallerMetricSource extends AbstractMetricSource<FsmCallerMetricS
 
         private final List<Metric> metrics;
 
-        private final HashMap<TaskType, DistributionMetric> taskDurations = new HashMap<>();
+        private final Map<TaskType, DistributionMetric> taskDurations = new EnumMap<>(TaskType.class);
 
         Holder() {
             metrics = new ArrayList<>();
@@ -132,6 +133,7 @@ public class FsmCallerMetricSource extends AbstractMetricSource<FsmCallerMetricS
                 );
 
                 taskDurations.put(type, metric);
+                metrics.add(metric);
             }
         }
 
