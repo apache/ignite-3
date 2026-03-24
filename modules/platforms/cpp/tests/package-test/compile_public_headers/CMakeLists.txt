@@ -15,14 +15,14 @@
 # limitations under the License.
 #
 
-# Header self-containment test.
+# Ignite header compilation test
 #
 # For every public header of ignite3-client, compiles a minimal .cpp that
 # includes ONLY that header (via the installed/exported ignite::client target).
 # This verifies that each header includes all its own dependencies and can be
 # used by consumers without relying on a particular include order.
 #
-# Invoked by the parent build's 'header-self-containment-check' target:
+# Invoked by the parent build's 'compile-public-headers' target:
 #   cmake -S <this_dir> -B <build_dir>
 #       -Dignite_DIR=<ignite_build>/cmake
 #       -DIGNITE_HEADERS_LIST_FILE=<path/to/headers_list.cmake>

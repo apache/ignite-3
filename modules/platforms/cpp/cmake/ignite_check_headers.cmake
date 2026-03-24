@@ -30,7 +30,7 @@ function(ignite_check_headers)
         message(FATAL_ERROR "ignite_check_headers: SOURCE_DIR is required")
     endif()
 
-    file(GLOB_RECURSE _all_headers RELATIVE "${ARGS_SOURCE_DIR}" "${ARGS_SOURCE_DIR}/*.h")
+    file(GLOB_RECURSE CONFIGURE_DEPENDS _all_headers RELATIVE "${ARGS_SOURCE_DIR}" "${ARGS_SOURCE_DIR}/*.h")
     list(SORT _all_headers)
 
     set(_errors)
