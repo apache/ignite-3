@@ -207,6 +207,7 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
@@ -446,6 +447,28 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 PartitionReplicationMessageGroup.BUILD_INDEX_REPLICA_REQUEST,
                 new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator));
 
+        handlersBuilder.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST,
+                (ReplicaRequestHandler<TableWriteIntentSwitchReplicaRequest>) (req, primacy) ->
+                        processTableWriteIntentSwitchAction(req));
+
+        handlersBuilder.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                TxMessageGroup.TX_STATE_PRIMARY_REPLICA_REQUEST,
+                (ReplicaRequestHandler<TxStatePrimaryReplicaRequest>) (req, primacy) ->
+                        processTxStatePrimaryReplicaRequest(req));
+
+        handlersBuilder.addRoHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST,
+                (ReadOnlyReplicaRequestHandler<ReadOnlyDirectSingleRowReplicaRequest>) this::processReadOnlyDirectSingleEntryAction);
+
+        handlersBuilder.addRoHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST,
+                (ReadOnlyReplicaRequestHandler<ReadOnlyDirectMultiRowReplicaRequest>) this::processReadOnlyDirectMultiEntryAction);
+
         requestHandlers = handlersBuilder.build();
     }
 
@@ -623,20 +646,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             releaseTxLocks(req.transactionId());
                         }
                     });
-        } else if (request instanceof TableWriteIntentSwitchReplicaRequest) {
-            return processTableWriteIntentSwitchAction((TableWriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
             return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
         } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
             return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
-        } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
-        } else if (request instanceof TxStatePrimaryReplicaRequest) {
-            return processTxStatePrimaryReplicaRequest((TxStatePrimaryReplicaRequest) request);
         }
 
         // Unknown request.
