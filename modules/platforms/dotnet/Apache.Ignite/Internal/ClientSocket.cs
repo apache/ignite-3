@@ -739,10 +739,17 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private CancellationTokenRegistration RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
-            cancellationToken == CancellationToken.None
-                ? default
-                : cancellationToken.Register(() => _ = CancelRequestAsync(requestId));
+        private CancellationTokenRegistration RegisterCancellation(long requestId, ClientOp clientOp, CancellationToken cancellationToken)
+        {
+            if (cancellationToken == CancellationToken.None)
+            {
+                return default;
+            }
+
+            Debug.Assert(clientOp.IsCancellable(), "RegisterCancellation for unexpected op: " + clientOp);
+
+            return cancellationToken.Register(() => _ = CancelRequestAsync(requestId));
+        }
 
         private async Task CancelRequestAsync(long requestId)
         {
