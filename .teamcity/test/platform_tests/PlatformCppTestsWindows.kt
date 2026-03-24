@@ -90,6 +90,10 @@ object PlatformCppTestsWindows : BuildType({
             scriptContent = """
                 mkdir %PATH__CRASH_DUMPS% 2>nul
                 procdump -accepteula -ma -e -n 1 -x %PATH__CRASH_DUMPS% Debug\bin\ignite-client-test --gtest_output=xml:%PATH__CLIENT_TEST_RESULTS%
+                if %ERRORLEVEL% NEQ 0 if %ERRORLEVEL% NEQ -2 (
+                    echo procdump failed unexpectedly with code %ERRORLEVEL%
+                    exit /b 1
+                )
             """.trimIndent()
             formatStderrAsError = true
         }
@@ -99,6 +103,10 @@ object PlatformCppTestsWindows : BuildType({
             scriptContent = """
                 mkdir %PATH__CRASH_DUMPS% 2>nul
                 procdump -accepteula -ma -e -n 1 -x %PATH__CRASH_DUMPS% Debug\bin\ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+                if %ERRORLEVEL% NEQ 0 if %ERRORLEVEL% NEQ -2 (
+                    echo procdump failed unexpectedly with code %ERRORLEVEL%
+                    exit /b 1
+                )
             """.trimIndent()
             formatStderrAsError = true
         }
