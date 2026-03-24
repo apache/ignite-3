@@ -23,7 +23,12 @@ package org.apache.ignite.internal.client.proto;
 public class ErrorExtensions {
     public static final String EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
 
+    // Problematic array format that can't be skipped by clients.
+    @Deprecated
     public static final String SQL_UPDATE_COUNTERS = "sql-update-counters";
+
+    // New format with single binary value for counters.
+    public static final String SQL_UPDATE_COUNTERS_2 = "sql-update-counters-2";
 
     public static final String DELAYED_ACK = "delayed-ack";
 

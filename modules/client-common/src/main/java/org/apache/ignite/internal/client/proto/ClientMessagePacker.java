@@ -631,6 +631,27 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a long array as a single binary value.
+     *
+     * @param arr Long array value.
+     */
+    public void packLongArrayAsBinary(long @Nullable [] arr) {
+        assert !closed : "Packer is closed";
+
+        if (arr == null) {
+            packNil();
+
+            return;
+        }
+
+        packBinaryHeader(arr.length * 8);
+
+        for (long value : arr) {
+            buf.writeLong(value);
+        }
+    }
+
+    /**
      * Packs an array of objects in BinaryTuple format.
      *
      * @param vals Object array.
