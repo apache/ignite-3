@@ -782,8 +782,8 @@ namespace Apache.Ignite.Tests.Sql
 
             // TODO IGNITE-22575 Propagate SqlBatchException.updateCounters
             var ex = Assert.ThrowsAsync<SqlBatchException>(async () => await Client.Sql.ExecuteBatchAsync(null, sql, args));
-            Assert.AreEqual("x", ex.Message);
-            Assert.AreEqual("x", ex.CodeAsString);
+            Assert.AreEqual("PK unique constraint is violated", ex.Message);
+            Assert.AreEqual("IGN-SQL-5", ex.CodeAsString);
         }
 
         [Test]
