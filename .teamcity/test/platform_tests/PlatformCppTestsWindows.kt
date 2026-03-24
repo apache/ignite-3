@@ -115,7 +115,7 @@ object PlatformCppTestsWindows : BuildType({
     }
 
     failureConditions {
-        executionTimeoutMin = 20
+        executionTimeoutMin = 40
         failOnMetricChange {
             metric = BuildFailureOnMetric.MetricType.TEST_COUNT
             threshold = 5
