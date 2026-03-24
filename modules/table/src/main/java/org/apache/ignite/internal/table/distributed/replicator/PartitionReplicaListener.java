@@ -469,6 +469,24 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST,
                 (ReadOnlyReplicaRequestHandler<ReadOnlyDirectMultiRowReplicaRequest>) this::processReadOnlyDirectMultiEntryAction);
 
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlySingleRowPkReplicaRequest>) (req, primacy) ->
+                        processReadOnlySingleEntryAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlyMultiRowPkReplicaRequest>) (req, primacy) ->
+                        processReadOnlyMultiEntryAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlyScanRetrieveBatchReplicaRequest>) (req, primacy) ->
+                        processReadOnlyScanRetrieveBatchAction(req, primacy.isPrimary()));
+
         requestHandlers = handlersBuilder.build();
     }
 
@@ -646,12 +664,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             releaseTxLocks(req.transactionId());
                         }
                     });
-        } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
-            return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
-            return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, replicaPrimacy.isPrimary());
         }
 
         // Unknown request.
