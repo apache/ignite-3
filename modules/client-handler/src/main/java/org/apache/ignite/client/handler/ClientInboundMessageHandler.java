@@ -801,6 +801,7 @@ public class ClientInboundMessageHandler
                     packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
                 } else {
                     // Old format: array of longs (for backward compatibility with older clients).
+                    // IMPORTANT: This part must come last in the payload, it can't be skipped correctly.
                     packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
                     packer.packLongArray(sqlBatchException.updateCounters());
                 }
