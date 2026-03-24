@@ -37,8 +37,6 @@ if (NOT ENABLE_CLIENT)
 elseif (NOT IGNITE3_CLIENT_PUBLIC_HEADERS)
     message(WARNING "compile-public-headers: IGNITE3_CLIENT_PUBLIC_HEADERS is empty. "
                     "Check ignite/client/CMakeLists.txt.")
-elseif (NOT INSTALL_IGNITE_FILES)
-    message(STATUS "compile-public-headers: INSTALL_IGNITE_FILES=OFF, skipping header compile check.")
 else()
     set(_hcc_dir "${CMAKE_BINARY_DIR}/hcc")
 
@@ -57,8 +55,12 @@ else()
     set(_hcc_install_prefix "${_hcc_dir}/install")
     set(_hcc_sub_src "${CMAKE_SOURCE_DIR}/tests/package-test/compile_public_headers")
     set(_hcc_sub_bin "${_hcc_dir}/build")
+    set(_hcc_stamp   "${_hcc_dir}/compile-public-headers.stamp")
 
-    add_custom_target(compile-public-headers ALL
+    # Use add_custom_command so the check is skipped when ignite3-client has
+    # not been rebuilt since the last successful run (stamp file is up-to-date).
+    add_custom_command(
+        OUTPUT  "${_hcc_stamp}"
         # Install the already-built client to a temp prefix.
         # Only files declared with COMPONENT client are installed -
         # internal headers not in PUBLIC_HEADERS are absent.
@@ -76,8 +78,11 @@ else()
                     "-S${_hcc_sub_src}"
                     "-B${_hcc_sub_bin}"
         COMMAND ${CMAKE_COMMAND} --build "${_hcc_sub_bin}"
+        COMMAND ${CMAKE_COMMAND} -E touch "${_hcc_stamp}"
         DEPENDS ignite3-client
         COMMENT "compile-public-headers: compiling each public header against installed package"
         VERBATIM
     )
+
+    add_custom_target(compile-public-headers ALL DEPENDS "${_hcc_stamp}")
 endif()
