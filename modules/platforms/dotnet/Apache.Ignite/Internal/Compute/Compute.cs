@@ -148,7 +148,7 @@ namespace Apache.Ignite.Internal.Compute
                     return args.writer;
                 },
                 expectNotifications: true,
-                cancellationToken: CancellationToken.None).ConfigureAwait(false);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return GetTaskExecution<TResult>(res.Buffer, cancellationToken);
         }
@@ -478,7 +478,7 @@ namespace Apache.Ignite.Internal.Compute
                 },
                 PreferredNode.FromName(GetRandomNode(nodes).Name),
                 expectNotifications: true,
-                cancellationToken: CancellationToken.None)
+                cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
             return GetJobExecution(res.Buffer, readSchema: false, jobDescriptor.ResultMarshaller, cancellationToken);
@@ -551,7 +551,7 @@ namespace Apache.Ignite.Internal.Compute
                         },
                         preferredNode: preferredNode,
                         expectNotifications: true,
-                        cancellationToken: CancellationToken.None).ConfigureAwait(false);
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
 
                     return GetJobExecution(res.Buffer, readSchema: true, marshaller: descriptor.ResultMarshaller, cancellationToken);
                 }
