@@ -187,6 +187,10 @@ public class ClientLazyTransaction implements Transaction {
         var tx0 = tx;
 
         if (tx0 != null) {
+            if (tx0.isDone()) {
+                tx0.join().validateOwnership(ch);
+            }
+
             return new IgniteBiTuple<>(tx0, false);
         }
 

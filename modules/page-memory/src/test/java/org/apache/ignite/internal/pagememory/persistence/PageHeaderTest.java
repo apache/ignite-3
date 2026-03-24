@@ -117,7 +117,7 @@ public class PageHeaderTest {
 
     @Test
     void testAcquireRelease() {
-        assertEquals(1, acquirePage(pageHeaderAddr));
+        assertEquals(0, acquirePage(pageHeaderAddr));
         assertEquals(1, pinCount(pageHeaderAddr));
         assertTrue(isAcquired(pageHeaderAddr));
 

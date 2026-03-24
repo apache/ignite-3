@@ -54,7 +54,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Table view implementation for binary objects.
@@ -451,15 +450,15 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      *
      * @param tx Transaction, if present.
      * @param rec Tuple record.
+     * @param keyOnly Marshal key part only.
      * @return A future, with row as a result.
      */
     @TestOnly
-    @VisibleForTesting
-    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec) {
+    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec, boolean keyOnly) {
         Objects.requireNonNull(rec);
 
         return doOperation(tx, schemaVersion -> {
-            Row row = marshal(rec, schemaVersion, false);
+            Row row = marshal(rec, schemaVersion, keyOnly);
 
             return completedFuture(row);
         });
@@ -473,7 +472,6 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @return A future, with tuple as a result.
      */
     @TestOnly
-    @VisibleForTesting
     public CompletableFuture<Tuple> binaryRowToTuple(@Nullable Transaction tx, BinaryRow row) {
         return doOperation(tx, schemaVersion -> completedFuture(wrap(row, schemaVersion)));
     }

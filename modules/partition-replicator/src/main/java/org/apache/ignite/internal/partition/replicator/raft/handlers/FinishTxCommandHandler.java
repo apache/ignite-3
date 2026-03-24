@@ -134,13 +134,15 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
         return list;
     }
 
-    private static void logTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
+    private void logTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
         String errorMsg = format("Finish command skipped, transaction txId = {}, because transaction state is already set,"
-                        + " existing state = {}, state to set = {}",
+                        + " existing state = {}, state to set = {}, groupId = {}",
                 txId,
                 txMetaBeforeCas,
-                txMetaToSet
+                txMetaToSet,
+                replicationGroupId
         );
+
         LOG.info(errorMsg);
     }
 

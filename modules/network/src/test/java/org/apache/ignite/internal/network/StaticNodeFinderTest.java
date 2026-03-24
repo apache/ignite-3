@@ -198,7 +198,9 @@ class StaticNodeFinderTest extends IgniteAbstractTest {
                     + ", stdout: " + stdoutString(process) + ", stderr: " + stderrString(process));
         }
 
-        String output = stdoutString(process);
+        // Take only the last line of stdout: log frameworks (e.g. log4j with IGNITE_CI=true) may write
+        // warnings to stdout before the actual output produced by StaticNodeFinderMain.
+        String output = lastLine(stdoutString(process));
         return Arrays.stream(output.split(","))
                 .map(NetworkAddress::from)
                 .collect(toList());
@@ -220,5 +222,11 @@ class StaticNodeFinderTest extends IgniteAbstractTest {
         try (InputStream stderr = process.getErrorStream()) {
             return new String(stderr.readAllBytes(), UTF_8);
         }
+    }
+
+    private static String lastLine(String text) {
+        String trimmed = text.trim();
+        int lastNewline = trimmed.lastIndexOf('\n');
+        return lastNewline < 0 ? trimmed : trimmed.substring(lastNewline + 1).trim();
     }
 }

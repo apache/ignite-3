@@ -49,6 +49,8 @@ import org.jetbrains.annotations.Nullable;
  * Collection of helper methods to unify handling of direct transactions and piggybacking of tx start request.
  */
 public class DirectTxUtils {
+    private static final String TRANSACTION_CONTEXT_LOST = "Transaction context has been lost due to connection errors.";
+
     /**
      * Ensures that a client-side transaction is started and ready to serve requests.
      *
@@ -171,7 +173,7 @@ public class DirectTxUtils {
                 //noinspection resource
                 if (tx0.channel() != out.clientChannel()) {
                     // Do not throw IgniteClientConnectionException to avoid retry kicking in.
-                    throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                    throw new IgniteException(CONNECTION_ERR, TRANSACTION_CONTEXT_LOST);
                 }
 
                 out.out().packLong(tx0.id());
@@ -262,9 +264,11 @@ public class DirectTxUtils {
             @Nullable ClientTransaction tx,
             @Nullable PartitionMapping mapping
     ) {
-        CompletableFuture<ClientChannel> chFuture = ctx.firstReqFut != null
-                ? completedFuture(ctx.channel)
-                : ch.getChannelAsync(resolvePreferredNode(tx, mapping));
+        if (tx != null) {
+            tx.validateOwnership(ch);
+        }
+
+        CompletableFuture<ClientChannel> chFuture = resolveChannelInner(ctx, ch, tx, mapping);
 
         return chFuture.thenCompose(opCh -> {
             if (tx != null && tx.hasCommitPartition()
@@ -278,14 +282,29 @@ public class DirectTxUtils {
         });
     }
 
-    private static @Nullable String resolvePreferredNode(@Nullable ClientTransaction tx, @Nullable PartitionMapping pm) {
-        String opNode = pm == null ? null : pm.nodeConsistentId();
+    private static CompletableFuture<ClientChannel> resolveChannelInner(
+            WriteContext ctx,
+            ReliableChannel ch,
+            @Nullable ClientTransaction tx,
+            @Nullable PartitionMapping mapping) {
+        if (ctx.firstReqFut != null) {
+            return completedFuture(ctx.channel);
+        }
+
+        String opNode = mapping == null ? null : mapping.nodeConsistentId();
 
         if (tx != null) {
-            return !tx.isReadOnly() && tx.hasCommitPartition() && opNode != null ? opNode : tx.nodeName();
-        } else {
-            return opNode;
+            if (tx.isReadOnly() || !tx.hasCommitPartition() || opNode == null) {
+                if (tx.channel().closed()) {
+                    // Do not throw IgniteClientConnectionException to avoid retry kicking in.
+                    throw new IgniteException(CONNECTION_ERR, TRANSACTION_CONTEXT_LOST);
+                }
+
+                return completedFuture(tx.channel());
+            }
         }
+
+        return ch.getChannelAsync(opNode);
     }
 
     private static CompletableFuture<Void> enlistDirect(

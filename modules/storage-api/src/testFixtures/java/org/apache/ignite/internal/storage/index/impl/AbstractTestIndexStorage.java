@@ -19,8 +19,8 @@ package org.apache.ignite.internal.storage.index.impl;
 
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;

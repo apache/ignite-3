@@ -83,6 +83,9 @@ public class StorageUpdateHandler {
     /** Transaction manager to retrieve labels for logging. */
     private final TxManager txManager;
 
+    @TestOnly
+    private boolean writeIntentSwitchBlocked;
+
     /**
      * The constructor.
      *
@@ -427,6 +430,17 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable List<Integer> indexIds
     ) {
+        if (writeIntentSwitchBlocked) {
+            if (onApplication != null) {
+                storage.runConsistently(locker -> {
+                    onApplication.run();
+                    return true;
+                });
+            }
+
+            return;
+        }
+
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
         assert !(commit && commitTimestamp == null) : "Commit timestamp cant be null when tx is set to commit: " + txId;
 
@@ -673,5 +687,18 @@ public class StorageUpdateHandler {
     @TestOnly
     public void eraseVolatileState(UUID txId) {
         this.pendingRows.removePendingRowIds(txId);
+    }
+
+    /**
+     * Blocks or unblocks the switching of write intents to regular values in tests.
+     * When blocked, the method {@link #switchWriteIntents} will do nothing. For test purposes only.
+     *
+     * @param blocked if {@code true} then switching of write intents will be blocked, if {@code false} then it will be unblocked.
+     */
+    @TestOnly
+    public void writeIntentSwitchBlocked(boolean blocked) {
+        LOG.info("Test: write intent switch is {}", blocked ? "blocked" : "unblocked");
+
+        this.writeIntentSwitchBlocked = blocked;
     }
 }

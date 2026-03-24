@@ -45,7 +45,9 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
@@ -62,6 +64,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -86,7 +89,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -109,6 +114,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
@@ -118,7 +124,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
@@ -134,7 +139,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
-import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
@@ -157,9 +161,7 @@ import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRe
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleComparator;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -181,6 +183,10 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReadOnlyReplicaRequestHandler;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandler;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandlers;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ScanCloseRequestHandler;
 import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.Lock;
@@ -189,6 +195,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
+import org.apache.ignite.internal.tx.PrimaryReplicaChangeDuringWriteIntentResolutionException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -198,6 +205,7 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
@@ -262,7 +270,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
     /** Secondary indices. */
-    private final Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
+    private final Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages;
 
     /** Versioned partition storage. */
     private final MvPartitionStorage mvDataStorage;
@@ -291,7 +299,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
 
-    private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
+    private final Supplier<Int2ObjectMap<IndexLocker>> indexesLockers;
 
     private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
@@ -326,8 +334,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
 
-    // Replica request handlers.
-    private final BuildIndexReplicaRequestHandler buildIndexReplicaRequestHandler;
+    /** Registry of replica request handlers. */
+    private final ReplicaRequestHandlers requestHandlers;
 
     /**
      * The constructor.
@@ -363,9 +371,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             Executor scanRequestExecutor,
             ZonePartitionId replicationGroupId,
             int tableId,
-            Supplier<Map<Integer, IndexLocker>> indexesLockers,
+            Supplier<Int2ObjectMap<IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Int2ObjectMap<TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TransactionStateResolver transactionStateResolver,
@@ -417,7 +425,59 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        buildIndexReplicaRequestHandler = new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator);
+        ReplicaRequestHandlers.Builder handlersBuilder = new ReplicaRequestHandlers.Builder();
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.SCAN_CLOSE_REPLICA_REQUEST,
+                new ScanCloseRequestHandler(remotelyTriggeredResourceRegistry, replicationGroupId));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.BUILD_INDEX_REPLICA_REQUEST,
+                new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator));
+
+        handlersBuilder.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST,
+                (ReplicaRequestHandler<TableWriteIntentSwitchReplicaRequest>) (req, primacy) ->
+                        processTableWriteIntentSwitchAction(req));
+
+        handlersBuilder.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                TxMessageGroup.TX_STATE_PRIMARY_REPLICA_REQUEST,
+                (ReplicaRequestHandler<TxStatePrimaryReplicaRequest>) (req, primacy) ->
+                        processTxStatePrimaryReplicaRequest(req));
+
+        handlersBuilder.addRoHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST,
+                (ReadOnlyReplicaRequestHandler<ReadOnlyDirectSingleRowReplicaRequest>) this::processReadOnlyDirectSingleEntryAction);
+
+        handlersBuilder.addRoHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST,
+                (ReadOnlyReplicaRequestHandler<ReadOnlyDirectMultiRowReplicaRequest>) this::processReadOnlyDirectMultiEntryAction);
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlySingleRowPkReplicaRequest>) (req, primacy) ->
+                        processReadOnlySingleEntryAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlyMultiRowPkReplicaRequest>) (req, primacy) ->
+                        processReadOnlyMultiEntryAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlyScanRetrieveBatchReplicaRequest>) (req, primacy) ->
+                        processReadOnlyScanRetrieveBatchAction(req, primacy.isPrimary()));
+
+        requestHandlers = handlersBuilder.build();
     }
 
     @Override
@@ -500,6 +560,21 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
+        ReplicaRequestHandler<ReplicaRequest> handler = requestHandlers.handler(request.groupType(), request.messageType());
+
+        if (handler != null) {
+            return handler.handle(request, replicaPrimacy);
+        }
+
+        ReadOnlyReplicaRequestHandler<ReplicaRequest> roHandler =
+                requestHandlers.roHandler(request.groupType(), request.messageType());
+
+        if (roHandler != null) {
+            assert opStartTsIfDirectRo != null;
+
+            return roHandler.handle(request, opStartTsIfDirectRo);
+        }
+
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -579,26 +654,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             releaseTxLocks(req.transactionId());
                         }
                     });
-        } else if (request instanceof ScanCloseReplicaRequest) {
-            processScanCloseAction((ScanCloseReplicaRequest) request);
-
-            return nullCompletedFuture();
-        } else if (request instanceof TableWriteIntentSwitchReplicaRequest) {
-            return processTableWriteIntentSwitchAction((TableWriteIntentSwitchReplicaRequest) request);
-        } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
-            return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
-            return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            return buildIndexReplicaRequestHandler.handle((BuildIndexReplicaRequest) request);
-        } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
-        } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
-        } else if (request instanceof TxStatePrimaryReplicaRequest) {
-            return processTxStatePrimaryReplicaRequest((TxStatePrimaryReplicaRequest) request);
         }
 
         // Unknown request.
@@ -626,10 +681,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 ? nullCompletedFuture()
                 : safeTime.waitFor(readTimestamp);
 
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+        Integer indexToUse = request.indexToUse();
+        if (indexToUse != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(indexToUse.intValue());
 
-            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
+            throwsIfIndexNotFound(indexToUse, indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -909,23 +965,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     /**
-     * Processes scan close request.
-     *
-     * @param request Scan close request operation.
-     */
-    private void processScanCloseAction(ScanCloseReplicaRequest request) {
-        UUID txId = request.transactionId();
-
-        FullyQualifiedResourceId cursorId = cursorId(txId, request.scanId());
-
-        try {
-            remotelyTriggeredResourceRegistry.close(cursorId);
-        } catch (IgniteException e) {
-            throw wrapCursorCloseException(e);
-        }
-    }
-
-    /**
      * Closes a cursor if the batch is not fully retrieved.
      *
      * @param batchSize Requested batch size.
@@ -954,10 +993,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return Listener response.
      */
     private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+        Integer indexToUse = request.indexToUse();
+        if (indexToUse != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(indexToUse.intValue());
 
-            throwsIfIndexNotFound(request.indexToUse(), indexStorage);
+            throwsIfIndexNotFound(indexToUse, indexStorage);
 
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
@@ -2227,9 +2267,21 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<TransactionMeta> processTxStatePrimaryReplicaRequest(TxStatePrimaryReplicaRequest request) {
+        UUID txId = request.txId();
+
+        TxStateMeta txMeta = txManager.stateMeta(txId);
+
+        if (txMeta != null) {
+            if (isFinalState(txMeta.txState())) {
+                return completedFuture(txMeta);
+            } else if (txMeta.txState() == FINISHING) {
+                return castToFinishing(txId, txMeta).txFinishFuture();
+            }
+        }
+
         return completedFuture(txMetaFromStorage(
                 request.rowId().asRowId(),
-                request.txId(),
+                txId,
                 request.newestCommitTimestamp(),
                 request.readTimestamp()
         ));
@@ -2292,7 +2344,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         requireNonNull(readResult, "Read result must not be null.");
 
-        if (isWriteIntentBelongingToThisTx(readResult, txId)) {
+        if (isWriteIntentBelongingToThisTx(readResult, txId, readTimestamp)) {
             return builder(PENDING).build();
         } else if (isNewCommittedVersionBeforeReadTimestamp(readResult, newestCommitTimestamp, readTimestamp)) {
             return builder(COMMITTED).commitTimestamp(readResult.commitTimestamp()).build();
@@ -2310,8 +2362,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
     }
 
-    private static boolean isWriteIntentBelongingToThisTx(ReadResult rr, UUID txId) {
-        return rr.isWriteIntent() && rr.transactionId() != null && rr.transactionId().equals(txId);
+    private static boolean isWriteIntentBelongingToThisTx(ReadResult rr, UUID txId, @Nullable HybridTimestamp readTimestamp) {
+        return (readTimestamp == null || readTimestamp.equals(HybridTimestamp.MIN_VALUE))
+                && rr.isWriteIntent() && rr.transactionId() != null && rr.transactionId().equals(txId);
     }
 
     private static boolean isCommittedVersion(ReadResult rr) {
@@ -2343,69 +2396,73 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             @Nullable HybridTimestamp newestCommitTimestamp,
             HybridTimestamp readTimestamp
     ) {
-        ReadResult anyCommittedAfterReadTs = null;
-        ReadResult wi = null;
+        return mvDataStorage.runConsistently(locker -> {
+            locker.lock(rowId);
 
-        try (Cursor<ReadResult> versions = mvDataStorage.scanVersions(rowId)) {
-            for (ReadResult rr : versions) {
-                if (rr != null && !rr.isEmpty()) {
-                    if (rr.isWriteIntent()) {
-                        wi = rr;
-                    } else {
-                        requireNonNull(rr.commitTimestamp(), "Committed read result must have commit timestamp");
+            ReadResult anyCommittedAfterReadTs = null;
+            ReadResult wi = null;
 
-                        long commitTs = rr.commitTimestamp().longValue();
+            try (Cursor<ReadResult> versions = mvDataStorage.scanVersions(rowId)) {
+                for (ReadResult rr : versions) {
+                    if (rr != null && !rr.isEmpty()) {
+                        if (rr.isWriteIntent()) {
+                            wi = rr;
+                        } else {
+                            requireNonNull(rr.commitTimestamp(), "Committed read result must have commit timestamp");
 
-                        // newestCommitTimestamp comes from requesting replica and is always less than read timestamp (if not null).
-                        if (newestCommitTimestamp == null || commitTs > newestCommitTimestamp.longValue()) {
-                            if (commitTs <= readTimestamp.longValue()) {
-                                // This means, the write intent for this committed version was created before read timestamp,
-                                // and requesting replica has seen it, so this is committed write intent for sought transaction.
-                                // Commit timestamp is checked on the requesting replica.
-                                return builder(COMMITTED).commitTimestamp(rr.commitTimestamp()).build();
-                            } else {
-                                anyCommittedAfterReadTs = rr;
+                            long commitTs = rr.commitTimestamp().longValue();
+
+                            // newestCommitTimestamp comes from requesting replica and is always less than read timestamp (if not null).
+                            if (newestCommitTimestamp == null || commitTs > newestCommitTimestamp.longValue()) {
+                                if (commitTs <= readTimestamp.longValue()) {
+                                    // This means, the write intent for this committed version was created before read timestamp,
+                                    // and requesting replica has seen it, so this is committed write intent for sought transaction.
+                                    // Commit timestamp is checked on the requesting replica.
+                                    return builder(COMMITTED).commitTimestamp(rr.commitTimestamp()).build();
+                                } else {
+                                    anyCommittedAfterReadTs = rr;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        if (wi != null && isWriteIntentBelongingToThisTx(wi, txId)) {
-            return builder(PENDING).build();
-        } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
-            // In this case we can't be sure about anything that happened before read timestamp.
-            throw new OutdatedReadOnlyTransactionInternalException(readTimestamp, lowWatermark.getLowWatermark());
-        } else if (anyCommittedAfterReadTs != null) {
-            // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
-            // contain tx id.
-            // Consider the examples:
-            // Example 1:
-            // - wi created at t1 by tx1
-            // - read ts is t2, backup replica waits for t2
-            // - tx1 is committed at t5, commit ts is t5
-            // - commit write is replicated at t6
-            // - now is t7
-            // - on primary replica, we see committed version with commit ts t5
-            // Example 2:
-            // - wi1 created at t1 by tx1
-            // - read ts is t2, backup replica waits for t2
-            // - tx1 is aborted at t3
-            // - tx2 creates wi2 on primary at t4
-            // - tx2 is committed at t5, commit ts is t5
-            // - commit write is replicated at t6
-            // - now is t7
-            // - on primary replica, we see committed version with commit ts t5
-            // In 1st example tx1 was committed and in 2nd it was aborted but in both examples the state of the storage is the same.
-            // So the state of tx1 is unknown.
-            // However, the write intent should be ignored by the requesting replica because nothing was committed
-            // with commit timestamp less than read timestamp.
-            return txStateMetaUnknown();
-        } else {
-            // These can be only versions known to requesting replica.
-            return builder(ABORTED).build();
-        }
+            if (wi != null && isWriteIntentBelongingToThisTx(wi, txId, readTimestamp)) {
+                return builder(PENDING).build();
+            } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
+                // In this case we can't be sure about anything that happened before read timestamp.
+                throw new OutdatedReadOnlyTransactionInternalException(readTimestamp, lowWatermark.getLowWatermark());
+            } else if (anyCommittedAfterReadTs != null) {
+                // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
+                // contain tx id.
+                // Consider the examples:
+                // Example 1:
+                // - wi created at t1 by tx1
+                // - read ts is t2, backup replica waits for t2
+                // - tx1 is committed at t5, commit ts is t5
+                // - commit write is replicated at t6
+                // - now is t7
+                // - on primary replica, we see committed version with commit ts t5
+                // Example 2:
+                // - wi1 created at t1 by tx1
+                // - read ts is t2, backup replica waits for t2
+                // - tx1 is aborted at t3
+                // - tx2 creates wi2 on primary at t4
+                // - tx2 is committed at t5, commit ts is t5
+                // - commit write is replicated at t6
+                // - now is t7
+                // - on primary replica, we see committed version with commit ts t5
+                // In 1st example tx1 was committed and in 2nd it was aborted but in both examples the state of the storage is the same.
+                // So the state of tx1 is unknown.
+                // However, the write intent should be ignored by the requesting replica because nothing was committed
+                // with commit timestamp less than read timestamp.
+                return txStateMetaUnknown();
+            } else {
+                // These can be only versions known to requesting replica.
+                return builder(ABORTED).build();
+            }
+        });
     }
 
     private static <T> boolean allElementsAreNull(List<T> list) {
@@ -3504,18 +3561,22 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         ZonePartitionId commitPartitionId = new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId());
 
         return transactionStateResolver.resolveTxState(
-                        txId,
-                        commitPartitionId,
-                        timestamp,
-                        currentConsistencyToken,
-                        replicationGroupId
+                        txStateResolutionParameters()
+                                .txId(txId)
+                                .tableId(tableId)
+                                .commitGroupId(commitPartitionId)
+                                .readTimestamp(timestamp)
+                                .senderGroupId(replicationGroupId)
+                                .senderCurrentConsistencyToken(currentConsistencyToken)
+                                .rowIdAndNewestCommitTimestamp(writeIntent.rowId(), writeIntent.newestCommitTimestamp())
+                                .build()
                 )
                 .thenApply(transactionMeta -> {
                     boolean writeIntentReadable = canReadFromWriteIntent(txId, txManager, transactionMeta, timestamp);
 
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
-                    } else if (timestamp == null) {
+                    } else if (timestamp == null && transactionMeta.txState() == PENDING) {
                         // If it's resolution by RW txn.
                         LOG.info(
                                 "Received non-final transaction state after tx state resolution [txId={}, groupId={}, txMeta={}, "
@@ -3531,6 +3592,28 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     }
 
                     return new WriteIntentResolutionResult(writeIntentReadable, transactionMeta);
+                })
+                .handle((v, e) -> {
+                    if (e != null) {
+                        Throwable cause = unwrapCause(e);
+
+                        if (cause instanceof PrimaryReplicaChangeDuringWriteIntentResolutionException) {
+                            throw new PrimaryReplicaMissException(
+                                    localNode.name(),
+                                    null,
+                                    localNode.id(),
+                                    null,
+                                    currentConsistencyToken,
+                                    null,
+                                    replicationGroupId,
+                                    cause
+                            );
+                        } else {
+                            sneakyThrow(cause);
+                        }
+                    }
+
+                    return v;
                 });
     }
 
@@ -3549,7 +3632,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 : format("Unexpected state defined by write intent resolution [{}, txMeta={}].",
                 formatTxInfo(txId, txManager, false), txMeta);
 
-        // TODO IGNITE-27494 double check UNKNOWN state works correctly here.
         if (txMeta.txState() == COMMITTED) {
             boolean readLatest = timestamp == null;
 
@@ -4039,6 +4121,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
+    }
+
+    @TestOnly
+    public PendingComparableValuesTracker<HybridTimestamp, Void> safeTime() {
+        return safeTime;
+    }
+
+    @TestOnly
+    public StorageUpdateHandler storageUpdateHandler() {
+        return storageUpdateHandler;
     }
 
     private static class WriteIntentResolutionResult {
