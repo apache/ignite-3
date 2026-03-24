@@ -731,22 +731,10 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        int extCnt = 0;
-        boolean retriable = false;
-
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
         TransactionKilledException killedException = findException(err, TransactionKilledException.class);
-
-        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
-            extCnt = 1;
-        } else {
-            retriable = findException(err, RetriableTransactionException.class) != null;
-            if (retriable) {
-                extCnt++;
-            }
-        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -782,6 +770,16 @@ public class ClientInboundMessageHandler
         }
 
         // Extensions.
+        int extCnt = 0;
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
+            extCnt++;
+        }
+
+        var retriable = findException(err, RetriableTransactionException.class) != null;
+        if (retriable) {
+            extCnt++;
+        }
+
         if (extCnt > 0) {
             // IMPORTANT: every extension must be a single msgpack value, so that the client can skip unknown values.
             packer.packInt(extCnt);
