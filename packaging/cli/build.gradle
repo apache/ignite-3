@@ -30,6 +30,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+import org.apache.tools.ant.filters.FixCrLfFilter
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
@@ -69,6 +70,7 @@ def zipTokens = tokens + [
 def replaceScriptVarsZip = tasks.register('replaceScriptVarsZip', Copy) {
     from 'start.sh'
     filter(ReplaceTokens, tokens: zipTokens)
+    filter(FixCrLfFilter, eol: FixCrLfFilter.CrLf.newInstance("lf"))
     into "$buildDir/zip"
     rename {
         'ignite3'
@@ -150,6 +152,7 @@ def replaceScriptVarsLinux = tasks.register('replaceScriptVarsLinux', Copy) {
     from 'start.sh'
     from 'postInstall.sh'
     filter(ReplaceTokens, tokens: linuxTokens)
+    filter(FixCrLfFilter, eol: FixCrLfFilter.CrLf.newInstance("lf"))
     into "$buildDir/linux"
 }
 
