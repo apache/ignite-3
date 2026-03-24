@@ -48,6 +48,11 @@ public class FullTableSchema {
 
     private final List<CatalogTableColumnDescriptor> columns;
 
+    /**
+     * Indexes that were created in catalog versions preceding this schema version, but were started being built exactly in
+     * the catalog version corresponding to this schema version. Keyed by index ID; value is the catalog version in which the index
+     * was created.
+     */
     private final Int2IntMap indexesJustStartedBeingBuilt;
 
     /**

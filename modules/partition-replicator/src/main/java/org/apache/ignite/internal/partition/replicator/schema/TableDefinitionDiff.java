@@ -42,6 +42,10 @@ public class TableDefinitionDiff {
     private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
 
+    /**
+     * Indexes that were created in catalog versions preceding this diff, but were started being built exactly in the catalog version
+     * corresponding to this diff. Keyed by index ID; value is the catalog version in which the index was created.
+     */
     private final Int2IntMap indexesJustStartedBeingBuilt;
 
     /**

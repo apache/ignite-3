@@ -182,6 +182,10 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
         );
     }
 
+    /**
+     * Returns indexes that were created in catalog versions preceding the catalog version, but were started being built exactly in
+     * the catalog version at question. Keyed by index ID; value is the catalog version in which the index was created.
+     */
     private Int2IntMap indexesJustStartedBeingBuilt(CatalogTableDescriptor tableDescriptor, Catalog catalog) {
         Int2IntMap indexesJustStartedBeingBuilt = Int2IntMaps.EMPTY_MAP;
 
