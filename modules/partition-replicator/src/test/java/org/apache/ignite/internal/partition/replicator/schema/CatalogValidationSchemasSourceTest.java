@@ -27,21 +27,30 @@ import static org.mockito.AdditionalMatchers.geq;
 import static org.mockito.AdditionalMatchers.lt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -63,6 +72,9 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
 
     @Mock
     private SchemaRegistry schemaRegistry;
+
+    @Mock
+    private IndexMetasAccess indexMetasAccess;
 
     @InjectMocks
     private CatalogValidationSchemasSource schemas;
@@ -106,10 +118,19 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         assertThat(fullSchemas.get(1).schemaVersion(), is(4));
     }
 
-    private void mockCatalogWithSingleTable(int catalogVersion, int tableId) {
+    private void mockCatalogWithSingleTable(int catalogAndTableVersion, int tableId) {
+        mockCatalogWithSingleTable(catalogAndTableVersion, catalogAndTableVersion, tableId);
+    }
+
+    private Catalog mockCatalogWithSingleTable(int catalogVersion, int tableVersion, int tableId) {
         Catalog catalog = mock(Catalog.class);
+
         when(catalogService.catalog(catalogVersion)).thenReturn(catalog);
-        when(catalog.table(tableId)).thenReturn(tableVersion(tableId, catalogVersion));
+        when(catalog.table(tableId)).thenReturn(tableVersion(tableId, tableVersion));
+        lenient().when(catalog.version()).thenReturn(catalogVersion);
+        lenient().when(catalog.time()).thenReturn(clock.nowLong());
+
+        return catalog;
     }
 
     private void mockCatalogWithoutTable(int catalogVersion, int tableId) {
@@ -142,6 +163,59 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         }
 
         return descriptor;
+    }
+
+    @Test
+    void tableSchemaVersionsBetweenTimestampsWorksWhenIndexBecomesBeingBuilt() {
+        int tableId = 1;
+        int indexId = 10;
+
+        HybridTimestamp from = clock.now();
+
+        // No index here.
+        mockCatalogWithSingleTable(3, 3, tableId);
+        // Index registered here.
+        Catalog catalog4 = mockCatalogWithSingleTable(4, 3, tableId);
+        mockCatalogWithOneIndex(catalog4, tableId, indexId, CatalogIndexStatus.REGISTERED);
+        // Index started being built here.
+        Catalog catalog5 = mockCatalogWithSingleTable(5, 3, tableId);
+        mockCatalogWithOneIndex(catalog5, tableId, indexId, CatalogIndexStatus.BUILDING);
+        // Index made available here.
+        Catalog catalog6 = mockCatalogWithSingleTable(6, 3, tableId);
+        mockCatalogWithOneIndex(catalog6, tableId, indexId, CatalogIndexStatus.AVAILABLE);
+
+        HybridTimestamp to = clock.now();
+
+        when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
+        when(catalogService.activeCatalogVersion(to.longValue())).thenReturn(6);
+
+        IndexMeta indexMeta = new IndexMeta(
+                6,
+                indexId,
+                tableId,
+                3,
+                "TEST_IDX",
+                MetaIndexStatus.AVAILABLE,
+                Map.of(
+                        MetaIndexStatus.REGISTERED, new MetaIndexStatusChange(4, catalog4.time()),
+                        MetaIndexStatus.BUILDING, new MetaIndexStatusChange(5, catalog5.time()),
+                        MetaIndexStatus.AVAILABLE, new MetaIndexStatusChange(6, catalog6.time())
+                )
+        );
+        when(indexMetasAccess.indexMeta(indexId)).thenReturn(indexMeta);
+
+        List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, to);
+
+        assertThat(fullSchemas, hasSize(2));
+        assertThat(fullSchemas.get(0).catalogVersion(), is(3));
+        assertThat(fullSchemas.get(1).catalogVersion(), is(5));
+        assertThat(fullSchemas.get(1).indexesJustStartedBeingBuilt(), is(Int2IntMaps.singleton(indexId, 4)));
+    }
+
+    private static void mockCatalogWithOneIndex(Catalog catalog4, int tableId, int indexId, CatalogIndexStatus status) {
+        when(catalog4.indexes(tableId)).thenReturn(List.of(
+                new CatalogSortedIndexDescriptor(indexId, "TEST_IDX", tableId, false, status, List.of(), false))
+        );
     }
 
     @Test

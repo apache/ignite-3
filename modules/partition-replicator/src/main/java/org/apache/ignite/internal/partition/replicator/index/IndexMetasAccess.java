@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.partition.replicator.index;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.Collection;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Tracks the completion of RW transactions' operations before a dependent process begins.
+ * Source of index metadata. In contrast with the Catalog (which can get compacted), this interface guarantees that index metadata
+ * is stored for as long as it is needed.
  */
-public interface TableTxRwOperationTracker {
+public interface IndexMetasAccess {
     /**
-     * Waits for RW transactions operations to complete strictly lower than the requested catalog version.
+     * Returns the index meta if exists.
      *
-     * @param catalogVersion Catalog version in question.
+     * @param indexId Index ID.
      */
-    CompletableFuture<Void> awaitCompleteTxRwOperations(int catalogVersion);
+    @Nullable
+    IndexMeta indexMeta(int indexId);
+
+    /**
+     * Returns a view of all index metas.
+     */
+    Collection<IndexMeta> indexMetas();
 }

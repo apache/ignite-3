@@ -95,7 +95,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -114,7 +113,6 @@ import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -324,12 +322,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /**
-     * Processor that handles catalog events {@link CatalogEvent#INDEX_BUILDING} and tracks read-write transaction operations for building
-     * indexes.
-     */
-    private final PartitionReplicaBuildIndexProcessor indexBuildingProcessor;
-
     private final SchemaRegistry schemaRegistry;
 
     private final LowWatermark lowWatermark;
@@ -423,8 +415,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         this.metrics = metrics;
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
-
-        indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService, txManager);
 
         tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
@@ -3872,13 +3862,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         busyLock.block();
-
-        indexBuildingProcessor.onShutdown();
-    }
-
-    @Override
-    public TableTxRwOperationTracker txRwOperationTracker() {
-        return indexBuildingProcessor.tracker();
     }
 
     private int partId() {
@@ -3894,15 +3877,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
-        indexBuildingProcessor.incrementRwOperationCountIfNeeded(request);
-
         UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
 
         try {
             return processOperationRequest(request, replicaPrimacy, opStartTsIfDirectRo)
                     .handle((res, ex) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
-                        indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
 
                         if (ex != null) {
                             storeFailureInTxMeta(request, ex);
@@ -3935,11 +3915,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 e.addSuppressed(unlockProblem);
             }
 
-            try {
-                indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
-            } catch (Throwable decrementProblem) {
-                e.addSuppressed(decrementProblem);
-            }
             throw e;
         }
     }
