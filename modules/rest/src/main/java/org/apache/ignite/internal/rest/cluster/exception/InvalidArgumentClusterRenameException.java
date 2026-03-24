@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rest.cluster.exception;
 
 /**
- * Exception that is thrown when the wrong arguments are passed to the init cluster method.
+ * Exception that is thrown when the wrong arguments are passed to the rename cluster method.
  */
 public class InvalidArgumentClusterRenameException extends RuntimeException {
     public InvalidArgumentClusterRenameException(Throwable cause) {

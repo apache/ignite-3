@@ -49,7 +49,7 @@ public class ClusterRenameCommand extends BaseCommand implements Callable<Intege
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .input(buildCallInput())
-                .exceptionHandler(createHandler("Cannot update cluster config"))
+                .exceptionHandler(createHandler("Cannot update cluster name"))
         );
     }
 
