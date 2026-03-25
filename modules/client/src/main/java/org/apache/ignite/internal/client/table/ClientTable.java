@@ -66,6 +66,7 @@ import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
@@ -585,7 +586,14 @@ public class ClientTable implements Table {
                     return null;
                 });
 
-        return fut;
+        return fut.handle((v, err) -> {
+            if (err == null) {
+                return v;
+            }
+
+            var cause = unwrapCause(err);
+            throw sneakyThrow(ViewUtils.ensurePublicException(cause));
+        });
     }
 
     private <T> @Nullable Object readSchemaAndReadData(
