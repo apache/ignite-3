@@ -25,6 +25,7 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.DisasterRecoveryApi;
+import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.RestartZonePartitionsRequest;
 
@@ -39,7 +40,8 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
 
     @Override
     public DefaultCallOutput<String> execute(RestartPartitionsCallInput input) {
-        DisasterRecoveryApi client = new DisasterRecoveryApi(clientFactory.getClient(input.clusterUrl()).setReadTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS));
+        ApiClient apiClient = clientFactory.getClient(input.clusterUrl()).setReadTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS);
+        DisasterRecoveryApi client = new DisasterRecoveryApi(apiClient);
 
         try {
             RestartZonePartitionsRequest command = new RestartZonePartitionsRequest();
