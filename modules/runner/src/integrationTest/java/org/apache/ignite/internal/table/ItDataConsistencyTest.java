@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.client.ClientRetriableTransactionException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -217,6 +218,12 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 } catch (TransactionException e) {
                     // Don't need to rollback manually if got IgniteException.
                     fails.increment();
+                } catch (ClientRetriableTransactionException e) {
+                    if (e.getCause() instanceof TransactionException) {
+                        fails.increment();
+                    } else {
+                        throw e;
+                    }
                 }
             }
         };
@@ -261,6 +268,12 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                     readOps.increment();
                 } catch (TransactionException e) {
                     readFails.increment();
+                } catch (ClientRetriableTransactionException e) {
+                    if (e.getCause() instanceof TransactionException) {
+                        readFails.increment();
+                    } else {
+                        throw e;
+                    }
                 }
             }
         };

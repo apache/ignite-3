@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.ssl;
 
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Client.CLIENT_SSL_CONFIGURATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.IgniteExceptionTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -239,11 +242,13 @@ public class ItSslTest {
                 }
             });
 
-            assertThat(ex.getMessage(), is("Client SSL configuration error: keystore password was incorrect"));
-            // Exceptions thrown from the synchronous build method are copied to include the sync method
-            assertThat(ex.getCause(), isA(IgniteClientConnectionException.class));
-            assertThat(ex.getCause().getCause(), isA(IOException.class));
-            assertThat(ex.getCause().getCause().getMessage(), is("keystore password was incorrect"));
+            IgniteExceptionTestUtils.publicException(
+                    IgniteClientConnectionException.class,
+                    CLIENT_SSL_CONFIGURATION_ERR,
+                    "Client SSL configuration error: keystore password was incorrect",
+                    emptyList()
+            ).withCause(isA(IOException.class));
+            assertThat(ex.getCause().getMessage(), is("keystore password was incorrect"));
         }
 
         @Test
