@@ -25,6 +25,7 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.hasMessage;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -43,7 +44,6 @@ import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
@@ -83,6 +83,7 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.IgniteExceptionTestUtils.Cause;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -112,6 +113,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
+
+    protected abstract ClientType clientType();
 
     protected String jobPackage() {
         return "org.example.jobs.embedded";
@@ -308,7 +311,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobTarget.node(clusterNode(entryNode)),
                 failingJob(), null));
 
-        assertThat(ex, is(computeJobFailedException("JobException", "Oops")));
+        assertThat(ex, is(computeJobFailedException("org.example.jobs.embedded.JobException", "Oops")));
     }
 
     @Test
@@ -321,7 +324,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        assertThat(execution.resultAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
+        assertThat(execution.resultAsync(), willThrow(computeJobFailedException("org.example.jobs.embedded.JobException", "Oops")));
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
     }
@@ -332,7 +335,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 failingJob(), null));
 
-        assertThat(ex, is(computeJobFailedException("JobException", "Oops")));
+        assertThat(ex, is(computeJobFailedException("org.example.jobs.embedded.JobException", "Oops")));
     }
 
     @Test
@@ -356,7 +359,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        assertThat(execution.resultAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
+        assertThat(execution.resultAsync(), willThrow(computeJobFailedException("org.example.jobs.embedded.JobException", "Oops")));
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
     }
@@ -410,12 +413,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Collection<JobExecution<String>> executions = broadcastExecution.executions();
         assertThat(executions, hasSize(3));
         for (JobExecution<String> execution : executions) {
-            assertThat(execution.resultAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
+            assertThat(execution.resultAsync(), willThrow(computeJobFailedException("org.example.jobs.embedded.JobException", "Oops")));
 
             assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         }
 
-        assertThat(broadcastExecution.resultsAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
+        assertThat(broadcastExecution.resultsAsync(),
+                willThrow(computeJobFailedException("org.example.jobs.embedded.JobException", "Oops")));
     }
 
     @Test
@@ -667,17 +671,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         CompletionException completionException = assertThrows(CompletionException.class, () -> execution.resultAsync().join());
-
-        // Unwrap CompletionException, ComputeException should be the cause thrown from the API
-        assertThat(completionException.getCause(), instanceOf(ComputeException.class));
-        ComputeException computeException = (ComputeException) completionException.getCause();
-
-        // ComputeException should be caused by the RuntimeException thrown from the SleepJob
-        assertThat(computeException.getCause(), instanceOf(RuntimeException.class));
-        RuntimeException runtimeException = (RuntimeException) computeException.getCause();
-
-        // RuntimeException is thrown when SleepJob catches the InterruptedException
-        assertThat(runtimeException.toString(), containsString(InterruptedException.class.getName()));
+        assertThat((Exception) completionException.getCause(),
+                computeJobFailedException(InterruptedException.class.getName(), "sleep interrupted"));
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
@@ -972,23 +967,57 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 .units(units()).build();
     }
 
-    static Matcher<Exception> computeJobFailedException(String causeClass, String causeMsgSubstring) {
-        return traceableException(ComputeException.class)
-                .withCode(is(COMPUTE_JOB_FAILED_ERR))
-                .withMessage(both(containsString("Job execution failed:"))
-                        .and(containsString(causeClass)))
-                .withCause(hasMessage(containsString(causeMsgSubstring)));
+    Matcher<Exception> computeJobFailedException(String causeClass, String causeMsgSubstring) {
+        return computeJobFailedException(clientType(), causeClass, causeMsgSubstring);
     }
 
-    private static Matcher<Exception> computeJobCancelledException() {
-        return traceableException(ComputeException.class)
-                .withCode(is(COMPUTE_JOB_CANCELLED_ERR))
-                .withMessage(containsString("Job execution cancelled"))
-                .withCause(
-                        // Thin client exception transfers the class name in a message of the cause,
-                        // embedded exception are instances in the cause chain
-                        either(hasMessage(containsString(CancellationException.class.getName())))
-                                .or(instanceOf(CancellationException.class))
+    static Matcher<Exception> computeJobFailedException(ClientType clientType, String causeClass, String causeMsgSubstring) {
+        var msgMatcher = both(containsString("Job execution failed:")).and(containsString(causeClass));
+        switch (clientType) {
+            case JAVA:
+                return publicException(
+                        ComputeException.class,
+                        COMPUTE_JOB_FAILED_ERR,
+                        "",
+                        List.of(new Cause(causeClass, causeMsgSubstring))
+                )
+                        .withMessage(msgMatcher);
+            case EMBEDDED:
+                return traceableException(ComputeException.class)
+                        .withCode(is(COMPUTE_JOB_FAILED_ERR))
+                        .withMessage(msgMatcher)
+                        .withCause(hasMessage(containsString(causeMsgSubstring)));
+            default:
+                throw new IllegalArgumentException("invalid clientType");
+        }
+    }
+
+    Matcher<Exception> computeJobCancelledException() {
+        return computeJobCancelledException(clientType());
+    }
+
+    private static Matcher<Exception> computeJobCancelledException(ClientType clientType) {
+        switch (clientType) {
+            case JAVA:
+                return publicException(
+                        ComputeException.class,
+                        COMPUTE_JOB_CANCELLED_ERR,
+                        "Job execution cancelled",
+                        List.of(Cause.of(CancellationException.class))
                 );
+            case EMBEDDED:
+                return traceableException(ComputeException.class)
+                        .withCode(is(COMPUTE_JOB_CANCELLED_ERR))
+                        .withMessage(containsString("Job execution cancelled"))
+                        .withCause(instanceOf(CancellationException.class));
+            default:
+                throw new IllegalArgumentException("invalid clientType");
+        }
+    }
+
+    /** ClientType. */
+    public enum ClientType {
+        JAVA,
+        EMBEDDED,
     }
 }
