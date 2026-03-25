@@ -39,7 +39,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Disaster recovery controller.
  */
 @Controller("/management/v1/recovery")
-@Tag(name = "recovery")
+@Tag(name = "disasterRecovery")
 public interface DisasterRecoveryApi {
     @Post("zone/partitions/reset")
     @Operation(
