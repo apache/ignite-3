@@ -44,6 +44,7 @@ public interface DisasterRecoveryApi {
     @Post("zone/partitions/reset")
     @Operation(
             operationId = "resetZonePartitions",
+            summary = "Reset zone partitions",
             description = "Updates assignments of zone's partitions in a forced manner, allowing for the recovery of raft groups with "
                     + "lost majorities."
     )
@@ -59,6 +60,7 @@ public interface DisasterRecoveryApi {
     @Post("zone/partitions/restart")
     @Operation(
             operationId = "restartZonePartitions",
+            summary = "Restart zone partitions",
             description = "Restarts replica service and raft group of passed zone partitions."
     )
     @ApiResponse(responseCode = "200", description = "Zone partitions restarted.")
@@ -73,6 +75,7 @@ public interface DisasterRecoveryApi {
     @Post("zone/partitions/restartWithCleanup")
     @Operation(
             operationId = "restartZonePartitionsWithCleanup",
+            summary = "Restart zone partitions with cleanup",
             description = "Restarts replica service and raft group of passed zone partitions with cleaning up of the storage."
     )
     @ApiResponse(responseCode = "200", description = "Zone partitions restarted.")
@@ -85,7 +88,11 @@ public interface DisasterRecoveryApi {
     CompletableFuture<Void> restartZonePartitionsWithCleanup(@Body RestartZonePartitionsRequest command);
 
     @Get("zone/state/local")
-    @Operation(operationId = "getZoneLocalPartitionStates", description = "Returns local zone partition states.")
+    @Operation(
+            operationId = "getZoneLocalPartitionStates",
+            summary = "Get local zone partition states",
+            description = "Returns local zone partition states."
+    )
     @ApiResponse(responseCode = "200", description = "Zone partition states returned.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
@@ -104,7 +111,11 @@ public interface DisasterRecoveryApi {
     );
 
     @Get("zone/state/global")
-    @Operation(operationId = "getZoneGlobalPartitionStates", description = "Returns global zone partition states.")
+    @Operation(
+            operationId = "getZoneGlobalPartitionStates",
+            summary = "Get global zone partition states",
+            description = "Returns global zone partition states."
+    )
     @ApiResponse(responseCode = "200", description = "Zone partition states returned.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))

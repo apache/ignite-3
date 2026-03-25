@@ -42,6 +42,7 @@ public interface SystemDisasterRecoveryApi {
     @Post("reset")
     @Operation(
             operationId = "resetCluster",
+            summary = "Reset cluster",
             description = "Initiates cluster reset to repair CMG/Metastorage group/both."
     )
     @ApiResponse(responseCode = "200", description = "Cluster reset initiated.")
@@ -57,6 +58,7 @@ public interface SystemDisasterRecoveryApi {
     @Post("migrate")
     @Operation(
             operationId = "migrate",
+            summary = "Migrate nodes to repaired cluster",
             description = "Migrates nodes from old cluster to new (repaired) cluster."
     )
     @ApiResponse(responseCode = "200", description = "Migration initiated.")
