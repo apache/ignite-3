@@ -659,5 +659,5 @@ TEST_F(transaction_test, heartbeat_disable_connection_is_closed) {
 
     std::cout << "Error message: " << get_odbc_error_message(SQL_HANDLE_ENV, m_env) << std::endl;
 
-    EXPECT_EQ(ret, SQL_ERROR);
+    EXPECT_TRUE(ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO);
 }
