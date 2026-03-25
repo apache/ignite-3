@@ -35,6 +35,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +47,7 @@ public class SortedIndexLocker implements IndexLocker {
     /** Index INF+ value object. */
     private final Object positiveInf;
 
-    private final int indexId;
+    private final PartitionIndexId contextId;
 
     private final LockManager lockManager;
 
@@ -74,7 +75,7 @@ public class SortedIndexLocker implements IndexLocker {
             ColumnsExtractor indexRowResolver,
             boolean unique
     ) {
-        this.indexId = indexId;
+        this.contextId = new PartitionIndexId(partId, indexId);
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
@@ -84,12 +85,12 @@ public class SortedIndexLocker implements IndexLocker {
 
     @Override
     public int id() {
-        return indexId;
+        return contextId.indexId;
     }
 
     @Override
     public CompletableFuture<Void> locksForLookupByKey(UUID txId, BinaryTuple key) {
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
@@ -131,7 +132,7 @@ public class SortedIndexLocker implements IndexLocker {
     private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
         IndexRow peekedRow = peekCursor.peek();
 
-        LockKey lockKey = new LockKey(indexId, indexKey(peekedRow));
+        LockKey lockKey = new LockKey(contextId, indexKey(peekedRow));
 
         return lockManager.acquire(txId, lockKey, LockMode.S)
                 .thenCompose(ignore -> {
@@ -179,12 +180,12 @@ public class SortedIndexLocker implements IndexLocker {
             return nullCompletedFuture();
         }
 
-        var nextLockKey = new LockKey(indexId, indexKey(nextRow));
+        var nextLockKey = new LockKey(contextId, indexKey(nextRow));
 
         return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
             LockMode modeToLock = currentKeyLockMode(shortLock.lockMode());
 
-            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modeToLock)
+            return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), modeToLock)
                     .thenApply(lock -> new Lock(nextLockKey, LockMode.IX, txId));
         });
     }
@@ -206,6 +207,43 @@ public class SortedIndexLocker implements IndexLocker {
     public CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
+    }
+
+    /**
+     * Composite context ID for lock keys, that includes partition ID and index ID.
+     */
+    public static class PartitionIndexId {
+        private final int partitionId;
+        private final int indexId;
+        private final int hash;
+
+        /**
+         * Constructor.
+         */
+        public PartitionIndexId(int partitionId, int indexId) {
+            this.partitionId = partitionId;
+            this.indexId = indexId;
+            this.hash = IgniteUtils.hash(65535 * partitionId + indexId);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            PartitionIndexId that = (PartitionIndexId) o;
+            return partitionId == that.partitionId && indexId == that.indexId;
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
     }
 }
