@@ -102,7 +102,7 @@ object PlatformCppTestsWindows : BuildType({
             name = "Install ODBC"
             platform = PowerShellStep.Platform.x64
             scriptMode = file {
-                path = "%PATH__CMAKE_BUILD_DIRECTORY%\\odbc\\install\\install_win.ps1"
+                path = "%PATH__WORKING_DIR%\\odbc\\install\\install_win.ps1"
             }
             scriptArgs = "install \"%PATH__CMAKE_BUILD_DIRECTORY%\\Debug\\bin\\ignite_odbc.dll\""
         }
@@ -123,7 +123,7 @@ object PlatformCppTestsWindows : BuildType({
             name = "Remove ODBC"
             platform = PowerShellStep.Platform.x64
             scriptMode = file {
-                path = "%PATH__CMAKE_BUILD_DIRECTORY%\\odbc\\install\\install_win.ps1"
+                path = "%PATH__WORKING_DIR%\\odbc\\install\\install_win.ps1"
             }
             scriptArgs = "remove"
             executionMode = BuildStep.ExecutionMode.ALWAYS
