@@ -21,10 +21,14 @@ import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
@@ -56,8 +60,14 @@ public final class ViewUtils {
     }
 
     /**
-     * Wraps an exception in an IgniteException, extracting trace identifier and error code when the specified exception or one of its
-     * causes is an IgniteException itself.
+     * Ensures the provided exception complies with our public API.
+     * <ol>
+     *   <li>Finds the root cause of the exception.</li>
+     *   <li>Errors caused by {@link IgniteException} and {@link IgniteCheckedException} are treated as server-side exceptions.
+     *      Their stack trace is rebased to the current stack trace.</li>
+     *   <li>Other errors are mapped using {@link IgniteExceptionMapperUtil#mapToPublicException(Throwable, Function)},
+     *      are treated as client-side errors, and their stack trace is not rebased.</li>
+     * </ol>
      *
      * @param e Internal exception.
      * @return Public exception.
@@ -65,19 +75,12 @@ public final class ViewUtils {
     public static Throwable ensurePublicException(Throwable e) {
         Objects.requireNonNull(e);
 
-        e = unwrapCause(e);
-
-        if (e instanceof IgniteException) {
-            return copyExceptionWithCauseIfPossible((IgniteException) e);
+        // Copy should rebase the stacktrace.
+        if (e instanceof IgniteException || e instanceof IgniteCheckedException) {
+            return copyExceptionWithCauseIfPossible((Throwable & TraceableException) e);
         }
 
-        if (e instanceof IgniteCheckedException) {
-            return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
-        }
-
-        var e0 = IgniteExceptionMapperUtil.mapToPublicException(e);
-
-        return new IgniteException(INTERNAL_ERR, e0.getMessage(), e0);
+        return IgniteExceptionMapperUtil.mapToPublicException(e, ex -> new IgniteException(INTERNAL_ERR, ex.getMessage(), ex));
     }
 
     /**
@@ -88,7 +91,23 @@ public final class ViewUtils {
      */
     // TODO: consider removing after IGNITE-22721 gets resolved.
     private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
-        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
+        // Copy exception with cause does not respect custom exception fields.
+        // We should just create this during compile time and call it a day, or at least cache this. Create ticket.
+        try {
+            Class<T> klass = (Class<T>) e.getClass();
+            MethodHandles.Lookup privateLookup = MethodHandles.privateLookupIn(klass, MethodHandles.lookup());
+            MethodHandle mhandle = privateLookup.findStatic(
+                    klass,
+                    "copy",
+                    MethodType.methodType(klass, klass) // adjust signature
+            );
+
+            return (T) mhandle.invoke(e);
+        } catch (Throwable ignored) {
+            // Intentionally left blank.
+        }
+
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e.getCause());
         if (copy != null) {
             return copy;
         }
