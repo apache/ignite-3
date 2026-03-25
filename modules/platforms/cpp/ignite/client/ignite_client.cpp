@@ -44,7 +44,6 @@ ignite_client ignite_client::start(ignite_client_configuration configuration, st
     impl->start(result_promise_setter(promise));
 
     auto status = future.wait_for(timeout);
-
     if (status == std::future_status::timeout) {
         impl->stop();
         throw ignite_error(error::code::CONNECTION, "Can not establish connection within timeout");
