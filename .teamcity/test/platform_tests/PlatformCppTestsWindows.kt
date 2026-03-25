@@ -97,6 +97,7 @@ object PlatformCppTestsWindows : BuildType({
                 )
             """.trimIndent()
             formatStderrAsError = true
+            enabled = false
         }
         powerShell {
             name = "Install ODBC"
