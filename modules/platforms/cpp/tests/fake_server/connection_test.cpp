@@ -17,7 +17,7 @@
 
 #include "fake_server.h"
 #include "ignite/client/ignite_client.h"
-#include "proxy/asio_proxy.h"
+#include <proxy/asio_proxy.h>
 #include "tests/client-test/ignite_runner_suite.h"
 
 #include <gtest/gtest.h>

@@ -40,7 +40,7 @@ ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
  * May represent table record or key/value part of the record.
  * Contains uniquely named fields types of which are restricted by @ref ignite::primitive.
  */
-class   ignite_tuple {
+class ignite_tuple {
     friend ignite_tuple detail::concat(const ignite_tuple &left, const ignite_tuple &right);
 
 public:

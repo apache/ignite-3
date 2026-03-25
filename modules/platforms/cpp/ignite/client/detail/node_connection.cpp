@@ -183,7 +183,7 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
         std::chrono::milliseconds(response.idle_timeout_ms));
 
     m_protocol_context = response.context;
-    m_node_consistent_id = response.node_consistent_id;
+    m_node_id = response.node_id;
     m_handshake_complete = true;
 
     if (m_heartbeat_interval.count()) {

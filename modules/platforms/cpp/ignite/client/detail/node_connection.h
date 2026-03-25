@@ -335,8 +335,8 @@ private:
     /** Timer thread. */
     std::weak_ptr<thread_timer> m_timer_thread;
 
-    /** Node consistent_id. */
-    std::string m_node_consistent_id{};
+    /** Node id. */
+    uuid m_node_id{};
 };
 
 } // namespace ignite::detail

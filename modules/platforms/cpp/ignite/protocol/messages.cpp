@@ -64,8 +64,8 @@ handshake_response parse_handshake_response(bytes_view message) {
         return res;
 
     res.idle_timeout_ms = reader.read_int64();
-    res.node_consistent_id = reader.read_string();
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
+    res.node_id = reader.read_uuid();
+    res.node_name = reader.read_string();
 
     auto cluster_ids_len = reader.read_int32();
     if (cluster_ids_len <= 0) {
