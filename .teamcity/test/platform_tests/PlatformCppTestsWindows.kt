@@ -105,7 +105,7 @@ object PlatformCppTestsWindows : BuildType({
             scriptMode = file {
                 path = "%PATH__WORKING_DIR%\\ignite\\odbc\\install\\install_win.ps1"
             }
-            scriptArgs = "install \"%PATH__CMAKE_BUILD_DIRECTORY%\\Debug\\bin\\ignite_odbc.dll\""
+            scriptArgs = "install \"%PATH__CMAKE_BUILD_DIRECTORY%\\Debug\\bin\\ignite3-odbc.dll\""
         }
         script {
             name = "ODBC integration tests"

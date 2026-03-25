@@ -3,7 +3,7 @@ param (
     [ValidateSet("install", "remove")]
     [string]$Mode,
 
-    [Parameter(Position = 1, HelpMessage = "Absolute path to the 64-bit ODBC driver file. Required for 'install' mode.")]
+    [Parameter(Position = 1, HelpMessage = "Absolute path to the ODBC driver file. Required for 'install' mode.")]
     [string]$DriverPath
 )
 
@@ -30,13 +30,13 @@ if ($Mode -eq "install") {
 
     # --- Validate DriverPath was supplied ---
     if (-not $DriverPath) {
-        Write-Error "DriverPath is required in 'install' mode. Call format: .\install_win.ps1 install <abs_path_to_64_bit_driver>"
+        Write-Error "DriverPath is required in 'install' mode. Call format: .\install_win.ps1 install <abs_path_to_driver>"
         exit 1
     }
 
     # --- Validate the path points to an existing file (not a directory) ---
     if (-not (Test-Path -LiteralPath $DriverPath)) {
-        Write-Error "64-bit driver cannot be found: $DriverPath"
+        Write-Error "Driver cannot be found: $DriverPath"
         exit 1
     }
 
@@ -46,7 +46,7 @@ if ($Mode -eq "install") {
     }
 
     # --- Install the driver ---
-    Write-Host "Installing 64-bit ODBC driver: $DriverPath"
+    Write-Host "Installing ODBC driver: $DriverPath"
 
     # Create the driver sub-key if it doesn't exist
     if (-not (Test-Path -LiteralPath $OdbcInstKey)) {
