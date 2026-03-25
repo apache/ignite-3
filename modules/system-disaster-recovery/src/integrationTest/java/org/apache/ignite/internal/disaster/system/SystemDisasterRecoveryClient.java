@@ -23,7 +23,7 @@ import okhttp3.OkHttpClient.Builder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
-import org.apache.ignite.rest.client.api.RecoveryApi;
+import org.apache.ignite.rest.client.api.SystemDisasterRecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
@@ -52,7 +52,7 @@ class SystemDisasterRecoveryClient {
         );
 
         try {
-            RecoveryApi recoveryApi = new RecoveryApi(createApiClient(httpHost, httpPort));
+            SystemDisasterRecoveryApi recoveryApi = new SystemDisasterRecoveryApi(createApiClient(httpHost, httpPort));
             ResetClusterRequest resetRequest = new ResetClusterRequest()
                     .cmgNodeNames(List.of(newCmgNodeNames))
                     .metastorageReplicationFactor(metastorageReplicationFactor);
@@ -74,7 +74,7 @@ class SystemDisasterRecoveryClient {
             ClusterManagementApi clusterManagementApi = new ClusterManagementApi(createApiClient(newHttpHost, newHttpPort));
             ClusterState clusterState = clusterManagementApi.clusterState();
 
-            RecoveryApi recoveryApi = new RecoveryApi(createApiClient(oldHttpHost, oldHttpPort));
+            SystemDisasterRecoveryApi recoveryApi = new SystemDisasterRecoveryApi(createApiClient(oldHttpHost, oldHttpPort));
             MigrateRequest migrateRequest = new MigrateRequest()
                     .cmgNodes(clusterState.getCmgNodes())
                     .metaStorageNodes(clusterState.getMsNodes())
