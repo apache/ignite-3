@@ -250,13 +250,13 @@ public class TestCluster {
 
             nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
 
-            List<NetworkAddress> addressList = List.of();
+            // Always provide all cluster addresses as seed members so ScaleCube gossip can discover
+            // the existing cluster, even when emptyPeers=true (which only clears the Raft initial conf).
+            List<NetworkAddress> addressList = Stream.concat(peers.stream(), learners.stream())
+                    .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
+                    .collect(toList());
 
             if (!emptyPeers) {
-                addressList = Stream.concat(peers.stream(), learners.stream())
-                        .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
-                        .collect(toList());
-
                 nodeOptions.setInitialConf(new Configuration(
                         peers.stream().map(TestPeer::getPeerId).collect(toList()),
                         getLearners()
