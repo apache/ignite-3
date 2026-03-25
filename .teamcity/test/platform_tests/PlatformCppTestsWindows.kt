@@ -15,6 +15,7 @@ import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customPowerShell
 import org.apache.ignite.teamcity.Teamcity
 import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
+import java.io.File
 
 
 object PlatformCppTestsWindows : BuildType({
@@ -97,6 +98,14 @@ object PlatformCppTestsWindows : BuildType({
             """.trimIndent()
             formatStderrAsError = true
         }
+        powerShell {
+            name = "Install ODBC"
+            platform = PowerShellStep.Platform.x64
+            scriptMode = file {
+                path = "%PATH__CMAKE_BUILD_DIRECTORY%\\odbc\\install\\install_win.ps1"
+            }
+            scriptArgs = "install \"%PATH__CMAKE_BUILD_DIRECTORY%\\Debug\\bin\\ignite_odbc.dll\""
+        }
         script {
             name = "ODBC integration tests"
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
@@ -109,6 +118,15 @@ object PlatformCppTestsWindows : BuildType({
                 )
             """.trimIndent()
             formatStderrAsError = true
+        }
+        powerShell {
+            name = "Remove ODBC"
+            platform = PowerShellStep.Platform.x64
+            scriptMode = file {
+                path = "%PATH__CMAKE_BUILD_DIRECTORY%\\odbc\\install\\install_win.ps1"
+            }
+            scriptArgs = "remove"
+            executionMode = BuildStep.ExecutionMode.ALWAYS
         }
         customPowerShell {
             name = "Collect debug artifacts for crash dumps"
