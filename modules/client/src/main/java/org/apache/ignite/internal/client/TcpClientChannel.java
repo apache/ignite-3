@@ -436,7 +436,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     return completedFuture(complete(payloadReader, notificationFut, unpacker, opCode));
                 } catch (Throwable t) {
                     expectedException = true;
-                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
+                    throw sneakyThrow(t);
                 }
             }
 
@@ -468,7 +468,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw sneakyThrow(ViewUtils.ensurePublicException(t));
+            throw sneakyThrow(t);
         }
     }
 
@@ -484,11 +484,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             assert unpacker == null : "unpacker must be null if err is not null";
 
             try {
-                asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(err)));
+                asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(err));
             } catch (Throwable execError) {
                 // Executor error, complete directly.
                 execError.addSuppressed(err);
-                resFut.completeExceptionally(ViewUtils.ensurePublicException(execError));
+                resFut.completeExceptionally(execError);
             }
 
             return;
@@ -501,14 +501,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 try {
                     resFut.complete(complete(payloadReader, notificationFut, unpacker, opCode));
                 } catch (Throwable t) {
-                    resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
+                    resFut.completeExceptionally(t);
                 }
             });
         } catch (Throwable execErr) {
             unpacker.close();
 
             // Executor error, complete directly.
-            resFut.completeExceptionally(ViewUtils.ensurePublicException(execErr));
+            resFut.completeExceptionally(execErr);
         }
     }
 
