@@ -15,6 +15,12 @@ if ($dumps.Count -eq 0) {
     exit 0
 }
 
+if (-not (Test-Path $cdb)) {
+    Write-Error "Crash dump analyzer requires cdb.exe, but it was not found at the expected path: '$cdb'. " +
+                "Ensure the Windows SDK Debuggers are installed and the path is correct."
+    exit 1
+}
+
 foreach ($dump in $dumps) {
     Write-Host "##teamcity[buildProblem description='Crash dump detected: $($dump.Name)']"
     Write-Host "##teamcity[blockOpened name='Crash analysis: $($dump.Name)']"
