@@ -119,6 +119,8 @@ public class Loza implements RaftManager {
 
     private final ThrottlingContextHolder systemGroupsThrottlingContextHolder;
 
+    private volatile RaftMetricSource metrics;
+
     /** Constructor using no-op group storages destruction intents. */
     @TestOnly
     public Loza(
@@ -227,7 +229,7 @@ public class Loza implements RaftManager {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         RaftView raftConfig = raftConfiguration.value();
 
-        var metrics = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
+        metrics = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
 
         metricManager.registerSource(metrics);
         metricManager.enable(metrics);
@@ -252,6 +254,8 @@ public class Loza implements RaftManager {
         }
 
         busyLock.block();
+
+        metricManager.unregisterSource(metrics);
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
