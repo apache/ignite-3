@@ -140,8 +140,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
     private static final int TABLE_ID = 1;
     private static final int PK_INDEX_ID = 1;
     private static final int ZONE_ID = 2;
-    private static final SortedIndexLocker.PartitionIndexId PK_INDEX_CONTEXT_ID
-            = new SortedIndexLocker.PartitionIndexId(PART_ID, PK_INDEX_ID);
+    private static final IndexLocker.PartitionIndexId PK_INDEX_CONTEXT_ID
+            = new IndexLocker.PartitionIndexId(PART_ID, PK_INDEX_ID);
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
