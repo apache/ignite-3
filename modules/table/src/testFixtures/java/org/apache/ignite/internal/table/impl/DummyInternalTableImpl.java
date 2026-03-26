@@ -440,7 +440,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 row2Tuple
         ));
 
-        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(indexId, PART_ID, true, this.txManager.lockManager(), row2Tuple);
 
         safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 

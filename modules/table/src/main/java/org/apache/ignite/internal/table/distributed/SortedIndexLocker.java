@@ -35,7 +35,6 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -208,42 +207,5 @@ public class SortedIndexLocker implements IndexLocker {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
         return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
-    }
-
-    /**
-     * Composite context ID for lock keys, that includes partition ID and index ID.
-     */
-    public static class PartitionIndexId {
-        private final int partitionId;
-        private final int indexId;
-        private final int hash;
-
-        /**
-         * Constructor.
-         */
-        public PartitionIndexId(int partitionId, int indexId) {
-            this.partitionId = partitionId;
-            this.indexId = indexId;
-            this.hash = IgniteUtils.hash(65535 * partitionId + indexId);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            PartitionIndexId that = (PartitionIndexId) o;
-            return partitionId == that.partitionId && indexId == that.indexId;
-        }
-
-        @Override
-        public int hashCode() {
-            return hash;
-        }
     }
 }
