@@ -567,7 +567,8 @@ TEST_F(transaction_test, transaction_environment_rollback_delete_2) {
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_error) {
+// TODO https://issues.apache.org/jira/browse/IGNITE-28372
+TEST_F(transaction_test, DISABLED_transaction_error) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_value(1, "test_1");

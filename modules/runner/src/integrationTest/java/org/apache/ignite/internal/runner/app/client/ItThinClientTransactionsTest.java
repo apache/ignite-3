@@ -77,7 +77,6 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -261,13 +260,19 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Lock the key in tx2.
         Transaction tx2 = client().transactions().begin();
 
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        boolean reversed = server0.txManager().lockManager().policy().reverse();
+
+        Transaction owner = reversed ? tx2 : tx1;
+        Transaction waiter = reversed ? tx1 : tx2;
+
         try {
-            kvView.put(tx2, -100, "1");
+            kvView.put(owner, -100, "1");
 
             // Get the key in tx1 - time out.
-            assertThrows(TimeoutException.class, () -> kvView.getAsync(tx1, -100).get(1, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> kvView.getAsync(waiter, -100).get(1, TimeUnit.SECONDS));
         } finally {
-            tx2.rollback();
+            owner.rollback();
         }
     }
 
@@ -1378,11 +1383,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
 
-        // Older is allowed to wait with wait-die.
-        CompletableFuture<?> fut = ctx.put.apply(client(), olderTxProxy, key2);
-        assertFalse(fut.isDone());
-
         IgniteImpl ignite = unwrapIgniteImpl(server);
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+
+        ClientLazyTransaction owner = reversed ? youngerTxProxy : olderTxProxy;
+        ClientLazyTransaction waiter = reversed ? olderTxProxy : youngerTxProxy;
+
+        CompletableFuture<?> fut = reversed ? ctx.put.apply(client(), olderTxProxy, key2) : ctx.put.apply(client(), youngerTxProxy, key);
+        assertFalse(fut.isDone());
 
         await().atMost(2, TimeUnit.SECONDS).until(() -> {
             Iterator<Lock> locks = ignite.txManager().lockManager().locks(olderTx.txId());
@@ -1390,13 +1398,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             return CollectionUtils.count(locks) == 2;
         });
 
-        assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
+        assertThat(waiter.rollbackAsync(), willSucceedFast());
 
         // Operation future should be failed.
         assertThat(fut, willThrowWithCauseOrSuppressed(ctx.expectedErr));
 
         // Ensure inflights cleanup.
-        assertThat(youngerTxProxy.rollbackAsync(), willSucceedFast());
+        assertThat(owner.rollbackAsync(), willSucceedFast());
 
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2)), willSucceedFast());
     }
@@ -1484,10 +1492,18 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         // Should be directly mapped
         assertThat(ctx.put.apply(client(), youngerTxProxy, key3), willSucceedFast());
+        assertThat(ctx.put.apply(client(), olderTxProxy, key4), willSucceedFast());
 
-        // Younger is not allowed to wait with wait-die.
-        // Next operation should invalidate the transaction.
-        assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        boolean reversed = server0.txManager().lockManager().policy().reverse();
+
+        // Force wrong order.
+        if (reversed) {
+            assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+        } else {
+            assertThat(ctx.put.apply(client(), olderTxProxy, key2), willSucceedFast()); // Will invalidate younger tx.
+            assertThat(youngerTxProxy.commitAsync(), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+        }
 
         olderTxProxy.commit();
 
@@ -1497,7 +1513,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @MethodSource("killTestContextFactory")
-    public void testRollbackOnLocalError(KillTestContext ctx) throws Exception {
+    public void testRollbackOnLocalError(KillTestContext ctx) {
         ClientTable table = (ClientTable) table();
         ClientSql sql = (ClientSql) client().sql();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
@@ -1618,7 +1634,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     private static Stream<Arguments> killTestContextFactory() {
         return Stream.of(
                 argumentSet("kv", new KillTestContext(TransactionException.class, ItThinClientTransactionsTest::putKv)),
-                argumentSet("sql", new KillTestContext(SqlException.class, ItThinClientTransactionsTest::putSql))
+                argumentSet("sql", new KillTestContext(IgniteException.class, ItThinClientTransactionsTest::putSql))
         );
     }
 

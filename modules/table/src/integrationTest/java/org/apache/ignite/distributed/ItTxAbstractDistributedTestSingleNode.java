@@ -203,6 +203,10 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
 
     @Test
     public void testImplicitTransactionTimeout() {
+        if (!txManager(accounts).lockManager().policy().reverse()) {
+            return; // This test scenario is only applicable to WaitDie.
+        }
+
         var rv = accounts.recordView();
 
         // Default tx timeout is 30 sec, default implicit transaction retry timeout is also 30 sec.

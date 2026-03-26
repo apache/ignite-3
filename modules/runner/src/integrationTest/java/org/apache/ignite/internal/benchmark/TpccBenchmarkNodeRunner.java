@@ -49,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TpccBenchmarkNodeRunner {
     private static final int BASE_PORT = 3344;
-    private static final int BASE_CLIENT_PORT = 10800;
+    private static final int BASE_CLIENT_PORT = 10942;
     private static final int BASE_REST_PORT = 10300;
 
     private static final List<IgniteServer> igniteServers = new ArrayList<>();
