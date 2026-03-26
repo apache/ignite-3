@@ -633,6 +633,7 @@ public class Jobs {
             throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
         }
     }
+
     /**
      * Job returns actual partition distribution for particular table calculated by java side.
      */
