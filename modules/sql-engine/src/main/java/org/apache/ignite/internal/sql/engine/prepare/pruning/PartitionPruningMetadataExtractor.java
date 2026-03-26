@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
@@ -43,6 +44,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.Mapping;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -155,7 +158,23 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return rel;
         }
 
-        extractFromValues(rel.sourceId(), table, results, rexBuilder);
+        IntList keysList = distributionKeys(table);
+
+        if (keysList.isEmpty()) {
+            return super.visit(rel);
+        }
+
+        IntList key2Position;
+        if (rel.getOperation() == Operation.DELETE) {
+            ImmutableIntList keyColumns = table.keyColumns();
+            Mapping mapping = Commons.projectedMapping(table.descriptor().columnsCount(), keyColumns);
+            List<Integer> mappedKeys = Mappings.apply2(mapping, new ArrayList<>(keysList));
+            key2Position = IntArrayList.toList(mappedKeys.stream().mapToInt(Integer::intValue));
+        } else {
+            key2Position = keysList;
+        }
+
+        extractFromValues(rel.sourceId(), table, results, rexBuilder, keysList, key2Position);
 
         return super.visit(rel);
     }
@@ -164,26 +183,24 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             long sourceId,
             IgniteTable table,
             List<List<RexNode>> expressions,
-            RexBuilder rexBuilder
+            RexBuilder rexBuilder,
+            IntList keysList,
+            IntList key2PositionList
     ) {
-        IntList keysList = distributionKeys(table);
-
-        if (keysList.isEmpty()) {
-            return;
-        }
-
         List<RexNode> andEqNodes = new ArrayList<>();
 
         RelDataType rowTypes = table.getRowType(Commons.typeFactory());
 
         for (List<RexNode> items : expressions) {
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
-            for (int key : keysList) {
-                RexLocalRef ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
-                RexNode expr = items.get(key);
+            for (int i = 0; i < keysList.size(); i++) {
+                int keyPos = key2PositionList.getInt(i);
+                RexNode expr = items.get(keyPos);
                 if (expr == ModifyNodeVisitor.VALUE_NOT_ASSIGNED || !isValueExpr(expr)) {
                     return;
                 }
+                int keyIndex = keysList.getInt(i);
+                RexLocalRef ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(keyIndex).getType(), keyIndex);
                 RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, expr);
                 andNodes.add(eq);
             }
@@ -696,7 +713,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
     }
 
-    static IntList distributionKeys(IgniteTable table) {
+    private static IntList distributionKeys(IgniteTable table) {
         IgniteDistribution distribution = table.distribution();
         if (!distribution.isTableDistribution()) {
             return IntArrayList.of();

@@ -30,7 +30,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -109,45 +108,10 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     ) {
         switch (tableModify.getOperation()) {
             case INSERT:
-            case UPDATE: {
+            case UPDATE: 
+            case DELETE: 
                 ModifyNodeVisitor visitor = new ModifyNodeVisitor(extractor);
                 return visitor.visit((IgniteRel) tableModify.getInput());
-            }
-            case DELETE: {
-                ModifyNodeVisitor visitor = new ModifyNodeVisitor(extractor);
-                List<List<RexNode>> values = visitor.visit((IgniteRel) tableModify.getInput());
-
-                if (nullOrEmpty(values)) {
-                    return null;
-                }
-
-                IgniteTable table = tableModify.getTable().unwrap(IgniteTable.class);
-                assert table != null;
-
-                int numColumns = table.descriptor().columnsCount();
-                ImmutableIntList keyColumns = table.keyColumns();
-                Mapping mapping = Commons.projectedMapping(table.descriptor().columnsCount(), keyColumns);
-
-                // Delete accept a key-only row, expand it to include all columns.
-                List<List<RexNode>> fullRows = new ArrayList<>(values.size());
-
-                for (List<RexNode> row : values) {
-                    List<RexNode> fullRow = new ArrayList<>(numColumns);
-                    for (int i = 0; i < numColumns; i++) {
-                        fullRow.add(VALUE_NOT_ASSIGNED);
-                    }
-
-                    // Puts values of key columns into correct positions.
-                    for (int k : keyColumns) {
-                        int target = mapping.getTarget(k);
-                        fullRow.set(k, row.get(target));
-                    }
-
-                    fullRows.add(fullRow);
-                }
-
-                return fullRows;
-            }
             default:
                 return null;
         }
@@ -402,17 +366,13 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         return null;
     }
 
-    private @Nullable List<List<RexNode>> extractValuesFromScan(
+    private List<List<RexNode>> extractValuesFromScan(
             long sourceId,
             IgniteTable table,
             @Nullable ImmutableIntList requiredColumns,
             @Nullable List<RexNode> projects
     ) {
         PartitionPruningColumns metadata = extractor.result.get(sourceId);
-        if (metadata == null) {
-            return null;
-        }
-
         List<List<RexNode>> values = metadataToValues(table, metadata);
 
         // Apply projection formed by requiredColumns if any.
@@ -456,6 +416,13 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
             IgniteTable table,
             PartitionPruningColumns metadata
     ) {
+        int numColumns = table.descriptor().columnsCount();
+
+        if (metadata == null) {
+            List<RexNode> row = createRowWithNoValues(numColumns);
+            return List.of(row);
+        }
+
         // Creates a row for each PP metadata entry. Consider the following example
         // of a scan predicate that includes colocation columns C1, C2, C3:
         //
@@ -472,17 +439,10 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         //  [42, ?1, 99]
         //
 
-        int numColumns = table.descriptor().columnsCount();
         List<List<RexNode>> projectionAsValues = new ArrayList<>(metadata.columns().size());
 
         for (Int2ObjectMap<RexNode> columns : metadata.columns()) {
-            List<RexNode> row = new ArrayList<>(numColumns);
-
-            // There are more non-colocation key columns than colocation key ones.
-            // So init all columns with unknown-value placeholders first. 
-            for (int i = 0; i < numColumns; i++) {
-                row.add(VALUE_NOT_ASSIGNED);
-            }
+            List<RexNode> row = createRowWithNoValues(numColumns);
 
             // Then set colocation key columns. 
             for (Int2ObjectMap.Entry<RexNode> entry : columns.int2ObjectEntrySet()) {
@@ -494,5 +454,15 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         }
 
         return projectionAsValues;
+    }
+
+    private static List<RexNode> createRowWithNoValues(int numColumns) {
+        List<RexNode> row = new ArrayList<>(numColumns);
+
+        for (int i = 0; i < numColumns; i++) {
+            row.add(VALUE_NOT_ASSIGNED);
+        }
+
+        return row;
     }
 }
