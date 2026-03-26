@@ -165,7 +165,7 @@ public interface QueryChecker {
     }
 
     /**
-     * Ignite index scan matcher which ignores search bounds and allows multiple occurrences
+     * Ignite index scan matcher which ignores search bounds and allows multiple occurrences.
      *
      * @param schema Schema name.
      * @param tblName Table name.
@@ -330,8 +330,9 @@ public interface QueryChecker {
         java.util.regex.Matcher matcher = pattern.matcher(s);
 
         for (int i = 0; i < times; i++) {
-            if (!matcher.find())
+            if (!matcher.find()) {
                 return false; // Not enough occurrences
+            }
         }
 
         return !noMore || !matcher.find();
