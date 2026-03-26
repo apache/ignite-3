@@ -770,7 +770,7 @@ public class ItTxTestCluster {
                         row2Tuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, partId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
                 SafeTimeValuesTracker safeTime = safeTimeTrackers.computeIfAbsent(assignment, k -> new ConcurrentHashMap<>())
                         .computeIfAbsent(grpId, k -> new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE));

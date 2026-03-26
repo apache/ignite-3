@@ -199,8 +199,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
 
-        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, row2HashKeyConverter);
-        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
+        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, PART_ID, true, LOCK_MANAGER, row2HashKeyConverter);
+        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, PART_ID, false, LOCK_MANAGER, row2HashKeyConverter);
 
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
         BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);

@@ -34,7 +34,7 @@ import org.apache.ignite.internal.tx.LockMode;
  * <p>Simply acquires lock on a given row.
  */
 public class HashIndexLocker implements IndexLocker {
-    private final int indexId;
+    private final PartitionIndexId contextId;
     private final LockMode modificationMode;
     private final LockManager lockManager;
     private final ColumnsExtractor indexRowResolver;
@@ -43,11 +43,13 @@ public class HashIndexLocker implements IndexLocker {
      * Constructs the object.
      *
      * @param indexId An identifier of the index this locker is created for.
+     * @param partitionId Partition ID.
+     * @param unique Uniqueness flag.
      * @param lockManager A lock manager to acquire locks in.
      * @param indexRowResolver A convertor which derives an index key from given table row.
      */
-    public HashIndexLocker(int indexId, boolean unique, LockManager lockManager, ColumnsExtractor indexRowResolver) {
-        this.indexId = indexId;
+    public HashIndexLocker(int indexId, int partitionId, boolean unique, LockManager lockManager, ColumnsExtractor indexRowResolver) {
+        this.contextId = new PartitionIndexId(partitionId, indexId);
         this.modificationMode = unique ? LockMode.X : LockMode.IX;
         this.lockManager = lockManager;
         this.indexRowResolver = indexRowResolver;
@@ -55,12 +57,12 @@ public class HashIndexLocker implements IndexLocker {
 
     @Override
     public int id() {
-        return indexId;
+        return contextId.indexId;
     }
 
     @Override
     public CompletableFuture<Void> locksForLookupByKey(UUID txId, BinaryTuple key) {
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
@@ -76,7 +78,7 @@ public class HashIndexLocker implements IndexLocker {
     public CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modificationMode).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), modificationMode);
     }
 
     /** {@inheritDoc} */
@@ -84,6 +86,6 @@ public class HashIndexLocker implements IndexLocker {
     public CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modificationMode).thenApply(lock -> null);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), modificationMode).thenApply(lock -> null);
     }
 }
