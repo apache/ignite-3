@@ -71,6 +71,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -556,9 +557,9 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
 
-        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, PART_ID, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple, false);
-        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
+        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, PART_ID, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
@@ -1754,7 +1755,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns, Int2IntMaps.EMPTY_MAP);
     }
 
     private CompletableFuture<?> beginAndCommitTx() {

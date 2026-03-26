@@ -105,7 +105,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
             ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
-            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD,
+            ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -659,7 +660,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
                 expectedSchemaVersion = unpacker.unpackInt();
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
+                // Deprecated format, keep for compat with older servers.
                 return new SqlBatchException(traceId, code, unpacker.unpackLongArray(),
+                        errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
+            } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS_2)) {
+                return new SqlBatchException(traceId, code, unpacker.unpackLongArrayAsBinary(),
                         errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);

@@ -169,7 +169,6 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
@@ -225,7 +224,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
@@ -625,7 +623,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
-        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
+        var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
+        var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
@@ -720,11 +720,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storageConfiguration
         );
 
-        TransactionConfiguration txConfiguration = clusterConfigRegistry
-                .getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-
-        var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
-
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
         SystemDistributedConfiguration systemDistributedConfiguration =
@@ -789,7 +784,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 outgoingSnapshotManager,
                 metricManager,
                 messagingServiceReturningToStorageOperationsPool,
-                replicaService
+                replicaService,
+                indexMetaStorage
         );
 
         TableManager tableManager = new TableManager(

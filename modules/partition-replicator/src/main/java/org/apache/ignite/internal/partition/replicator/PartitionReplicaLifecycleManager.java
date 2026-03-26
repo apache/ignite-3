@@ -141,6 +141,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
@@ -284,6 +285,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final MetricManager metricManager;
 
+    private final IndexMetasAccess indexMetasAccess;
+
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final TransactionStateResolver transactionStateResolver;
@@ -356,7 +359,8 @@ public class PartitionReplicaLifecycleManager extends
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             MetricManager metricManager,
             MessagingService messagingService,
-            ReplicaService replicaService
+            ReplicaService replicaService,
+            IndexMetasAccess indexMetasAccess
     ) {
         this(
                 catalogService,
@@ -390,7 +394,8 @@ public class PartitionReplicaLifecycleManager extends
                 ),
                 metricManager,
                 messagingService,
-                replicaService
+                replicaService,
+                indexMetasAccess
         );
     }
 
@@ -417,7 +422,8 @@ public class PartitionReplicaLifecycleManager extends
             ZoneResourcesManager zoneResourcesManager,
             MetricManager metricManager,
             MessagingService messagingService,
-            ReplicaService replicaService
+            ReplicaService replicaService,
+            IndexMetasAccess indexMetasAccess
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -437,6 +443,7 @@ public class PartitionReplicaLifecycleManager extends
         this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
         this.metricManager = metricManager;
+        this.indexMetasAccess = indexMetasAccess;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -847,7 +854,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 zoneResources.txStatePartitionStorage(),
                                                 clockService,
                                                 txManager,
-                                                new CatalogValidationSchemasSource(catalogService, schemaManager),
+                                                new CatalogValidationSchemasSource(catalogService, schemaManager, indexMetasAccess),
                                                 executorInclinedSchemaSyncService,
                                                 catalogService,
                                                 executorInclinedPlacementDriver,

@@ -792,6 +792,33 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a long array from a single binary value.
+     *
+     * @return Array of longs.
+     */
+    public long @Nullable [] unpackLongArrayAsBinary() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        int binSize = unpackBinaryHeader();
+
+        if (binSize % 8 != 0) {
+            throw new MessageFormatException("Binary size should be a multiple of 8, but was " + binSize);
+        }
+
+        long[] res = new long[binSize / 8];
+
+        for (int i = 0; i < res.length; i++) {
+            res[i] = buf.readLong();
+        }
+
+        return res;
+    }
+
+    /**
      * Unpacks batch of arguments from binary tuples.
      *
      * @return BatchedArguments object with the unpacked arguments.

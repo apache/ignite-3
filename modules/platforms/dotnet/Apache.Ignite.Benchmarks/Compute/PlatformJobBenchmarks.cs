@@ -68,7 +68,7 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
             Options: new() { ExecutorType = JobExecutorType.DotNetSidecar });
 
         _echoJobJava = new(
-            "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob", [_unit]);
+            "org.apache.ignite.internal.runner.app.Jobs$EchoJob", [_unit]);
 
         var nodes = await Client.GetClusterNodesAsync();
         var firstNode = nodes.Single(x => x.Name.EndsWith("PlatformTestNodeRunner", StringComparison.Ordinal));

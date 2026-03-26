@@ -126,6 +126,7 @@ abstract class IndexWrapper {
         IndexLocker getLocker(int partitionId) {
             return new HashIndexLocker(
                     indexId,
+                    partitionId,
                     unique,
                     lockManager,
                     indexRowResolver

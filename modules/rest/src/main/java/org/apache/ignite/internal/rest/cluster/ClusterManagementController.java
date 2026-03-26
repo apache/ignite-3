@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.cluster;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Rest.CLUSTER_NOT_INIT_ERR;
+import static org.jsoup.internal.StringUtil.isBlank;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
+import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterRenameException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -74,7 +76,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         return clusterManagementGroupManager.clusterState()
                 .thenApply(ClusterManagementController::mapClusterState)
                 .exceptionally(ex -> {
-                    throw mapException(ex);
+                    throw mapCause(ExceptionUtils.unwrapCause(ex));
                 });
     }
 
@@ -93,7 +95,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
                 .thenCompose(unused -> joinFutureProvider.joinFuture())
                 .handle((unused, ex) -> {
                     if (ex != null) {
-                        throw mapException(ex);
+                        throw mapInitException(ex);
                     }
                     return null;
                 });
@@ -103,11 +105,15 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
     public CompletableFuture<ClusterTag> rename(String newName) {
         LOG.info("Received rename command with new name = '{}'", newName);
 
+        if (isBlank(newName)) {
+            return CompletableFuture.failedFuture(mapRenameException(new IllegalArgumentException("Cluster name must not be empty")));
+        }
+
         return clusterManagementGroupManager.renameCluster(newName)
                 .thenCompose(unused -> clusterManagementGroupManager.clusterState())
                 .thenApply(ClusterManagementController::mapClusterTag)
                 .exceptionally(ex -> {
-                    throw mapException(ex);
+                    throw mapRenameException(ex);
                 });
     }
 
@@ -141,13 +147,29 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         );
     }
 
-    private static RuntimeException mapException(Throwable ex) {
+    private static RuntimeException mapInitException(Throwable ex) {
         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
+        if (cause instanceof IllegalArgumentException || cause instanceof ConfigurationValidationException) {
+            return new InvalidArgumentClusterInitializationException(cause);
+        } else {
+            return mapCause(cause);
+        }
+    }
+
+    private static RuntimeException mapRenameException(Throwable ex) {
+        Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+        if (cause instanceof IllegalArgumentException || cause instanceof ConfigurationValidationException) {
+            return new InvalidArgumentClusterRenameException(cause);
+        } else {
+            return mapCause(cause);
+        }
+    }
+
+    private static RuntimeException mapCause(Throwable cause) {
         if (cause instanceof IgniteInternalException) {
             return (IgniteInternalException) cause;
-        } else if (cause instanceof IllegalArgumentException || cause instanceof ConfigurationValidationException) {
-            return new InvalidArgumentClusterInitializationException(cause);
         } else if (cause instanceof IgniteException) {
             return (RuntimeException) cause;
         } else {

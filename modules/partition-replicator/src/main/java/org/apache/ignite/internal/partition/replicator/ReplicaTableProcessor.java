@@ -38,7 +38,4 @@ public interface ReplicaTableProcessor {
 
     /** Callback on replica shutdown. */
     void onShutdown();
-
-    /** Returns tracker of RW transactions operations. */
-    TableTxRwOperationTracker txRwOperationTracker();
 }

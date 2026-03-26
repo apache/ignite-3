@@ -60,8 +60,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
-import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -76,7 +74,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -426,11 +423,6 @@ class IndexBuildController implements ManuallyCloseable {
             return;
         }
 
-        TableTxRwOperationTracker txRwOperationTracker = txRwOperationTracker(zonePartitionId, tableId, resources, indexDescriptor);
-        if (txRwOperationTracker == null) {
-            return;
-        }
-
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
@@ -442,7 +434,6 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
-                txRwOperationTracker,
                 resources.safeTimeTracker(),
                 localNode(),
                 enlistmentConsistencyToken,
@@ -466,11 +457,6 @@ class IndexBuildController implements ManuallyCloseable {
             return;
         }
 
-        TableTxRwOperationTracker txRwOperationTracker = txRwOperationTracker(zonePartitionId, tableId, resources, indexDescriptor);
-        if (txRwOperationTracker == null) {
-            return;
-        }
-
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
@@ -482,39 +468,11 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
-                txRwOperationTracker,
                 resources.safeTimeTracker(),
                 localNode(),
                 enlistmentConsistencyToken,
                 clockService.current()
         );
-    }
-
-    private static @Nullable TableTxRwOperationTracker txRwOperationTracker(
-            ZonePartitionId zonePartitionId,
-            int tableId,
-            ZonePartitionResources resources,
-            CatalogIndexDescriptor indexDescriptor
-    ) {
-        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture = resources.replicaListenerFuture();
-        assert replicaListenerFuture.isDone() : "Replica listener future is not done for [zonePartitionId=" + zonePartitionId + "].";
-
-        ZonePartitionReplicaListener replicaListener = replicaListenerFuture.join();
-        @Nullable TableTxRwOperationTracker txRwOperationTracker = replicaListener.txRwOperationTracker(tableId);
-
-        if (txRwOperationTracker == null) {
-            // Null means that the table has been removed due to table destruction.
-            LOG.info(
-                    "Tracker is null, skipping index build scheduling "
-                            + "[zoneId={}, tableId={}, partitionId={}, indexId={}]",
-                    zonePartitionId.zoneId(),
-                    tableId,
-                    zonePartitionId.partitionId(),
-                    indexDescriptor.id()
-            );
-        }
-
-        return txRwOperationTracker;
     }
 
     private InternalClusterNode localNode() {

@@ -63,7 +63,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -125,9 +124,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         ZonePartitionReplicaListener replicaListener = mock(ZonePartitionReplicaListener.class);
         lenient().doReturn(completedFuture(replicaListener)).when(zonePartitionResources).replicaListenerFuture();
 
-        TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
-        lenient().doReturn(txRwOperationTracker).when(replicaListener).txRwOperationTracker(anyInt());
-
         indexBuildController = new IndexBuildController(
                 indexBuilder,
                 indexManager,
@@ -169,7 +165,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 any(),
-                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -180,7 +175,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
-                any(),
                 any(),
                 any(),
                 any(),
@@ -208,7 +202,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 any(),
-                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -219,7 +212,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
-                any(),
                 any(),
                 any(),
                 any(),
@@ -245,7 +237,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 any(),
-                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -256,7 +247,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
-                any(),
                 any(),
                 any(),
                 any(),
@@ -282,7 +272,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 any(),
-                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -293,7 +282,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
-                any(),
                 any(),
                 any(),
                 any(),
@@ -342,7 +330,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 any(),
                 any(),
-                any(),
                 eq(LOCAL_NODE),
                 anyLong(),
                 any()
@@ -353,7 +340,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),
-                any(),
                 any(),
                 any(),
                 any(),

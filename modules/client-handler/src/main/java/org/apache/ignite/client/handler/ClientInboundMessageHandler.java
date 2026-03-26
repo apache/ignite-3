@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
@@ -730,22 +731,10 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        int extCnt = 0;
-        boolean retriable = false;
-
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
         TransactionKilledException killedException = findException(err, TransactionKilledException.class);
-
-        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
-            extCnt = 1;
-        } else {
-            retriable = findException(err, RetriableTransactionException.class) != null;
-            if (retriable) {
-                extCnt++;
-            }
-        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -781,7 +770,18 @@ public class ClientInboundMessageHandler
         }
 
         // Extensions.
+        int extCnt = 0;
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
+            extCnt++;
+        }
+
+        var retriable = findException(err, RetriableTransactionException.class) != null;
+        if (retriable) {
+            extCnt++;
+        }
+
         if (extCnt > 0) {
+            // IMPORTANT: every extension must be a single msgpack value, so that the client can skip unknown values.
             packer.packInt(extCnt);
 
             if (retriable) {
@@ -793,9 +793,16 @@ public class ClientInboundMessageHandler
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
-                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
-                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
-                packer.packLongArray(sqlBatchException.updateCounters());
+                if (clientContext.hasFeature(SQL_UPDATE_COUNTERS_2)) {
+                    // New format: single binary value (protocol-compliant).
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
+                    packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
+                } else {
+                    // Old format: array of longs (for backward compatibility with older clients).
+                    // IMPORTANT: This part must come last in the payload, it can't be skipped correctly.
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                    packer.packLongArray(sqlBatchException.updateCounters());
+                }
             } else if (delayedAckException != null) {
                 packer.packString(ErrorExtensions.DELAYED_ACK);
                 packer.packUuid(delayedAckException.txId());

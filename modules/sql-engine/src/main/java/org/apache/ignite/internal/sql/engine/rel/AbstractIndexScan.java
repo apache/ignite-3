@@ -157,6 +157,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         double indexRowPassThroughCost = IgniteCost.ROW_PASS_THROUGH_COST * IgniteCost.INDEX_ROW_SCAN_MULTIPLIER;
 
         if (condition == null) {
+            rows = Math.max(1.0d, rows);
             cost = rows * indexRowPassThroughCost;
         } else {
             double selectivity = 1;
@@ -170,9 +171,9 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
                 cost = Math.max(Math.log(rows), 1) * IgniteCost.ROW_COMPARISON_COST;
             }
 
-            rows *= selectivity;
+            rows = Math.max(rows * selectivity, 1);
 
-            cost += Math.max(rows, 1) * (IgniteCost.ROW_COMPARISON_COST + indexRowPassThroughCost);
+            cost += rows * (IgniteCost.ROW_COMPARISON_COST + indexRowPassThroughCost);
         }
 
         return planner.getCostFactory().makeCost(rows, cost, 0);

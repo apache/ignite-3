@@ -22,14 +22,17 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
-import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowCausedBy;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.getFullStackTrace;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +43,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -85,8 +89,11 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
 
         assertTimeoutPreemptively(Duration.ofSeconds(10), () -> cluster.stopNode(0));
 
-        //noinspection ThrowableNotThrown
-        assertWillThrowCausedBy(inhibitorAndFuture.future, NodeStoppingException.class);
+        Exception ex = assertWillThrow(inhibitorAndFuture.future, Exception.class);
+        assertTrue(
+                hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class),
+                () -> "Unexpected exception: " + getFullStackTrace(ex)
+        );
     }
 
     private InhibitorAndFuture producePutHangingDueToSchemaSyncInLeaderStateMachine()
