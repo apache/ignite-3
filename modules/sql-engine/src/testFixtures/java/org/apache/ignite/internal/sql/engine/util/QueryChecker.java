@@ -297,7 +297,7 @@ public interface QueryChecker {
 
     /** Has specified number of occurrence. */
     static Matcher<String> occursTimes(String pattern, int times, boolean noMore) {
-        return new SubstringMatcher(resolveRelation(times), false, pattern) {
+        return new SubstringMatcher(resolveRelation(times, noMore), false, pattern) {
             /** {@inheritDoc} */
             @Override
             protected boolean evalSubstringOf(String strIn) {
@@ -308,23 +308,20 @@ public interface QueryChecker {
         };
     }
 
-    private static String resolveRelation(int times) {
+    private static String resolveRelation(int times, boolean noMore) {
+        assert times >= 0;
+
         switch (times) {
             case 0:
-                return "does not contain";
+                return noMore ? "does not contain" : "can contain";
             case 1:
-                return "contains once";
+                return noMore ? "contains once" : "contains only once";
             default:
-                return "contains " + times + " times";
+                return (noMore ? "contains " : "contains only ") + times + " times";
         }
     }
 
-    /** Matches only one occurrence. */
-    static Matcher<String> matchesOnce(String pattern) {
-        return occursTimes(pattern, 1, true);
-    }
-
-    /** Check that {@code s} contains {@code substring} <b>only</b> {@code times} times. */
+    /** Check that {@code s} contains {@code substring} {@code times} times. */
     static boolean contains(String s, CharSequence substring, int times, boolean noMore) {
         Pattern pattern = Pattern.compile(substring.toString());
         java.util.regex.Matcher matcher = pattern.matcher(s);
@@ -336,6 +333,11 @@ public interface QueryChecker {
         }
 
         return !noMore || !matcher.find();
+    }
+
+    /** Matches only one occurrence. */
+    static Matcher<String> matchesOnce(String pattern) {
+        return occursTimes(pattern, 1, true);
     }
 
     /**
