@@ -223,10 +223,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private volatile Set<String> currentVotingPeers = Set.of();
 
     /**
-     * MetaStorage availability flag: 1 if MS majority can execute commands, 0 otherwise.
+     * MetaStorage availability flag: {@code true} if Meta Storage majority can execute commands, {@code false} otherwise.
      * Updated by the periodic availability check.
      */
-    private volatile int mgAvailable = 0;
+    private volatile boolean msAvailable = false;
 
     /** Periodic executor that checks Meta Storage availability. */
     private @Nullable ScheduledExecutorService availabilityCheckExecutor;
@@ -279,7 +279,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.storage = storage;
         this.clock = clock;
         this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock, failureProcessor);
-        this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime, this::computeAvailablePeers, () -> mgAvailable);
+        this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime, this::computeAvailablePeers, () -> msAvailable ? 1 : 0);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
         this.metastorageRepairStorage = metastorageRepairStorage;
@@ -1160,7 +1160,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     /**
      * Performs a periodic check of Meta Storage availability by attempting to execute a command.
-     * Updates {@link #mgAvailable} based on whether the attempt succeeds within the timeout.
+     * Updates {@link #msAvailable} based on whether the attempt succeeds within the timeout.
      */
     private void checkMgAvailability() {
         if (!busyLock.enterBusy()) {
@@ -1171,7 +1171,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             metaStorageSvcFut
                     .thenCompose(MetaStorageServiceImpl::currentRevisions)
                     .orTimeout(AVAILABILITY_CHECK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    .whenComplete((rev, ex) -> mgAvailable = ex == null ? 1 : 0);
+                    .whenComplete((rev, ex) -> msAvailable = ex == null);
         } finally {
             busyLock.leaveBusy();
         }

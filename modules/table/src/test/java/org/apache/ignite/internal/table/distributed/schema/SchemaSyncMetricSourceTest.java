@@ -29,17 +29,16 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for {@link SchemaSyncMetricSource}. */
 class SchemaSyncMetricSourceTest extends BaseIgniteAbstractTest {
-    private SchemaSyncMetricSource source;
+    private final SchemaSyncMetricSource source = new SchemaSyncMetricSource();
+    private final MetricRegistry registry = new MetricRegistry();
     private DistributionMetric waits;
 
     @BeforeEach
     void setUp() {
-        source = new SchemaSyncMetricSource();
-        MetricRegistry registry = new MetricRegistry();
         registry.registerSource(source);
         MetricSet metricSet = registry.enable(source);
 
-        waits = metricSet.get("SchemaSyncWaits");
+        waits = metricSet.get("Waits");
         assertNotNull(waits);
     }
 

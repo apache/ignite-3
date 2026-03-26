@@ -50,7 +50,7 @@ class MetaStorageMetricSourceTest extends BaseIgniteAbstractTest {
         MetaStorageMetricSource source = new MetaStorageMetricSource(() -> 0L, () -> 0, () -> value[0]);
         MetricSet metricSet = enableSource(source);
 
-        IntMetric available = metricSet.get("AvailableMajority");
+        IntMetric available = metricSet.get("MajorityAvailable");
         assertNotNull(available);
         assertEquals(0, available.value());
 

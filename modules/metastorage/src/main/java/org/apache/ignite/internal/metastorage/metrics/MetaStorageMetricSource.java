@@ -90,8 +90,8 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
                 availablePeersSupplier
         );
 
-        private final IntGauge availableMajority = new IntGauge(
-                "AvailableMajority",
+        private final IntGauge majorityAvailable = new IntGauge(
+                "MajorityAvailable",
                 "1 if the Meta Storage majority is available (can execute commands), 0 otherwise.",
                 availableSupplier
         );
@@ -100,7 +100,7 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
                 safeTimeLag,
                 idempotentCacheSize,
                 availablePeers,
-                availableMajority
+                majorityAvailable
         );
 
         @Override

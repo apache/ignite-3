@@ -113,4 +113,19 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(recorded, hasSize(1));
         assertThat(recorded.get(0), greaterThanOrEqualTo(0L));
     }
+
+    @Test
+    void waitRecorderIsNotCalledWhenFutureIsAlreadyCompleted() {
+        List<Long> recorded = new ArrayList<>();
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMs, recorded::add);
+
+        HybridTimestamp ts = clock.now();
+
+        when(schemaSafeTimeTracker.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong())))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        schemaSyncService.waitForMetadataCompleteness(ts);
+
+        assertThat(recorded, empty());
+    }
 }

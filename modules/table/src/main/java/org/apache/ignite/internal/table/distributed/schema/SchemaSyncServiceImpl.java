@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -60,10 +61,15 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        long startMs = System.currentTimeMillis();
+        CompletableFuture<Void> future = schemaSafeTimeTracker.waitFor(metastoreSafeTimeToWait(ts));
 
-        return schemaSafeTimeTracker.waitFor(metastoreSafeTimeToWait(ts))
-                .whenComplete((v, ex) -> waitDurationMsRecorder.accept(System.currentTimeMillis() - startMs));
+        if (future.isDone()) {
+            return future;
+        }
+
+        long startNs = System.nanoTime();
+
+        return future.whenComplete((v, ex) -> waitDurationMsRecorder.accept(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs)));
     }
 
     private HybridTimestamp metastoreSafeTimeToWait(HybridTimestamp ts) {

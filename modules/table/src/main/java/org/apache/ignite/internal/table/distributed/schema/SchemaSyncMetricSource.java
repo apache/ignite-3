@@ -26,7 +26,7 @@ import org.apache.ignite.internal.metrics.Metric;
  * Metric source for schema synchronization metrics.
  */
 public class SchemaSyncMetricSource extends AbstractMetricSource<SchemaSyncMetricSource.Holder> {
-    private static final String SOURCE_NAME = "schemaSync";
+    private static final String SOURCE_NAME = "schema.sync";
 
     /**
      * Constructor.
@@ -62,7 +62,7 @@ public class SchemaSyncMetricSource extends AbstractMetricSource<SchemaSyncMetri
     /** Holder. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final DistributionMetric waits = new DistributionMetric(
-                "SchemaSyncWaits",
+                "Waits",
                 "Histogram of schema synchronization wait times in milliseconds."
                         + " High values may indicate MetaStorage unavailability or slowness.",
                 WAIT_BOUNDS_MS
