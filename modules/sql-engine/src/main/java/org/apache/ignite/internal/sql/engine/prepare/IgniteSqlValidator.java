@@ -229,7 +229,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Override
     public void validateInsert(SqlInsert insert) {
         SqlValidatorTable table = table(validatedNamespace(insert, unknownType));
-        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) insert.getTargetTable(), table);
+        IgniteTable igniteTable = resolveIgniteTableForModification(insert.getTargetTable(), table);
 
         if (insert.getTargetColumnList() == null) {
             insert.setOperand(3, inferColumnList(igniteTable));
@@ -436,9 +436,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return getIgniteTableForModification(identifier, table);
     }
 
-    private IgniteTable resolveIgniteTableForModification(SqlUpdate call, SqlValidatorTable table) {
-        SqlNode targetTable = call.getTargetTable();
-
+    private IgniteTable resolveIgniteTableForModification(SqlNode targetTable, SqlValidatorTable table) {
         if (targetTable instanceof SqlTableRef) {
             SqlTableRef tableRef = (SqlTableRef) targetTable;
             SqlIdentifier tableName = (SqlIdentifier) tableRef.getOperandList().get(0);
@@ -485,7 +483,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         //
 
         int selectListSize = selectFromUpdate.getSelectList().size();
-        int columnsToUpdateSize = update.getTargetColumnList().size(); 
+        int columnsToUpdateSize = update.getTargetColumnList().size();
         List<SqlNode> sourceExpressionList = selectFromUpdate.getSelectList().subList(selectListSize - columnsToUpdateSize, selectListSize);
         SqlNodeList selectList = selectFromMerge.getSelectList();
         int sourceExprListSize = sourceExpressionList.size();
@@ -601,7 +599,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
-        return withResolvedTableIdentifier(call, (targetTable, hints) -> {
+        SqlNode table = call.getTargetTable();
+
+        return withResolvedTableIdentifier(table, (targetTable, hints) -> {
             final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
 
             IgniteTable igniteTable = getTableForModification(targetTable);
@@ -635,11 +635,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private static SqlSelect withResolvedTableIdentifier(
-            SqlUpdate call,
+            SqlNode targetTable,
             BiFunction<SqlIdentifier, @Nullable SqlNodeList, SqlSelect> mapper
     ) {
-        SqlNode targetTable = call.getTargetTable();
-
         if (targetTable instanceof SqlTableRef) {
             SqlTableRef tableRef = (SqlTableRef) targetTable;
             SqlIdentifier tableName = (SqlIdentifier) tableRef.getOperandList().get(0);
@@ -662,27 +660,30 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
-        final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
-        final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
+        SqlNode table = call.getTargetTable();
 
-        IgniteTable igniteTable = getTableForModification(targetTable);
+        return withResolvedTableIdentifier(table, (targetTable, hints) -> {
+            final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
 
-        igniteTable.rowTypeForDelete((IgniteTypeFactory) typeFactory)
-                .getFieldNames().stream()
-                .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
-                .forEach(selectList::add);
+            IgniteTable igniteTable = getTableForModification(targetTable);
 
-        SqlNode sourceTable = call.getTargetTable();
+            igniteTable.rowTypeForDelete((IgniteTypeFactory) typeFactory)
+                    .getFieldNames().stream()
+                    .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
+                    .forEach(selectList::add);
 
-        if (call.getAlias() != null) {
-            sourceTable =
-                    SqlValidatorUtil.addAlias(
-                            sourceTable,
-                            call.getAlias().getSimple());
-        }
+            SqlNode sourceTable = call.getTargetTable();
 
-        return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                call.getCondition(), null, null, null, null, null, null, null, null);
+            if (call.getAlias() != null) {
+                sourceTable =
+                        SqlValidatorUtil.addAlias(
+                                sourceTable,
+                                call.getAlias().getSimple());
+            }
+
+            return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
+                    call.getCondition(), null, null, null, null, null, null, null, hints);
+        });
     }
 
     /** {@inheritDoc} */
@@ -1205,7 +1206,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         final SqlValidatorNamespace ns = validatedNamespace(call, unknownType);
         final SqlValidatorTable table = table(ns);
-        IgniteTable igniteTable = resolveIgniteTableForModification(call, table);
+        IgniteTable igniteTable = resolveIgniteTableForModification(call.getTargetTable(), table);
 
         final RelDataType baseType = table.getRowType();
         final RelOptTable relOptTable = relOptTable(ns);

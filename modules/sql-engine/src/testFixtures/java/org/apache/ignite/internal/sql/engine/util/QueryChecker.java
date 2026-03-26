@@ -165,6 +165,19 @@ public interface QueryChecker {
     }
 
     /**
+     * Ignite index scan matcher which ignores search bounds and allows multiple occurrences
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @param idxName Index name.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScanIgnoreBoundsAtLeastOnce(String schema, String tblName, String idxName) {
+        return occursTimes("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName, 1, false);
+    }
+
+    /**
      * Ignite table|index scan with only one project matcher.
      *
      * @param schema Schema name.
@@ -282,26 +295,46 @@ public interface QueryChecker {
         }
     }
 
-    /** Matches only one occurrence. */
-    static Matcher<String> matchesOnce(String pattern) {
-        return new SubstringMatcher("contains once", false, pattern) {
+    /** Has specified number of occurrence. */
+    static Matcher<String> occursTimes(String pattern, int times, boolean noMore) {
+        return new SubstringMatcher(resolveRelation(times), false, pattern) {
             /** {@inheritDoc} */
             @Override
             protected boolean evalSubstringOf(String strIn) {
                 strIn = strIn.replaceAll(System.lineSeparator(), "");
 
-                return containsOnce(strIn, this.substring);
+                return contains(strIn, this.substring, times, noMore);
             }
         };
     }
 
-    /** Check only single matching. */
-    static boolean containsOnce(String s, CharSequence substring) {
+    private static String resolveRelation(int times) {
+        switch (times) {
+            case 0:
+                return "does not contain";
+            case 1:
+                return "contains once";
+            default:
+                return "contains " + times + " times";
+        }
+    }
+
+    /** Matches only one occurrence. */
+    static Matcher<String> matchesOnce(String pattern) {
+        return occursTimes(pattern, 1, true);
+    }
+
+    /** Check that {@code s} contains {@code substring} <b>only</b> {@code times} times. */
+    static boolean contains(String s, CharSequence substring, int times, boolean noMore) {
         Pattern pattern = Pattern.compile(substring.toString());
         java.util.regex.Matcher matcher = pattern.matcher(s);
 
-        // Find first, but no more.
-        return matcher.find() && !matcher.find();
+        for (int i = 0; i < times; i++) {
+            if (!matcher.find())
+                return false; // Not enough occurrences
+        }
+
+        return !noMore || !matcher.find();
     }
 
     /**
