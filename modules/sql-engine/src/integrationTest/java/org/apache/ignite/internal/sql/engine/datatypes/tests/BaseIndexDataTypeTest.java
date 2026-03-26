@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBoundsAtLeastOnce;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -270,6 +272,10 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
                 .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returnSomething()
                 .check();
+
+        checkQuery("DELETE FROM t /*+ DISABLE_DECORRELATION */ WHERE test_key = $0")
+                .returnSomething()
+                .check();
     }
 
     /**
@@ -277,11 +283,18 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
      */
     @Test
     public void testMergeWithHint() {
-        String query = "MERGE INTO t dst USING t /*+ FORCE_INDEX(t_test_key_idx) */ src ON dst.test_key = src.test_key "
+        checkQuery("MERGE INTO t dst USING t /*+ FORCE_INDEX(t_test_key_idx) */ src ON dst.test_key = src.test_key "
                 + "WHEN MATCHED THEN UPDATE SET test_key = $0 "
-                + "WHEN NOT MATCHED THEN INSERT (id, test_key) VALUES (src.id, $1)";
+                + "WHEN NOT MATCHED THEN INSERT (id, test_key) VALUES (src.id, $1)"
+        )
+                .matches(containsIndexScanIgnoreBoundsAtLeastOnce("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
 
-        checkQuery(query)
+        checkQuery("MERGE INTO t /*+ FORCE_INDEX(t_test_key_idx) */ dst USING t src ON dst.test_key = src.test_key "
+                + "WHEN MATCHED THEN UPDATE SET test_key = $0 "
+                + "WHEN NOT MATCHED THEN INSERT (id, test_key) VALUES (src.id, $1)"
+        )
                 .matches(containsIndexScanIgnoreBoundsAtLeastOnce("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returnSomething()
                 .check();
