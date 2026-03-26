@@ -1171,23 +1171,4 @@ public class PlatformTestNodeRunner {
             }).collect(toList());
         }
     }
-
-    /**
-     * Job returns actual partition distribution for particular table calculated by java side.
-     */
-    public static class GetPartitionDistributionByTableJob implements ComputeJob<String, Map<UUID, List<Long>>> {
-        @Override
-        public @Nullable CompletableFuture<Map<UUID, List<Long>>> executeAsync(JobExecutionContext context, String tableName) {
-            PartitionDistribution pd = context.ignite().tables().table(tableName).partitionDistribution();
-
-            Map<UUID, List<Long>> distribution = new HashMap<>();
-            for (Partition partition : pd.partitions()) {
-                var primaryNode = pd.primaryReplica(partition);
-
-                distribution.computeIfAbsent(primaryNode.id(), k -> new ArrayList<>()).add(partition.id());
-            }
-
-            return completedFuture(distribution);
-        }
-    }
 }
