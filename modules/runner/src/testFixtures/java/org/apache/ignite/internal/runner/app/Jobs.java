@@ -637,9 +637,9 @@ public class Jobs {
     /**
      * Job returns actual partition distribution for particular table calculated by java side.
      */
-    public static class GetPartitionDistributionByTableJob implements ComputeJob<String, Map<UUID, List<Long>>> {
+    public static class GetPartitionDistributionByTableCppJob implements ComputeJob<String, String> {
         @Override
-        public @Nullable CompletableFuture<Map<UUID, List<Long>>> executeAsync(JobExecutionContext context, String tableName) {
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             PartitionDistribution pd = context.ignite().tables().table(tableName).partitionDistribution();
 
             Map<UUID, List<Long>> distribution = new HashMap<>();
@@ -649,7 +649,7 @@ public class Jobs {
                 distribution.computeIfAbsent(primaryNode.id(), k -> new ArrayList<>()).add(partition.id());
             }
 
-            return completedFuture(distribution);
+            return completedFuture(distribution.toString());
         }
     }
 }
