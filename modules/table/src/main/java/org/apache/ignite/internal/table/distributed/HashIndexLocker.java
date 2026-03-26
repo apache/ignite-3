@@ -78,7 +78,7 @@ public class HashIndexLocker implements IndexLocker {
     public CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.extractColumns(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), modificationMode);
+        return lockManager.acquire(txId, new LockKey(contextId, key.byteBuffer()), modificationMode).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
