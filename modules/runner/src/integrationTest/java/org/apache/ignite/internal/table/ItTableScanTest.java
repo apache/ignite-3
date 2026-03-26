@@ -221,25 +221,36 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     public void testInsertWaitScanComplete() throws Exception {
         IgniteTransactions transactions = igniteTx();
 
-        InternalTransaction tx0 = (InternalTransaction) transactions.begin();
-        InternalTransaction tx1 = startTxWithEnlistedPartition(PART_ID, false);
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+
+        InternalTransaction waiterTx;
+        InternalTransaction lockerTx;
+
+        if (reversed) {
+            waiterTx = (InternalTransaction) transactions.begin();
+            lockerTx = startTxWithEnlistedPartition(PART_ID, false);
+        } else {
+            lockerTx = startTxWithEnlistedPartition(PART_ID, false);
+            waiterTx = (InternalTransaction) transactions.begin();
+        }
 
         int sortedIndexId = getSortedIndexId();
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
         ZonePartitionId replicationGroupId = replicationGroup(PART_ID);
-        PendingTxPartitionEnlistment enlistment = tx1.enlistedPartition(replicationGroupId);
+        PendingTxPartitionEnlistment enlistment = lockerTx.enlistedPartition(replicationGroupId);
         InternalClusterNode recipient = getNodeByConsistentId(enlistment.primaryNodeConsistentId());
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
-                tx1,
+                lockerTx,
                 internalTable.scan(
                         PART_ID,
                         recipient,
                         sortedIndexId,
                         IndexScanCriteria.unbounded(),
-                        OperationContext.create(TxContext.readWrite(tx1, enlistment.consistencyToken()))
+                        OperationContext.create(TxContext.readWrite(lockerTx, enlistment.consistencyToken()))
                 )
         );
 
@@ -254,7 +265,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         assertFalse(scanned.isDone());
 
         CompletableFuture<Void> updateKey2Fut = table.keyValueView()
-                .putAsync(tx0, Tuple.create().set("key", 2), Tuple.create().set("valInt", 2).set("valStr", "New_2"));
+                .putAsync(waiterTx, Tuple.create().set("key", 2), Tuple.create().set("valInt", 2).set("valStr", "New_2"));
 
         assertFalse(updateKey2Fut.isDone());
 
@@ -263,7 +274,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         assertThat(scanned, willCompleteSuccessfully());
 
         CompletableFuture<Void> insertKey99Fut = table.keyValueView()
-                .putAsync(tx0, Tuple.create().set("key", 99), Tuple.create().set("valInt", 99).set("valStr", "New_99"));
+                .putAsync(waiterTx, Tuple.create().set("key", 99), Tuple.create().set("valInt", 99).set("valStr", "New_99"));
 
         assertFalse(insertKey99Fut.isDone());
 
@@ -271,12 +282,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
-        tx1.commit();
+        lockerTx.commit();
 
         assertThat(updateKey2Fut, willCompleteSuccessfully());
         assertThat(insertKey99Fut, willCompleteSuccessfully());
 
-        tx0.commit();
+        waiterTx.commit();
     }
 
     @Test
@@ -537,9 +548,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
-                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"))
-        );
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+
+        if (reversed) {
+            assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                    () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"))
+            );
+        }
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
 
@@ -608,13 +624,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, scannedRows.size());
 
-        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
-                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"))
-        );
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
 
-        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
-                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"))
-        );
+        if (reversed) {
+            assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                    () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"))
+            );
+
+            assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                    () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"))
+            );
+        }
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
