@@ -67,6 +67,13 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
+    private static final IgniteSchema TABLE_C1_NULLABLE_C2_NULLABLE_C3 = createSchema(TestBuilders.table().name("T")
+            .addKeyColumn("C1", NativeTypes.INT32)
+            .addColumn("C2", NativeTypes.INT32, true)
+            .addColumn("C3", NativeTypes.INT32, true)
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
+            .build());
+
     private static final IgniteSchema TABLE_C1_C2 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addKeyColumn("C2", NativeTypes.INT32)
@@ -210,7 +217,9 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
         // expressions are not supported at the moment
         CASE_16("t(c1) VALUES (?), (? * 10)", TABLE_C1_NULLABLE_C2),
-        CASE_17("t(c1) VALUES (?), (OCTET_LENGTH('TEST'))", TABLE_C1_NULLABLE_C2)
+        CASE_17("t(c1) VALUES (?), (OCTET_LENGTH('TEST'))", TABLE_C1_NULLABLE_C2),
+
+        CASE_18("t(c1, c2) SELECT c1, c3 FROM t WHERE c1 = 5", TABLE_C1_NULLABLE_C2_NULLABLE_C3, "[c1=5]")
         ;
 
         private final TestCase data;
