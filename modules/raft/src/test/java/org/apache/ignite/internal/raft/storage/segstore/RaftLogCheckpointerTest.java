@@ -25,7 +25,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -61,7 +60,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager(), MAX_QUEUE_SIZE);
+        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager(), MAX_QUEUE_SIZE, size -> {});
 
         checkpointer.start();
     }
@@ -74,7 +73,9 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testOnRollover(@Mock SegmentFile segmentFile, @Mock StripedMemTable memTable) throws IOException {
+    void testOnRollover(@Mock SegmentFile segmentFile) throws IOException {
+        var memTable = new SingleThreadMemTable();
+
         checkpointer.onRollover(segmentFile, memTable);
 
         verify(segmentFile, timeout(500)).sync();
@@ -84,13 +85,14 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     @Test
     void testBlockOnRollover(
             @Mock SegmentFile segmentFile,
-            @Mock StripedMemTable memTable,
             @InjectExecutorService(threadCount = 1) ExecutorService executor
     ) {
         var blockFuture = new CompletableFuture<Void>();
 
         try {
             doAnswer(invocation -> blockFuture.join()).when(segmentFile).sync();
+
+            var memTable = new SingleThreadMemTable();
 
             for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
                 checkpointer.onRollover(segmentFile, memTable);
@@ -125,15 +127,11 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
                 when(mockFile.buffer()).thenReturn(buffer);
 
-                StripedMemTable mockMemTable = mock(StripedMemTable.class);
+                var memTable = new SingleThreadMemTable();
 
-                var segmentInfo = new SegmentInfo(i);
+                memTable.appendSegmentFileOffset(i, i, 1);
 
-                segmentInfo.addOffset(i, 1);
-
-                lenient().when(mockMemTable.segmentInfo(i)).thenReturn(segmentInfo);
-
-                checkpointer.onRollover(mockFile, mockMemTable);
+                checkpointer.onRollover(mockFile, memTable);
             }
 
             for (int groupId = 0; groupId < MAX_QUEUE_SIZE; groupId++) {
