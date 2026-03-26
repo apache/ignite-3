@@ -28,6 +28,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -176,14 +177,23 @@ class SegmentFileManager implements ManuallyCloseable {
 
         indexFileManager = new IndexFileManager(baseDir);
 
+        garbageCollector = new RaftLogGarbageCollector(
+                nodeName,
+                segmentFilesDir,
+                indexFileManager,
+                logStorageView.softLogSizeLimitBytes(),
+                new DefaultCompactionStrategy(),
+                failureProcessor,
+                isSync
+        );
+
         checkpointer = new RaftLogCheckpointer(
                 nodeName,
                 indexFileManager,
                 failureProcessor,
-                logStorageView.maxCheckpointQueueSize()
+                logStorageView.maxCheckpointQueueSize(),
+                garbageCollector::onLogStorageSizeIncreased
         );
-
-        garbageCollector = new RaftLogGarbageCollector(segmentFilesDir, indexFileManager);
     }
 
     void start() throws IOException {
@@ -233,6 +243,8 @@ class SegmentFileManager implements ManuallyCloseable {
         indexFileManager.start();
 
         checkpointer.start();
+
+        garbageCollector.start();
     }
 
     Path segmentFilesDir() {
@@ -514,6 +526,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
             currentSegmentFile.set(allocateNewSegmentFile(++curSegmentFileOrdinal));
 
+            garbageCollector.onLogStorageSizeIncreased(segmentFileSize);
+
             rolloverLock.notifyAll();
         }
     }
@@ -538,6 +552,7 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         checkpointer.stop();
+        garbageCollector.stop();
     }
 
     private static void writeHeader(SegmentFile segmentFile) {
@@ -583,5 +598,30 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         return computeDefaultMaxLogEntrySizeBytes(storageConfiguration.segmentFileSizeBytes());
+    }
+
+    /**
+     * Default compaction strategy: selects the oldest fully-checkpointed segment file that is not the currently-written file.
+     *
+     * <p>This is a placeholder. A more sophisticated strategy will be chosen after further discussion.
+     */
+    private class DefaultCompactionStrategy implements SegmentFileCompactionStrategy {
+        @Override
+        public FileProperties selectSegmentFileForCompaction() {
+            int currentOrdinal = curSegmentFileOrdinal;
+
+            try (Stream<Path> files = Files.list(segmentFilesDir)) {
+                return files
+                        .filter(p -> !p.getFileName().toString().endsWith(".tmp"))
+                        .sorted()
+                        .map(SegmentFile::fileProperties)
+                        .filter(props -> props.ordinal() != currentOrdinal)
+                        .filter(props -> Files.exists(indexFileManager.indexFilePath(props)))
+                        .findFirst()
+                        .orElse(null);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 }

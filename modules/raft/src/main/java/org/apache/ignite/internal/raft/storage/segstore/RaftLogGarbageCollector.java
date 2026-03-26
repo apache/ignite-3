@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.raft.storage.segstore.IndexFileManager.indexFileProperties;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.CRC_SIZE_BYTES;
@@ -29,20 +30,28 @@ import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TR
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayloadParser.endOfSegmentReached;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayloadParser.validateSegmentFileHeader;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.util.VarlenEncoder;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -52,6 +61,12 @@ import org.jetbrains.annotations.VisibleForTesting;
  * <p>The garbage collector performs compaction of segment files by removing truncated log entries and creating new generations
  * of segment files. This process reclaims disk space occupied by log entries that have been truncated via {@link LogStorage#truncatePrefix}
  * or {@link LogStorage#truncateSuffix} operations.
+ *
+ * <h2>Size tracking</h2>
+ * The GC tracks the total size of all log storage files (segment files and index files) via an {@link AtomicLong}. The counter is
+ * incremented when a new segment file is allocated ({@link #onSegmentFileAllocated()}) or a new index file is written
+ * ({@link #onIndexFileCreated(long)}), and decremented inside {@link #runCompaction} after files are deleted. The GC thread wakes up on
+ * each of these events and compacts files until the total size drops below the configured {@link #softLimitBytes soft limit}.
  *
  * <h2>Compaction Process</h2>
  * When a segment file is selected for compaction, the GC:
@@ -71,11 +86,63 @@ class RaftLogGarbageCollector {
 
     private final IndexFileManager indexFileManager;
 
+    private final long softLimitBytes;
+
+    private final SegmentFileCompactionStrategy strategy;
+
+    private final FailureProcessor failureProcessor;
+
+    private final boolean isSync;
+
+    /**
+     * Tracks the total size of all log storage files (segment files and index files). Incremented when a new segment file is allocated or a
+     * new index file is created; decremented after each compaction.
+     */
     private final AtomicLong logSizeBytes = new AtomicLong();
 
-    RaftLogGarbageCollector(Path segmentFilesDir, IndexFileManager indexFileManager) {
+    private final Thread gcThread;
+
+    RaftLogGarbageCollector(
+            String nodeName,
+            Path segmentFilesDir,
+            IndexFileManager indexFileManager,
+            long softLimitBytes,
+            SegmentFileCompactionStrategy strategy,
+            FailureProcessor failureProcessor,
+            boolean isSync
+    ) {
         this.segmentFilesDir = segmentFilesDir;
         this.indexFileManager = indexFileManager;
+        this.softLimitBytes = softLimitBytes;
+        this.strategy = strategy;
+        this.failureProcessor = failureProcessor;
+        this.isSync = isSync;
+
+        gcThread = new IgniteThread(nodeName, "segstore-gc", new GcTask());
+    }
+
+    void start() throws IOException {
+        initLogSizeFromDisk();
+
+        gcThread.start();
+    }
+
+    void stop() {
+        gcThread.interrupt();
+
+        try {
+            gcThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IgniteInternalException(INTERNAL_ERR, "Interrupted while waiting for the GC thread to finish.", e);
+        }
+    }
+
+    void onLogStorageSizeIncreased(long addedBytes) {
+        if (logSizeBytes.addAndGet(addedBytes) >= softLimitBytes) {
+            LockSupport.unpark(gcThread);
+        }
     }
 
     void cleanupLeftoverFiles() throws IOException {
@@ -134,6 +201,11 @@ class RaftLogGarbageCollector {
                 prevFileProperties = fileProperties;
             }
         }
+    }
+
+    @VisibleForTesting
+    long logSizeBytes() {
+        return logSizeBytes.get();
     }
 
     @VisibleForTesting
@@ -284,6 +356,62 @@ class RaftLogGarbageCollector {
 
     private static boolean isLogIndexInRange(long index, IndexFileMeta indexFileMeta) {
         return index >= indexFileMeta.firstLogIndexInclusive() && index < indexFileMeta.lastLogIndexExclusive();
+    }
+
+    private void initLogSizeFromDisk() throws IOException {
+        Path indexFilesDir = indexFileManager.indexFilesDir();
+
+        try (Stream<Path> files = Stream.concat(Files.list(segmentFilesDir), Files.list(indexFilesDir))) {
+            long logSizeOnDisk = files
+                    .mapToLong(path -> {
+                        try {
+                            return Files.size(path);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .sum();
+
+            logSizeBytes.set(logSizeOnDisk);
+        }
+    }
+
+    private class GcTask implements Runnable {
+        @Override
+        public void run() {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    runGcCycle();
+                } catch (ClosedByInterruptException e) {
+                    return;
+                } catch (IOException e) {
+                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                }
+
+                LockSupport.park();
+            }
+        }
+
+        private void runGcCycle() throws IOException {
+            while (logSizeBytes.get() >= softLimitBytes) {
+                FileProperties candidate = strategy.selectSegmentFileForCompaction();
+
+                if (candidate == null) {
+                    // No eligible files right now; wait for the next write to unpark us.
+                    break;
+                }
+
+                Path path = segmentFilesDir.resolve(SegmentFile.fileName(candidate));
+
+                SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
+
+                try {
+                    runCompaction(segmentFile);
+                } finally {
+                    segmentFile.close();
+                }
+            }
+        }
     }
 
     private class TmpSegmentFile implements AutoCloseable {
