@@ -135,6 +135,9 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         private IndexRow currentRow;
 
         @Nullable
+        private IndexRow lastLocked;
+
+        @Nullable
         private IndexRow peekedRow = NO_PEEKED_ROW;
 
         private ScanCursor(NavigableSet<IndexRow> indexSet) {
@@ -191,6 +194,20 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
             }
 
             return peekedRow;
+        }
+
+        @Override
+        public @Nullable IndexRow getLastLocked() {
+            checkStorageClosedOrInProcessOfRebalance(true);
+
+            return lastLocked;
+        }
+
+        @Override
+        public void locked(IndexRow peekedRow) {
+            checkStorageClosedOrInProcessOfRebalance(true);
+
+            lastLocked = peekedRow;
         }
     }
 

@@ -54,4 +54,12 @@ public interface PeekCursor<T> extends Cursor<T> {
      * up-to-date value in the storage.
      */
     @Nullable T peek();
+
+    @Nullable default T getLastLocked() {
+        return null;
+    }
+
+    default void locked(T peekedRow) {
+
+    }
 }
