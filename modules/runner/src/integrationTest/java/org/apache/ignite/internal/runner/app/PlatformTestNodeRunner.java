@@ -57,6 +57,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -119,6 +120,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1167,6 +1169,25 @@ public class PlatformTestNodeRunner {
 
                 return new DeploymentUnit(name, version);
             }).collect(toList());
+        }
+    }
+
+    /**
+     * Job returns actual partition distribution for particular table calculated by java side.
+     */
+    public static class GetPartitionDistributionByTableJob implements ComputeJob<String, Map<UUID, List<Long>>> {
+        @Override
+        public @Nullable CompletableFuture<Map<UUID, List<Long>>> executeAsync(JobExecutionContext context, String tableName) {
+            PartitionDistribution pd = context.ignite().tables().table(tableName).partitionDistribution();
+
+            Map<UUID, List<Long>> distribution = new HashMap<>();
+            for (Partition partition : pd.partitions()) {
+                var primaryNode = pd.primaryReplica(partition);
+
+                distribution.computeIfAbsent(primaryNode.id(), k -> new ArrayList<>()).add(partition.id());
+            }
+
+            return completedFuture(distribution);
         }
     }
 }
