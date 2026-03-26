@@ -64,7 +64,7 @@ public class SchemaSyncMetricSource extends AbstractMetricSource<SchemaSyncMetri
         private final DistributionMetric waits = new DistributionMetric(
                 "Waits",
                 "Histogram of schema synchronization wait times in milliseconds."
-                        + " High values may indicate MetaStorage unavailability or slowness.",
+                        + " High values may indicate Meta Storage unavailability or slowness.",
                 WAIT_BOUNDS_MS
         );
 
