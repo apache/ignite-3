@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
@@ -48,8 +49,10 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -123,6 +126,7 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionDiscardRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -190,6 +194,8 @@ import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -1574,6 +1580,25 @@ public class ClientInboundMessageHandler
         public boolean isActive() {
             ChannelHandlerContext ctx = channelHandlerContext;
             return ctx != null && ctx.channel().isActive();
+        }
+    }
+
+    /**
+     * Job returns actual partition distribution for particular table calculated by java side.
+     */
+    public static class GetPartitionDistributionByTableJob implements ComputeJob<String, Map<UUID, List<Long>>> {
+        @Override
+        public @Nullable CompletableFuture<Map<UUID, List<Long>>> executeAsync(JobExecutionContext context, String tableName) {
+            PartitionDistribution pd = context.ignite().tables().table(tableName).partitionDistribution();
+
+            Map<UUID, List<Long>> distribution = new HashMap<>();
+            for (Partition partition : pd.partitions()) {
+                var primaryNode = pd.primaryReplica(partition);
+
+                distribution.computeIfAbsent(primaryNode.id(), k -> new ArrayList<>()).add(partition.id());
+            }
+
+            return completedFuture(distribution);
         }
     }
 }
