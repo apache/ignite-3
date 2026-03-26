@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -649,7 +650,13 @@ public class Jobs {
                 distribution.computeIfAbsent(primaryNode.id(), k -> new ArrayList<>()).add(partition.id());
             }
 
-            return completedFuture(distribution.toString());
+            StringBuilder sb = new StringBuilder();
+
+            for (Entry<UUID, List<Long>> entry : distribution.entrySet()) {
+                sb.append(entry.getKey()).append("=").append(entry.getValue()).append(";");
+            }
+
+            return completedFuture(sb.toString());
         }
     }
 }
