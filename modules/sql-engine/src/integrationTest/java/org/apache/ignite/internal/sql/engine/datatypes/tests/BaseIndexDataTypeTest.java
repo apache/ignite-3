@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBoundsAtLeastOnce;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
