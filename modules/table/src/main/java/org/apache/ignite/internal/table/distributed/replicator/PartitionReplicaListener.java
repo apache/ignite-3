@@ -95,7 +95,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -114,7 +113,6 @@ import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -207,6 +205,7 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
@@ -323,12 +322,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /**
-     * Processor that handles catalog events {@link CatalogEvent#INDEX_BUILDING} and tracks read-write transaction operations for building
-     * indexes.
-     */
-    private final PartitionReplicaBuildIndexProcessor indexBuildingProcessor;
-
     private final SchemaRegistry schemaRegistry;
 
     private final LowWatermark lowWatermark;
@@ -423,8 +416,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
-        indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService, txManager);
-
         tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 schemaCompatValidator,
@@ -445,6 +436,82 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 PartitionReplicationMessageGroup.GROUP_TYPE,
                 PartitionReplicationMessageGroup.BUILD_INDEX_REPLICA_REQUEST,
                 new BuildIndexReplicaRequestHandler(indexMetaStorage, raftCommandApplicator));
+
+        handlersBuilder.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                TxMessageGroup.TABLE_WRITE_INTENT_SWITCH_REQUEST,
+                (ReplicaRequestHandler<TableWriteIntentSwitchReplicaRequest>) (req, primacy) ->
+                        processTableWriteIntentSwitchAction(req));
+
+        handlersBuilder.addHandler(
+                TxMessageGroup.GROUP_TYPE,
+                TxMessageGroup.TX_STATE_PRIMARY_REPLICA_REQUEST,
+                (ReplicaRequestHandler<TxStatePrimaryReplicaRequest>) (req, primacy) ->
+                        processTxStatePrimaryReplicaRequest(req));
+
+        handlersBuilder.addRoHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST,
+                (ReadOnlyReplicaRequestHandler<ReadOnlyDirectSingleRowReplicaRequest>) this::processReadOnlyDirectSingleEntryAction);
+
+        handlersBuilder.addRoHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST,
+                (ReadOnlyReplicaRequestHandler<ReadOnlyDirectMultiRowReplicaRequest>) this::processReadOnlyDirectMultiEntryAction);
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlySingleRowPkReplicaRequest>) (req, primacy) ->
+                        processReadOnlySingleEntryAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlyMultiRowPkReplicaRequest>) (req, primacy) ->
+                        processReadOnlyMultiEntryAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadOnlyScanRetrieveBatchReplicaRequest>) (req, primacy) ->
+                        processReadOnlyScanRetrieveBatchAction(req, primacy.isPrimary()));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RW_SINGLE_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadWriteSingleRowReplicaRequest>) (req, primacy) ->
+                        processRwSingleRowRequest(req, primacy));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RW_SINGLE_ROW_PK_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadWriteSingleRowPkReplicaRequest>) (req, primacy) ->
+                        processRwSingleRowPkRequest(req, primacy));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadWriteMultiRowReplicaRequest>) (req, primacy) ->
+                        processRwMultiRowRequest(req, primacy));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadWriteMultiRowPkReplicaRequest>) (req, primacy) ->
+                        processRwMultiRowPkRequest(req, primacy));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadWriteSwapRowReplicaRequest>) (req, primacy) ->
+                        processRwSwapRowRequest(req, primacy));
+
+        handlersBuilder.addHandler(
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST,
+                (ReplicaRequestHandler<ReadWriteScanRetrieveBatchReplicaRequest>) (req, primacy) ->
+                        processRwScanRetrieveBatchRequest(req));
 
         requestHandlers = handlersBuilder.build();
     }
@@ -544,103 +611,86 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return roHandler.handle(request, opStartTsIfDirectRo);
         }
 
-        if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            var req = (ReadWriteSingleRowReplicaRequest) request;
-
-            return appendTxCommand(
-                    req.transactionId(),
-                    req.requestType(),
-                    req.full(),
-                    () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
-            );
-        } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
-            var req = (ReadWriteSingleRowPkReplicaRequest) request;
-
-            return appendTxCommand(
-                    req.transactionId(),
-                    req.requestType(),
-                    req.full(),
-                    () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
-            );
-        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            var req = (ReadWriteMultiRowReplicaRequest) request;
-
-            return appendTxCommand(
-                    req.transactionId(),
-                    req.requestType(),
-                    req.full(),
-                    () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
-            );
-        } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
-            var req = (ReadWriteMultiRowPkReplicaRequest) request;
-
-            return appendTxCommand(
-                    req.transactionId(),
-                    req.requestType(),
-                    req.full(),
-                    () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
-            );
-        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-            var req = (ReadWriteSwapRowReplicaRequest) request;
-
-            return appendTxCommand(
-                    req.transactionId(),
-                    req.requestType(),
-                    req.full(),
-                    () -> processTwoEntriesAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
-            );
-        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-            var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
-
-            // Scan's request.full() has a slightly different semantics than the same field in other requests -
-            // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
-            // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
-            // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
-            // If they don't fit the bucket, the transaction is treated as 2pc.
-            replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
-
-            // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
-                    .thenCompose(rows -> {
-                        if (allElementsAreNull(rows)) {
-                            return completedFuture(rows);
-                        } else {
-                            return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
-                                    .thenApply(ignored -> {
-                                        metrics.onRead(rows.size(), false, true);
-
-                                        return rows;
-                                    });
-                        }
-                    })
-                    .whenComplete((rows, err) -> {
-                        if (req.full() && (err != null || rows.size() < req.batchSize())) {
-                            releaseTxLocks(req.transactionId());
-                        }
-                    });
-        } else if (request instanceof TableWriteIntentSwitchReplicaRequest) {
-            return processTableWriteIntentSwitchAction((TableWriteIntentSwitchReplicaRequest) request);
-        } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
-            return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
-            return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, replicaPrimacy.isPrimary());
-        } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
-        } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
-        } else if (request instanceof TxStatePrimaryReplicaRequest) {
-            return processTxStatePrimaryReplicaRequest((TxStatePrimaryReplicaRequest) request);
-        }
-
-        // Unknown request.
         throw new UnsupportedReplicaRequestException(request.getClass());
+    }
+
+    private CompletableFuture<?> processRwSingleRowRequest(ReadWriteSingleRowReplicaRequest req, ReplicaPrimacy primacy) {
+        return appendTxCommand(
+                req.transactionId(),
+                req.requestType(),
+                req.full(),
+                () -> processSingleEntryAction(req, primacy.leaseStartTime()).whenComplete(
+                        (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+        );
+    }
+
+    private CompletableFuture<?> processRwSingleRowPkRequest(ReadWriteSingleRowPkReplicaRequest req, ReplicaPrimacy primacy) {
+        return appendTxCommand(
+                req.transactionId(),
+                req.requestType(),
+                req.full(),
+                () -> processSingleEntryAction(req, primacy.leaseStartTime()).whenComplete(
+                        (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+        );
+    }
+
+    private CompletableFuture<?> processRwMultiRowRequest(ReadWriteMultiRowReplicaRequest req, ReplicaPrimacy primacy) {
+        return appendTxCommand(
+                req.transactionId(),
+                req.requestType(),
+                req.full(),
+                () -> processMultiEntryAction(req, primacy.leaseStartTime()).whenComplete(
+                        (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+        );
+    }
+
+    private CompletableFuture<?> processRwMultiRowPkRequest(ReadWriteMultiRowPkReplicaRequest req, ReplicaPrimacy primacy) {
+        return appendTxCommand(
+                req.transactionId(),
+                req.requestType(),
+                req.full(),
+                () -> processMultiEntryAction(req, primacy.leaseStartTime()).whenComplete(
+                        (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+        );
+    }
+
+    private CompletableFuture<?> processRwSwapRowRequest(ReadWriteSwapRowReplicaRequest req, ReplicaPrimacy primacy) {
+        return appendTxCommand(
+                req.transactionId(),
+                req.requestType(),
+                req.full(),
+                () -> processTwoEntriesAction(req, primacy.leaseStartTime()).whenComplete(
+                        (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
+        );
+    }
+
+    private CompletableFuture<?> processRwScanRetrieveBatchRequest(ReadWriteScanRetrieveBatchReplicaRequest req) {
+        // Scan's request.full() has a slightly different semantics than the same field in other requests -
+        // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
+        // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
+        // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
+        // If they don't fit the bucket, the transaction is treated as 2pc.
+        replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
+
+        // Implicit RW scan can be committed locally on a last batch or error.
+        return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
+                .thenCompose(rows -> {
+                    if (allElementsAreNull(rows)) {
+                        return completedFuture(rows);
+                    } else {
+                        return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
+                                .thenApply(ignored -> {
+                                    metrics.onRead(rows.size(), false, true);
+
+                                    return rows;
+                                });
+                    }
+                })
+                .whenComplete((rows, err) -> {
+                    if (req.full() && (err != null || rows.size() < req.batchSize())) {
+                        releaseTxLocks(req.transactionId());
+                    }
+                });
     }
 
     /**
@@ -3845,13 +3895,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         busyLock.block();
-
-        indexBuildingProcessor.onShutdown();
-    }
-
-    @Override
-    public TableTxRwOperationTracker txRwOperationTracker() {
-        return indexBuildingProcessor.tracker();
     }
 
     private int partId() {
@@ -3867,15 +3910,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
-        indexBuildingProcessor.incrementRwOperationCountIfNeeded(request);
-
         UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
 
         try {
             return processOperationRequest(request, replicaPrimacy, opStartTsIfDirectRo)
                     .handle((res, ex) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
-                        indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
 
                         if (ex != null) {
                             storeFailureInTxMeta(request, ex);
@@ -3908,11 +3948,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 e.addSuppressed(unlockProblem);
             }
 
-            try {
-                indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
-            } catch (Throwable decrementProblem) {
-                e.addSuppressed(decrementProblem);
-            }
             throw e;
         }
     }

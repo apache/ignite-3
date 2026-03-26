@@ -140,6 +140,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
     private static final int TABLE_ID = 1;
     private static final int PK_INDEX_ID = 1;
     private static final int ZONE_ID = 2;
+    private static final IndexLocker.PartitionIndexId PK_INDEX_CONTEXT_ID
+            = new IndexLocker.PartitionIndexId(PART_ID, PK_INDEX_ID);
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
@@ -377,7 +379,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 allOf(
                         hasItem(lockThat(
                                 arg.expectedLockOnSortedPk + " on sorted pk index",
-                                lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
+                                lock -> Objects.equals(PK_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                         && row2HashKeyConverter.extractColumns(testBinaryRow).byteBuffer().equals(lock.lockKey().key())
                                         && lock.lockMode() == arg.expectedLockOnSortedPk
                         ))
@@ -457,7 +459,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                     allOf(
                             hasItem(lockThat(
                                     arg.expectedLockOnSortedPk + " on sorted pk index",
-                                    lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
+                                    lock -> Objects.equals(PK_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                             && row2HashKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnSortedPk
                             ))

@@ -18,8 +18,8 @@
 -->
 <Configuration>
   <Properties>
-    <!-- Set the `IGNITE_CI` environment variable to completely disable colors in the console output. -->
-    <Property name="disableAnsi">${env:IGNITE_CI:-false}</Property>
+    <!-- Set the `IGNITE_CI` environment variable to disable colors and route all output to stdout. -->
+    <Property name="ciMode">${env:IGNITE_CI:-false}</Property>
   </Properties>
 
   <Appenders>
@@ -27,7 +27,7 @@
       <PatternLayout>
         <MarkerPatternSelector
           defaultPattern="[%d{ISO8601}]%highlight{[%-5p]}{INFO=green, DEBUG=green bold, TRACE=blue}%style{[%t]}{magenta}%style{[%c{1}]}{cyan}%notEmpty{[%markerSimpleName]} %m%n"
-          disableAnsi="${disableAnsi}">
+          disableAnsi="${ciMode}">
           <!-- Logs from compatibility test runner are already properly formatted -->
           <PatternMatch key="CompatRunner" pattern="%m%n"/>
         </MarkerPatternSelector>
@@ -35,11 +35,22 @@
       <LevelRangeFilter minLevel="INFO" maxLevel="DEBUG"/>
     </Console>
 
-    <Console name="CONSOLE_ERR" target="SYSTEM_ERR">
-      <PatternLayout
-        pattern="%highlight{[%d{ISO8601}][%-5p][%t][%c{1}] %m}{FATAL=red blink, ERROR=default, WARN=yellow bold}%n"
-        disableAnsi="${disableAnsi}"/>
-    </Console>
+    <!-- On CI (IGNITE_CI=true), route error logs to SYSTEM_OUT instead of SYSTEM_ERR to prevent interleaving. -->
+    <Routing name="CONSOLE_ERR">
+      <Routes pattern="${ciMode}">
+        <Route key="true">
+          <Console name="CONSOLE_ERR_OUT" target="SYSTEM_OUT">
+            <!-- Use pattern without ANSI since this pattern is used only with ciMode. -->
+            <PatternLayout pattern="[%d{ISO8601}][%-5p][%t][%c{1}] %m%n"/>
+          </Console>
+        </Route>
+        <Route>
+          <Console name="CONSOLE_ERR_STDERR" target="SYSTEM_ERR">
+            <PatternLayout pattern="%highlight{[%d{ISO8601}][%-5p][%t][%c{1}] %m}{FATAL=red blink, ERROR=default, WARN=yellow bold}%n"/>
+          </Console>
+        </Route>
+      </Routes>
+    </Routing>
 
     <RollingFile name="FILE"
       append="true"

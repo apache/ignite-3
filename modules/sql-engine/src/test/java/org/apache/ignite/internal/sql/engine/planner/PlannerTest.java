@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static java.util.function.Predicate.not;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.planner.CorrelatedSubqueryPlannerTest.createTestTable;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -55,10 +56,12 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -114,7 +117,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "   WHERE VAL = 10::VARCHAR) \n"
                 + "WHERE VAL = 10::VARCHAR";
 
-        assertPlan(sql, publicSchema, Predicate.not(nodeOrAnyChild(isInstanceOf(IgniteFilter.class)))
+        assertPlan(sql, publicSchema, not(nodeOrAnyChild(isInstanceOf(IgniteFilter.class)))
                 .and(nodeOrAnyChild(isInstanceOf(IgniteTableScan.class)
                         .and(scan -> scan.condition() != null)
                 )));
@@ -216,7 +219,7 @@ public class PlannerTest extends AbstractPlannerTest {
                                 .and(hasChildThat(isTableScan("EMP")))
                                 .and(hasChildThat(isTableScan("DEPT")))
                         ))
-                ).and(Predicate.not(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)))),
+                ).and(not(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)))),
                 "CorrelatedNestedLoopJoin");
     }
 
@@ -426,5 +429,40 @@ public class PlannerTest extends AbstractPlannerTest {
                 .addColumn("NAME", NativeTypes.STRING)
                 .size(100)
                 .distribution(distribution);
+    }
+
+    /** Ensure we we prefer table scan in cases where index scan is useless. */
+    @Test
+    public void preferTableScanForEmptyTable() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                TestBuilders.table()
+                        .name("T1")
+                        .distribution(TestBuilders.affinity(0, nextTableId(), Integer.MIN_VALUE))
+                        .distribution(IgniteDistributions.single())
+                        .addKeyColumn("PK", NativeTypes.INT32)
+                        .addColumn("VAL1", NativeTypes.INT32)
+                        .addColumn("VAL2", NativeTypes.INT32)
+                        .size(0)
+                        .sortedIndex().name("IDX1").addColumn("VAL2", Collation.ASC_NULLS_LAST).end()
+                        .build(),
+                TestBuilders.table()
+                        .name("T2")
+                        .distribution(TestBuilders.affinity(0, nextTableId(), Integer.MIN_VALUE))
+                        .addColumn("PK", NativeTypes.INT32)
+                        .addColumn("VAL1", NativeTypes.INT32)
+                        .addColumn("VAL2", NativeTypes.INT32)
+                        .size(0)
+                        .sortedIndex().name("IDX2").addColumn("VAL2", Collation.ASC_NULLS_LAST).end()
+                        .build()
+        );
+
+        // Join on non-indexed columns.
+        assertPlan("SELECT * FROM T1 LEFT JOIN T2 ON t1.val1 = t2.val1", publicSchema, isInstanceOf(IgniteHashJoin.class)
+                .and(not(nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)))));
+        // Order by non-indexed column
+        assertPlan("SELECT * FROM T1 ORDER BY val1", publicSchema, isInstanceOf(IgniteSort.class)
+                .and(nodeOrAnyChild(isTableScan("T1"))));
+        // Condition on non-indexed column.
+        assertPlan("SELECT * FROM T1", publicSchema, nodeOrAnyChild(isTableScan("T1")));
     }
 }

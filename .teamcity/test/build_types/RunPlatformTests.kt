@@ -15,7 +15,7 @@ object RunPlatformTests : BuildType({
         snapshot(PlatformCppOdbcTestsDebLinux) {}
         snapshot(PlatformCppOdbcTestsRpmLinux) {}
         snapshot(PlatformCppOdbcTestsTgzLinux) {}
-//        snapshot(PlatformCppTestsWindows) {}  // Always falling, under investigation
+        snapshot(PlatformCppTestsWindows) {}
         snapshot(PlatformDotnetTestsWindows) {}
         snapshot(PlatformDotnetTestsLinux) {}
         snapshot(RunPythonTests) {}

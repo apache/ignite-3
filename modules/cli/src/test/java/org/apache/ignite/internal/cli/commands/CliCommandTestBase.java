@@ -39,9 +39,11 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvid
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
@@ -73,6 +76,10 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
 
     private CommandLine cmd;
 
+    private final Pattern pattern = Pattern.compile("\"([^\"]*)\"|'([^']*)'|[^\\s\"']+");
+
+    private final List<Object> mockCallSingletons = new ArrayList<>();
+
     @BeforeAll
     static void setDumbTerminal() {
         System.setProperty("org.jline.terminal.dumb", "true");
@@ -85,14 +92,49 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
         createCommand();
     }
 
+    @AfterEach
+    void tearDown() {
+        mockCallSingletons.forEach(mock -> context.destroyBean(mock));
+        mockCallSingletons.clear();
+    }
+
     private void createCommand() {
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         CommandLineContextProvider.setCmd(cmd);
     }
 
+    private List<String> getArgs(String argsLine) {
+        var matcher = pattern.matcher(argsLine);
+        List<String> args = new ArrayList<>();
+
+        while (matcher.find()) {
+            if (matcher.group(1) != null) {
+                args.add(matcher.group(1));      // double-quoted content (no quotes)
+            } else if (matcher.group(2) != null) {
+                args.add(matcher.group(2));      // single-quoted content (no quotes)
+            } else {
+                args.add(matcher.group(0));       // unquoted token
+            }
+        }
+
+        return args;
+    }
+
     protected void execute(String argsLine) {
-        execute(argsLine.split(" "));
+        final var args = getArgs(argsLine);
+
+        List<String> joined = new ArrayList<>();
+        for (int i = 0; i < args.size(); i++) {
+            if (args.get(i).endsWith("=") && i + 1 < args.size()) {
+                joined.add(args.get(i) + args.get(i + 1));
+                i++;
+            } else {
+                joined.add(args.get(i));
+            }
+        }
+
+        execute(joined.toArray(new String[0]));
     }
 
     protected void execute(String... args) {
@@ -281,6 +323,7 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     private <IT extends CallInput, OT, T extends Call<IT, OT>> T registerMockCall(Class<T> callClass) {
         T mock = mock(callClass);
         context.registerSingleton(mock);
+        mockCallSingletons.add(mock);
         when(mock.execute(any())).thenReturn(DefaultCallOutput.empty());
         return mock;
     }
@@ -300,6 +343,7 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
             T registerMockCallAsync(Class<FT> callFactoryClass, Class<T> callClass) {
         FT mockCallFactory = mock(callFactoryClass);
         context.registerSingleton(mockCallFactory);
+        mockCallSingletons.add(mockCallFactory);
 
         T mockCall = mock(callClass);
         when(mockCall.execute(any())).thenReturn(completedFuture(DefaultCallOutput.empty()));

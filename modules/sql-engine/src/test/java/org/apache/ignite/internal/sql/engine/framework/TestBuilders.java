@@ -145,6 +145,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeType;
@@ -1731,7 +1732,9 @@ public class TestBuilders {
             Runnable callback = prepareCallback;
 
             if (callback != null) {
-                callback.run();
+                // Run the callback asynchronously to avoid blocking the calling thread.
+                return IgniteTestUtils.runAsync(callback::run)
+                        .thenCompose(ignore -> delegate.prepareAsync(parsedResult, ctx));
             }
 
             return delegate.prepareAsync(parsedResult, ctx);

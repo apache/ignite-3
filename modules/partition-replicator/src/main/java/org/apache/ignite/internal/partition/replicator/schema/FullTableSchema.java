@@ -22,6 +22,9 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Represents a full table schema: that is, the definition of the table and all objects (constraints, etc)
@@ -45,6 +49,13 @@ public class FullTableSchema {
     private final List<CatalogTableColumnDescriptor> columns;
 
     /**
+     * Indexes that were created in catalog versions preceding this schema version, but were started being built exactly in
+     * the catalog version corresponding to this schema version. Keyed by index ID; value is the catalog version in which the index
+     * was created.
+     */
+    private final Int2IntMap indexesJustStartedBeingBuilt;
+
+    /**
      * Constructor.
      */
     public FullTableSchema(
@@ -52,13 +63,16 @@ public class FullTableSchema {
             int schemaVersion,
             int tableId,
             String tableName,
-            List<CatalogTableColumnDescriptor> columns
+            List<CatalogTableColumnDescriptor> columns,
+            Int2IntMap indexesJustStartedBeingBuilt
     ) {
         this.catalogVersion = catalogVersion;
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
         this.tableName = tableName;
         this.columns = List.copyOf(columns);
+        this.indexesJustStartedBeingBuilt = indexesJustStartedBeingBuilt.isEmpty() ? Int2IntMaps.EMPTY_MAP
+                : new Int2IntOpenHashMap(indexesJustStartedBeingBuilt);
     }
 
     /**
@@ -143,7 +157,8 @@ public class FullTableSchema {
                 this.tableName(),
                 addedColumns,
                 removedColumns,
-                changedColumns
+                changedColumns,
+                indexesJustStartedBeingBuilt
         );
     }
 
@@ -158,7 +173,18 @@ public class FullTableSchema {
         }
 
         // Table column related-changes only differ when the schema version is different
-        return schemaVersion != prev.schemaVersion();
+        return schemaVersion != prev.schemaVersion()
+                // Index build-related changes can differ even if the schema version is the same.
+                || someKeyAdded(prev.indexesJustStartedBeingBuilt, indexesJustStartedBeingBuilt);
+    }
+
+    private static boolean someKeyAdded(Int2IntMap prevMap, Int2IntMap newMap) {
+        for (int key : newMap.keySet()) {
+            if (!prevMap.containsKey(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {
@@ -174,5 +200,10 @@ public class FullTableSchema {
 
     private static boolean columnChanged(CatalogTableColumnDescriptor prevColumn, CatalogTableColumnDescriptor newColumn) {
         return !prevColumn.equals(newColumn);
+    }
+
+    @TestOnly
+    Int2IntMap indexesJustStartedBeingBuilt() {
+        return indexesJustStartedBeingBuilt;
     }
 }

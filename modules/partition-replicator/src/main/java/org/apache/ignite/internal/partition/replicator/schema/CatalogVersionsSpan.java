@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.schemacompat;
+package org.apache.ignite.internal.partition.replicator.schema;
 
 /**
- * Key for table definitions diff.
+ * Represents a span of catalog versions for a table.
  */
-class TableDefinitionDiffKey {
+public class CatalogVersionsSpan {
     private final int tableId;
     private final int fromCatalogVersion;
     private final int toCatalogVersion;
 
-    TableDefinitionDiffKey(int tableId, int fromCatalogVersion, int toCatalogVersion) {
+    /** Constructor. */
+    public CatalogVersionsSpan(int tableId, int fromCatalogVersion, int toCatalogVersion) {
         this.tableId = tableId;
         this.fromCatalogVersion = fromCatalogVersion;
         this.toCatalogVersion = toCatalogVersion;
@@ -40,7 +41,7 @@ class TableDefinitionDiffKey {
             return false;
         }
 
-        TableDefinitionDiffKey that = (TableDefinitionDiffKey) o;
+        CatalogVersionsSpan that = (CatalogVersionsSpan) o;
 
         if (tableId != that.tableId) {
             return false;

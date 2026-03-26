@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
-
-import java.util.concurrent.CompletableFuture;
+package org.apache.ignite.internal.rest.cluster.exception;
 
 /**
- * Tracks the completion of RW transactions' operations before a dependent process begins.
+ * Exception that is thrown when the wrong arguments are passed to the rename cluster method.
  */
-public interface TableTxRwOperationTracker {
-    /**
-     * Waits for RW transactions operations to complete strictly lower than the requested catalog version.
-     *
-     * @param catalogVersion Catalog version in question.
-     */
-    CompletableFuture<Void> awaitCompleteTxRwOperations(int catalogVersion);
+public class InvalidArgumentClusterRenameException extends RuntimeException {
+    public InvalidArgumentClusterRenameException(Throwable cause) {
+        super(cause);
+    }
 }

@@ -38,7 +38,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.IncompatibleSchemaException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,7 +77,7 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
         assertThrowsWithCause(() -> {
             kvView.put(tx, 1, 11);
             tx.commit();
-        }, StaleTransactionOperationException.class);
+        }, IncompatibleSchemaException.class);
 
         verifyNoNodesHaveAnythingInIndex(cluster, initialNodes());
     }
@@ -110,7 +110,7 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
                 kvView.put(tx, i, 42);
                 tx.commit();
             } catch (RuntimeException e) {
-                if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {
+                if (ExceptionUtils.hasCause(e, IncompatibleSchemaException.class)) {
                     failedOperations++;
                 } else {
                     throw e;
@@ -162,7 +162,7 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
             try {
                 kvView.put(null, i, 42);
             } catch (RuntimeException e) {
-                if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {
+                if (ExceptionUtils.hasCause(e, IncompatibleSchemaException.class)) {
                     failedOperations++;
                 } else {
                     throw e;

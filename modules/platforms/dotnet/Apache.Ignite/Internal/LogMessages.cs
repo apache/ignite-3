@@ -279,4 +279,13 @@ internal static partial class LogMessages
         Level = LogLevel.Trace,
         EventId = 1038)]
     internal static partial void LogEndpointListUpdatedTrace(this ILogger logger, string added, string removed);
+
+    [LoggerMessage(
+        Message = "Multiple distinct endpoints resolve to the same server node [nodeName={NodeName}, nodeId={NodeId}, " +
+                  "existingEndpoint={ExistingEndpoint}, newEndpoint={NewEndpoint}]. This represents a misconfiguration. " +
+                  "Both connections will remain active to avoid disrupting ongoing operations.",
+        Level = LogLevel.Warning,
+        EventId = 1039)]
+    internal static partial void LogMultipleEndpointsSameNodeWarn(
+        this ILogger logger, string nodeName, Guid nodeId, EndPoint existingEndpoint, EndPoint newEndpoint);
 }
