@@ -18,12 +18,12 @@
 #include <ignite/common/detail/string_extensions.h>
 
 #include <algorithm>
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include <iterator>
 #include <limits>
 
 #include <gtest/gtest.h>
+
+#define TEST_PI 3.14159265358979323846
 
 using namespace ignite;
 using namespace ignite::detail;
@@ -232,7 +232,7 @@ INSTANTIATE_TEST_SUITE_P(
         test_case<float>{-1.0,-2101035902},
         test_case<float>{std::numeric_limits<float>::max(), 1780074225},
         test_case<float>{42.0F,1227011061},
-        test_case<float>{float{M_PI},-2142471555}
+        test_case<float>{float{TEST_PI},-2142471555}
     )
 );
 
@@ -253,7 +253,7 @@ INSTANTIATE_TEST_SUITE_P(
         test_case<double>{-1.0,210701226},
         test_case<double>{std::numeric_limits<double>::max(), -1921889547},
         test_case<double>{42.0F,2109601987},
-        test_case<double>{double{M_PI},-521675661}
+        test_case<double>{double{TEST_PI},-521675661}
     )
 );
 
@@ -273,8 +273,8 @@ INSTANTIATE_TEST_SUITE_P(
         test_case<big_decimal>{big_decimal{1},904832652},
         test_case<big_decimal>{big_decimal{-1},-1497790521},
         test_case<big_decimal>{big_decimal{42},1347451647},
-        test_case<big_decimal>{big_decimal::from_double(M_PI),572053262},
-        test_case<big_decimal>{big_decimal::from_double(M_PI*-1),-2078930604}
+        test_case<big_decimal>{big_decimal::from_double(TEST_PI),572053262},
+        test_case<big_decimal>{big_decimal::from_double(TEST_PI*-1),-2078930604}
     )
 );
 
