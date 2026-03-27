@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -121,8 +122,7 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp ts = clock.now();
 
-        when(schemaSafeTimeTracker.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong())))
-                .thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaSafeTimeTracker.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()))).thenReturn(nullCompletedFuture());
 
         schemaSyncService.waitForMetadataCompleteness(ts);
 
