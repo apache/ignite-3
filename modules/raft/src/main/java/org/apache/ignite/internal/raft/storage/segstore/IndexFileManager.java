@@ -504,6 +504,22 @@ class IndexFileManager {
         return payloadBuffer.array();
     }
 
+    /**
+     * Computes the size in bytes that the index file for the given {@code indexMemTable} will occupy on disk,
+     * without actually writing anything. Used to notify the GC of the upcoming size change before persisting the file.
+     */
+    long computeIndexFileSize(ReadModeIndexMemTable indexMemTable) {
+        long total = headerSize(indexMemTable.numGroups());
+
+        Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
+
+        while (it.hasNext()) {
+            total += payloadSize(it.next().getValue());
+        }
+
+        return total;
+    }
+
     private static int headerSize(int numGroups) {
         return COMMON_META_SIZE + numGroups * GROUP_META_SIZE;
     }

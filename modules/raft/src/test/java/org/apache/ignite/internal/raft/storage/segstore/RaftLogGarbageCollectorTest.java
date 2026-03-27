@@ -28,14 +28,17 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -65,6 +68,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     private static final int FILE_SIZE = 200;
 
+    /**
+     * Soft limit equal to two segment files. GC is triggered after the third file is allocated,
+     * and the post-GC steady state (one current file + one partially-compacted file) fits below this limit.
+     */
+    private static final int SMALL_SOFT_LIMIT = 2 * FILE_SIZE;
+
     private static final long GROUP_ID_1 = 1000;
 
     private static final long GROUP_ID_2 = 2000;
@@ -78,6 +87,12 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
     @InjectConfiguration(value = "mock.segmentFileSizeBytes=" + FILE_SIZE, validate = false)
     private LogStorageConfiguration storageConfiguration;
+
+    @InjectConfiguration(
+            value = "mock.segmentFileSizeBytes=" + FILE_SIZE + ", mock.softLogSizeLimitBytes=" + SMALL_SOFT_LIMIT,
+            validate = false
+    )
+    private LogStorageConfiguration smallSoftLimitConfig;
 
     private SegmentFileManager fileManager;
 
@@ -661,6 +676,15 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         }
     }
 
+    private static List<Path> indexFiles(SegmentFileManager manager) throws IOException {
+        try (Stream<Path> files = Files.list(manager.indexFilesDir())) {
+            return files
+                    .filter(p -> !p.getFileName().toString().endsWith(".tmp"))
+                    .sorted()
+                    .collect(Collectors.toList());
+        }
+    }
+
     private static List<byte[]> createRandomData(int batchLength, int numBatches) {
         return IntStream.range(0, numBatches)
                 .mapToObj(i -> randomBytes(ThreadLocalRandom.current(), batchLength))
@@ -720,6 +744,9 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         );
 
         fileManager.start();
+
+        indexFileManager = fileManager.indexFileManager();
+        garbageCollector = fileManager.garbageCollector();
     }
 
     private void runCompaction(Path segmentFilePath) throws IOException {
@@ -730,5 +757,231 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         } finally {
             segmentFile.close();
         }
+    }
+
+    // ---- Size tracking & automatic GC tests ----
+
+    @Test
+    void testLogSizeBytesInitializedCorrectlyOnStartup() throws Exception {
+        // Fill multiple segment files to create both segment and index files.
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        // Wait for at least one checkpoint so index files exist.
+        await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(1)));
+
+        long expectedSize = totalLogSizeFromDisk(fileManager);
+
+        restartSegmentFileManager();
+
+        assertThat(garbageCollector.logSizeBytes(), equalTo(expectedSize));
+    }
+
+    @Test
+    void testGcNotTriggeredWhenBelowSoftLimit() throws Exception {
+        // Default config has a huge soft limit — GC should never be unparked.
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        fileManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
+
+        await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(1)));
+
+        // logSizeBytes counter must reflect actual disk state.
+        assertThat(garbageCollector.logSizeBytes(), equalTo(totalLogSizeFromDisk(fileManager)));
+
+        int segmentCountBefore = segmentFiles().size();
+
+        // Give a moment to confirm nothing happens — GC thread is parked.
+        Thread.sleep(100);
+
+        assertThat(segmentFiles(), hasSize(segmentCountBefore));
+    }
+
+    @Test
+    void testGcTriggeredWhenSoftLimitExceeded() throws Exception {
+        // Use a manager with a small soft limit so rollover events trigger GC.
+        Path gcDir = workDir.resolve("gc-trigger");
+        SegmentFileManager gcManager = new SegmentFileManager(
+                NODE_NAME, gcDir, STRIPES, new NoOpFailureManager(), raftConfiguration, smallSoftLimitConfig);
+        gcManager.start();
+
+        try {
+            List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytesTo(gcManager, GROUP_ID_1, batches.get(i), i);
+            }
+
+            // Truncate all GROUP_ID_1 entries so every old file becomes fully deletable.
+            gcManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
+
+            // Write one GROUP_ID_2 batch to force a rollover so the truncation record ends up in a
+            // completed (checkpointable) file. The trigger entry lands in the new current file and is
+            // never a GC candidate, leaving old GROUP_ID_1-only files fully deletable.
+            appendBytesTo(gcManager, GROUP_ID_2, createRandomData(FILE_SIZE / 4, 1).get(0), batches.size() + 1);
+
+            // Checkpoint + GC happen asynchronously; wait until GC has converged.
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> gcManager.garbageCollector().logSizeBytes(), lessThanOrEqualTo((long) SMALL_SOFT_LIMIT));
+        } finally {
+            gcManager.close();
+        }
+    }
+
+    @Test
+    void testGcLoopsUntilBelowSoftLimit() throws Exception {
+        // GC should compact multiple files in a single wake-up cycle until size ≤ softLimit.
+        Path gcDir = workDir.resolve("gc-loop");
+        SegmentFileManager gcManager = new SegmentFileManager(
+                NODE_NAME, gcDir, STRIPES, new NoOpFailureManager(), raftConfiguration, smallSoftLimitConfig);
+        gcManager.start();
+
+        try {
+            // Create many files with GROUP_ID_1 entries (more than the triggered test).
+            List<byte[]> batches = createRandomData(FILE_SIZE / 4, 20);
+            for (int i = 0; i < batches.size(); i++) {
+                appendBytesTo(gcManager, GROUP_ID_1, batches.get(i), i);
+            }
+
+            // Truncate all GROUP_ID_1 entries.
+            gcManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
+
+            // Trigger a rollover so the truncation record lands in a completed (checkpointable) file.
+            appendBytesTo(gcManager, GROUP_ID_2, createRandomData(FILE_SIZE / 4, 1).get(0), batches.size() + 1);
+
+            // GC must loop over all old files until logSizeBytes ≤ softLimit.
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> gcManager.garbageCollector().logSizeBytes(), lessThanOrEqualTo((long) SMALL_SOFT_LIMIT));
+        } finally {
+            gcManager.close();
+        }
+    }
+
+    @RepeatedTest(5)
+    void testConcurrentWritesAndAutoGc() throws Exception {
+        Path gcDir = workDir.resolve("gc-concurrent");
+        SegmentFileManager gcManager = new SegmentFileManager(
+                NODE_NAME, gcDir, STRIPES, new NoOpFailureManager(), raftConfiguration, smallSoftLimitConfig);
+        gcManager.start();
+
+        try {
+            int numBatches = 20;
+            List<byte[]> batches = createRandomData(FILE_SIZE / 8, numBatches);
+
+            // Write initial data from both groups.
+            for (int i = 0; i < numBatches; i++) {
+                appendBytesTo(gcManager, GROUP_ID_1, batches.get(i), i);
+                appendBytesTo(gcManager, GROUP_ID_2, batches.get(i), i);
+            }
+
+            // Wait for checkpoints so the GC has candidates to compact.
+            await().until(() -> indexFiles(gcManager), hasSize(greaterThanOrEqualTo(1)));
+
+            var writerDone = new AtomicBoolean(false);
+
+            // Writer: continuously appends to GROUP_ID_1 and truncates its prefix (gives GC work).
+            RunnableX writerTask = () -> {
+                try {
+                    for (int i = numBatches; i < numBatches * 3; i++) {
+                        appendBytesTo(gcManager, GROUP_ID_1, batches.get(i % numBatches), i);
+                        gcManager.truncatePrefix(GROUP_ID_1, i - 1);
+                    }
+                } finally {
+                    writerDone.set(true);
+                }
+            };
+
+            // Reader: verifies GROUP_ID_2 entries (never truncated) remain readable.
+            RunnableX readerTask = () -> {
+                while (!writerDone.get()) {
+                    for (int i = 0; i < numBatches; i++) {
+                        int index = i;
+                        gcManager.getEntry(GROUP_ID_2, i, bs -> {
+                            if (bs != null) {
+                                assertThat(bs, is(batches.get(index)));
+                            }
+                            return null;
+                        });
+                    }
+                }
+            };
+
+            runRace(writerTask, readerTask, readerTask);
+        } finally {
+            gcManager.close();
+        }
+    }
+
+    @Test
+    void testCloseDuringActiveGcCycle() throws Exception {
+        Path gcDir = workDir.resolve("gc-close");
+        SegmentFileManager gcManager = new SegmentFileManager(
+                NODE_NAME, gcDir, STRIPES, new NoOpFailureManager(), raftConfiguration, smallSoftLimitConfig);
+        gcManager.start();
+
+        // Write enough data to keep the GC busy, then close while it may be running.
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 20);
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytesTo(gcManager, GROUP_ID_1, batches.get(i), i);
+        }
+        gcManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
+
+        // close() must return promptly even if GC is in the middle of a compaction cycle.
+        gcManager.close();
+    }
+
+    // ---- Additional helpers ----
+
+    private static long totalLogSizeFromDisk(SegmentFileManager manager) throws IOException {
+        long total = 0;
+
+        try (Stream<Path> files = Files.list(manager.segmentFilesDir())) {
+            total += files.mapToLong(p -> {
+                try {
+                    return Files.size(p);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }).sum();
+        }
+
+        try (Stream<Path> files = Files.list(manager.indexFilesDir())) {
+            total += files.mapToLong(p -> {
+                try {
+                    return Files.size(p);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }).sum();
+        }
+
+        return total;
+    }
+
+    private void appendBytesTo(SegmentFileManager manager, long groupId, byte[] serializedEntry, long index)
+            throws IOException {
+        var entry = new LogEntry();
+        entry.setId(new LogId(index, 0));
+
+        manager.appendEntry(groupId, entry, new LogEntryEncoder() {
+            @Override
+            public byte[] encode(LogEntry log) {
+                return serializedEntry;
+            }
+
+            @Override
+            public void encode(ByteBuffer buffer, LogEntry log) {
+                buffer.put(serializedEntry);
+            }
+
+            @Override
+            public int size(LogEntry logEntry) {
+                return serializedEntry.length;
+            }
+        });
     }
 }

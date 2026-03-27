@@ -24,6 +24,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -33,6 +34,8 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -44,6 +47,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -56,12 +60,19 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
     private RaftLogCheckpointer checkpointer;
 
+    @TempDir
+    private Path tempDir;
+
     @Mock
     private IndexFileManager indexFileManager;
 
     @BeforeEach
-    void setUp() {
-        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager(), MAX_QUEUE_SIZE);
+    void setUp() throws IOException {
+        lenient().when(indexFileManager.computeIndexFileSize(any())).thenReturn(0L);
+        lenient().when(indexFileManager.saveNewIndexMemtable(any()))
+                .thenAnswer(inv -> Files.createTempFile(tempDir, "idx", ".bin"));
+
+        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager(), MAX_QUEUE_SIZE, size -> {});
 
         checkpointer.start();
     }
