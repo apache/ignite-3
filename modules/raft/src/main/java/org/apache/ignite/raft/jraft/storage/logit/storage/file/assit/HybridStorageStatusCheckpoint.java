@@ -38,7 +38,7 @@ public class HybridStorageStatusCheckpoint extends Checkpoint {
     }
 
     @Override
-    public boolean decode( byte[] bs) {
+    public boolean decode(byte[] bs) {
         if (bs.length < 1) {
             return false;
         }
