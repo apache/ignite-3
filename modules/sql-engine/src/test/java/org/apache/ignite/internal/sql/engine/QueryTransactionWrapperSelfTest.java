@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +35,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
@@ -45,8 +47,11 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -229,6 +234,48 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         IgniteSqlCommitTransaction sqlCommitTx = mock(IgniteSqlCommitTransaction.class);
         scriptRoTxCtx.handleControlStatement(sqlCommitTx);
         assertEquals(1, inflights.size());
+    }
+
+    @Test
+    public void testInflightTrackerUsesFinishedWithErrorClassificationForFinishingTx() {
+        NoOpTransaction tx = NoOpTransaction.readWrite("test-rw", false);
+        IgniteInternalException failure = new IgniteInternalException(321, "boom");
+        TxStateMeta finishingMeta = new TxStateMetaFinishing(null, null, false, null, failure, failure.code());
+
+        when(transactionInflights.track(tx.id())).thenReturn(false);
+        when(txManager.stateMeta(tx.id())).thenReturn(finishingMeta);
+
+        TransactionException ex = assertThrowsExactly(
+                TransactionException.class,
+                () -> new InflightTransactionalOperationTracker(transactionInflights, txManager).registerOperationStart(tx)
+        );
+
+        assertEquals(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR, ex.code());
+        assertEquals(failure, ex.getCause());
+    }
+
+    @Test
+    public void testExplicitSqlTransactionUsesFinishedWithErrorClassificationForFinishingTx() {
+        NoOpTransaction tx = NoOpTransaction.readWrite("test-rw", false);
+        IgniteInternalException failure = new IgniteInternalException(321, "boom");
+        TxStateMeta finishingMeta = new TxStateMetaFinishing(null, null, false, null, failure, failure.code());
+
+        when(txManager.stateMeta(tx.id())).thenReturn(finishingMeta);
+
+        QueryTransactionContext txCtx = new QueryTransactionContextImpl(
+                txManager,
+                observableTimeTracker,
+                tx,
+                new InflightTransactionalOperationTracker(transactionInflights, txManager)
+        );
+
+        TransactionException ex = assertThrowsExactly(
+                TransactionException.class,
+                () -> txCtx.getOrStartSqlManaged(false, false)
+        );
+
+        assertEquals(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR, ex.code());
+        assertEquals(failure, ex.getCause());
     }
 
     private void prepareTransactionsMocks() {

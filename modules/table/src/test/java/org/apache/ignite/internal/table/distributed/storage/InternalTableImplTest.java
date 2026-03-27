@@ -120,6 +120,7 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
@@ -930,6 +931,46 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
         when(txManager.stateMeta(txId)).thenReturn(meta);
         tx.rollback();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+
+        publisher.subscribe(new BlackholeSubscriber(completed));
+
+        try {
+            completed.get(10, TimeUnit.SECONDS);
+            fail("Expected TransactionException but scan completed successfully");
+        } catch (Exception e) {
+            Throwable unwrapped = unwrapCause(e);
+            assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+            TransactionException txEx = (TransactionException) unwrapped;
+            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR",
+                    txEx.code(), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR));
+            assertThat("Cause should be the recorded exception", txEx.getCause(), is(failure));
+        }
+    }
+
+    @Test
+    void testScanWhileFinishingAfterErrorThrowsFinishedWithErrCode() {
+        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+        InternalTransaction tx = new ReadWriteTransactionImpl(
+                txManager,
+                mock(HybridTimestampTracker.class),
+                TestTransactionIds.newTransactionId(),
+                randomUUID(),
+                false,
+                1,
+                null
+        );
+
+        UUID txId = tx.id();
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        when(txManager.stateMeta(txId)).thenReturn(new TxStateMetaFinishing(null, null, false, null, failure, null));
+        tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
+                "Transaction is already finished")).join();
 
         Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
 
