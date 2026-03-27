@@ -861,7 +861,6 @@ public class ClientInboundMessageHandler
         long requestId = -1;
         int opCode = -1;
 
-        metrics.requestsActiveIncrement();
         var guard = new ResponseWriteGuard();
 
         try {
@@ -878,6 +877,8 @@ public class ClientInboundMessageHandler
                 return;
             }
 
+            metrics.requestsActiveIncrement();
+
             if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
@@ -891,6 +892,7 @@ public class ClientInboundMessageHandler
                         writeError(requestId0, opCode0, t, ctx, false, guard);
 
                         metrics.requestsFailedIncrement();
+                        metrics.requestsActiveDecrement();
                     }
                 });
             } else {
