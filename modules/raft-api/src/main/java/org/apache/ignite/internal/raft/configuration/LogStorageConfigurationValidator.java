@@ -31,6 +31,7 @@ class LogStorageConfigurationValidator implements Validator<ValidLogStorageConfi
         LogStorageView newValue = ctx.getNewValue();
 
         validateLogEntrySize(newValue, ctx);
+        validateSoftLogSizeLimit(newValue, ctx);
     }
 
     private static void validateLogEntrySize(LogStorageView config, ValidationContext<LogStorageView> ctx) {
@@ -41,7 +42,7 @@ class LogStorageConfigurationValidator implements Validator<ValidLogStorageConfi
         }
 
         if (maxEntrySize <= 0) {
-            String errorMsg = String.format("Maximum log entry size must be positive, got %d.", maxEntrySize);
+            String errorMsg = String.format("Maximum log entry size must be positive [maxEntrySize=%d bytes].", maxEntrySize);
 
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), errorMsg));
 
@@ -52,8 +53,22 @@ class LogStorageConfigurationValidator implements Validator<ValidLogStorageConfi
 
         if (maxEntrySize > maxAllowedEntrySize) {
             String errorMsg = String.format(
-                    "Maximum log entry size is too big (%d bytes), maximum allowed log entry size is %d bytes.",
+                    "Maximum log entry size is too big [maxEntrySize=%d bytes, maxAllowedEntrySize=%d bytes].",
                     maxEntrySize, maxAllowedEntrySize
+            );
+
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), errorMsg));
+        }
+    }
+
+    private static void validateSoftLogSizeLimit(LogStorageView config, ValidationContext<LogStorageView> ctx) {
+        long softLimit = config.softLogSizeLimitBytes();
+        long segmentFileSize = config.segmentFileSizeBytes();
+
+        if (softLimit < segmentFileSize) {
+            String errorMsg = String.format(
+                    "Soft log size limit must be at least the segment file size [softLimit=%d bytes, segmentFileSize=%d bytes].",
+                    softLimit, segmentFileSize
             );
 
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), errorMsg));
