@@ -539,7 +539,7 @@ public class ClientInboundMessageHandler
             BitSet clientFeatures,
             ProtocolVersion clientVer,
             int clientCode) {
-        // Disable direct mapping if not all required features are supported alltogether.
+        // Disable direct mapping if not all required features are supported altogether.
         boolean supportsDirectMapping = features.get(TX_DIRECT_MAPPING.featureId()) && clientFeatures.get(TX_DIRECT_MAPPING.featureId())
                 && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
                 && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId())
