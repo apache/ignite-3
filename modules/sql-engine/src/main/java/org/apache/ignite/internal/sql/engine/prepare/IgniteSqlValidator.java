@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -99,6 +98,7 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
@@ -436,15 +436,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return getIgniteTableForModification(identifier, table);
     }
 
-    private IgniteTable resolveIgniteTableForModification(SqlNode targetTable, SqlValidatorTable table) {
-        if (targetTable instanceof SqlTableRef) {
-            SqlTableRef tableRef = (SqlTableRef) targetTable;
-            SqlIdentifier tableName = (SqlIdentifier) tableRef.getOperandList().get(0);
+    private IgniteTable resolveIgniteTableForModification(SqlNode table, SqlValidatorTable validatorTable) {
+        IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolvedTable = resolveTableIdentifierAndHints(table);
 
-            return getIgniteTableForModification(tableName, table);
-        }
+        SqlIdentifier targetTable = resolvedTable.get1();
+        assert targetTable != null : "Table should not be null";
 
-        return getIgniteTableForModification((SqlIdentifier) targetTable, table);
+        return getIgniteTableForModification(targetTable, validatorTable);
     }
 
     private IgniteTable getIgniteTableForModification(SqlIdentifier identifier, SqlValidatorTable table) {
@@ -599,54 +597,54 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
-        SqlNode table = call.getTargetTable();
+        IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolvedTable = resolveTableIdentifierAndHints(call.getTargetTable());
 
-        return withResolvedTableIdentifier(table, (targetTable, hints) -> {
-            final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
+        SqlIdentifier targetTable = resolvedTable.get1();
+        assert targetTable != null : "Table should not be null";
 
-            IgniteTable igniteTable = getTableForModification(targetTable);
+        SqlNodeList hints = resolvedTable.get2();
 
-            SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
-                    new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
+        SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
 
-            igniteTable.rowTypeForUpdate((IgniteTypeFactory) typeFactory)
-                    .getFieldNames().stream()
-                    .map(name -> alias.plus(name, SqlParserPos.ZERO))
-                    .forEach(selectList::add);
+        IgniteTable igniteTable = getTableForModification(targetTable);
 
-            int ordinal = 0;
-            // Force unique aliases to avoid a duplicate for Y with SET X=Y
-            for (SqlNode exp : call.getSourceExpressionList()) {
-                selectList.add(SqlValidatorUtil.addAlias(exp, SqlUtil.deriveAliasFromOrdinal(ordinal++)));
-            }
+        SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
+                new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-            SqlNode sourceTable = call.getTargetTable();
+        igniteTable.rowTypeForUpdate((IgniteTypeFactory) typeFactory)
+                .getFieldNames().stream()
+                .map(name -> alias.plus(name, SqlParserPos.ZERO))
+                .forEach(selectList::add);
 
-            if (call.getAlias() != null) {
-                sourceTable =
-                        SqlValidatorUtil.addAlias(
-                                sourceTable,
-                                call.getAlias().getSimple());
-            }
+        int ordinal = 0;
+        // Force unique aliases to avoid a duplicate for Y with SET X=Y
+        for (SqlNode exp : call.getSourceExpressionList()) {
+            selectList.add(SqlValidatorUtil.addAlias(exp, SqlUtil.deriveAliasFromOrdinal(ordinal++)));
+        }
 
-            return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                    call.getCondition(), null, null, null, null, null, null, null, hints);
-        });
+        SqlNode sourceTable = call.getTargetTable();
+
+        if (call.getAlias() != null) {
+            sourceTable =
+                    SqlValidatorUtil.addAlias(
+                            sourceTable,
+                            call.getAlias().getSimple());
+        }
+
+        return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
+                call.getCondition(), null, null, null, null, null, null, null, hints);
     }
 
-    private static SqlSelect withResolvedTableIdentifier(
-            SqlNode targetTable,
-            BiFunction<SqlIdentifier, @Nullable SqlNodeList, SqlSelect> mapper
-    ) {
+    private static IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolveTableIdentifierAndHints(SqlNode targetTable) {
         if (targetTable instanceof SqlTableRef) {
             SqlTableRef tableRef = (SqlTableRef) targetTable;
             SqlIdentifier tableName = (SqlIdentifier) tableRef.getOperandList().get(0);
             SqlNodeList hints = (SqlNodeList) tableRef.getOperandList().get(1);
 
-            return mapper.apply(tableName, hints);
+            return new IgniteBiTuple<>(tableName, hints);
         }
 
-        return mapper.apply((SqlIdentifier) targetTable, null);
+        return new IgniteBiTuple<>((SqlIdentifier) targetTable, null);
     }
 
     /** {@inheritDoc} */
@@ -660,30 +658,33 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
-        SqlNode table = call.getTargetTable();
+        IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolvedTable = resolveTableIdentifierAndHints(call.getTargetTable());
 
-        return withResolvedTableIdentifier(table, (targetTable, hints) -> {
-            final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
+        SqlIdentifier targetTable = resolvedTable.get1();
+        assert targetTable != null : "Table should not be null";
 
-            IgniteTable igniteTable = getTableForModification(targetTable);
+        SqlNodeList hints = resolvedTable.get2();
 
-            igniteTable.rowTypeForDelete((IgniteTypeFactory) typeFactory)
-                    .getFieldNames().stream()
-                    .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
-                    .forEach(selectList::add);
+        SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
 
-            SqlNode sourceTable = call.getTargetTable();
+        IgniteTable igniteTable = getTableForModification(targetTable);
 
-            if (call.getAlias() != null) {
-                sourceTable =
-                        SqlValidatorUtil.addAlias(
-                                sourceTable,
-                                call.getAlias().getSimple());
-            }
+        igniteTable.rowTypeForDelete((IgniteTypeFactory) typeFactory)
+                .getFieldNames().stream()
+                .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
+                .forEach(selectList::add);
 
-            return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                    call.getCondition(), null, null, null, null, null, null, null, hints);
-        });
+        SqlNode sourceTable = call.getTargetTable();
+
+        if (call.getAlias() != null) {
+            sourceTable =
+                    SqlValidatorUtil.addAlias(
+                            sourceTable,
+                            call.getAlias().getSimple());
+        }
+
+        return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
+                call.getCondition(), null, null, null, null, null, null, null, hints);
     }
 
     /** {@inheritDoc} */
