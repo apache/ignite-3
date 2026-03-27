@@ -104,6 +104,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -516,6 +517,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
+        var metaStorageRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                raftGroupEventsClientListener,
+                failureProcessor
+        );
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgManager,
@@ -523,7 +530,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 metaStorage,
                 hybridClock,
-                topologyAwareRaftGroupServiceFactory,
+                metaStorageRaftServiceFactory,
                 metricManager,
                 systemDistributedConfiguration,
                 msRaftConfigurer,

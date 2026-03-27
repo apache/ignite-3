@@ -85,6 +85,7 @@ import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -786,6 +787,12 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
+        var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                raftGroupEventsClientListener,
+                failureManager
+        );
+
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         var storage = new RocksDbKeyValueStorage(
@@ -803,7 +810,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 storage,
                 clock,
-                topologyAwareRaftGroupServiceFactory,
+                msRaftServiceFactory,
                 metricManager,
                 systemDisasterRecoveryStorage,
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),

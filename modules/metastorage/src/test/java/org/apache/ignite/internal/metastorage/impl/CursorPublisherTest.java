@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -50,7 +51,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -66,7 +67,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class CursorPublisherTest extends BaseIgniteAbstractTest {
     @Mock
-    private RaftGroupService raftService;
+    private TimeAwareRaftGroupService raftService;
 
     private MetaStorageServiceContext context;
 
@@ -81,14 +82,14 @@ public class CursorPublisherTest extends BaseIgniteAbstractTest {
                 new IgniteSpinBusyLock()
         );
 
-        publisher = new CursorPublisher(context, uuid -> mock(GetRangeCommand.class));
+        publisher = new CursorPublisher(context, uuid -> mock(GetRangeCommand.class), TimeAwareRaftGroupService.NO_TIMEOUT);
     }
 
     @Test
     void testPagination() {
         Entry mockEntry = mock(Entry.class);
 
-        when(raftService.run(any(GetRangeCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class), anyLong()))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(6, mockEntry), true)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(5, mockEntry), false)));
 
@@ -110,7 +111,7 @@ public class CursorPublisherTest extends BaseIgniteAbstractTest {
 
         assertThat(awaitFuture, willCompleteSuccessfully());
 
-        verify(raftService, times(2)).run(any(GetRangeCommand.class));
+        verify(raftService, times(2)).run(any(GetRangeCommand.class), anyLong());
         verify(subscriber, times(11)).onNext(any());
         verify(subscriber).onComplete();
     }
@@ -119,7 +120,7 @@ public class CursorPublisherTest extends BaseIgniteAbstractTest {
     void testRequestDuringOnNext() {
         Entry mockEntry = mock(Entry.class);
 
-        when(raftService.run(any(GetRangeCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class), anyLong()))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(6, mockEntry), true)))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(5, mockEntry), false)));
 
@@ -127,12 +128,12 @@ public class CursorPublisherTest extends BaseIgniteAbstractTest {
 
         assertThat(future, will(hasSize(11)));
 
-        verify(raftService, times(2)).run(any(GetRangeCommand.class));
+        verify(raftService, times(2)).run(any(GetRangeCommand.class), anyLong());
     }
 
     @Test
     void testErrorOnPagination() {
-        when(raftService.run(any(GetRangeCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class), anyLong()))
                 .thenReturn(completedFuture(new BatchResponse(nCopies(5, mock(Entry.class)), true)))
                 .thenReturn(failedFuture(new IllegalStateException()));
 
@@ -160,7 +161,7 @@ public class CursorPublisherTest extends BaseIgniteAbstractTest {
 
         assertThat(awaitFuture, willThrow(IllegalStateException.class, 10, TimeUnit.SECONDS));
 
-        verify(raftService, times(2)).run(any(GetRangeCommand.class));
+        verify(raftService, times(2)).run(any(GetRangeCommand.class), anyLong());
         verify(subscriber, times(5)).onNext(any());
     }
 
@@ -195,7 +196,7 @@ public class CursorPublisherTest extends BaseIgniteAbstractTest {
 
         Entry mockEntry = mock(Entry.class);
 
-        when(raftService.run(any(GetRangeCommand.class)))
+        when(raftService.run(any(GetRangeCommand.class), anyLong()))
                 .thenReturn(completedFuture(new BatchResponse(List.of(mockEntry), true)))
                 .thenAnswer(invocation -> supplyAsync(() -> {
                     try {

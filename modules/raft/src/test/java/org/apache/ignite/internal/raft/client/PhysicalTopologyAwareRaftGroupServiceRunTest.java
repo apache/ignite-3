@@ -168,6 +168,14 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Return empty list for allMembers() - service uses this during initialization.
         lenient().when(topologyService.allMembers()).thenReturn(List.of());
 
+        // Default mock for GetLeaderRequest used by refreshAndGetLeaderWithTerm() when leader is unknown.
+        // Returns EPERM (no leader) by default. Tests that simulate leader election should update this
+        // via mockGetLeaderResponse() to return proper leader info.
+        lenient().when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(RaftError.EPERM.getNumber())
+                        .build()));
+
         // Mock RaftConfiguration.
         ConfigurationValue<Long> retryTimeoutValue = mock(ConfigurationValue.class);
         lenient().when(retryTimeoutValue.value()).thenReturn(TIMEOUT);
@@ -232,6 +240,19 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
+     * Updates the GetLeaderRequest mock to return the specified leader.
+     * This is needed because PhysicalTopologyAwareRaftGroupService.run() calls
+     * refreshAndGetLeaderWithTerm() when leader is unknown, which sends GetLeaderRequest.
+     */
+    private void mockGetLeaderResponse(Peer leaderPeer, long term) {
+        Mockito.doReturn(completedFuture(FACTORY.getLeaderResponse()
+                        .leaderId(new PeerId(leaderPeer.consistentId(), 0, leaderPeer.idx()).toString())
+                        .currentTerm(term)
+                        .build()))
+                .when(messagingService).invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong());
+    }
+
+    /**
      * Simulates leader election and waits for the notification to be processed.
      */
     private void simulateLeaderElectionAndWait(Peer leaderPeer, long term) {
@@ -265,12 +286,12 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                         .build()));
     }
 
-    private boolean isTestWriteCommand(WriteActionRequest arg) {
-        if (arg == null) {
+    private boolean isTestWriteCommand(Object arg) {
+        if (!(arg instanceof WriteActionRequest)) {
             return false;
         }
         Object command = new OptimizedMarshaller(cluster.serializationRegistry(),
-                OptimizedMarshaller.NO_POOL).unmarshall(arg.command());
+                OptimizedMarshaller.NO_POOL).unmarshall(((WriteActionRequest) arg).command());
         return command instanceof TestWriteCommand;
     }
 
@@ -334,43 +355,31 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
-     * Tests that with Long.MAX_VALUE timeout, all peers are tried first, then waits for leader, and succeeds when leader appears.
+     * Tests that with Long.MAX_VALUE timeout, run() discovers the leader via GetLeaderRequest
+     * and then succeeds with the actual command.
+     *
+     * <p>With the new behavior, run() calls refreshAndGetLeaderWithTerm() first when leader is unknown.
+     * The GetLeaderRequest retries until leader is discovered, then the WriteActionRequest is sent.
      */
     @Test
     void testInfiniteTimeoutWaitsForLeaderAndSucceeds() throws Exception {
-        // First 3 WriteActionRequest calls return EPERM (no leader), then success after leader appears.
-        AtomicInteger callCount = new AtomicInteger(0);
-        CountDownLatch allPeersTried = new CountDownLatch(3);
-
-        when(messagingService.invoke(
-                any(InternalClusterNode.class),
-                argThat(this::isTestWriteCommand),
-                anyLong()
-        )).thenAnswer(invocation -> {
-            if (callCount.incrementAndGet() <= 3) {
-                allPeersTried.countDown();
-                return completedFuture(FACTORY.errorResponse()
-                        .errorCode(RaftError.EPERM.getNumber())
-                        .build());
-            }
-            return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
-        });
+        // WriteActionRequest always succeeds (sent after leader is discovered).
+        mockUserInputSuccess();
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
-        // Start the command - it should try all peers first, then wait for leader.
+        // Start the command - refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest
+        // (default mock returns EPERM). The result should not complete yet.
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
-        // Wait for all peer attempts to complete.
-        assertTrue(allPeersTried.await(5, TimeUnit.SECONDS), "All peers should be tried");
-
-        verifyExact3PeersCalled();
-
-        // Initially not complete (waiting for leader).
+        // Initially not complete (GetLeaderRequest is retrying).
         assertThat(result.isDone(), is(false));
 
-        // Simulate leader election.
-        executor.schedule(() -> simulateLeaderElection(NODES.get(0), CURRENT_TERM), 100, TimeUnit.MILLISECONDS);
+        // Update the GetLeaderRequest mock to return leader, and simulate leader election.
+        executor.schedule(() -> {
+            mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
+            simulateLeaderElection(NODES.get(0), CURRENT_TERM);
+        }, 100, TimeUnit.MILLISECONDS);
 
         // Should eventually complete successfully.
         assertThat(result, willCompleteSuccessfully());
@@ -517,34 +526,34 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
-     * Tests that with infinite timeout, if the client is shutting down during leader waiting,
+     * Tests that with infinite timeout, if the client is shutting down during leader discovery,
      * the future completes with NodeStoppingException.
+     *
+     * <p>With the new behavior, run() calls refreshAndGetLeaderWithTerm() first when leader is unknown.
+     * The GetLeaderRequest retries (default mock returns EPERM). Shutdown cancels the leader discovery future.
      */
     @Test
     void testInfiniteTimeoutShutdownDuringLeaderWaiting() throws Exception {
-        CountDownLatch allPeersTried = new CountDownLatch(3);
-
-        // All peers return EPERM (no leader) to trigger leader waiting phase.
-        when(messagingService.invoke(
-                any(InternalClusterNode.class),
-                argThat(this::isTestWriteCommand),
-                anyLong()
-        )).thenAnswer(invocation -> {
-            allPeersTried.countDown();
-            return completedFuture(FACTORY.errorResponse()
-                    .errorCode(RaftError.EPERM.getNumber())
-                    .build());
-        });
+        // Override default GetLeaderRequest mock with one that signals when it's been called.
+        var getLeaderCalled = new CountDownLatch(1);
+        lenient().when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    getLeaderCalled.countDown();
+                    return completedFuture(FACTORY.errorResponse()
+                            .errorCode(RaftError.EPERM.getNumber())
+                            .build());
+                });
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
         // Start the command with infinite timeout.
+        // refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest.
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
-        // Wait for all peers to be tried (3 peers).
-        assertTrue(allPeersTried.await(5, TimeUnit.SECONDS), "All peers should be tried");
+        // Wait for the GetLeaderRequest retry loop to actually start.
+        assertTrue(getLeaderCalled.await(5, TimeUnit.SECONDS), "GetLeaderRequest retry should start");
 
-        // The result should not be complete yet (waiting for leader).
+        // The result should not be complete yet (retrying GetLeaderRequest).
         assertThat(result.isDone(), is(false));
 
         // Shutdown the service.
@@ -608,10 +617,16 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      * Tests that with bounded timeout, a non-leader-related retriable error (like EBUSY) causes
      * retries until timeout without waiting for leader. This differs from EPERM with no leader,
      * which tries all peers once then waits for leader.
+     *
+     * <p>Leader must be known before calling run() so that refreshAndGetLeaderWithTerm() is skipped
+     * and the WriteActionRequest retry loop is reached directly.
      */
     @Test
     void testBoundedTimeoutRetriesNonLeaderErrorUntilTimeout() {
         AtomicInteger callCount = new AtomicInteger(0);
+
+        // GetLeaderRequest returns leader so run() proceeds to WriteActionRequest phase.
+        mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
 
         // All peers return EBUSY (a retriable error that is NOT related to missing leader).
         when(messagingService.invoke(
@@ -626,6 +641,9 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         });
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Simulate leader election so leader is known (skips refreshAndGetLeaderWithTerm in run()).
+        simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
 
         // With 300ms timeout and EBUSY errors, should retry until timeout.
         // Unlike EPERM (no leader), EBUSY should cause continuous retries, not wait for leader.
@@ -642,11 +660,17 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     /**
      * Tests that with infinite timeout, a non-leader-related retriable error (like EBUSY) causes
      * retries indefinitely until success. This differs from EPERM with no leader.
+     *
+     * <p>Leader must be known before calling run() so that refreshAndGetLeaderWithTerm() is skipped
+     * and the WriteActionRequest retry loop is reached directly.
      */
     @Test
     void testInfiniteTimeoutRetriesNonLeaderErrorUntilSuccess() throws Exception {
         AtomicInteger callCount = new AtomicInteger(0);
         CountDownLatch multipleRetriesDone = new CountDownLatch(5);
+
+        // GetLeaderRequest returns leader so run() proceeds to WriteActionRequest phase.
+        mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
 
         // First 5 calls return EBUSY, then success.
         when(messagingService.invoke(
@@ -666,6 +690,9 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
+        // Simulate leader election so leader is known (skips refreshAndGetLeaderWithTerm in run()).
+        simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
+
         // With infinite timeout and EBUSY errors, should retry until success.
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
@@ -682,13 +709,19 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     /**
      * Tests that with bounded timeout, if the client is shutting down during retry phase,
      * the future completes with NodeStoppingException immediately without new retry round.
+     *
+     * <p>With the new behavior, run() calls refreshAndGetLeaderWithTerm() first when leader is unknown.
+     * We set up GetLeaderRequest to return the leader immediately so the WriteActionRequest phase is reached,
+     * then test shutdown during WriteActionRequest retry.
      */
     @Test
     void testBoundedTimeoutShutdownDuringRetryPhase() throws Exception {
         var pendingRetryInvoke = new CompletableFuture<Void>();
         var retryPhaseStarted = new CountDownLatch(1);
-        var allPeersTried = new CountDownLatch(3);
-        var fifthCallAttempted = new CountDownLatch(1);
+        var secondCallAttempted = new CountDownLatch(1);
+
+        // GetLeaderRequest returns leader immediately so run() proceeds to WriteActionRequest phase.
+        mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
 
         AtomicInteger callCount = new AtomicInteger(0);
         when(messagingService.invoke(
@@ -697,37 +730,27 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                 anyLong()
         )).thenAnswer(invocation -> {
             int count = callCount.incrementAndGet();
-            if (count <= 3) {
-                // First 3 calls: return EPERM to trigger retry logic.
-                allPeersTried.countDown();
-                return completedFuture(FACTORY.errorResponse()
-                        .errorCode(RaftError.EPERM.getNumber())
-                        .build());
-            } else if (count == 4) {
-                // Fourth call: we're in retry phase after leader was notified.
-                // Signal that retry phase started and return a pending future.
+            if (count == 1) {
+                // First call: return a pending future to simulate in-flight request.
                 retryPhaseStarted.countDown();
                 return pendingRetryInvoke.thenApply(v -> FACTORY.errorResponse()
                         .errorCode(RaftError.EBUSY.getNumber())
                         .build());
             }
-            // Fifth call should not happen after shutdown.
-            fifthCallAttempted.countDown();
+            // Second call should not happen after shutdown.
+            secondCallAttempted.countDown();
             return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
         });
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
+        // Simulate leader election so leader is known.
+        simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
+
         // Start the command with bounded timeout (long enough).
         CompletableFuture<Object> result = svc.run(testWriteCommand(), 30_000);
 
-        // Wait for all peers to be tried.
-        assertTrue(allPeersTried.await(5, TimeUnit.SECONDS), "All peers should be tried");
-
-        // Simulate leader election to trigger retry phase.
-        simulateLeaderElection(NODES.get(0), CURRENT_TERM);
-
-        // Wait for retry phase to start.
+        // Wait for retry phase to start (first WriteActionRequest sent).
         assertTrue(retryPhaseStarted.await(5, TimeUnit.SECONDS), "Retry phase should start");
 
         // Shutdown the service.
@@ -740,10 +763,9 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         assertThat(result, willThrow(NodeStoppingException.class, 5, TimeUnit.SECONDS));
 
         // Verify no additional retry attempts were made after shutdown.
-        // The fifth call latch should NOT be counted down (wait briefly and check).
-        assertThat("No 5th call should be attempted after shutdown",
-                fifthCallAttempted.await(100, TimeUnit.MILLISECONDS), is(false));
-        assertThat(callCount.get(), is(4));
+        assertThat("No 2nd call should be attempted after shutdown",
+                secondCallAttempted.await(100, TimeUnit.MILLISECONDS), is(false));
+        assertThat(callCount.get(), is(1));
     }
 
     /**
@@ -1092,61 +1114,32 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
-     * Tests leader-wait mode: 3 nodes return "no leader", then those same nodes succeed after leader election.
+     * Tests leader-wait mode: run() discovers the leader via GetLeaderRequest after leader election,
+     * then sends the WriteActionRequest which succeeds.
      *
-     * <p>Key verification: "no leader" peers are NOT in unavailablePeers, so they CAN be retried
-     * after leader notification arrives.
+     * <p>With the new behavior, run() calls refreshAndGetLeaderWithTerm() first when leader is unknown.
+     * GetLeaderRequest retries until leader is discovered, then WriteActionRequest is sent and succeeds.
      */
     @Test
     void testLeaderWaitModeRetriesNoLeaderPeersAfterLeaderElection() throws Exception {
-        int peerCount = NODES.size();
-
-        List<String> calledPeers = new CopyOnWriteArrayList<>();
-        AtomicInteger noLeaderResponseCount = new AtomicInteger(0);
-        CountDownLatch allPeersTriedOnce = new CountDownLatch(peerCount);
-
-        when(messagingService.invoke(
-                any(InternalClusterNode.class),
-                argThat(this::isTestWriteCommand),
-                anyLong()
-        )).thenAnswer(invocation -> {
-            InternalClusterNode target = invocation.getArgument(0);
-            calledPeers.add(target.name());
-
-            // First round: all 3 peers return "no leader".
-            if (noLeaderResponseCount.get() < peerCount) {
-                noLeaderResponseCount.incrementAndGet();
-                allPeersTriedOnce.countDown();
-                return completedFuture(FACTORY.errorResponse()
-                        .errorCode(RaftError.EPERM.getNumber())
-                        .leaderId(null)
-                        .build());
-            }
-
-            // After leader election: succeed.
-            return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
-        });
+        // WriteActionRequest always succeeds (sent after leader is discovered).
+        mockUserInputSuccess();
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
         // Start the command with infinite timeout.
+        // refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest (default mock returns EPERM).
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
-        // Wait for all 3 peers to be tried once.
-        assertTrue(allPeersTriedOnce.await(5, TimeUnit.SECONDS), "All peers should be tried once");
-
-        // The result should NOT be complete yet - waiting for leader.
+        // The result should NOT be complete yet - GetLeaderRequest is retrying.
         assertThat(result.isDone(), is(false));
 
-        // Simulate leader election.
+        // Update GetLeaderRequest mock to return leader, and simulate leader election.
+        mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
         simulateLeaderElection(NODES.get(0), CURRENT_TERM);
 
-        // Should eventually succeed (by retrying one of the "no leader" peers).
+        // Should eventually succeed (GetLeaderRequest succeeds, then WriteActionRequest succeeds).
         assertThat(result, willCompleteSuccessfully());
-
-        // Verify that at least one peer was called twice (first with "no leader", then success).
-        long totalCalls = calledPeers.size();
-        assertTrue(totalCalls > peerCount, "Should have more than 3 calls (some peers retried after leader election), got " + totalCalls);
     }
 
     /**

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.f
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService.NO_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -33,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -74,6 +77,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
@@ -277,16 +281,21 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .orElseThrow()
                 .value;
 
+        // Wrap RaftGroupService in a TimeAwareRaftGroupService mock for MetaStorageServiceImpl.
+        TimeAwareRaftGroupService timeAwareService = mock(TimeAwareRaftGroupService.class);
+        when(timeAwareService.run(any(), anyLong())).thenAnswer(
+                invocation -> raftGroupServiceOfLiveServer.run(invocation.getArgument(0), invocation.getArgument(1)));
+
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
                 liveServer.clusterService().nodeName(),
-                raftGroupServiceOfLiveServer,
+                timeAwareService,
                 new IgniteSpinBusyLock(),
                 new HybridClockImpl(),
                 liveServer.clusterService().topologyService().localMember().id());
 
         var resultFuture = new CompletableFuture<Void>();
 
-        metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY1.key()), new ByteArray(new byte[]{4}))
+        metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY1.key()), new ByteArray(new byte[]{4}), NO_TIMEOUT)
                 .subscribe(new Subscriber<>() {
                     private Subscription subscription;
 

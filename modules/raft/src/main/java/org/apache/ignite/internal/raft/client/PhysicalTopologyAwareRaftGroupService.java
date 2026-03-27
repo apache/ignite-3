@@ -327,6 +327,13 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        if (commandExecutor.leader() == null && timeoutMillis != 0) {
+            // Discover the leader first, similar to RaftGroupServiceImpl.run() behavior.
+            // Without this, the command is sent to a random peer causing cascading EPERM errors
+            // and potential hangs due to race conditions with leader election notifications.
+            return refreshAndGetLeaderWithTerm(timeoutMillis)
+                    .thenCompose(ignored -> commandExecutor.run(cmd, timeoutMillis));
+        }
         return commandExecutor.run(cmd, timeoutMillis);
     }
 

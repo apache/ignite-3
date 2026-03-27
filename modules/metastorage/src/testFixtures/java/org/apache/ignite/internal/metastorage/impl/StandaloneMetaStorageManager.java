@@ -20,9 +20,9 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -58,9 +58,9 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -170,7 +170,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 logicalTopologyService,
                 mockRaftManager(),
                 keyValueStorage,
-                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(TimeAwareRaftGroupServiceFactory.class),
                 mockSystemConfiguration(),
                 clock,
                 RaftGroupOptionsConfigurer.EMPTY,
@@ -184,7 +184,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
             KeyValueStorage storage,
-            TopologyAwareRaftGroupServiceFactory raftServiceFactory,
+            TimeAwareRaftGroupServiceFactory raftServiceFactory,
             SystemDistributedConfiguration systemConfiguration,
             HybridClock clock,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
@@ -287,10 +287,10 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
         RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
-        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class, LENIENT_SETTINGS);
+        PhysicalTopologyAwareRaftGroupService raftGroupService = mock(PhysicalTopologyAwareRaftGroupService.class, LENIENT_SETTINGS);
 
         try {
-            when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
+            when(raftManager.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(
                     any(),
                     any(),
                     listenerCaptor.capture(),
@@ -318,16 +318,15 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 return runCommand(command, listener);
             }
         };
-        when(raftGroupService.run(any())).thenAnswer(answer);
         when(raftGroupService.run(any(), anyLong())).thenAnswer(answer);
 
-        when(raftGroupService.subscribeLeader(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             LeaderElectionListener callback = invocation.getArgument(0);
 
             callback.onLeaderElected(TEST_NODE, 0);
 
-            return nullCompletedFuture();
-        });
+            return null;
+        }).when(raftGroupService).subscribeLeader(any());
 
         return raftManager;
     }

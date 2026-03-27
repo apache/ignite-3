@@ -34,7 +34,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.TestOnly;
 
@@ -71,21 +71,21 @@ class MetaStorageLearnerManager {
         return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term, 0));
     }
 
-    CompletableFuture<Void> addLearner(RaftGroupService raftService, InternalClusterNode learner) {
+    CompletableFuture<Void> addLearner(TimeAwareRaftGroupService raftService, InternalClusterNode learner) {
         if (!learnersAdditionEnabled) {
             return nullCompletedFuture();
         }
 
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
                 ? nullCompletedFuture() // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
-                : raftService.addLearners(List.of(new Peer(learner.name())), 0));
+                : raftService.addLearners(List.of(new Peer(learner.name())), 0, TimeAwareRaftGroupService.NO_TIMEOUT));
     }
 
-    private static boolean isPeer(RaftGroupService raftService, InternalClusterNode node) {
+    private static boolean isPeer(TimeAwareRaftGroupService raftService, InternalClusterNode node) {
         return raftService.peers().stream().anyMatch(peer -> peer.consistentId().equals(node.name()));
     }
 
-    CompletableFuture<Void> removeLearner(RaftGroupService raftService, InternalClusterNode learner) {
+    CompletableFuture<Void> removeLearner(TimeAwareRaftGroupService raftService, InternalClusterNode learner) {
         return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
                 .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
                     if (isPeer(raftService, learner)) {
@@ -99,11 +99,11 @@ class MetaStorageLearnerManager {
                     }
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
-                    return raftService.removeLearners(List.of(new Peer(learner.name())), 0);
+                    return raftService.removeLearners(List.of(new Peer(learner.name())), 0, TimeAwareRaftGroupService.NO_TIMEOUT);
                 })));
     }
 
-    CompletableFuture<Void> resetLearners(RaftGroupService raftService, long term, long sequenceToken) {
+    CompletableFuture<Void> resetLearners(TimeAwareRaftGroupService raftService, long term, long sequenceToken) {
         return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
                 .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
                     Set<String> peers = raftService.peers().stream().map(Peer::consistentId).collect(toSet());
@@ -116,7 +116,8 @@ class MetaStorageLearnerManager {
                     PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
 
                     // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term, sequenceToken);
+                    return raftService.changePeersAndLearnersAsync(
+                            newPeerConfiguration, term, sequenceToken, TimeAwareRaftGroupService.NO_TIMEOUT);
                 })));
     }
 

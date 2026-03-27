@@ -41,6 +41,8 @@ class CursorSubscription implements Subscription {
 
     private final Function<byte[], ReadCommand> nextBatchCommandSupplier;
 
+    private final long timeoutMillis;
+
     /** Flag indicating that either the whole data range has been exhausted or the subscription has been cancelled. */
     private boolean isDone = false;
 
@@ -57,11 +59,13 @@ class CursorSubscription implements Subscription {
     CursorSubscription(
             MetaStorageServiceContext context,
             Function<byte[], ReadCommand> nextBatchCommandSupplier,
-            Subscriber<? super Entry> subscriber
+            Subscriber<? super Entry> subscriber,
+            long timeoutMillis
     ) {
         this.context = context;
         this.nextBatchCommandSupplier = nextBatchCommandSupplier;
         this.subscriber = subscriber;
+        this.timeoutMillis = timeoutMillis;
     }
 
     @Override
@@ -150,7 +154,7 @@ class CursorSubscription implements Subscription {
     private void requestNextBatch(byte @Nullable [] lastProcessedKey) {
         ReadCommand nextBatchCommand = nextBatchCommandSupplier.apply(lastProcessedKey);
 
-        context.raftService().<BatchResponse>run(nextBatchCommand)
+        context.raftService().<BatchResponse>run(nextBatchCommand, timeoutMillis)
                 .whenCompleteAsync((resp, e) -> {
                     if (e == null) {
                         cachedResponse = resp;
