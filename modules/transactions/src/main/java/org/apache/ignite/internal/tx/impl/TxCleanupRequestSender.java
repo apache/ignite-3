@@ -188,15 +188,23 @@ public class TxCleanupRequestSender {
     }
 
     /**
-     * Sends unlock request to the nodes than initiated recovery.
+     * Sends cleanup request to the node that initiated recovery.
      *
      * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
+     * @param commit Whether the transaction was committed.
+     * @param commitTimestamp Commit timestamp, if committed.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
-        return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null, RETRY_INITIAL_TIMEOUT_MS, 0);
+    public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node, null, RETRY_INITIAL_TIMEOUT_MS, 0);
     }
 
     /**

@@ -263,9 +263,17 @@ public interface TxManager extends IgniteComponent {
      * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
+     * @param commit Whether the transaction was committed.
+     * @param commitTimestamp Commit timestamp, if committed.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    );
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
