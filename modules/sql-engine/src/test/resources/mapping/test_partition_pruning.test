@@ -164,6 +164,7 @@ Fragment#4
             est: (rows=1)
 ---
 # Self join, different predicates that produce disjoint set of partitions
+# TODO https://issues.apache.org/jira/browse/IGNITE-28389: Fix the test. We expect the mapper should eliminate all the disjoined parts.
 N1
 SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ *
   FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2
