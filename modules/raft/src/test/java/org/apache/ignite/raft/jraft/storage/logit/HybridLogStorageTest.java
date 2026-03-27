@@ -1,0 +1,178 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.raft.jraft.storage.logit;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageManager;
+import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
+import org.apache.ignite.raft.jraft.JRaftServiceFactory;
+import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
+import org.apache.ignite.raft.jraft.core.HybridLogJRaftServiceFactory;
+import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
+import org.apache.ignite.raft.jraft.option.LogStorageOptions;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
+import org.apache.ignite.raft.jraft.storage.logit.storage.HybridLogStorage;
+import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.junit.jupiter.api.Test;
+
+class HybridLogStorageTest extends BaseStorageTest {
+    private static final String STORAGE_RELATIVE_PATH = "log";
+
+    private static final String NEW_STORAGE_RELATIVE_PATH = "new";
+
+    @Test
+    public void testTransferLogStorage() {
+        RaftOptions raftOptions = new RaftOptions();
+
+        raftOptions.setStartupOldStorage(true);
+
+        LogStorage oldStorage = new LocalLogStorage(raftOptions);
+
+        LogStorageManager oldStorageFactory = new LocalLogStorageManager() {
+            @Override
+            public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
+                return oldStorage;
+            }
+        };
+
+        assertTrue(oldStorage.init(logStorageOptions()));
+
+        long valueCount = 10;
+
+        for (int i = 1; i <= valueCount; i++) {
+            oldStorage.appendEntry(TestUtils.mockEntry(i, 1));
+        }
+
+        oldStorage.shutdown();
+
+        HybridLogStorage hybridLogStorage = createHybridLogStorage(raftOptions, oldStorageFactory);
+
+        assertTrue(hybridLogStorage.init(logStorageOptions()));
+
+        assertTrue(hybridLogStorage.isOldStorageExist());
+
+        long expectedThresholdIndex = oldStorage.getLastLogIndex() + 1;
+
+        assertEquals(expectedThresholdIndex, hybridLogStorage.getThresholdIndex());
+
+        for (int i = 0; i < valueCount; i++) {
+            hybridLogStorage.appendEntry(TestUtils.mockEntry((int) (expectedThresholdIndex + i), 1));
+        }
+
+        assertEquals(expectedThresholdIndex + valueCount - 1, hybridLogStorage.getLastLogIndex());
+
+        // Checkpoint is not yet saved — old storage is still active.
+        assertFalse(Files.exists(statusCheckpointPath()));
+
+        hybridLogStorage.truncatePrefix(expectedThresholdIndex);
+        assertEquals(expectedThresholdIndex, hybridLogStorage.getFirstLogIndex());
+        assertFalse(hybridLogStorage.isOldStorageExist());
+
+        // Checkpoint must be saved to disk when old storage is shut down during truncation.
+        assertTrue(Files.exists(statusCheckpointPath()));
+
+        hybridLogStorage.shutdown();
+        assertTrue(hybridLogStorage.init(logStorageOptions()));
+        assertFalse(hybridLogStorage.isOldStorageExist());
+        assertEquals(0, hybridLogStorage.getThresholdIndex());
+        assertEquals(expectedThresholdIndex, hybridLogStorage.getFirstLogIndex());
+        assertEquals(expectedThresholdIndex + valueCount - 1, hybridLogStorage.getLastLogIndex());
+
+        // Entries written to new storage must be readable after restart.
+        for (int i = 0; i < valueCount; i++) {
+            long index = expectedThresholdIndex + i;
+            assertNotNull(hybridLogStorage.getEntry(index), "Entry missing at index " + index);
+        }
+    }
+
+    @Test
+    public void testHybridStorageWithoutOldStorage() {
+        RaftOptions raftOptions = new RaftOptions();
+
+        raftOptions.setStartupOldStorage(false);
+
+        HybridLogStorage hybridLogStorage = createHybridLogStorage(raftOptions, null);
+
+        assertTrue(hybridLogStorage.init(logStorageOptions()));
+
+        assertFalse(hybridLogStorage.isOldStorageExist());
+        assertEquals(0, hybridLogStorage.getThresholdIndex());
+
+        // Checkpoint must be saved during first init so that restarts correctly skip old-storage lookup.
+        assertTrue(Files.exists(statusCheckpointPath()));
+
+        long valueCount = 10;
+
+        for (int i = 1; i <= valueCount; i++) {
+            hybridLogStorage.appendEntry(TestUtils.mockEntry(i, 1));
+        }
+
+        assertEquals(1, hybridLogStorage.getFirstLogIndex());
+        assertEquals(valueCount, hybridLogStorage.getLastLogIndex());
+
+        hybridLogStorage.shutdown();
+
+        hybridLogStorage.init(logStorageOptions());
+        assertFalse(hybridLogStorage.isOldStorageExist());
+        assertEquals(0, hybridLogStorage.getThresholdIndex());
+        assertEquals(1, hybridLogStorage.getFirstLogIndex());
+        assertEquals(valueCount, hybridLogStorage.getLastLogIndex());
+
+        hybridLogStorage.shutdown();
+    }
+
+    private HybridLogStorage createHybridLogStorage(RaftOptions raftOptions, LogStorageManager oldStorageFactory) {
+        Path storagePath = path.resolve(STORAGE_RELATIVE_PATH);
+
+        LogStorageManager newStorageFactory = new LogitLogStorageManager("test", storeOptions(), storagePath);
+
+        JRaftServiceFactory factory = new HybridLogJRaftServiceFactory(oldStorageFactory, newStorageFactory, NEW_STORAGE_RELATIVE_PATH);
+
+        return (HybridLogStorage) factory.createLogStorage(storagePath.toString(), raftOptions);
+    }
+
+    private Path statusCheckpointPath() {
+        return path.resolve(STORAGE_RELATIVE_PATH).resolve(NEW_STORAGE_RELATIVE_PATH).resolve(HybridLogStorage.STATUS_CHECKPOINT_PATH);
+    }
+
+    private static StoreOptions storeOptions() {
+        StoreOptions storeOptions = new StoreOptions();
+        storeOptions.setSegmentFileSize(512 * 1024);
+        storeOptions.setConfFileSize(512 * 1024);
+        storeOptions.setEnableWarmUpFile(false);
+        return storeOptions;
+    }
+
+    private static LogStorageOptions logStorageOptions() {
+        LogStorageOptions opts = new LogStorageOptions();
+        opts.setConfigurationManager(new ConfigurationManager());
+        opts.setLogEntryCodecFactory(LogEntryV1CodecFactory.getInstance());
+        return opts;
+    }
+}

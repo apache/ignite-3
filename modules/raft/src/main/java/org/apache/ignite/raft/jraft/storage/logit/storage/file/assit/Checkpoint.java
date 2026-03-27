@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.file.assit;
 
+import java.io.File;
 import java.io.IOException;
 
 import java.nio.file.Path;
@@ -52,6 +53,7 @@ public abstract class Checkpoint {
     public abstract boolean decode(final byte[] bs);
 
     public synchronized boolean save() throws IOException {
+        new File(this.path).getParentFile().mkdirs();
         MessageFile file = new MessageFile(this.path);
         final byte[] data = this.encode();
         final LocalFileMeta meta = raftMessagesFactory.localFileMeta() //

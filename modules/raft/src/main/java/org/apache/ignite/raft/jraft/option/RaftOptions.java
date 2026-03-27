@@ -139,6 +139,12 @@ public class RaftOptions implements Copiable<RaftOptions> {
      */
     private boolean stepDownWhenVoteTimedout = true;
 
+    /**
+     * Check whether start up old storage (RocksdbLogStorage) when use newLogStorage
+     * This option needs to be set to true if logs still exists in old storage.
+     */
+    private boolean startupOldStorage = false;
+
   /**
    * Maximum total byte size of tasks in the apply queue.
    *
@@ -312,6 +318,14 @@ public class RaftOptions implements Copiable<RaftOptions> {
         this.openStatistics = openStatistics;
     }
 
+    public boolean isStartupOldStorage() {
+        return startupOldStorage;
+    }
+
+    public void setStartupOldStorage(final boolean startupOldStorage) {
+        this.startupOldStorage = startupOldStorage;
+    }
+
     /**
      * @return Raft message factory.
      */
@@ -357,6 +371,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
         raftOptions.setReadOnlyOptions(this.readOnlyOptions);
         raftOptions.setRaftMessagesFactory(this.raftMessagesFactory);
         raftOptions.setMaxApplyQueueByteSize(this.maxApplyQueueByteSize);
+        raftOptions.setStartupOldStorage(this.startupOldStorage);
         return raftOptions;
     }
 
@@ -372,6 +387,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
             + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
             + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
             + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
-            + ", readOnlyOptions=" + this.readOnlyOptions + ", maxApplyQueueByteSize=" + this.maxApplyQueueByteSize + '}';
+            + ", readOnlyOptions=" + this.readOnlyOptions + ", maxApplyQueueByteSize=" + this.maxApplyQueueByteSize
+            + ", startUpOldStorage=" + this.startupOldStorage + '}';
     }
 }
