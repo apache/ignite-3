@@ -27,7 +27,7 @@ class ResponseWriteGuard {
     private boolean responseWritten = false;
 
     boolean write(ChannelOutboundInvoker ctx, ByteBuf buf) {
-        // No double-check, in most cases this method is called only once.
+        // No double-check, contention or false case is extremely rare.
         lock.lock();
         try {
             if (responseWritten) {
