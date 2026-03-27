@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.compute;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
@@ -67,7 +68,6 @@ import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
@@ -587,13 +587,5 @@ public class ClientCompute implements IgniteCompute {
                 ch.clientChannel().protocolContext().clusterNode(), // Task is always executed on a client handler node
                 ch.notificationFuture()
         );
-    }
-
-    private static <R> R sync(CompletableFuture<R> future) {
-        try {
-            return future.join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ViewUtils.ensurePublicException(e));
-        }
     }
 }
