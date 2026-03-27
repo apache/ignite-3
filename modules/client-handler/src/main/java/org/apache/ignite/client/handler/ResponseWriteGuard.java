@@ -24,7 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 class ResponseWriteGuard {
     private final ReentrantLock lock = new ReentrantLock();
 
-    private volatile boolean responseWritten = false;
+    private boolean responseWritten = false;
 
     boolean write(ChannelOutboundInvoker ctx, ByteBuf buf) {
         // No double-check, in most cases this method is called only once.

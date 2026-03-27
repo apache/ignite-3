@@ -680,6 +680,7 @@ public class ClientInboundMessageHandler
                 // Response for this request has already been sent.
                 // Example: exception after response write, catch block in processOperation tries to write an error
                 //          => duplicate response. Guard prevents this.
+                packer.close();
                 return false;
             }
 
