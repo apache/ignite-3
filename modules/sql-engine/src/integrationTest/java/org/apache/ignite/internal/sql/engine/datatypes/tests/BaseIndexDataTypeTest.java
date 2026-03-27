@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBoundsAtLeastOnce;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 
 import java.util.stream.Stream;
@@ -231,6 +233,68 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         assertQuery("SELECT /*+ FORCE_INDEX(t_test_key_idx) */ * FROM t WHERE test_key=?")
                 .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .withParams(values.get(0))
+                .check();
+    }
+
+    /**
+     * Hint in update clause.
+     */
+    @Test
+    public void testUpdateWithHint() {
+        checkQuery("UPDATE t /*+ FORCE_INDEX(t_test_key_idx) */ SET test_key = $0")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
+
+        checkQuery("UPDATE t /*+ FORCE_INDEX(t_test_key_idx) */ SET test_key = $2 WHERE test_key = $0")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
+
+        checkQuery("UPDATE t /*+ DISABLE_DECORRELATION */ SET test_key = $0")
+                .returnSomething()
+                .check();
+    }
+
+    /**
+     * Hint in delete clause.
+     */
+    @Test
+    public void testDeleteWithHint() {
+        checkQuery("DELETE FROM t /*+ FORCE_INDEX(t_test_key_idx) */")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
+
+        checkQuery("DELETE FROM t /*+ FORCE_INDEX(t_test_key_idx) */ WHERE test_key = $0")
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
+
+        checkQuery("DELETE FROM t /*+ DISABLE_DECORRELATION */ WHERE test_key = $0")
+                .returnSomething()
+                .check();
+    }
+
+    /**
+     * Hint in merge clause.
+     */
+    @Test
+    public void testMergeWithHint() {
+        checkQuery("MERGE INTO t dst USING t /*+ FORCE_INDEX(t_test_key_idx) */ src ON dst.test_key = src.test_key "
+                + "WHEN MATCHED THEN UPDATE SET test_key = $0 "
+                + "WHEN NOT MATCHED THEN INSERT (id, test_key) VALUES (src.id, $1)"
+        )
+                .matches(containsIndexScanIgnoreBoundsAtLeastOnce("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
+                .check();
+
+        checkQuery("MERGE INTO t /*+ FORCE_INDEX(t_test_key_idx) */ dst USING t src ON dst.test_key = src.test_key "
+                + "WHEN MATCHED THEN UPDATE SET test_key = $0 "
+                + "WHEN NOT MATCHED THEN INSERT (id, test_key) VALUES (src.id, $1)"
+        )
+                .matches(containsIndexScanIgnoreBoundsAtLeastOnce("PUBLIC", "T", "T_TEST_KEY_IDX"))
+                .returnSomething()
                 .check();
     }
 
