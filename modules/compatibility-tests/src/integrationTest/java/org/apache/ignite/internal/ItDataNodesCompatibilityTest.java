@@ -36,7 +36,7 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Compatibility tests for data nodes and data nodes history. */
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("baseVersions")
 public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
     private static final String ZONE_NAME = "TEST_ZONE";
