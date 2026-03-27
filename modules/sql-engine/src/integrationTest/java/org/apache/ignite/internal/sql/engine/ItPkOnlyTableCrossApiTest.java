@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Marshalling.COMMON_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.any;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -157,7 +158,13 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
                 rwTx -> {
                     IgniteException ex = assertThrows(IgniteException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
-                    assertThat(ex.getCause().getCause(), is(instanceOf(MarshallerException.class)));
+
+                    publicException(
+                            MarshallerException.class,
+                            COMMON_ERR,
+                            "",
+                            emptyList()
+                    ).withMessage(any(String.class));
 
                     kvView.put(rwTx, key, null);
 

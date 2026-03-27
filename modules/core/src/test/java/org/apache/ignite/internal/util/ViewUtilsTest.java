@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -47,7 +48,7 @@ public class ViewUtilsTest {
         assertEquals(ex.getMessage(), resEx.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), hasToString(containsString("throwIgniteException")));
         assertThat(Arrays.asList(resEx.getStackTrace()), hasToString(containsString("checkableTestMethod")));
-        assertSame(ex.getClass(), resEx.getCause().getClass());
+        assertNull(resEx.getCause());
     }
 
     @Test
@@ -61,7 +62,7 @@ public class ViewUtilsTest {
         assertEquals(ex.getMessage(), resEx.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), hasToString(containsString("throwIgniteCheckedException")));
         assertThat(Arrays.asList(resEx.getStackTrace()), hasToString(containsString("checkableTestMethod")));
-        assertSame(ex.getClass(), resEx.getCause().getClass());
+        assertNull(resEx.getCause());
     }
 
     @Test
@@ -75,8 +76,7 @@ public class ViewUtilsTest {
         assertEquals(ex.getMessage(), resEx.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), hasToString(containsString("throwRuntimeException")));
         assertThat(Arrays.asList(resEx.getStackTrace()), hasToString(containsString("checkableTestMethod")));
-        assertSame(IgniteException.class, resEx.getCause().getClass());
-        assertSame(ex.getClass(), resEx.getCause().getCause().getClass());
+        assertSame(ex, resEx.getCause());
     }
 
     @Test
@@ -89,8 +89,7 @@ public class ViewUtilsTest {
         assertThat(resEx.getMessage(), containsString("Public Ignite exception-derived class does not have required constructor"));
         assertThat(Arrays.asList(ex.getStackTrace()), hasToString(containsString("throwInvalidIgniteException")));
         assertThat(Arrays.asList(resEx.getStackTrace()), hasToString(containsString("checkableTestMethod")));
-        assertSame(InvalidIgniteException.class, resEx.getCause().getClass());
-        assertSame(ex.getClass(), resEx.getCause().getClass());
+        assertSame(ex, resEx.getCause());
     }
 
     /**

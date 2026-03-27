@@ -24,7 +24,8 @@ import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicExceptionWithHint;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -50,7 +51,6 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -93,6 +93,7 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.IgniteExceptionTestUtils.Cause;
 import org.apache.ignite.internal.compute.JobTaskStatusMapper;
 import org.apache.ignite.internal.runner.app.Jobs;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -433,14 +434,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 submit(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.IgniteExceptionJob.class).build(), null)
         );
 
-        assertThat(cause.getMessage(), containsString("Custom job error"));
-        assertEquals(Jobs.TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-        assertInstanceOf(Jobs.CustomException.class, cause);
-        assertNotNull(cause.getCause());
-        String hint = cause.getCause().getMessage();
-
-        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
+        assertThat(cause,
+                publicExceptionWithHint(Jobs.CustomException.class, COLUMN_NOT_FOUND_ERR, "Custom job error")
+                    .withTraceId(is(Jobs.TRACE_ID))
+        );
     }
 
     @Test
@@ -450,14 +447,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                         .execute(JobTarget.node(node(0)), JobDescriptor.builder(Jobs.IgniteExceptionJob.class).build(), null)
         );
 
-        assertThat(cause.getMessage(), containsString("Custom job error"));
-        assertEquals(Jobs.TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-        assertInstanceOf(Jobs.CustomException.class, cause);
-        assertNotNull(cause.getCause());
-        String hint = cause.getCause().getMessage();
-
-        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
+        assertThat(cause,
+                publicExceptionWithHint(Jobs.CustomException.class, COLUMN_NOT_FOUND_ERR, "Custom job error")
+                        .withTraceId(is(Jobs.TRACE_ID))
+        );
     }
 
     @ParameterizedTest
@@ -649,31 +642,31 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private static IgniteException getExceptionInJobExecutionSync(Supplier<String> execution) {
-        IgniteException ex = assertThrows(IgniteException.class, execution::get);
-
-        return (IgniteException) ex.getCause();
+        return assertThrows(IgniteException.class, execution::get);
     }
 
     private static void assertComputeExceptionWithClassAndMessage(IgniteException cause) {
-        String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
-        assertThat(cause, is(traceableException(ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage)));
-
-        assertNotNull(cause.getCause());
-        String hint = cause.getCause().getMessage();
-
-        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
+        assertThat(cause,
+                publicExceptionWithHint(
+                        ComputeException.class,
+                        COMPUTE_JOB_FAILED_ERR,
+                        "Job execution failed: java.lang.ArithmeticException: math err"
+                )
+        );
     }
 
     private static void assertComputeExceptionWithStackTrace(IgniteException cause) {
-        String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
-        assertThat(cause, is(traceableException(ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage)));
-
-        assertNotNull(cause.getCause());
-
-        assertThat(cause.getCause().getMessage(), containsString(
-                "Caused by: java.lang.ArithmeticException: math err" + System.lineSeparator()
-                        + "\tat org.apache.ignite.internal.client.ItThinClientComputeTest$"
-                        + "ExceptionJob.executeAsync(ItThinClientComputeTest.java:")
+        assertThat(cause,
+                publicException(
+                        ComputeException.class,
+                        COMPUTE_JOB_FAILED_ERR,
+                        "Job execution failed: java.lang.ArithmeticException: math err",
+                        List.of(
+                                Cause.of(ArithmeticException.class, "math err" + System.lineSeparator()
+                                        + "\tat org.apache.ignite.internal.client.ItThinClientComputeTest$"
+                                        + "ExceptionJob.executeAsync(ItThinClientComputeTest.java:")
+                        )
+                )
         );
     }
 
@@ -886,14 +879,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
             IgniteException cause = getExceptionInTaskExecutionAsync(client.compute().submitMapReduce(taskDescriptor, null));
 
-            assertThat(cause.getMessage(), containsString("Custom job error"));
-            assertEquals(Jobs.TRACE_ID, cause.traceId());
-            assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-            assertInstanceOf(Jobs.CustomException.class, cause);
-            assertNotNull(cause.getCause());
-            String hint = cause.getCause().getMessage();
-
-            assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
+            publicExceptionWithHint(
+                    Jobs.CustomException.class,
+                    COLUMN_NOT_FOUND_ERR,
+                    "Custom job error"
+            ).withTraceId(is(Jobs.TRACE_ID));
         }
     }
 

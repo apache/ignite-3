@@ -76,6 +76,11 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return List.of();
     }
 
+    @Override
+    protected ClientType clientType() {
+        return ClientType.EMBEDDED;
+    }
+
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void changeJobPriorityLocally() {
@@ -232,7 +237,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 null));
 
-        assertThat(ex, is(computeJobFailedException(throwable.getClass().getName(), throwable.getMessage())));
+        assertThat(ex, is(computeJobFailedException(ClientType.EMBEDDED, throwable.getClass().getName(), throwable.getMessage())));
     }
 
     @ParameterizedTest

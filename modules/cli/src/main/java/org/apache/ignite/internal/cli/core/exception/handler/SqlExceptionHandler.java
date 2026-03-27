@@ -63,14 +63,21 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
             return fromIgniteException("Client error", e);
         }
 
-        if (e.getCause() instanceof IgniteClientConnectionException) {
-            IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
+        if (e instanceof IgniteClientConnectionException) {
+            IgniteClientConnectionException cause = (IgniteClientConnectionException) e;
 
             InvalidCredentialsException invalidCredentialsException = findCause(cause, InvalidCredentialsException.class);
             if (invalidCredentialsException != null) {
+                var msg = invalidCredentialsException.getMessage();
+                var details = msg.substring(0, msg.indexOf('\n'));
+                int traceInfoIdx = msg.indexOf(" TraceId:");
+                if (traceInfoIdx > 0) {
+                    details = msg.substring(0, traceInfoIdx);
+                }
+
                 return ErrorUiComponent.builder()
                         .header("Could not connect to node. Check authentication configuration")
-                        .details(invalidCredentialsException.getMessage())
+                        .details(details)
                         .verbose(extractCauseMessage(cause.getMessage()))
                         .build();
             }

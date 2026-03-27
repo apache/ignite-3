@@ -31,6 +31,11 @@ import org.junit.jupiter.api.AfterEach;
 public class ItComputeTestClient extends ItComputeTestEmbedded {
     private final Clients clients = new Clients();
 
+    @Override
+    protected ClientType clientType() {
+        return ClientType.JAVA;
+    }
+
     @AfterEach
     void stopClient() {
         clients.cleanup();
