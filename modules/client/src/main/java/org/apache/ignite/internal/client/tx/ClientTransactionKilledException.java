@@ -73,4 +73,15 @@ public class ClientTransactionKilledException extends TransactionException imple
     public UUID txId() {
         return txId;
     }
+
+    /**
+     * Copy the exception.
+     *
+     * @param src Exception to copy.
+     * @return new copied exception.
+     */
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    private static ClientTransactionKilledException copy(ClientTransactionKilledException src) {
+        return new ClientTransactionKilledException(src.traceId(), src.code(), src.getMessage(), src.txId(), src.getCause());
+    }
 }
