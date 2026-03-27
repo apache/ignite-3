@@ -672,8 +672,9 @@ public class ClientInboundMessageHandler
         int bytes = buf.readableBytes();
 
         try {
-            // writeAndFlush releases pooled buffer.
-            ctx.writeAndFlush(buf);
+            // write releases pooled buffer.
+            ctx.write(buf);
+            ctx.flush();
         } catch (Throwable t) {
             packer.close();
             throw t;
