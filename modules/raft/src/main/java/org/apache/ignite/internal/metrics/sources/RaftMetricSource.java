@@ -61,7 +61,7 @@ public class RaftMetricSource implements MetricSource {
     private final Map<String, Metric> metrics;
 
     private static final long[] HISTOGRAM_BUCKETS =
-            {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+            {1, 5, 10, 25, 50, 100, 250, 500, 1000};
 
     private final AtomicIntMetric leadersCount = new AtomicIntMetric(RAFT_GROUP_LEADERS, "Number of raft leaders on this node");
 

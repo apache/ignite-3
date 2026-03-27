@@ -94,7 +94,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
     }
 
     /**
-     * Called when a request vote is handled.
+     * Called when a request vote RPC completes (measured on the sender side, covers network round-trip).
      *
      * @param duration Duration of the operation.
      */
@@ -135,7 +135,7 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
     }
 
     /**
-     * Called when a pre-vote is handled.
+     * Called when a pre-vote RPC completes (measured on the sender side, covers network round-trip).
      *
      * @param duration Duration of the operation.
      */
@@ -176,8 +176,20 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
 
     /** Metric holder for node metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private static final long[] HISTOGRAM_BUCKETS =
-                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+        // Disk I/O path: append entries on follower (disk write + log append).
+        private static final long[] APPEND_ENTRIES_BUCKETS = {2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500};
+
+        // Fast in-memory protocol messages: heartbeat, pre-vote, read-request.
+        private static final long[] IN_MEMORY_PROTOCOL_BUCKETS = {1, 2, 5, 10, 25, 50, 100, 250, 500};
+
+        // Disk I/O path with disk write to persist vote.
+        private static final long[] REQUEST_VOTE_BUCKETS = {1, 2, 5, 10, 25, 50, 100, 250, 500};
+
+        // Batch sizes for both append-entries and read-request batches.
+        private static final long[] BATCH_SIZE_BUCKETS = {1, 5, 10, 25, 50, 100, 250, 500};
+
+        // Snapshot transfer: seconds to minutes.
+        private static final long[] INSTALL_SNAPSHOT_BUCKETS = {100, 500, 1000, 2000, 5000, 10000, 30000, 60000, 120000, 300000};
 
         private final AtomicLongMetric overloadCount = new AtomicLongMetric(
                 "OverloadCount",
@@ -187,55 +199,55 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
         private final DistributionMetric handleAppendEntriesDuration = new DistributionMetric(
                 "HandleAppendEntriesDuration",
                 "Duration of handling append entries request on the node in milliseconds",
-                HISTOGRAM_BUCKETS
+                APPEND_ENTRIES_BUCKETS
         );
 
         private final DistributionMetric heartBeatRequestTime = new DistributionMetric(
                 "HeartbeatRequestDuration",
                 "Duration of receiving heartbeat request in milliseconds",
-                HISTOGRAM_BUCKETS
+                IN_MEMORY_PROTOCOL_BUCKETS
         );
 
         private final DistributionMetric appendEntriesBatchSize = new DistributionMetric(
                 "AppendEntriesBatchSize",
-                "The histogram of the batch size to handle append entries request",
-                new long[]{10L, 20L, 30L, 40L, 50L}
+                "Append entries batch sizes",
+                BATCH_SIZE_BUCKETS
         );
 
         private final DistributionMetric requestVoteDuration = new DistributionMetric(
                 "RequestVoteDuration",
-                "Duration of handling request vote request in milliseconds",
-                HISTOGRAM_BUCKETS
+                "Round-trip duration of request vote RPC in milliseconds",
+                REQUEST_VOTE_BUCKETS
         );
 
         private final DistributionMetric handleReadRequestDuration = new DistributionMetric(
                 "ReadRequestDuration",
                 "Duration of handling read request in milliseconds",
-                HISTOGRAM_BUCKETS
+                IN_MEMORY_PROTOCOL_BUCKETS
         );
 
         private final DistributionMetric readRequestBatchSize = new DistributionMetric(
                 "ReadRequestBatchSize",
-                "The histogram of the batch size to handle read request",
-                new long[]{10L, 20L, 30L, 40L, 50L}
+                "Read request batch sizes",
+                BATCH_SIZE_BUCKETS
         );
 
         private final DistributionMetric handleGetLeaderDuration = new DistributionMetric(
                 "GetLeaderDuration",
                 "Duration of handling get leader request in milliseconds",
-                HISTOGRAM_BUCKETS
+                new long[]{1, 2, 5, 10, 25, 50}
         );
 
         private final DistributionMetric preVoteDuration = new DistributionMetric(
                 "PreVoteDuration",
-                "Duration of handling pre-vote request in milliseconds",
-                HISTOGRAM_BUCKETS
+                "Round-trip duration of pre-vote RPC in milliseconds",
+                IN_MEMORY_PROTOCOL_BUCKETS
         );
 
         private final DistributionMetric installSnapshotDuration = new DistributionMetric(
                 "InstallSnapshotDuration",
                 "Duration of handling install snapshot request in milliseconds",
-                HISTOGRAM_BUCKETS
+                INSTALL_SNAPSHOT_BUCKETS
         );
 
         private final AtomicLongMetric lockBlockedCount = new AtomicLongMetric(
@@ -245,8 +257,8 @@ public class NodeMetricSource extends AbstractMetricSource<NodeMetricSource.Hold
 
         private final DistributionMetric lockBlockedDuration = new DistributionMetric(
                 "LockBlockedDuration",
-                "Duration of lock being blocked in milliseconds",
-                HISTOGRAM_BUCKETS
+                "Duration of node lock being blocked in milliseconds",
+                new long[]{1, 2, 5, 10, 25, 50, 100}
         );
 
         private final List<Metric> metrics = List.of(

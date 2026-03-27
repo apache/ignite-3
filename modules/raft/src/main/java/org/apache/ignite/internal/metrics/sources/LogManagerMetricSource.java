@@ -88,19 +88,16 @@ public class LogManagerMetricSource extends AbstractMetricSource<LogManagerMetri
 
     /** Metric holder for log manager metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private static final long[] HISTOGRAM_BUCKETS =
-                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
-
         private final DistributionMetric truncateLogSuffixTime = new DistributionMetric(
                 "TruncateLogSuffixDuration",
                 "Duration of truncating log suffix in milliseconds",
-                HISTOGRAM_BUCKETS
+                new long[]{1, 5, 10, 25, 50, 100, 250, 500, 1000}
         );
 
         private final DistributionMetric truncateLogPrefixTime = new DistributionMetric(
                 "TruncateLogPrefixDuration",
                 "Duration of truncating log prefix in milliseconds",
-                HISTOGRAM_BUCKETS
+                new long[]{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
         );
 
         private final AtomicLongMetric appendLogsCount = new AtomicLongMetric(
@@ -115,8 +112,8 @@ public class LogManagerMetricSource extends AbstractMetricSource<LogManagerMetri
 
         private final DistributionMetric appendLogsDuration = new DistributionMetric(
                 "AppendLogsDuration",
-                "The last duration of appending logs",
-                HISTOGRAM_BUCKETS
+                "Duration of appending logs operation in milliseconds",
+                new long[]{1, 2, 5, 10, 25, 50, 100, 250, 500, 1000}
         );
 
         private final List<Metric> metrics = List.of(

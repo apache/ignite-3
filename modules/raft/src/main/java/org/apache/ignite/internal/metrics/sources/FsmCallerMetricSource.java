@@ -84,6 +84,8 @@ public class FsmCallerMetricSource extends AbstractMetricSource<FsmCallerMetricS
      * @param duration Duration of the apply operation.
      * */
     public void onApplyTask(TaskType type, long duration) {
+        assert type != TaskType.COMMITTED;
+
         Holder holder = holder();
 
         if (holder != null) {
@@ -93,25 +95,36 @@ public class FsmCallerMetricSource extends AbstractMetricSource<FsmCallerMetricS
 
     /** Metric holder for FSM caller metrics. */
     static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private static final long[] HISTOGRAM_BUCKETS =
-                {10, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000};
+        private static final long[] APPLY_TASKS_BUCKETS =
+                {1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000};
+
+        private static final long[] COMMIT_BUCKETS =
+                {5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000};
+
+        // Snapshot save/load can take minutes for large partitions.
+        private static final long[] SNAPSHOT_BUCKETS =
+                {100, 500, 1000, 2000, 5000, 10000, 30000, 60000, 120000, 300000};
+
+        // Quick lifecycle callbacks: leader start/stop, following changes, flush, error, idle.
+        private static final long[] LIFECYCLE_BUCKETS =
+                {1, 2, 5, 10, 25, 50, 100};
 
         private final DistributionMetric applyTasksSize = new DistributionMetric(
                 "ApplyTasksSize",
                 "Sizes of applied tasks batches",
-                new long[] {10, 20, 30, 40, 50}
+                new long[]{1, 5, 10, 25, 50, 100, 250, 500}
         );
 
         private final DistributionMetric applyTasksTime = new DistributionMetric(
                 "ApplyTasksTime",
                 "Duration of applying tasks in milliseconds",
-                HISTOGRAM_BUCKETS
+                APPLY_TASKS_BUCKETS
         );
 
         private final DistributionMetric commitTime = new DistributionMetric(
                 "CommitTime",
-                "Duration of committing in milliseconds",
-                HISTOGRAM_BUCKETS
+                "Duration of task commit in milliseconds",
+                COMMIT_BUCKETS
         );
 
         private final List<Metric> metrics;
@@ -126,14 +139,28 @@ public class FsmCallerMetricSource extends AbstractMetricSource<FsmCallerMetricS
             metrics.add(commitTime);
 
             for (TaskType type : FSMCallerImpl.TaskType.values()) {
+                if (type == TaskType.COMMITTED) {
+                    continue; // COMMITTED tasks never reach the per-task timing path; duration is captured by ApplyTasksTime.
+                }
+
                 DistributionMetric metric = new DistributionMetric(
                         type.metricName,
                         "Time to execute " + type.name() + " task in milliseconds",
-                        HISTOGRAM_BUCKETS
+                        bucketsForTaskType(type)
                 );
 
                 taskDurations.put(type, metric);
                 metrics.add(metric);
+            }
+        }
+
+        private static long[] bucketsForTaskType(TaskType type) {
+            switch (type) {
+                case SNAPSHOT_SAVE:
+                case SNAPSHOT_LOAD:
+                    return SNAPSHOT_BUCKETS;
+                default:
+                    return LIFECYCLE_BUCKETS;
             }
         }
 
