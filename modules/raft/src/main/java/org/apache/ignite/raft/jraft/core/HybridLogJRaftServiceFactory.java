@@ -17,8 +17,7 @@
 
 package org.apache.ignite.raft.jraft.core;
 
-import java.nio.file.Paths;
-
+import java.nio.file.Path;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -31,41 +30,38 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 public class HybridLogJRaftServiceFactory extends IgniteJraftServiceFactory {
     private final LogStorageManager newStorageManager;
 
-    private final String newStorageRelativePath;
+    private final Path newStoragePath;
 
     /**
     * Creates a new instance of HybridLogJRaftServiceFactory for migrating from old storage type to new one.
     * @param oldStorageManager Factory to create old log storages.
     * @param newStorageManager Factory to create new log storage.
+    * @param newStoragePath Path used by {@param newStorageManager}. Should be different from old storage path to avoid conflicts.
     */
     public HybridLogJRaftServiceFactory(
             LogStorageManager oldStorageManager,
             LogStorageManager newStorageManager,
-            String newStorageRelativePath
+            Path newStoragePath
     ) {
         super(oldStorageManager);
 
         this.newStorageManager = newStorageManager;
-        this.newStorageRelativePath = newStorageRelativePath;
+        this.newStoragePath = newStoragePath;
     }
 
     @Override
-    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
-        Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
+    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
+        Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank groupId.");
 
         // Create old storage if needed.
         LogStorage oldStorage = null;
         if (raftOptions.isStartupOldStorage()) {
-            oldStorage = super.createLogStorage(uri, raftOptions);
+            oldStorage = super.createLogStorage(groupId, raftOptions);
         }
 
-        String newStorageAbsolutePath = Paths.get(uri, this.newStorageRelativePath).toString();
+        LogStorage newLogStorage = newStorageManager.createLogStorage(groupId, raftOptions);
 
-        return new HybridLogStorage(newStorageAbsolutePath, raftOptions, oldStorage, createNewLogStorage(newStorageAbsolutePath, raftOptions));
-    }
-
-    private LogStorage createNewLogStorage(String uri, RaftOptions raftOptions) {
-        return newStorageManager.createLogStorage(uri, raftOptions);
+        return new HybridLogStorage(newStoragePath, raftOptions, oldStorage, newLogStorage);
     }
 }
 

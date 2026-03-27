@@ -20,13 +20,12 @@ package org.apache.ignite.raft.jraft.storage.logit.storage.file.assit;
 import org.apache.ignite.raft.jraft.option.RaftOptions;import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
- * This checkpoint is used for saving whether the oldStorage in HybridStorage is shutdown
- *
+ * This checkpoint is used for saving whether the oldStorage in HybridStorage is shutdown.
  */
 public class HybridStorageStatusCheckpoint extends Checkpoint {
     public boolean isOldStorageExist = true;
 
-    public HybridStorageStatusCheckpoint(final String path, RaftOptions raftOptions) {
+    public HybridStorageStatusCheckpoint(String path, RaftOptions raftOptions) {
         super(path, raftOptions);
     }
 
@@ -39,7 +38,7 @@ public class HybridStorageStatusCheckpoint extends Checkpoint {
     }
 
     @Override
-    public boolean decode(final byte[] bs) {
+    public boolean decode( byte[] bs) {
         if (bs.length < 1) {
             return false;
         }

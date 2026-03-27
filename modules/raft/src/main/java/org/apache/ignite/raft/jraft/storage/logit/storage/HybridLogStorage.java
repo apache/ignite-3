@@ -18,7 +18,7 @@
 package org.apache.ignite.raft.jraft.storage.logit.storage;
 
 import java.io.IOException;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,10 +46,10 @@ public class HybridLogStorage implements LogStorage {
     // The index which separates the oldStorage and newStorage.
     private long thresholdIndex;
 
-    public HybridLogStorage(String newStoragePath, RaftOptions raftOptions, LogStorage oldStorage, LogStorage newStorage) {
+    public HybridLogStorage(Path newStoragePath, RaftOptions raftOptions, LogStorage oldStorage, LogStorage newStorage) {
         this.newLogStorage = newStorage;
         this.oldLogStorage = oldStorage;
-        String statusCheckpointPath = Paths.get(newStoragePath, STATUS_CHECKPOINT_PATH).toString();
+        String statusCheckpointPath = newStoragePath.resolve(STATUS_CHECKPOINT_PATH).toString();
 
         this.statusCheckpoint = new HybridStorageStatusCheckpoint(statusCheckpointPath, raftOptions);
     }
@@ -78,7 +78,6 @@ public class HybridLogStorage implements LogStorage {
                     }
                 } else {
                     this.isOldStorageExist = false;
-                    saveStatusCheckpoint();
                 }
             }
 
@@ -86,6 +85,9 @@ public class HybridLogStorage implements LogStorage {
                 LOG.warn("Init new log storage failed when startup hybridLogStorage");
                 return false;
             }
+
+            saveStatusCheckpoint();
+
             return true;
         } catch (IOException e) {
             LOG.error("Error happen when load hybrid status checkpoint", e);

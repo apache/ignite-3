@@ -77,6 +77,9 @@ class HybridLogStorageTest extends BaseStorageTest {
 
         assertTrue(hybridLogStorage.isOldStorageExist());
 
+        // Checkpoint saved to disk when storage is started.
+        assertTrue(Files.exists(statusCheckpointPath()));
+
         long expectedThresholdIndex = oldStorage.getLastLogIndex() + 1;
 
         assertEquals(expectedThresholdIndex, hybridLogStorage.getThresholdIndex());
@@ -87,17 +90,12 @@ class HybridLogStorageTest extends BaseStorageTest {
 
         assertEquals(expectedThresholdIndex + valueCount - 1, hybridLogStorage.getLastLogIndex());
 
-        // Checkpoint is not yet saved — old storage is still active.
-        assertFalse(Files.exists(statusCheckpointPath()));
-
         hybridLogStorage.truncatePrefix(expectedThresholdIndex);
         assertEquals(expectedThresholdIndex, hybridLogStorage.getFirstLogIndex());
         assertFalse(hybridLogStorage.isOldStorageExist());
 
-        // Checkpoint must be saved to disk when old storage is shut down during truncation.
-        assertTrue(Files.exists(statusCheckpointPath()));
-
         hybridLogStorage.shutdown();
+
         assertTrue(hybridLogStorage.init(logStorageOptions()));
         assertFalse(hybridLogStorage.isOldStorageExist());
         assertEquals(0, hybridLogStorage.getThresholdIndex());
@@ -124,7 +122,7 @@ class HybridLogStorageTest extends BaseStorageTest {
         assertFalse(hybridLogStorage.isOldStorageExist());
         assertEquals(0, hybridLogStorage.getThresholdIndex());
 
-        // Checkpoint must be saved during first init so that restarts correctly skip old-storage lookup.
+        // Checkpoint saved to disk when storage is started.
         assertTrue(Files.exists(statusCheckpointPath()));
 
         long valueCount = 10;
@@ -148,13 +146,13 @@ class HybridLogStorageTest extends BaseStorageTest {
     }
 
     private HybridLogStorage createHybridLogStorage(RaftOptions raftOptions, LogStorageManager oldStorageFactory) {
-        Path storagePath = path.resolve(STORAGE_RELATIVE_PATH);
+        Path storagePath = path.resolve(STORAGE_RELATIVE_PATH).resolve(NEW_STORAGE_RELATIVE_PATH);
 
         LogStorageManager newStorageFactory = new LogitLogStorageManager("test", storeOptions(), storagePath);
 
-        JRaftServiceFactory factory = new HybridLogJRaftServiceFactory(oldStorageFactory, newStorageFactory, NEW_STORAGE_RELATIVE_PATH);
+        JRaftServiceFactory factory = new HybridLogJRaftServiceFactory(oldStorageFactory, newStorageFactory, storagePath);
 
-        return (HybridLogStorage) factory.createLogStorage(storagePath.toString(), raftOptions);
+        return (HybridLogStorage) factory.createLogStorage("test-group-id", raftOptions);
     }
 
     private Path statusCheckpointPath() {
