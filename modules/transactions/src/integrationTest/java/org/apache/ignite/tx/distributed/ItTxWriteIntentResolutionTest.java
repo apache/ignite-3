@@ -316,7 +316,7 @@ public class ItTxWriteIntentResolutionTest extends ClusterPerClassIntegrationTes
             UUID roTxId = txId(roTx);
 
             ReadOnlySingleRowPkReplicaRequest req = roGetRequest(coordinator, wiGroupId, tableId, keyTuple, roTxId, readTs);
-            CompletableFuture<?> reqFut = wiBackupNode.distributedTableManager().replicaService().invoke(wiBackupNode.name(), req);
+            CompletableFuture<?> reqFut = wiBackupNode.replicaService().invoke(wiBackupNode.name(), req);
 
             if (expected.get1() != null) {
                 assertThat(reqFut, willThrow(expected.get1()));

@@ -212,6 +212,7 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.DefaultMvTableStorageFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
@@ -820,7 +821,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY,
+                new DefaultMvTableStorageFactory(dataStorageManager, catalogManager, lowWatermark)
         );
 
         var indexManager = new IndexManager(

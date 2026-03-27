@@ -268,6 +268,7 @@ import org.apache.ignite.internal.system.CpuInformationProvider;
 import org.apache.ignite.internal.system.JvmCpuInformationProvider;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.table.distributed.DefaultMvTableStorageFactory;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -391,6 +392,9 @@ public class IgniteImpl implements Ignite {
 
     /** Replica manager. */
     private final ReplicaManager replicaMgr;
+
+    /** Replica service. */
+    private final ReplicaService replicaSvc;
 
     /** Transactions manager. */
     private final TxManagerImpl txManager;
@@ -917,7 +921,7 @@ public class IgniteImpl implements Ignite {
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
 
-        ReplicaService replicaSvc = new ReplicaService(
+        replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 clockService,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -1188,7 +1192,8 @@ public class IgniteImpl implements Ignite {
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
-                partitionModificationCounterFactory
+                partitionModificationCounterFactory,
+                new DefaultMvTableStorageFactory(dataStorageMgr, catalogManager, lowWatermark)
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1827,6 +1832,11 @@ public class IgniteImpl implements Ignite {
 
     public DisasterRecoveryManager disasterRecoveryManager() {
         return disasterRecoveryManager;
+    }
+
+    @TestOnly
+    public ReplicaService replicaService() {
+        return replicaSvc;
     }
 
     @TestOnly
