@@ -877,6 +877,17 @@ public class ClientInboundMessageHandler
         } catch (Throwable t) {
             in.close();
 
+            // If we failed to read the request ID, we cannot send a valid error response.
+            // Close the connection instead.
+            if (requestId == -1) {
+                LOG.warn("Failed to read client request, closing connection [connectionId={}, remoteAddress={}]",
+                        t, connectionId, ctx.channel().remoteAddress());
+
+                metrics.requestsFailedIncrement();
+                ctx.close();
+                return;
+            }
+
             writeError(requestId, opCode, t, ctx, false);
 
             metrics.requestsFailedIncrement();
