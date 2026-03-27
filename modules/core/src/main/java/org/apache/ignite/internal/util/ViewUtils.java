@@ -26,6 +26,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -52,7 +53,7 @@ public final class ViewUtils {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
             throw sneakyThrow(ensurePublicException(e));
-        } catch (ExecutionException e) {
+        } catch (ExecutionException | CancellationException e) {
             Throwable cause = unwrapCause(e);
 
             throw sneakyThrow(ensurePublicException(cause));
