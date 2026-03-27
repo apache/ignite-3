@@ -156,7 +156,7 @@ class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
                 .thenReturn(new ReplaceCandidate(42, dirtyPageRelPtr, fullPageId(dirtyPageAbsPtr)));
 
         // Only gets called during fallback to the sequential search.
-        lenient().when(segment.getWriteHoldCount()).thenReturn(1);
+        lenient().when(segment.isWriteLockedByCurrentThread()).thenReturn(true);
 
         assertThat(policy.replace(), is(pageRelPtr));
     }
