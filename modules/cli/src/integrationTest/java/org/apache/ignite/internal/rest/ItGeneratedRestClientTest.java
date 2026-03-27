@@ -263,7 +263,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void nodeMetricSourcesList() throws ApiException {
-        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(CliIntegrationTest.ALL_METRIC_SOURCES));
+        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(CliIntegrationTest.getExpectedNodeMetrics(CLUSTER.node(0))));
     }
 
     @Test

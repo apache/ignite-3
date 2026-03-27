@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -30,6 +31,8 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
  */
 public class RaftGroupService {
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupService.class);
+
+    private final MetricManager metricManager;
 
     private volatile boolean started = false;
 
@@ -68,18 +71,21 @@ public class RaftGroupService {
      * @param serverId Server id.
      * @param nodeOptions Node options.
      * @param rpcServer RPC server.
+     * @param metricManager Metric manager.
      */
     public RaftGroupService(
             final String groupId,
             final PeerId serverId,
             final NodeOptions nodeOptions,
-            final RpcServer rpcServer
+            final RpcServer rpcServer,
+            MetricManager metricManager
     ) {
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
         this.nodeManager = nodeOptions.getNodeManager();
+        this.metricManager = metricManager;
     }
 
     public synchronized Node getRaftNode() {
@@ -102,7 +108,7 @@ public class RaftGroupService {
 
         assert this.nodeOptions.getRpcClient() != null;
 
-        this.node = new NodeImpl(groupId, serverId);
+        this.node = new NodeImpl(groupId, serverId, metricManager);
 
         if (!this.node.init(this.nodeOptions)) {
             LOG.warn("Stopping partially started node [groupId={}, serverId={}]", groupId, serverId);
