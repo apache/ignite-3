@@ -862,6 +862,7 @@ public class ClientInboundMessageHandler
         int opCode = -1;
 
         var guard = new ResponseWriteGuard();
+        metrics.requestsActiveIncrement();
 
         try {
             opCode = in.unpackInt();
@@ -874,10 +875,9 @@ public class ClientInboundMessageHandler
 
             if (opCode == ClientOp.SERVER_OP_RESPONSE) {
                 processServerOpResponse(requestId, in);
+                metrics.requestsActiveDecrement();
                 return;
             }
-
-            metrics.requestsActiveIncrement();
 
             if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
