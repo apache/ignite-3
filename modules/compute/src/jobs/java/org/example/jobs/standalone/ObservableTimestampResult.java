@@ -17,18 +17,12 @@
 
 package org.example.jobs.standalone;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * Result of {@link ObservableTimestampJob} containing both per-job and node global observable timestamps.
  */
-@SuppressFBWarnings(
-        value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD",
-        justification = "Fields are read in integration tests via deserialized object"
-)
 public class ObservableTimestampResult {
-    public long perJobTimestamp;
-    public long nodeGlobalTimestamp;
+    private long perJobTimestamp;
+    private long nodeGlobalTimestamp;
 
     public ObservableTimestampResult() {
     }
@@ -36,5 +30,13 @@ public class ObservableTimestampResult {
     public ObservableTimestampResult(long perJobTimestamp, long nodeGlobalTimestamp) {
         this.perJobTimestamp = perJobTimestamp;
         this.nodeGlobalTimestamp = nodeGlobalTimestamp;
+    }
+
+    public long perJobTimestamp() {
+        return perJobTimestamp;
+    }
+
+    public long nodeGlobalTimestamp() {
+        return nodeGlobalTimestamp;
     }
 }

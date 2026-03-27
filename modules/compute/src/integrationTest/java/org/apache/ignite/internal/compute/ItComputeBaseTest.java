@@ -906,11 +906,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         ObservableTimestampResult jobRes = execution.resultAsync().join();
 
         // The per-job tracker should have the client's observable timestamp.
-        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes.perJobTimestamp);
+        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes.perJobTimestamp());
         assertThat(jobObservableTs, is(localObservableTs));
 
         // The node's global tracker should NOT be updated by the compute job.
-        HybridTimestamp targetNodeTsAfter = HybridTimestamp.nullableHybridTimestamp(jobRes.nodeGlobalTimestamp);
+        HybridTimestamp targetNodeTsAfter = HybridTimestamp.nullableHybridTimestamp(jobRes.nodeGlobalTimestamp());
         assertThat(targetNodeTsAfter, is(targetNodeTsBefore));
         assertThat(targetNodeTsAfter, not(jobObservableTs));
     }
