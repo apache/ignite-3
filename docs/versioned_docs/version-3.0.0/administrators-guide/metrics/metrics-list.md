@@ -115,6 +115,15 @@ The metrics for Ignite Java Virtual Machine resource use.
 | VacuumizedPersistentTransactionMetaCount | The count of persistent transaction metas that have been vacuumized. |
 | VacuumizedVolatileTxnMetaCount | The count of volatile transaction metas that have been vacuumized. |
 
+## storage.aipersist.io
+
+| Metric name       | Description                                         |
+|-------------------|-----------------------------------------------------|
+| TotalBytesRead    | Cumulative bytes read from disk since startup.      |
+| TotalBytesWritten | Cumulative bytes written to disk since startup.     |
+| ReadsTime         | Time spent in disk read operation in microseconds.  |
+| WritesTime        | Time spent in disk write operation in microseconds. |
+
 ## storage.aipersist.`{profile}`
 
 :::note
