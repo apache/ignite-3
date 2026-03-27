@@ -17,7 +17,6 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.file.assit;
 
-import java.io.File;
 import java.io.IOException;
 
 import java.nio.file.Path;
