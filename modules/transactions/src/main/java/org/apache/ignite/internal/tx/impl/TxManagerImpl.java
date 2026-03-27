@@ -660,7 +660,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
-        LOG.debug("Finish [commit={}, {}, groups={}, commitPartId={}].", commitIntent,
+        LOG.info("Finish [commit={}, {}, groups={}, commitPartId={}].", commitIntent,
                 formatTxInfo(txId, txStateVolatileStorage, false), enlistedGroups, commitPartition);
 
         assert enlistedGroups != null;
@@ -906,7 +906,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        LOG.debug("Finish [partition={}, node={}, enlistmentConsistencyToken={}, commit={}, {}, groups={}",
+        LOG.info("Finish [partition={}, node={}, enlistmentConsistencyToken={}, commit={}, {}, groups={}",
                 commitPartition, primaryConsistentId, enlistmentConsistencyToken, commit,
                 formatTxInfo(txId, txStateVolatileStorage, false), enlistedPartitions);
 
@@ -1163,8 +1163,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
-        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
+    public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId, commit, commitTimestamp);
     }
 
     @Override
