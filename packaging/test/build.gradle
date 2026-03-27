@@ -28,3 +28,8 @@ dependencies {
 }
 
 tasks.integrationTest.dependsOn += ":packaging:docker"
+
+integrationTest {
+    def dockerImageName = "apacheignite/ignite:${project.version}"
+    systemProperty 'ignite.docker.image', dockerImageName
+}
