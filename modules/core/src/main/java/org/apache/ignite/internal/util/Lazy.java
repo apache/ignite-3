@@ -35,8 +35,9 @@ public class Lazy<T> {
     private volatile @Nullable T val;
 
     /**
-     * Creates the lazy value with the given value supplier.
-     * In case of the given {@code supplier} throws an exception, the next call to {@link #get()} will re-invoke the supplier.
+    * Creates the lazy value with the given value supplier.
+     * 
+     * <p>In case of the given {@code supplier} throws an exception, the next call to {@link #get()} will re-invoke the supplier.
      * Take this into account especially when the supplier has side effects.
      *
      * @param supplier A supplier of the value.
