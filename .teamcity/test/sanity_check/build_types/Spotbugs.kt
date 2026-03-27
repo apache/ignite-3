@@ -12,7 +12,7 @@ object Spotbugs: BuildType({
     steps {
         customGradle {
             name = "Static analysis of source code via Spotbugs"
-            tasks = "spotbugsMain"
+            tasks = "spotbugs"
             workingDir = "%VCSROOT__IGNITE3%"
         }
     }
