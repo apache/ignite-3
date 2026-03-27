@@ -486,7 +486,6 @@ public class LeaseUpdater {
                         : lease.proposedCandidate();
 
                 InternalClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
-
                 boolean canBeProlonged = lease.isAccepted()
                         && lease.isProlongable()
                         && candidate != null && candidate.id().equals(lease.getLeaseholderId());

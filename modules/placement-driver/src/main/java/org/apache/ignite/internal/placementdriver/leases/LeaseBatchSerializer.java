@@ -141,6 +141,15 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     /** Mask to extract lease holder index from compact representation. */
     private static final int COMPACT_HOLDER_INDEX_MASK = (1 << BIT_WIDTH_TO_FIT_IN_HALF_BYTE) - 1;
 
+    private static final byte PROTOCOL_V1 = 1;
+
+    private static final byte PROTOCOL_V2 = 2;
+
+    @Override
+    protected byte getProtocolVersion() {
+        return PROTOCOL_V2;
+    }
+
     @Override
     protected void writeExternalData(LeaseBatch batch, IgniteDataOutput out) throws IOException {
         long minExpirationTimePhysical = minExpirationTimePhysicalPart(batch);
@@ -356,7 +365,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static boolean holderIdAndProposedCandidateFitIn1Byte(NodesDictionary dictionary) {
         // Up to 8 names means that for name index it's enough to have 3 bits, same for node index, so, in sum, they
         // require up to 6 bits, and we have 7 bits in a varint byte.
-        return dictionary.nameCount() <= MAX_NODES_FOR_COMPACT_MODE;
+        return dictionary.nameCount() <= MAX_NODES_FOR_COMPACT_MODE && dictionary.nodeCount() <= MAX_NODES_FOR_COMPACT_MODE;
     }
 
     private static int flags(
@@ -378,6 +387,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
         long minExpirationTimePhysical = in.readVarInt();
         HybridTimestamp commonExpirationTime = new HybridTimestamp(minExpirationTimePhysical + in.readVarInt(), in.readVarIntAsInt());
         NodesDictionary nodesDictionary = NodesDictionary.readFrom(in);
+        boolean canReadNodesInfoCompactly = holderIdAndProposedCandidateFitIn1ByteForRead(protoVer, nodesDictionary);
 
         List<Lease> leases = new ArrayList<>();
 
@@ -385,6 +395,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                 minExpirationTimePhysical,
                 commonExpirationTime,
                 nodesDictionary,
+                canReadNodesInfoCompactly,
                 leases,
                 in,
                 TablePartitionId::new
@@ -395,6 +406,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                     minExpirationTimePhysical,
                     commonExpirationTime,
                     nodesDictionary,
+                    canReadNodesInfoCompactly,
                     leases,
                     in,
                     ZonePartitionId::new
@@ -408,6 +420,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
             NodesDictionary nodesDictionary,
+            boolean canReadNodesInfoCompactly,
             List<Lease> leases,
             IgniteDataInput in,
             GroupIdFactory groupIdFactory
@@ -420,6 +433,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                     minExpirationTimePhysical,
                     commonExpirationTime,
                     nodesDictionary,
+                    canReadNodesInfoCompactly,
                     leases,
                     in,
                     groupIdFactory,
@@ -432,6 +446,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
             NodesDictionary nodesDictionary,
+            boolean canReadNodesInfoCompactly,
             List<Lease> leases,
             IgniteDataInput in,
             GroupIdFactory groupIdFactory,
@@ -447,6 +462,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                     minExpirationTimePhysical,
                     commonExpirationTime,
                     nodesDictionary,
+                    canReadNodesInfoCompactly,
                     in,
                     groupIdFactory
             );
@@ -464,6 +480,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
             NodesDictionary nodesDictionary,
+            boolean canReadNodesInfoCompactly,
             IgniteDataInput in,
             GroupIdFactory groupIdFactory
     ) throws IOException {
@@ -477,7 +494,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
         int holderNodeIndex;
         int proposedCandidateNodeIndex = -1;
-        if (holderIdAndProposedCandidateFitIn1Byte(nodesDictionary)) {
+        if (canReadNodesInfoCompactly) {
             int nodesInfo = in.readVarIntAsInt();
 
             holderNodeIndex = unpackHolderNodeIndex(nodesInfo);
@@ -536,6 +553,14 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
     private static boolean flagSet(int flags, int mask) {
         return (flags & mask) != 0;
+    }
+
+    private static boolean holderIdAndProposedCandidateFitIn1ByteForRead(byte protoVer, NodesDictionary dictionary) {
+        if (protoVer == PROTOCOL_V1) {
+            return dictionary.nameCount() <= MAX_NODES_FOR_COMPACT_MODE;
+        }
+
+        return holderIdAndProposedCandidateFitIn1Byte(dictionary);
     }
 
     @FunctionalInterface
