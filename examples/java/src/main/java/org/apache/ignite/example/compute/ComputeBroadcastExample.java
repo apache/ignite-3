@@ -22,6 +22,7 @@ import static org.apache.ignite.compute.BroadcastJobTarget.table;
 import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.BroadcastJobTarget;
@@ -30,10 +31,19 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * This example demonstrates the usage of the {@link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
+ *
+ * <p>It also shows how to use {@link BroadcastJobTarget#table} to execute a partition-aware job on every node holding
+ * a partition of a table. Each job instance reads {@link JobExecutionContext#partition()} to discover its partition and
+ * filters rows with the {@code __PARTITION_ID} virtual SQL column, guaranteeing local query execution without
+ * cross-node data movement.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
@@ -123,6 +133,31 @@ public class ComputeBroadcastExample {
                                 .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                                 .build(), null
                 );
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Executing a partition-aware compute job using BroadcastJobTarget.table().
+                //
+                // One instance of PartitionQueryJob runs on each node that holds a partition of the
+                // Person table. Each instance reads context.partition() to determine its partition,
+                // then queries only that partition's rows via the __PARTITION_ID virtual SQL column.
+                // This guarantees local execution: no row is fetched from a remote node.
+                //
+                // The results (one Long per partition) are collected and summed on the client side.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("Executing partition-aware compute job...");
+
+                JobDescriptor<Void, Long> partitionQueryJob = JobDescriptor.builder(PartitionQueryJob.class)
+                        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                        .build();
+
+                Collection<Long> partitionCounts = client.compute().execute(table("Person"), partitionQueryJob, null);
+
+                long totalPersons = partitionCounts.stream().mapToLong(Long::longValue).sum();
+
+                System.out.println("Total person count across all partitions: " + totalPersons);
             } finally {
 
                 System.out.println("Cleaning up resources");
@@ -176,6 +211,39 @@ public class ComputeBroadcastExample {
             System.out.println("Hello " + arg + "!");
 
             return completedFuture(null);
+        }
+    }
+
+    /**
+     * Job that counts persons in a single table partition using the {@code __PARTITION_ID} virtual SQL column.
+     *
+     * <p>This job is designed for use with {@link BroadcastJobTarget#table}, which routes one instance to each node
+     * that holds a partition of the target table. Each instance calls {@link JobExecutionContext#partition()} to
+     * identify its partition and filters rows by {@code __PARTITION_ID}, so the SQL query reads only local data.
+     */
+    public static class PartitionQueryJob implements ComputeJob<Void, Long> {
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Long> executeAsync(JobExecutionContext context, Void arg) {
+            Partition partition = context.partition();
+
+            assert partition != null : "Partition must be non-null when using BroadcastJobTarget.table()";
+
+            long count = 0;
+
+            try (ResultSet<SqlRow> rs = context.ignite().sql().execute(
+                    (Transaction) null,
+                    "SELECT COUNT(*) FROM Person WHERE __PARTITION_ID = ?",
+                    partition.id()
+            )) {
+                if (rs.hasNext()) {
+                    count = rs.next().longValue(0);
+                }
+            }
+
+            System.out.println("Partition " + partition.id() + " on node '" + context.ignite().name() + "': " + count + " person(s).");
+
+            return completedFuture(count);
         }
     }
 }
