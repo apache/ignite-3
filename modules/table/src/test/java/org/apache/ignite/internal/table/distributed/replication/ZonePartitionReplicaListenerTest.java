@@ -557,9 +557,9 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
 
-        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, PART_ID, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple, false);
-        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
+        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, PART_ID, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
