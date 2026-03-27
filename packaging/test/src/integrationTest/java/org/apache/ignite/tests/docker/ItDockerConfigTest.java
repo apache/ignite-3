@@ -43,7 +43,17 @@ import org.testcontainers.utility.MountableFile;
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-27471")
 public class ItDockerConfigTest {
-    private static final String DOCKER_IMAGE = "apacheignite/ignite:latest";
+    private static final String DOCKER_IMAGE = System.getProperty("ignite.docker.image");
+
+    static {
+        if (DOCKER_IMAGE == null || DOCKER_IMAGE.isEmpty()) {
+            throw new IllegalStateException(
+                    "System property 'ignite.docker.image' is not set. "
+                    + "This test must be run via Gradle which sets the property automatically. "
+                    + "Example: ./gradlew :packaging-test:integrationTest"
+            );
+        }
+    }
     private static final int CLUSTER_SIZE = 3;
     private static final List<GenericContainer<?>> igniteNodes = new ArrayList<>();
     private static Network network;
