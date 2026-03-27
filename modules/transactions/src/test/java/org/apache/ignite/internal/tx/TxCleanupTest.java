@@ -148,7 +148,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 placementDriverHelper,
                 mock(VolatileTxStateMetaStorage.class),
                 testSyncExecutorService(),
-                testSyncScheduledExecutorService()
+                testSyncScheduledExecutorService(),
+                topologyService
         );
     }
 
