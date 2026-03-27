@@ -670,7 +670,7 @@ public class ClientInboundMessageHandler
         throw new UnsupportedAuthenticationTypeException("Unsupported authentication type: " + authnType);
     }
 
-    private void writeAndFlush(ClientMessagePacker packer, ChannelHandlerContext ctx, ResponseWriteGuard guard) {
+    private boolean writeAndFlush(ClientMessagePacker packer, ChannelHandlerContext ctx, ResponseWriteGuard guard) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
 
@@ -680,7 +680,7 @@ public class ClientInboundMessageHandler
                 // Response for this request has already been sent.
                 // Example: exception after response write, catch block in processOperation tries to write an error
                 //          => duplicate response. Guard prevents this.
-                return;
+                return false;
             }
 
             ctx.flush();
@@ -690,6 +690,7 @@ public class ClientInboundMessageHandler
         }
 
         metrics.bytesSentAdd(bytes);
+        return true;
     }
 
     private void writeAndFlushWithMagic(ClientMessagePacker packer, ChannelHandlerContext ctx, ResponseWriteGuard guard) {
@@ -739,7 +740,10 @@ public class ClientInboundMessageHandler
             writeResponseHeader(packer, requestId, ctx, isNotification, true, NULL_HYBRID_TIMESTAMP);
             writeErrorCore(err, packer);
 
-            writeAndFlush(packer, ctx, guard);
+            if (!writeAndFlush(packer, ctx, guard)) {
+                LOG.warn("Failed to write error [connectionId={}, id={}, op={}, remoteAddress={}]: response already sent",
+                        connectionId, requestId, opCode, ctx.channel().remoteAddress());
+            }
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
