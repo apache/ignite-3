@@ -906,13 +906,17 @@ public class ClientInboundMessageHandler
                         t, connectionId, ctx.channel().remoteAddress());
 
                 metrics.requestsFailedIncrement();
+                metrics.requestsActiveDecrement();
+
                 ctx.close();
+
                 return;
             }
 
             writeError(requestId, opCode, t, ctx, false, guard);
 
             metrics.requestsFailedIncrement();
+            metrics.requestsActiveDecrement();
         }
     }
 
