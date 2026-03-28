@@ -158,6 +158,7 @@ include(CPack)
 
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
+include(ignite_check_headers)
 
 # Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
@@ -241,6 +242,8 @@ if (${ENABLE_TESTS})
         add_subdirectory(tests/compatibility-tests)
     endif()
 endif()
+
+include(ignite_compile_headers)
 
 # Source code formatting with clang-format.
 # TODO: require clang-format version 13 or higher

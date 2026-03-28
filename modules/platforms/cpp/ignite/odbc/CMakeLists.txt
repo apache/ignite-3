@@ -17,6 +17,47 @@
 
 set(TARGET ${PROJECT_NAME}-odbc)
 
+set(PUBLIC_HEADERS)
+
+set(PRIVATE_HEADERS
+    app/application_data_buffer.h
+    app/parameter.h
+    app/parameter_set.h
+    common_types.h
+    config/config_tools.h
+    config/configuration.h
+    config/connection_info.h
+    config/value_with_default.h
+    diagnostic/diagnosable.h
+    diagnostic/diagnosable_adapter.h
+    diagnostic/diagnostic_record.h
+    diagnostic/diagnostic_record_storage.h
+    log.h
+    meta/primary_key_meta.h
+    meta/table_meta.h
+    odbc.h
+    odbc_error.h
+    query/column_metadata_query.h
+    query/cursor.h
+    query/data_query.h
+    query/foreign_keys_query.h
+    query/primary_keys_query.h
+    query/query.h
+    query/result_page.h
+    query/special_columns_query.h
+    query/table_metadata_query.h
+    query/type_info_query.h
+    sql_connection.h
+    sql_environment.h
+    sql_statement.h
+    ssl_mode.h
+    system/odbc_constants.h
+    type_traits.h
+    utility.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
 include(find_odbc)
 find_package(ODBC REQUIRED)
 

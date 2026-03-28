@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace ignite {
 /**
  * @brief Transaction options.
