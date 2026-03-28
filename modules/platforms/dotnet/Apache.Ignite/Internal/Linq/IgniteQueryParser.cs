@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -50,7 +51,7 @@ internal static class IgniteQueryParser
     private static QueryParser CreateParser()
     {
         var transformerRegistry = ExpressionTransformerRegistry.CreateDefault();
-        transformerRegistry.Register(new MyCass());
+        transformerRegistry.Register(new MemoryExtensionsContainsExpressionTransformer());
 
         var proc = CreateCompoundProcessor(transformerRegistry);
 
@@ -69,7 +70,6 @@ internal static class IgniteQueryParser
         methodInfoRegistry.Register(ExecuteDeleteExpressionNode.MethodInfos, typeof(ExecuteDeleteExpressionNode));
         methodInfoRegistry.Register(ExecuteUpdateExpressionNode.MethodInfos, typeof(ExecuteUpdateExpressionNode));
 
-        // methodInfoRegistry.Register(MemoryExtensionsContainsExpressionNode.MethodInfos, typeof(MemoryExtensionsContainsExpressionNode));
         return new CompoundNodeTypeProvider(new INodeTypeProvider[]
         {
             methodInfoRegistry,
@@ -86,23 +86,33 @@ internal static class IgniteQueryParser
         return new CompoundExpressionTreeProcessor(
             new IExpressionTreeProcessor[]
             {
-                new PartialEvaluatingExpressionTreeProcessor(new NullEvaluatableExpressionFilter()),
+                new PartialEvaluatingExpressionTreeProcessor(new CustomEvaluatableExpressionFilter()),
                 new TransformingExpressionTreeProcessor(transformationProvider)
             });
     }
 
     /// <summary>
-    /// Empty implementation of IEvaluatableExpressionFilter.
+    /// Implementation of IEvaluatableExpressionFilter.
     /// </summary>
-    private sealed class NullEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
+    private sealed class CustomEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
     {
-        // No-op.
+        // Ignores implicit ReadOnlySpan conversion to support C# 14 first class span Contains.
+        public override bool IsEvaluatableMethodCall(MethodCallExpression node)
+        {
+            ArgumentNullException.ThrowIfNull(node);
+            if (MemoryExtensionsContainsExpressionTransformer.IsSpanImplicitConversion(node))
+            {
+                return false;
+            }
+
+            return base.IsEvaluatableMethodCall(node);
+        }
     }
 
     /// <summary>
-    /// Empty implementation of IEvaluatableExpressionFilter.
+    /// Implementation of IExpressionTransformer handling C# 14 first class span Contains.
     /// </summary>
-    private sealed class MyCass : IExpressionTransformer<MethodCallExpression>
+    private sealed class MemoryExtensionsContainsExpressionTransformer : IExpressionTransformer<MethodCallExpression>
     {
         private static readonly MethodInfo SourceMethodInfo = typeof(MemoryExtensions)
             .GetMethod(nameof(MemoryExtensions.Contains), [
@@ -116,20 +126,29 @@ internal static class IgniteQueryParser
                 Type.MakeGenericMethodParameter(0)
             ])!;
 
+        public static bool IsSpanImplicitConversion([NotNullWhen(true)]MethodCallExpression? node) =>
+            node?.Method is { IsSpecialName: true, Name: "op_Implicit" }
+            && node.Method.DeclaringType is { IsGenericType: true }
+            && node.Method.DeclaringType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>);
+
         public Expression Transform(MethodCallExpression expression)
         {
             if (expression.Method.IsConstructedGenericMethod && expression.Method.GetGenericMethodDefinition() == SourceMethodInfo)
             {
                 var genericType = expression.Method.GetGenericArguments()[0];
-                var target = TargetMethodInfo.MakeGenericMethod(genericType);
 
-                var enumerable = expression.Arguments[0];
-                var exceptionExpression = enumerable as PartialEvaluationExceptionExpression;
-                var exceptionExpressionEvaluatedExpression = exceptionExpression?.EvaluatedExpression;
-                var argument = (exceptionExpressionEvaluatedExpression as MethodCallExpression)?.Arguments[0]!;
+                var enumerableParameter = expression.Arguments[0] as MethodCallExpression;
+                if (!IsSpanImplicitConversion(enumerableParameter))
+                {
+                    throw new NotSupportedException("Was not able to process parameter for MemoryExtensions.Contains, " +
+                                                    "expected implicit conversion, got: " + expression.Arguments[0]);
+                }
+
+                var argument = enumerableParameter.Arguments[0]!;
 
                 var targetProp = expression.Arguments[1];
 
+                var target = TargetMethodInfo.MakeGenericMethod(genericType);
                 return Expression.Call(target, argument, targetProp);
             }
 
