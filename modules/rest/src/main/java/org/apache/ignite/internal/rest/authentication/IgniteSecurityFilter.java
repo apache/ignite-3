@@ -63,6 +63,13 @@ public class IgniteSecurityFilter implements HttpServerFilter, ResourceHolder {
 
     @Override
     public Publisher<MutableHttpResponse<?>> doFilter(HttpRequest<?> request, ServerFilterChain chain) {
+        // Guard against a possible race with cleanResources() during shutdown: the filter may still be invoked while
+        // igniteAuthenticationProvider is being cleared.
+        IgniteAuthenticationProvider igniteAuthenticationProvider = this.igniteAuthenticationProvider;
+        if (igniteAuthenticationProvider == null) {
+            return chain.proceed(request);
+        }
+
         if (igniteAuthenticationProvider.authenticationEnabled()) {
             return securityFilter.doFilter(request, chain);
         } else {
