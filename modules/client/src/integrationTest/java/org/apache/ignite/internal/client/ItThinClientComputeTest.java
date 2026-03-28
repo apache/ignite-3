@@ -85,6 +85,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
@@ -295,8 +296,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
-        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // Async job completes normally after cooperative cancellation (returns from isCancelled() check) — COMPLETED.
+        // Sync job throws on thread interruption — CANCELED.
+        JobStatus expectedStatus = asyncJob ? COMPLETED : CANCELED;
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(expectedStatus)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(expectedStatus)));
     }
 
     @Test

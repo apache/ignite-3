@@ -732,6 +732,30 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void asyncJobCompletesNormallyAfterCooperativeCancellation(boolean local) {
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecution<String> execution = submit(
+                JobTarget.node(clusterNode(executeNode)),
+                asyncDelayedCompleteJob(),
+                cancelHandle.token(),
+                null
+        );
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        cancelHandle.cancel();
+
+        // The async job detects cancellation via isCancelled(), does cleanup, then completes with a result.
+        // Cooperative cancellation should honor the result — status must be COMPLETED, not CANCELED.
+        assertThat(execution.resultAsync(), willBe(is("completed-after-cancel")));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void changeExecutingJobPriority(boolean local) {
@@ -961,6 +985,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private TaskDescriptor<Void, Void> infiniteMapReduceTask() {
         return TaskDescriptor.<Void, Void>builder(jobClassName("InfiniteMapReduceTask")).units(units()).build();
+    }
+
+    private JobDescriptor<Void, String> asyncDelayedCompleteJob() {
+        return JobDescriptor.<Void, String>builder(jobClassName("AsyncDelayedCompleteJob")).units(units()).build();
     }
 
     private JobDescriptor<Tuple, Integer> tupleJob() {

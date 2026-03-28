@@ -114,17 +114,20 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
         // Interrupt under the lock to prevent interrupting thread used by the pool for another task
         lock.lock();
         try {
+            // Set the interrupted flag first since it's used to determine the final status of the job.
+            // Job could handle interruption and exit before this flag is set moving the job to completed state rather than canceled.
+            isInterrupted = true;
+
             if (workerThread != null) {
-                // Set the interrupted flag first since it's used to determine the final status of the job.
-                // Job could handle interruption and exit before this flag is set moving the job to completed state rather than canceled.
-                isInterrupted = true;
                 workerThread.interrupt();
             }
 
-            if (jobFuture != null) {
-                isInterrupted = true;
-                jobFuture.cancel(true);
-            }
+            // We do not call jobFuture.cancel() here because:
+            // 1. For async jobs using the cancellation token, token-based cancellation completes the future
+            //    with the proper error (e.g., SqlException). jobFuture.cancel() would override that.
+            // 2. For async jobs that complete after cancellation (e.g., cleanup after isCancelled() check),
+            //    jobFuture.cancel() would prevent the job from returning its result.
+            // 3. For sync jobs, thread interruption above is sufficient.
         } finally {
             lock.unlock();
         }
