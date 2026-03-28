@@ -25,12 +25,13 @@ import static org.mockito.Mockito.verify;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelOutboundInvoker;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link ResponseWriteGuard}.
  */
-class ResponseWriteGuardTest {
+class ResponseWriteGuardTest extends BaseIgniteAbstractTest {
     @Test
     void testWriteHappensOnce() {
         var guard = new ResponseWriteGuard();
