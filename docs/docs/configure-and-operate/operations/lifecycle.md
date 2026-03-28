@@ -60,7 +60,7 @@ To restore full cluster functionality, bring the offline members of CMG back onl
 
 The CMG stores the following information:
 
-- Current cluster state, including what nodes are in CMG and metastorage groups, what Ignite version is used and cluster tag.
+- Current cluster state, including what nodes are in CMG and metastorage groups, what Ignite version is used and cluster tag. The cluster name can be changed after initialization.
 - Consistent IDs of all nodes in the logical topology.
 - Node validation status.
 
