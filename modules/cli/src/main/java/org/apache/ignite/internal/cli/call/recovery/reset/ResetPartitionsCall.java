@@ -22,7 +22,7 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.rest.client.api.RecoveryApi;
+import org.apache.ignite.rest.client.api.DisasterRecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ResetZonePartitionsRequest;
 
@@ -37,7 +37,7 @@ public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, Strin
 
     @Override
     public DefaultCallOutput<String> execute(ResetPartitionsCallInput input) {
-        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
+        DisasterRecoveryApi client = new DisasterRecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         try {
             ResetZonePartitionsRequest command = new ResetZonePartitionsRequest();

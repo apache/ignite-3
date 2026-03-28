@@ -27,7 +27,7 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.sql.table.Table;
-import org.apache.ignite.rest.client.api.RecoveryApi;
+import org.apache.ignite.rest.client.api.DisasterRecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.GlobalZonePartitionStateResponse;
 import org.apache.ignite.rest.client.model.GlobalZonePartitionStatesResponse;
@@ -51,7 +51,7 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
 
     @Override
     public DefaultCallOutput<Table> execute(PartitionStatesCallInput input) {
-        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
+        DisasterRecoveryApi client = new DisasterRecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         try {
             if (input.local()) {
@@ -66,7 +66,7 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
 
     private static DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
             PartitionStatesCallInput input,
-            RecoveryApi client,
+            DisasterRecoveryApi client,
             List<String> zoneNames
     ) throws ApiException {
         GlobalZonePartitionStatesResponse globalStates = client.getZoneGlobalPartitionStates(zoneNames, input.partitionIds());
@@ -85,7 +85,7 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
     }
 
     private static DefaultCallOutput<Table> getLocalPartitionStatesOutput(
-            RecoveryApi client,
+            DisasterRecoveryApi client,
             List<String> zoneNames,
             PartitionStatesCallInput input
     ) throws ApiException {

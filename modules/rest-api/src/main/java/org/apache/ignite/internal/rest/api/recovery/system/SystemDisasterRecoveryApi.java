@@ -37,12 +37,12 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-128%3A+CMG+and+Metastorage+Disaster+Recovery">IEP-128</a>
  */
 @Controller("/management/v1/recovery/cluster")
-@Tag(name = "system")
-@Tag(name = "recovery")
+@Tag(name = "systemDisasterRecovery")
 public interface SystemDisasterRecoveryApi {
     @Post("reset")
     @Operation(
             operationId = "resetCluster",
+            summary = "Reset cluster",
             description = "Initiates cluster reset to repair CMG/Metastorage group/both."
     )
     @ApiResponse(responseCode = "200", description = "Cluster reset initiated.")
@@ -58,6 +58,7 @@ public interface SystemDisasterRecoveryApi {
     @Post("migrate")
     @Operation(
             operationId = "migrate",
+            summary = "Migrate nodes to repaired cluster",
             description = "Migrates nodes from old cluster to new (repaired) cluster."
     )
     @ApiResponse(responseCode = "200", description = "Migration initiated.")

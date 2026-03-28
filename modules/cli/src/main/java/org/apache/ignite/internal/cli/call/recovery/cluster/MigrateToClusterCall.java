@@ -24,7 +24,7 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
-import org.apache.ignite.rest.client.api.RecoveryApi;
+import org.apache.ignite.rest.client.api.SystemDisasterRecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.MigrateRequest;
@@ -41,7 +41,7 @@ public class MigrateToClusterCall implements Call<MigrateToClusterCallInput, Str
     @Override
     public DefaultCallOutput<String> execute(MigrateToClusterCallInput input) {
         ClusterManagementApi newClusterManagementClient = new ClusterManagementApi(clientFactory.getClient(input.newClusterUrl()));
-        RecoveryApi oldRecoveryClient = new RecoveryApi(clientFactory.getClient(input.oldClusterUrl()));
+        SystemDisasterRecoveryApi oldRecoveryClient = new SystemDisasterRecoveryApi(clientFactory.getClient(input.oldClusterUrl()));
 
         ClusterState newClusterState;
         try {

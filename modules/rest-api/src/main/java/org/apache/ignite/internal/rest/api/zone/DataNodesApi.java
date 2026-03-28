@@ -44,6 +44,7 @@ public interface DataNodesApi {
     @Get("{zoneName}/datanodes")
     @Operation(
             operationId = "getDataNodesForZone",
+            summary = "Get data nodes for zone",
             description = "Returns current data nodes for zone."
     )
     @ApiResponse(
@@ -68,6 +69,7 @@ public interface DataNodesApi {
     @Post("{zoneName}/datanodes/reset")
     @Operation(
             operationId = "resetDataNodesForZone",
+            summary = "Reset data nodes for zone",
             description = "Recalculates and resets data nodes for zone."
     )
     @ApiResponse(responseCode = "200", description = "Data nodes are recalculated and reset.")
@@ -85,6 +87,7 @@ public interface DataNodesApi {
     @Post("/datanodes/reset")
     @Operation(
             operationId = "resetDataNodesForZones",
+            summary = "Reset data nodes for zones",
             description = "Recalculates and resets data nodes for given zones."
     )
     @ApiResponse(responseCode = "200", description = "Data nodes are recalculated and reset.")
