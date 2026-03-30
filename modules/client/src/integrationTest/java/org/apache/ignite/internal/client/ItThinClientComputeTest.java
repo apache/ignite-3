@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
@@ -333,7 +332,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         // Cancel task 1, task 3 should start executing
         assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // SleepJob throws RuntimeException, not CancellationException.
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(FAILED)));
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Task 2 is still queued
@@ -412,9 +412,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         cancelHandle.cancel();
 
+        // SleepJob throws RuntimeException on interrupt, not CancellationException.
         await().until(() -> executions, contains(
-                jobExecutionWithStatus(CANCELED),
-                jobExecutionWithStatus(CANCELED)
+                jobExecutionWithStatus(FAILED),
+                jobExecutionWithStatus(FAILED)
         ));
 
         assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
