@@ -32,7 +32,7 @@ using System.Diagnostics.CodeAnalysis;
     "Microsoft.Design",
     "CA1032:ImplementStandardExceptionConstructors",
     Justification = "Ignite exceptions use a special constructor.")]
-public sealed class SqlBatchException : IgniteException
+public sealed class SqlBatchException : SqlException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SqlBatchException"/> class.
