@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -304,6 +305,58 @@ public class DirectTxUtils {
         } else {
             return base;
         }
+    }
+
+    /**
+     * Try to handle error on first request. Returns false if not in the context of the first request.
+     * This method essentially populates context with a failed request instance.
+     *
+     * @param ctx The {@link WriteContext} that holds transactional context information.
+     * @param ch The {@link ReliableChannel} used to resolve the actual communication channel.
+     * @param id Client Table Id.
+     * @return Whether the error was handled or not.
+     */
+    public static boolean tryHandleErrorOnFirstRequest(WriteContext ctx, ReliableChannel ch, long id) {
+        if (ctx.firstReqFut == null) {
+            return false;
+        }
+
+        // Create failed transaction.
+        ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null,
+                ctx.pm, null, ch.observableTimestamp(), 0);
+        failed.fail();
+        ctx.firstReqFut.complete(failed);
+        // Txn was not started, rollback is not required.
+        return true;
+    }
+
+    /**
+     * Handles errors after the first request.
+     * Essentially call the rollback on the transaction and appends any errors to the original error.
+     *
+     * @param ctx The {@link WriteContext} that holds transactional context information.
+     * @param tx The client transaction.
+     * @param err The error to be handled.
+     * @param <T> type of the expected future.
+     * @return A completable future what always fails with the original error plus any suppressed errors.
+     */
+    public static <T> CompletableFuture<T> handleErrorOnOtherRequests(WriteContext ctx, ClientTransaction tx, Throwable err) {
+        CompletableFuture<Void> rollback;
+        if (ctx.enlistmentToken != null) {
+            // In case of direct mapping error need to rollback the tx on coordinator.
+            rollback = tx.rollbackAsync();
+        } else {
+            rollback = tx.rollbackAndDiscardDirectMappings(false);
+        }
+
+        return rollback.handle((ignored, err0) -> {
+            if (err0 != null) {
+                err.addSuppressed(err0);
+            }
+
+            sneakyThrow(err);
+            return null;
+        });
     }
 
     private static CompletableFuture<ClientChannel> resolveChannelInner(
