@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
@@ -108,24 +107,23 @@ public class ClientLazyTransaction implements Transaction {
         }
 
         // If the transaction is not started. Issue the rollback and wait for the server response.
-        CompletableFuture<Void> ret;
         if (!tx0.isDone() && cancelled.compareAndSet(false, true)) {
-            ret = requestInfoFuture
+            return requestInfoFuture
                     .thenCompose(reqInfo ->
                             reqInfo.ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(-reqInfo.firstReqId), r -> null)
                     )
                     .handle((res, e) -> {
-                        if (e != null) {
-                            throw sneakyThrow(ViewUtils.ensurePublicException(e));
+                        // If ok, we don't need to wait for the response. If error, let's block.
+                        if (e == null) {
+                            return nullCompletedFuture();
+                        } else {
+                            return tx0.thenCompose(ClientTransaction::rollbackAsync);
                         }
-
-                        return null;
-                    });
+                    })
+                    .thenCompose(f -> (CompletableFuture<Void>) f);
         } else {
-            ret = nullCompletedFuture();
+            return tx0.thenCompose(ClientTransaction::rollbackAsync);
         }
-
-        return ret.thenCompose(none -> tx0.thenCompose(ClientTransaction::rollbackAsync));
     }
 
     @Override
