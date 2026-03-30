@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Sql;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
@@ -44,7 +45,7 @@ public sealed class SqlBatchException : SqlException
     public SqlBatchException(Guid traceId, int code, string? message, Exception? innerException = null)
         : base(traceId, code, message, innerException)
     {
-        UpdateCounters = Array.Empty<long>();
+        UpdateCounters = [];
     }
 
     /// <summary>
@@ -55,10 +56,10 @@ public sealed class SqlBatchException : SqlException
     /// <param name="updateCounters">Update counters.</param>
     /// <param name="message">Message.</param>
     /// <param name="innerException">Inner exception.</param>
-    public SqlBatchException(Guid traceId, int code, long[] updateCounters, string? message, Exception? innerException = null)
+    public SqlBatchException(Guid traceId, int code, IReadOnlyList<long> updateCounters, string? message, Exception? innerException = null)
         : base(traceId, code, message, innerException)
     {
-        UpdateCounters = updateCounters ?? Array.Empty<long>();
+        UpdateCounters = updateCounters;
     }
 
     /// <summary>
@@ -66,9 +67,5 @@ public sealed class SqlBatchException : SqlException
     /// Elements correspond to the order in which commands were added to the batch.
     /// Contains update counts for all commands that were executed successfully before the error occurred.
     /// </summary>
-    [SuppressMessage(
-        "Microsoft.Performance",
-        "CA1819:PropertiesShouldNotReturnArrays",
-        Justification = "Matches Java API (SqlBatchException.updateCounters()).")]
-    public long[] UpdateCounters { get; }
+    public IReadOnlyList<long> UpdateCounters { get; }
 }
