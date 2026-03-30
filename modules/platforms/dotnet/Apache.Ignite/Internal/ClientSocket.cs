@@ -493,11 +493,11 @@ namespace Apache.Ignite.Internal
             {
                 ex = new Ignite.Sql.SqlBatchException(traceId, code, updateCounters, message, ex.InnerException);
             }
-            else if (className == "org.apache.ignite.sql.SqlBatchException" && ex is not Ignite.Sql.SqlBatchException)
+            else if (className == "org.apache.ignite.sql.SqlBatchException")
             {
                 ex = new Ignite.Sql.SqlBatchException(traceId, code, message, ex.InnerException);
             }
-            else if (className == "org.apache.ignite.sql.SqlException" && ex is not Ignite.Sql.SqlException)
+            else if (className == "org.apache.ignite.sql.SqlException")
             {
                 ex = new Ignite.Sql.SqlException(traceId, code, message, ex.InnerException);
             }
