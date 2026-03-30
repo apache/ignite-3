@@ -516,7 +516,11 @@ public class ClientTableCommon {
                 });
 
                 InternalTxOptions txOptions = builder.build();
-                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
+                var tx = new DirectTransactionWithFirstRequest(
+                        startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions),
+                        reqToTxMap,
+                        requestId
+                );
 
                 // Attach resource id only on first direct request.
                 resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));

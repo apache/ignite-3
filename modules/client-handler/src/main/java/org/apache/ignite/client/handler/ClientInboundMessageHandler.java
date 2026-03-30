@@ -1225,8 +1225,6 @@ public class ClientInboundMessageHandler
                 writeError(requestId, opCode, e, ctx, false);
                 metrics.requestsFailedIncrement();
             }
-
-            firstReqToTxResMap.remove(requestId);
         });
     }
 

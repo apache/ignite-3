@@ -30,6 +30,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 
@@ -76,8 +77,7 @@ public class ClientTransactionRollbackRequest {
             }
 
             tx = resources.remove(actualResourceId).get(InternalTransaction.class);
-
-            reqToTxMap.remove(reqId);
+            // Will not remove right away from reqToTxMap, it will be remove automatically on rollback.
         } else {
             tx = resources.remove(resourceId).get(InternalTransaction.class);
 
@@ -100,7 +100,7 @@ public class ClientTransactionRollbackRequest {
                 if (cnt > 0) {
                     in.unpackLong(); // Unpack causality.
 
-                    ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
+                    ReadWriteTransactionImpl tx0 = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
                     // Enforce cleanup.
                     tx0.noRemoteWrites(sendRemoteWritesFlag && in.unpackBoolean());

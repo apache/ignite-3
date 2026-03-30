@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
@@ -1415,12 +1416,20 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Nested
     class OnConflictDuringFirstRequest {
         class Data {
+            final IgniteImpl ignite;
             final List<Tuple> tuples;
             final ClientLazyTransaction tx1;
             final ClientLazyTransaction tx2;
             final CompletableFuture<?> req2Fut;
 
-            Data(List<Tuple> tuples, ClientLazyTransaction tx1, ClientLazyTransaction tx2, CompletableFuture<?> req2Fut) {
+            Data(
+                    IgniteImpl ignite,
+                    List<Tuple> tuples,
+                    ClientLazyTransaction tx1,
+                    ClientLazyTransaction tx2,
+                    CompletableFuture<?> req2Fut
+            ) {
+                this.ignite = ignite;
                 this.tuples = tuples;
                 this.tx1 = tx1;
                 this.tx2 = tx2;
@@ -1468,7 +1477,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             assertThat(fut2.isDone(), is(false));
             IgniteTestUtils.assertThrows(AssertionError.class, () -> ClientTransaction.get(tx2), "Transaction is starting");
 
-            return new Data(tuples0, tx1, tx2, fut2);
+            return new Data(ignite, tuples0, tx1, tx2, fut2);
         }
 
         @ParameterizedTest
@@ -1511,6 +1520,52 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
             assertThat(kvView.removeAllAsync(null, test.tuples.subList(0, 3)), willSucceedIn(5, TimeUnit.SECONDS));
+        }
+
+        @ParameterizedTest
+        @MethodSource("org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest#killTestContextFactory")
+        public void testCancelByRequestIdNotAvailable(KillTestContext ctx) throws InterruptedException {
+            var test = prepareBlockedTransaction(ctx);
+
+            // Remove firstReqMapping from the server side.
+            {
+                Map<Long, Long> firstReqToTxResMap = IgniteTestUtils.getFieldValue(
+                        test.ignite.clientInboundMessageHandler(),
+                        ClientInboundMessageHandler.class,
+                        "firstReqToTxResMap"
+                );
+
+                CompletableFuture<Object> reqInfoFut = IgniteTestUtils.getFieldValue(test.tx2, ClientLazyTransaction.class,
+                        "requestInfoFuture");
+                Object requestInfo = reqInfoFut.join();
+                long firstReqId = IgniteTestUtils.getFieldValue(requestInfo, "firstReqId");
+                firstReqToTxResMap.remove(firstReqId);
+            }
+
+            // Will block because of the error.
+            var rollbackTx2Fut1 = test.tx2.rollbackAsync();
+            Thread.sleep(1_000);
+            assertThat(rollbackTx2Fut1.isDone(), is(false));
+
+            // Do another concurrent rollback call just to make sure.
+            // If we allow multiple rollback requests by id to be sent concurrently, the outcome might be different.
+            var rollbackTx2Fut2 = test.tx2.rollbackAsync();
+            Thread.sleep(1_000);
+            assertThat(rollbackTx2Fut2.isDone(), is(false));
+
+            // Now unblock the transaction.
+            assertThat(test.tx1.rollbackAsync(), willSucceedIn(1, TimeUnit.SECONDS));
+
+            // Requests should rollback.
+            assertThat(rollbackTx2Fut1, willSucceedIn(1, TimeUnit.SECONDS));
+            assertThat(rollbackTx2Fut2, willSucceedIn(1, TimeUnit.SECONDS));
+
+            var ex = assertThrows(TransactionException.class, () -> ClientTransaction.get(test.tx2));
+            assertThat(ex.getMessage(), containsString("Transaction is already finished"));
+            assertThat(ex.getMessage(), containsString("committed=false"));
+
+            KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+            assertThat(kvView.removeAllAsync(null, test.tuples.subList(0, 2)), willSucceedIn(5, TimeUnit.SECONDS));
         }
     }
 
