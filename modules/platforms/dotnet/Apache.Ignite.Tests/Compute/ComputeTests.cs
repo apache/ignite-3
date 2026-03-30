@@ -753,8 +753,7 @@ namespace Apache.Ignite.Tests.Compute
 
             TaskState? state = await taskExec.GetStateAsync();
 
-            // Derived from job status.
-            Assert.AreEqual(TaskStatus.Failed, state?.Status);
+            Assert.AreEqual(TaskStatus.Canceled, state?.Status); // Task was explicitly cancelled.
         }
 
         [Test]
