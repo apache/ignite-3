@@ -259,7 +259,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        CompletableFuture<AsyncResultSet<T>> future = executeAsync(transaction, mapper, statement, arguments);
+        CompletableFuture<AsyncResultSet<T>> future = executeAsync(transaction, mapper, cancellationToken, statement, arguments);
         return new SyncResultSetAdapter<>(sync(future));
     }
 
@@ -307,7 +307,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, cancellationToken, createStatement(query), arguments);
+        return executeAsync(transaction, cancellationToken, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -318,7 +318,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, cancellationToken, statement, arguments);
+        return executeAsyncInternal(observableTimestampTracker, transaction, cancellationToken, statement, arguments);
     }
 
     /** {@inheritDoc} */
@@ -346,7 +346,18 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
+    /**
+     * Executes a single SQL statement asynchronously using the given observable timestamp tracker.
+     *
+     * @param tracker Observable timestamp tracker to use.
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @return Operation future.
+     */
+    protected CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
+            HybridTimestampTracker tracker,
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
             Statement statement,
@@ -369,7 +380,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
 
             result = queryProcessor.queryAsync(
                     properties,
-                    observableTimestampTracker,
+                    tracker,
                     (InternalTransaction) transaction,
                     cancellationToken,
                     statement.query(),
@@ -425,6 +436,27 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
             Statement statement,
             BatchedArguments batch
     ) {
+        return executeBatchAsyncInternal(observableTimestampTracker, transaction, cancellationToken, statement, batch);
+    }
+
+    /**
+     * Executes a batched SQL statement asynchronously using the given observable timestamp tracker.
+     *
+     * @param tracker Observable timestamp tracker to use.
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation Future completed with the number of rows affected by each query in the batch
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     */
+    protected CompletableFuture<long[]> executeBatchAsyncInternal(
+            HybridTimestampTracker tracker,
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
@@ -434,7 +466,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
 
             return executeBatchCore(
                     queryProcessor,
-                    observableTimestampTracker,
+                    tracker,
                     (InternalTransaction) transaction,
                     cancellationToken,
                     statement.query(),
@@ -579,6 +611,24 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
             @Nullable CancellationToken cancellationToken, String query,
             @Nullable Object... arguments
     ) {
+        return executeScriptAsyncInternal(observableTimestampTracker, cancellationToken, query, arguments);
+    }
+
+    /**
+     * Executes a multi-statement SQL query using the given observable timestamp tracker.
+     *
+     * @param tracker Observable timestamp tracker to use.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     */
+    protected CompletableFuture<Void> executeScriptAsyncInternal(
+            HybridTimestampTracker tracker,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
@@ -586,7 +636,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
         try {
             return executeScriptCore(
                     queryProcessor,
-                    observableTimestampTracker,
+                    tracker,
                     busyLock::enterBusy,
                     busyLock::leaveBusy,
                     query,

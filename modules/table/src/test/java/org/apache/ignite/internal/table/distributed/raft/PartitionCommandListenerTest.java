@@ -20,13 +20,14 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonMap;
 import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,6 +46,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,6 +60,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -70,6 +73,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
@@ -91,7 +97,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -108,11 +113,8 @@ import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.raft.handlers.BuildIndexCommandHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -219,7 +221,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         int indexId = pkStorage.id();
 
         indexUpdateHandler = spy(new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(indexId, pkStorage))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(indexId, pkStorage))
         ));
 
         storageUpdateHandler = spy(new StorageUpdateHandler(
@@ -264,6 +266,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return hybridClock.update(requestTime);
+        });
 
         commandListener = new TablePartitionProcessor(
                 mock(TxManager.class),
@@ -592,6 +598,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return hybridClock.update(requestTime);
+        });
 
         when(indexUpdateHandler.getNextRowIdToBuildIndex(anyInt())).thenReturn(RowId.lowestRowId(PARTITION_ID));
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());

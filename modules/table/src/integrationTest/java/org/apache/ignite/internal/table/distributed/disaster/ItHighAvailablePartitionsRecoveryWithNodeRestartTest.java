@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION;
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,35 +44,10 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
     /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS} and long enough to await for the catalog compaction finish. */
     private static final long CATALOG_COMPACTION_AWAIT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
-    private static final String FAST_FAILURE_DETECTION_AND_FAST_CHECKPOINT_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncIntervalMillis: 1000,\n"
-            + "      failurePingIntervalMillis: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipIntervalMillis: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  storage: {\n"
-            + "    engines: {\n"
-            + "      aipersist: {\n"
-            + "        checkpoint: {\n"
-            + "          intervalMillis: " + AIPERSIST_CHECKPOINT_INTERVAL_MS + "\n"
-            + "        }\n"
-            + "      }\n"
-            + "    }\n"
-            + "  }\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
+    private static final String FAST_FAILURE_DETECTION_AND_FAST_CHECKPOINT_NODE_BOOTSTRAP_CFG_TEMPLATE = renderConfigTemplate(
+            FAST_FAILURE_DETECTION
+            + "  storage.engines.aipersist.checkpoint.intervalMillis: " + AIPERSIST_CHECKPOINT_INTERVAL_MS + ",\n"
+    );
 
     @Override
     protected int initialNodes() {

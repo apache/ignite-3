@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;

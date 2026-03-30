@@ -454,7 +454,12 @@ public class ErrorGroups {
         /** Operation failed because the transaction is already finished. */
         public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
 
-        /** Failure due to a stale operation of a completed transaction is detected. */
+        /**
+         * Failure due to a stale operation of a completed transaction is detected.
+         *
+         * @deprecated This error is no longer used.
+         */
+        @Deprecated
         public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
 
         /**

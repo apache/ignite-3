@@ -32,6 +32,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+import org.apache.tools.ant.filters.FixCrLfFilter
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
@@ -117,6 +118,7 @@ def replaceZipScriptVarsLin = tasks.register('replaceZipScriptVarsLin', Copy) {
     from 'zip/linux'
 
     filter(ReplaceTokens, tokens: zipStartScriptTokensLin)
+    filter(FixCrLfFilter, eol: FixCrLfFilter.CrLf.newInstance("lf"))
 
     into "$buildDir/zip/"
 }
@@ -151,11 +153,13 @@ def generateConfigDefaults = tasks.register('generateConfigDefaults', JavaExec) 
 
 def generateClasspathFile = tasks.register('generateClasspathFile') {
     def outputFile = layout.buildDirectory.file("${tokensLin.CLASS_PATH_FILE}")
+    inputs.files(configurations.dbArtifacts).withPropertyName("dbArtifacts")
     outputs.file(outputFile)
 
     doLast {
-        outputFile.get().asFile.withPrintWriter {writer  ->
-            configurations.dbArtifacts.forEach {writer.println it.name }
+        outputFile.get().asFile.withWriter {writer  ->
+            // Classpath file is used only on Linux distributions
+            configurations.dbArtifacts.forEach {writer.write it.name + '\n' }
         }
     }
 }
@@ -243,6 +247,7 @@ def replacePackageScriptVars = tasks.register('replacePackageScriptVars', Copy) 
     from 'ignite.java.util.logging.properties'
     from "$rootDir/packaging/common/linux"
     filter(ReplaceTokens, tokens: packageTokens)
+    filter(FixCrLfFilter, eol: FixCrLfFilter.CrLf.newInstance("lf"))
     into "$buildDir/linux"
 }
 

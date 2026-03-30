@@ -47,7 +47,6 @@ import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.future.InFlightFutures;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -90,8 +89,6 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     private final EventLog eventLog;
 
-    private final HybridTimestampTracker observableTimestampTracker;
-
     private final ComputeMessaging messaging;
 
     private final ExecutionManager executionManager;
@@ -111,15 +108,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             UnitsContextManager jobContextManager,
             ComputeExecutor executor,
             ComputeConfiguration computeConfiguration,
-            EventLog eventLog,
-            HybridTimestampTracker observableTimestampTracker
+            EventLog eventLog
     ) {
         this.topologyService = topologyService;
         this.logicalTopologyService = logicalTopologyService;
         this.jobContextManager = jobContextManager;
         this.executor = executor;
         this.eventLog = eventLog;
-        this.observableTimestampTracker = observableTimestampTracker;
         executionManager = new ExecutionManager(computeConfiguration, topologyService);
         messaging = new ComputeMessaging(executionManager, messagingService, topologyService);
         failoverExecutor = Executors.newSingleThreadExecutor(
@@ -137,8 +132,6 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
-            observableTimestampTracker.update(executionContext.observableTimestamp());
-
             CompletableFuture<UnitsClassLoaderContext> classLoaderFut =
                     jobContextManager.acquireClassLoader(executionContext.units(), executionContext.jobClassName());
 

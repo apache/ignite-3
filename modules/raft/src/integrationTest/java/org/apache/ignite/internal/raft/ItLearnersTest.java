@@ -98,9 +98,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     private static final List<NetworkAddress> ADDRS = List.of(
-            new NetworkAddress("localhost", 5001),
-            new NetworkAddress("localhost", 5002),
-            new NetworkAddress("localhost", 5003)
+            new NetworkAddress("127.0.0.1", 5001),
+            new NetworkAddress("127.0.0.1", 5002),
+            new NetworkAddress("127.0.0.1", 5003)
     );
 
     private static final int AWAIT_TIMEOUT_SECONDS = 10;

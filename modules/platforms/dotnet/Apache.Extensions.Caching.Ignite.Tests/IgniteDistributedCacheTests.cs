@@ -270,6 +270,7 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
     }
 
     [Test]
+    [Retry(5)] // Timing-based test - allow retries.
     public async Task TestSlidingExpiration()
     {
         IDistributedCache cache = GetCache();

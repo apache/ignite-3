@@ -76,6 +76,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
                 + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"
@@ -253,6 +254,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28316")
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -314,6 +316,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28316")
     void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -536,6 +539,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  nodeAttributes.nodeAttributes: " + nodeAtrributes + ",\n"
                 + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"

@@ -124,7 +124,6 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -441,6 +440,7 @@ public class Node {
                 logicalTopology,
                 new NodeAttributesCollector(nodeAttributesConfiguration, storageConfiguration),
                 failureManager,
+                raftGroupEventsClientListener,
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 metricManager
@@ -656,7 +656,9 @@ public class Node {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
-        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
+        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
+
+        var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         replicaManager = new ReplicaManager(
                 name,
@@ -683,8 +685,6 @@ public class Node {
 
         raftManager.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftManager.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
-
-        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
@@ -754,7 +754,8 @@ public class Node {
                 outgoingSnapshotsManager,
                 metricManager,
                 clusterService.messagingService(),
-                replicaSvc
+                replicaSvc,
+                indexMetaStorage
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
@@ -975,6 +976,11 @@ public class Node {
      */
     public void stop() {
         invokeInterceptor = null;
+
+        // Match IgniteImpl.stopAsync() behavior: mark components as stopping before shutting down,
+        // so that in-flight Raft operations produce NodeStoppingException instead of TimeoutException.
+        cmgManager.markAsStopping();
+        metaStorageManager.markAsStopping();
 
         List<IgniteComponent> components = new ArrayList<>(nodeComponents);
         reverse(components);

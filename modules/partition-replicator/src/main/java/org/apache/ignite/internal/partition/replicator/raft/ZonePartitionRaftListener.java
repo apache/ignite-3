@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -111,6 +112,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
+    private final ClockService clockService;
+
     /** Constructor. */
     public ZonePartitionRaftListener(
             ZonePartitionId zonePartitionId,
@@ -119,13 +122,15 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             PartitionsSnapshots partitionsSnapshots,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            ClockService clockService
     ) {
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
         this.partitionsSnapshots = partitionsSnapshots;
         this.txStateStorage = txStatePartitionStorage;
         this.partitionKey = new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
+        this.clockService = clockService;
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
@@ -261,6 +266,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                     // Adjust safe time before completing update to reduce waiting.
                     if (safeTimestamp != null) {
                         try {
+                            clockService.updateClock(safeTimestamp, false);
                             safeTimeTracker.update(safeTimestamp, commandIndex, commandTerm, command);
                         } catch (TrackerClosedException ignored) {
                             // Ignored.

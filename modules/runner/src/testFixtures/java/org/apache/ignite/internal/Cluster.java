@@ -406,7 +406,7 @@ public class Cluster {
 
         return IntStream.range(0, seedsCount)
                 .map(this::port)
-                .mapToObj(port -> "\"localhost:" + port + '\"')
+                .mapToObj(port -> "\"127.0.0.1:" + port + '\"')
                 .collect(joining(", "));
     }
 

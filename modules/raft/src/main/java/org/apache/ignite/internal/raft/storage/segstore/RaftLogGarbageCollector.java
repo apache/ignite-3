@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.storage.segstore.IndexFileManager.GroupDescriptor;
 import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -141,7 +140,7 @@ class RaftLogGarbageCollector {
     void runCompaction(SegmentFile segmentFile) throws IOException {
         LOG.info("Compacting segment file [path = {}].", segmentFile.path());
 
-        Long2ObjectMap<GroupDescriptor> segmentFileDescription
+        Long2ObjectMap<IndexFileMeta> segmentFileDescription
                 = indexFileManager.describeSegmentFile(segmentFile.fileProperties().ordinal());
 
         boolean canRemoveSegmentFile = segmentFileDescription.isEmpty();
@@ -151,6 +150,8 @@ class RaftLogGarbageCollector {
         long logSizeDelta;
 
         if (canRemoveSegmentFile) {
+            indexFileManager.onIndexFileRemoved(segmentFile.fileProperties());
+
             logSizeDelta = Files.size(segmentFile.path()) + Files.size(indexFilePath);
         } else {
             logSizeDelta = compactSegmentFile(segmentFile, indexFilePath, segmentFileDescription);
@@ -181,7 +182,7 @@ class RaftLogGarbageCollector {
     private long compactSegmentFile(
             SegmentFile segmentFile,
             Path indexFilePath,
-            Long2ObjectMap<GroupDescriptor> segmentFileDescription
+            Long2ObjectMap<IndexFileMeta> segmentFileDescription
     ) throws IOException {
         ByteBuffer buffer = segmentFile.buffer();
 
@@ -233,9 +234,9 @@ class RaftLogGarbageCollector {
 
                 long index = VarlenEncoder.readLong(buffer);
 
-                GroupDescriptor groupDescriptor = segmentFileDescription.get(groupId);
+                IndexFileMeta indexFileMeta = segmentFileDescription.get(groupId);
 
-                if (groupDescriptor == null || !isLogIndexInRange(index, groupDescriptor)) {
+                if (indexFileMeta == null || !isLogIndexInRange(index, indexFileMeta)) {
                     // We found a truncated entry, it should be skipped.
                     buffer.position(endOfRecordOffset);
 
@@ -281,8 +282,8 @@ class RaftLogGarbageCollector {
         }
     }
 
-    private static boolean isLogIndexInRange(long index, GroupDescriptor groupDescriptor) {
-        return index >= groupDescriptor.firstLogIndexInclusive() && index < groupDescriptor.lastLogIndexExclusive();
+    private static boolean isLogIndexInRange(long index, IndexFileMeta indexFileMeta) {
+        return index >= indexFileMeta.firstLogIndexInclusive() && index < indexFileMeta.lastLogIndexExclusive();
     }
 
     private class TmpSegmentFile implements AutoCloseable {

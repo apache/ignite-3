@@ -47,8 +47,12 @@ set(SOURCES
     big_integer.cpp
     detail/mpi.cpp
     detail/string_utils.cpp
+    detail/string_extensions.cpp
     detail/thread_timer.cpp
     uuid.cpp
+    detail/hash_calculator.cpp
+    detail/hash_utils.cpp
+        detail/murmur3_hash.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
@@ -71,3 +75,4 @@ ignite_test(thread_timer_test DISCOVER SOURCES detail/thread_timer_test.cpp LIBS
 ignite_test(uuid_test DISCOVER SOURCES uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test DISCOVER SOURCES bignum_test.cpp LIBS ${TARGET})
 ignite_test(primitive_test DISCOVER SOURCES primitive_test.cpp LIBS ${TARGET})
+ignite_test(hash_utils_test DISCOVER SOURCES detail/hash_utils_test.cpp LIBS ${TARGET})

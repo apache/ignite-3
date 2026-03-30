@@ -28,6 +28,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
@@ -71,6 +72,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
     private final ReplicaManager replicaManager;
 
+    private final ClockService clockService;
+
     private final RaftSnapshotsMetricsSource snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
 
     /** Map from zone IDs to their resource holders. */
@@ -86,7 +89,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor partitionOperationsExecutor,
-            ReplicaManager replicaManager
+            ReplicaManager replicaManager,
+            ClockService clockService
     ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
         this.txManager = txManager;
@@ -96,6 +100,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         this.failureProcessor = failureProcessor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicaManager = replicaManager;
+        this.clockService = clockService;
     }
 
     ZonePartitionResources allocateZonePartitionResources(
@@ -119,7 +124,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 safeTimeTracker,
                 storageIndexTracker,
                 outgoingSnapshotsManager,
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                clockService
         );
 
         var snapshotStorage = new PartitionSnapshotStorage(

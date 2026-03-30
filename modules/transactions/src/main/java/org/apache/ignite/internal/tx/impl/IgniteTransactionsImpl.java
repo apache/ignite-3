@@ -80,4 +80,9 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     public Transaction beginWithPriority(boolean readOnly, TxPriority priority) {
         return txManager.beginExplicit(observableTimestampTracker, readOnly, InternalTxOptions.defaultsWithPriority(priority));
     }
+
+    @TestOnly
+    public HybridTimestampTracker observableTimestampTracker() {
+        return observableTimestampTracker;
+    }
 }

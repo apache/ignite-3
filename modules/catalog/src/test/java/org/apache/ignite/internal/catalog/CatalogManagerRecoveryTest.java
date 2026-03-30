@@ -58,6 +58,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -87,6 +88,8 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private MetaStorageManager metaStorageManager;
 
     private CatalogManager catalogManager;
+
+    private KeyValueStorage keyValueStorage;
 
     private TestUpdateHandlerInterceptor interceptor;
 
@@ -200,7 +203,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private void createComponents() {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var keyValueStorage = new RocksDbKeyValueStorage(
+        keyValueStorage = new RocksDbKeyValueStorage(
                 NODE_NAME,
                 workDir,
                 new NoOpFailureManager(),
@@ -233,6 +236,8 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void stopComponents() {
+        assertThat(keyValueStorage.flush(), willCompleteSuccessfully());
+
         assertThat(stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 }

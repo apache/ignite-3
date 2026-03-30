@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;

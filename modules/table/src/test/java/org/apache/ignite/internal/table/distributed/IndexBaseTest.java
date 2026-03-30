@@ -20,10 +20,11 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
@@ -161,10 +161,10 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
 
-        Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
-                pkIndexId, pkStorage,
-                sortedIndexId, sortedIndexStorage,
-                hashIndexId, hashIndexStorage
+        Int2ObjectMap<TableSchemaAwareIndexStorage> indexes = Int2ObjectMap.ofEntries(
+                Int2ObjectMap.entry(pkIndexId, pkStorage),
+                Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                Int2ObjectMap.entry(hashIndexId, hashIndexStorage)
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);

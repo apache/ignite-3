@@ -320,9 +320,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @return Cluster node.
      */
     private static InternalClusterNode fromMember(Member member, @Nullable NodeMetadata nodeMetadata) {
-        var addr = new NetworkAddress(member.address().host(), member.address().port());
-
-        return new ClusterNodeImpl(UUID.fromString(member.id()), member.alias(), addr, nodeMetadata);
+        return new ClusterNodeImpl(
+                UUID.fromString(member.id()),
+                member.alias(),
+                NetworkAddress.from(member.address()),
+                nodeMetadata
+        );
     }
 
 

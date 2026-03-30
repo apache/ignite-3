@@ -197,6 +197,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurator,
                     new NoOpMetricManager()
@@ -297,7 +298,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     final List<Node> nodes = new ArrayList<>();
 
     final Node startNode() {
-        var nodeFinder = new StaticNodeFinder(List.of(new NetworkAddress("localhost", 10_000)));
+        var nodeFinder = new StaticNodeFinder(List.of(new NetworkAddress("127.0.0.1", 10_000)));
 
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, 10_000 + nodes.size(), nodeFinder);
 

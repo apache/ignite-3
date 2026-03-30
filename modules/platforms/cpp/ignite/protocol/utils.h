@@ -44,6 +44,7 @@ class reader;
 namespace error_extensions {
 constexpr const char* EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
 constexpr const char* SQL_UPDATE_COUNTERS = "sql-update-counters";
+constexpr const char* SQL_UPDATE_COUNTERS_2 = "sql-update-counters-2";
 };
 
 /** Magic bytes. */

@@ -191,6 +191,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
                 new MetricSource("raft", true),
                 new MetricSource("raft.snapshots", true),
                 new MetricSource("resource.vacuum", true),
+                new MetricSource("schema.sync", true),
                 new MetricSource("sql.client", true),
                 new MetricSource("sql.plan.cache", true),
                 new MetricSource("sql.queries", true),

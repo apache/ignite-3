@@ -22,6 +22,8 @@ import io.micronaut.security.authentication.AuthenticationProvider;
 import io.micronaut.security.authentication.AuthenticationRequest;
 import io.micronaut.security.authentication.AuthenticationResponse;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
@@ -34,6 +36,8 @@ import reactor.core.publisher.FluxSink;
  * Implementation of {@link AuthenticationProvider}. Delegates authentication to {@link AuthenticationManager}.
  */
 public class IgniteAuthenticationProvider implements AuthenticationProvider, ResourceHolder {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteAuthenticationProvider.class);
+
     private AuthenticationManager authenticationManager;
 
     IgniteAuthenticationProvider(AuthenticationManager authenticationManager) {
@@ -51,6 +55,7 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider, Res
                 authenticationManager.authenticateAsync(toIgniteAuthenticationRequest(authenticationRequest))
                         .handle((userDetails, throwable) -> {
                             if (throwable != null) {
+                                logAuthenticationFailure(httpRequest, authenticationRequest, throwable);
                                 emitter.error(AuthenticationResponse.exception(throwable.getMessage()));
                             } else {
                                 emitter.next(AuthenticationResponse.success(userDetails.username()));
@@ -60,9 +65,20 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider, Res
                             return null;
                         });
             } catch (InvalidCredentialsException ex) {
+                logAuthenticationFailure(httpRequest, authenticationRequest, ex);
                 emitter.error(AuthenticationResponse.exception(ex.getMessage()));
             }
         }, FluxSink.OverflowStrategy.ERROR);
+    }
+
+    private static void logAuthenticationFailure(
+            HttpRequest<?> httpRequest,
+            AuthenticationRequest<?, ?> authenticationRequest,
+            Throwable throwable
+    ) {
+        LOG.warn("REST authentication failed [uri={}, remoteAddress={}, identity={}]: {}",
+                httpRequest.getUri(), httpRequest.getRemoteAddress(), authenticationRequest.getIdentity(),
+                throwable.getMessage());
     }
 
     private static org.apache.ignite.internal.security.authentication.AuthenticationRequest<?, ?> toIgniteAuthenticationRequest(

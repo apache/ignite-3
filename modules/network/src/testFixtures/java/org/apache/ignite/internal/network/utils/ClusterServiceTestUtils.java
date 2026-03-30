@@ -234,6 +234,7 @@ public class ClusterServiceTestUtils {
         networkConfiguration.change(netCfg ->
                 netCfg
                         .changePort(port)
+                        .changeListenAddresses("127.0.0.1")
                         .changeNodeFinder(c -> c
                                 .convert(StaticNodeFinderChange.class)
                                 .changeNetClusterNodes(netClusterNodes)
@@ -281,7 +282,7 @@ public class ClusterServiceTestUtils {
      */
     public static List<NetworkAddress> findLocalAddresses(int startPort, int endPort) {
         return IntStream.range(startPort, endPort)
-                .mapToObj(port -> new NetworkAddress("localhost", port))
+                .mapToObj(port -> new NetworkAddress("127.0.0.1", port))
                 .collect(toUnmodifiableList());
     }
 

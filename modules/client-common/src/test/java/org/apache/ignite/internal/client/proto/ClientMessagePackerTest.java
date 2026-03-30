@@ -178,6 +178,46 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.writePayload(b, 1, 1), p -> p.writePayload(b, 1, 1));
     }
 
+    @Test
+    public void testPackLongArrayAsBinaryFormat() throws IOException {
+        long[] arr = {1L, 2L, Long.MAX_VALUE, Long.MIN_VALUE};
+        byte[] packed = packIgnite(p -> p.packLongArrayAsBinary(arr));
+
+        try (var unpacker = MessagePack.newDefaultUnpacker(packed)) {
+            int binarySize = unpacker.unpackBinaryHeader();
+            assertEquals(arr.length * 8, binarySize, "Binary size should be array length * 8 bytes");
+
+            byte[] bytes = unpacker.readPayload(binarySize);
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+
+            for (long expected : arr) {
+                long actual = buffer.getLong();
+                assertEquals(expected, actual, "Long value should match");
+            }
+        }
+    }
+
+    @Test
+    public void testPackLongArrayAsBinaryNull() throws IOException {
+        byte[] packed = packIgnite(p -> p.packLongArrayAsBinary(null));
+
+        try (var unpacker = MessagePack.newDefaultUnpacker(packed)) {
+            // Should be nil
+            unpacker.unpackNil();
+        }
+    }
+
+    @Test
+    public void testPackLongArrayAsBinaryEmpty() throws IOException {
+        byte[] packed = packIgnite(p -> p.packLongArrayAsBinary(new long[0]));
+
+        try (var unpacker = MessagePack.newDefaultUnpacker(packed)) {
+            // Should be binary with size 0
+            int binarySize = unpacker.unpackBinaryHeader();
+            assertEquals(0, binarySize);
+        }
+    }
+
     private interface MessagePackerConsumer {
         void accept(MessagePacker p) throws IOException;
     }

@@ -103,6 +103,7 @@ class UnitDownloader {
     }
 
     private CompletableFuture<Boolean> downloadUnitContent(String id, Version version, Collection<String> nodes) {
+        LOG.info("Downloading unit {}:{} from nodes {}", id, version, nodes);
         return messaging.downloadUnitContent(id, version, nodes)
                 .thenCompose(content -> {
                     DeploymentUnit unit = toDeploymentUnit(content);

@@ -253,7 +253,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
         InternalClusterNode leader = firstLeaderRef.get();
 
         // Forcing the leader change by stopping the actual leader.
-        var addressToStop = new NetworkAddress("localhost", leader.address().port());
+        var addressToStop = new NetworkAddress(leader.address().host(), leader.address().port());
 
         var raftServerToStop = raftServers.remove(addressToStop);
 

@@ -32,6 +32,8 @@ public class LogStorageConfigurationSchema {
 
     public static final int UNSPECIFIED_MAX_LOG_ENTRY_SIZE = -1;
 
+    public static final long DEFAULT_SOFT_LOG_SIZE_LIMIT_BYTES = 10L * DEFAULT_SEGMENT_FILE_SIZE_BYTES;
+
     /**
      * Maximum size of the log storage checkpoint queue.
      */
@@ -51,6 +53,16 @@ public class LogStorageConfigurationSchema {
      */
     @Value(hasDefault = true)
     public int maxLogEntrySizeBytes = UNSPECIFIED_MAX_LOG_ENTRY_SIZE;
+
+    /**
+     * Soft limit on the total size of all log storage files in bytes. When the total size exceeds this value, the
+     * garbage collector is triggered to compact segment files and reclaim disk space.
+     *
+     * <p>Must be at least {@link #segmentFileSizeBytes}.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public long softLogSizeLimitBytes = DEFAULT_SOFT_LOG_SIZE_LIMIT_BYTES;
 
     /**
      * Computes the default maximum log entry size based on the segment file size.

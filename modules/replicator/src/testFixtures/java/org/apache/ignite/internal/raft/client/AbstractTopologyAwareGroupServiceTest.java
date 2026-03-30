@@ -307,7 +307,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertNull(leaderRefNoInitialNotify.get());
 
         // Forcing the leader change by stopping the actual leader.
-        var addressToStop = new NetworkAddress("localhost", leader.address().port());
+        var addressToStop = new NetworkAddress(leader.address().host(), leader.address().port());
 
         var componentContext = new ComponentContext();
 

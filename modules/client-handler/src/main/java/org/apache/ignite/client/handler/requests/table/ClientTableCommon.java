@@ -62,6 +62,7 @@ import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
@@ -385,7 +386,13 @@ public class ClientTableCommon {
             out.packLong(tx.getTimeout());
         } else if (tx.remote()) {
             PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
-            out.packString(token.primaryNodeConsistentId());
+            String consistentId = token.primaryNodeConsistentId();
+
+            if (consistentId == null) {
+                throw new IllegalStateException("Primary node consistent ID must not be null for remote transactions: " + tx);
+            }
+
+            out.packString(consistentId);
             out.packLong(token.consistencyToken());
             out.packBoolean(TxState.ABORTED == tx.state()); // No-op enlistment.
 
@@ -537,6 +544,24 @@ public class ClientTableCommon {
                                 throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
                                         MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT + " [tx=" + remote + "].");
                             }
+
+                            // Track this remote enlistment for cleanup if client disconnects.
+                            try {
+                                resources.addTxCleaner(txId, tableId, commitPart, txManager, (IgniteTablesInternal) tables);
+                            } catch (IgniteInternalCheckedException e) {
+                                // Client disconnected (resource registry closed).
+                                try {
+                                    remote.rollback();
+                                } catch (Exception ex) {
+                                    e.addSuppressed(ex);
+                                }
+
+                                throw new IgniteException(e.traceId(), e.code(), "Client disconnected, tx rolled back: " + remote, e);
+                            }
+
+                            // Stop tracking on tx finish.
+                            txManager.resourceRegistry().register(
+                                    new FullyQualifiedResourceId(txId, txId), txId, () -> () -> resources.removeTxCleaner(txId));
 
                             return remote;
                         });

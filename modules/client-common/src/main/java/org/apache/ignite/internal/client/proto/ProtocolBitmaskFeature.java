@@ -112,7 +112,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Send discard requests to directly mapped partitions.
      */
-    TX_DIRECT_MAPPING_SEND_DISCARD(17);
+    TX_DIRECT_MAPPING_SEND_DISCARD(17),
+
+    /**
+     * Client supports SQL_UPDATE_COUNTERS_2 error extension (single binary value instead of array).
+     */
+    SQL_UPDATE_COUNTERS_2(18);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

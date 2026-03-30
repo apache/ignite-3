@@ -213,7 +213,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         var res = new HashMap<String, ClusterService>(nodeNames.size());
 
         var nodeFinder = new StaticNodeFinder(IntStream.range(BASE_PORT, BASE_PORT + 5)
-                .mapToObj(p -> new NetworkAddress("localhost", p))
+                .mapToObj(p -> new NetworkAddress("127.0.0.1", p))
                 .collect(Collectors.toList()));
 
         int port = BASE_PORT;

@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.scheduleRetry;
 
@@ -45,6 +46,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
@@ -68,6 +71,8 @@ public class TxCleanupRequestSender {
     private static final int RETRY_INITIAL_TIMEOUT_MS = 20;
     private static final int RETRY_MAX_TIMEOUT_MS = 30_000;
 
+    private static final String UNSUCCESSFUL_TXN_CLEANUP_LOG_KEY = "Unsuccessful transaction cleanup after N attempts";
+
     private final IgniteThrottledLogger throttledLog;
 
     /** Placement driver helper. */
@@ -80,6 +85,8 @@ public class TxCleanupRequestSender {
 
     /** Local transaction state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
+
+    private final ClusterNodeResolver clusterNodeResolver;
 
     /** Executor that executes async cleanup actions. */
     private final ExecutorService cleanupExecutor;
@@ -95,19 +102,22 @@ public class TxCleanupRequestSender {
      * @param txStateVolatileStorage Volatile transaction state storage.
      * @param cleanupExecutor Cleanup executor.
      * @param commonScheduler Common scheduler.
+     * @param clusterNodeResolver Cluster node resolver.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
             VolatileTxStateMetaStorage txStateVolatileStorage,
             ExecutorService cleanupExecutor,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
         this.txStateVolatileStorage = txStateVolatileStorage;
         this.cleanupExecutor = cleanupExecutor;
         this.retryExecutor = commonScheduler;
+        this.clusterNodeResolver = clusterNodeResolver;
         this.throttledLog = toThrottledLogger(Loggers.forClass(TxCleanupRequestSender.class), commonScheduler);
     }
 
@@ -156,12 +166,9 @@ public class TxCleanupRequestSender {
                                 String primaryNode = replicaMeta.getLeaseholder();
                                 HybridTimestamp startTime = replicaMeta.getStartTime();
                                 return txMessageSender.resolveTxStateFromCommitPartition(
+                                            txStateResolutionParameters().txId(txId).commitGroupId(commitPartitionId).build(),
                                             primaryNode,
-                                            txId,
-                                            commitPartitionId,
-                                            startTime.longValue(),
-                                            null,
-                                            null
+                                            startTime.longValue()
                                         )
                                         .thenApply(TransactionMeta::commitTimestamp);
                             }
@@ -394,6 +401,7 @@ public class TxCleanupRequestSender {
                         if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
                             if (attemptsMade > ATTEMPTS_LOG_THRESHOLD) {
                                 throttledLog.warn(
+                                        UNSUCCESSFUL_TXN_CLEANUP_LOG_KEY,
                                         "Unsuccessful transaction cleanup after {} attempts, keep retrying [txId={}]",
                                         throwable,
                                         ATTEMPTS_LOG_THRESHOLD,
@@ -410,7 +418,12 @@ public class TxCleanupRequestSender {
                             // At the end of the day all write intents will be properly converted.
                             if (partitions == null) {
                                 // If we don't have any partition, which is the recovery or "unlock only" case,
-                                // just try again with the same node.
+                                // just try again with the same node, if it is online.
+                                InternalClusterNode n = clusterNodeResolver.getByConsistentId(node);
+                                if (n == null) {
+                                    return CompletableFutures.<Void>nullCompletedFuture();
+                                }
+
                                 return scheduleRetry(
                                         () -> sendCleanupMessageWithRetries(
                                                 commitPartitionId,

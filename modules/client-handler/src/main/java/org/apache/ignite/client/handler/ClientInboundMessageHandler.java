@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
@@ -186,6 +187,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.tx.RetriableTransactionException;
@@ -516,6 +518,11 @@ public class ClientInboundMessageHandler
                     .thenCompose(unused -> authenticationManager.authenticateAsync(authReq))
                     .whenCompleteAsync((user, err) -> {
                         if (err != null) {
+                            if (isAuthenticationException(err)) {
+                                LOG.warn("Client authentication failed [connectionId={}, remoteAddress={}, identity={}]: {}",
+                                        connectionId, ctx.channel().remoteAddress(), authReq.getIdentity(), err.getMessage());
+                            }
+
                             handshakeError(ctx, err);
                         } else {
                             handshakeSuccess(ctx, user, clientFeatures, clientVer, clientCode);
@@ -562,8 +569,10 @@ public class ClientInboundMessageHandler
     }
 
     private void handshakeError(ChannelHandlerContext ctx, Throwable t) {
-        LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                + t.getMessage(), t);
+        // Authentication failures are already logged by the caller with more details (e.g. username).
+        if (!isAuthenticationException(t)) {
+            LOG.warn("Handshake failed [connectionId={}, remoteAddress={}]", t, connectionId, ctx.channel().remoteAddress());
+        }
 
         var errPacker = getPacker(ctx.alloc());
 
@@ -698,11 +707,11 @@ public class ClientInboundMessageHandler
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
         if (LOG.isDebugEnabled() && shouldLogError(err)) {
             if (isNotification) {
-                LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+                LOG.debug("Error processing client notification [connectionId={}, id={}, remoteAddress={}]",
+                        err, connectionId, requestId, ctx.channel().remoteAddress());
             } else {
-                LOG.debug("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+                LOG.debug("Error processing client request [connectionId={}, id={}, op={}, remoteAddress={}]",
+                        err, connectionId, requestId, opCode, ctx.channel().remoteAddress());
             }
         }
 
@@ -722,22 +731,10 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        int extCnt = 0;
-        boolean retriable = false;
-
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
         TransactionKilledException killedException = findException(err, TransactionKilledException.class);
-
-        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
-            extCnt = 1;
-        } else {
-            retriable = findException(err, RetriableTransactionException.class) != null;
-            if (retriable) {
-                extCnt++;
-            }
-        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -773,7 +770,18 @@ public class ClientInboundMessageHandler
         }
 
         // Extensions.
+        int extCnt = 0;
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
+            extCnt++;
+        }
+
+        var retriable = findException(err, RetriableTransactionException.class) != null;
+        if (retriable) {
+            extCnt++;
+        }
+
         if (extCnt > 0) {
+            // IMPORTANT: every extension must be a single msgpack value, so that the client can skip unknown values.
             packer.packInt(extCnt);
 
             if (retriable) {
@@ -785,9 +793,16 @@ public class ClientInboundMessageHandler
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
-                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
-                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
-                packer.packLongArray(sqlBatchException.updateCounters());
+                if (clientContext.hasFeature(SQL_UPDATE_COUNTERS_2)) {
+                    // New format: single binary value (protocol-compliant).
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
+                    packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
+                } else {
+                    // Old format: array of longs (for backward compatibility with older clients).
+                    // IMPORTANT: This part must come last in the payload, it can't be skipped correctly.
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                    packer.packLongArray(sqlBatchException.updateCounters());
+                }
             } else if (delayedAckException != null) {
                 packer.packString(ErrorExtensions.DELAYED_ACK);
                 packer.packUuid(delayedAckException.txId());
@@ -1421,9 +1436,8 @@ public class ClientInboundMessageHandler
                 fut.completeExceptionally(err);
             }
         } catch (Throwable t) {
-            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id=" + requestId
-                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
-                    + ", message=" + t.getMessage() + ']', t);
+            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id={}, connectionId={}, remoteAddress={}]",
+                    t, requestId, connectionId, channelHandlerContext.channel().remoteAddress());
         }
     }
 
@@ -1499,6 +1513,11 @@ public class ClientInboundMessageHandler
                         ))
                         .build()
         );
+    }
+
+    private static boolean isAuthenticationException(Throwable t) {
+        Throwable cause = ExceptionUtils.unwrapCause(t);
+        return cause instanceof InvalidCredentialsException || cause instanceof UnsupportedAuthenticationTypeException;
     }
 
     private class ComputeConnection implements PlatformComputeConnection {

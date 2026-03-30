@@ -197,10 +197,10 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             List<NetworkAddress> addrs = new ArrayList<>();
 
             for (int i = 0; i < NODES_COUNT; i++) {
-                addrs.add(new NetworkAddress("localhost", 10_000 + i));
+                addrs.add(new NetworkAddress("127.0.0.1", 10_000 + i));
             }
 
-            var localAddr = new NetworkAddress("localhost", 10_000 + index);
+            var localAddr = new NetworkAddress("127.0.0.1", 10_000 + index);
 
             clusterService = clusterService(testInfo, localAddr.port(), new StaticNodeFinder(addrs));
 

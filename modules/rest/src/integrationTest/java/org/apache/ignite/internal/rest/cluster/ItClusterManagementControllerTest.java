@@ -34,6 +34,8 @@ import org.apache.ignite.internal.rest.AbstractRestTestBase;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Cluster management REST test.
@@ -153,5 +155,29 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
         ClusterTag clusterTag2 = objectMapper.readValue(renameResponse.body(), ClusterTag.class);
         assertThat(clusterTag2.clusterName(), is("cluster2"));
         assertThat(clusterTag2.clusterId(), is(state.clusterTag().clusterId()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " "})
+    void testClusterRenameFailsWithNoName(String name) {
+        String initRequestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
+                + "    ],\n"
+                + "    \"clusterName\": \"cluster\"\n"
+                + "}";
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", initRequestBody));
+        assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
+        assertThat(cluster.server(0).waitForInitAsync(), willCompleteSuccessfully());
+
+        HttpRequest renameRequest = HttpRequest.newBuilder(URI.create(HTTP_HOST_PORT + "/management/v1/cluster/rename"))
+                .header("content-type", TEXT_PLAIN)
+                .POST(BodyPublishers.ofString(name))
+                .build();
+        HttpResponse<String> renameResponse = send(renameRequest);
+        assertThat(renameResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
     }
 }

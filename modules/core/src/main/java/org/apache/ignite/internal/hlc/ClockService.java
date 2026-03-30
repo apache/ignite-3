@@ -65,6 +65,17 @@ public interface ClockService {
     HybridTimestamp updateClock(HybridTimestamp requestTime);
 
     /**
+     * Advances the clock in accordance with the request time. If the request time is ahead of the clock,
+     * the clock is advanced to the tick that is next to the request time; otherwise, it's advanced to the tick
+     * that is next to the local time.
+     *
+     * @param requestTime Timestamp from request.
+     * @param checkClockSkew Whether to check for clock skew and log warnings if exceeded.
+     * @return New local hybrid timestamp that is on the clock (it is ahead of both the old clock time and the request time).
+     */
+    HybridTimestamp updateClock(HybridTimestamp requestTime, boolean checkClockSkew);
+
+    /**
      * Wait for the clock to reach the given timestamp.
      *
      * <p>If completion of the returned future triggers some I/O operations or causes the code to block, it is highly

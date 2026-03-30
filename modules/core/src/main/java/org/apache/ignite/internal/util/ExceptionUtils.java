@@ -456,6 +456,31 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Checks if the given throwable is already present in the cause or suppressed hierarchy of the given throwable.
+     *
+     * @param t Throwable.
+     * @param dejaVu Known exceptions.
+     * @return True if seen before, false otherwise.
+     */
+    public static boolean existingCauseOrSuppressed(@Nullable Throwable t, Set<Throwable> dejaVu) {
+        if (t == null) {
+            return false;
+        }
+
+        if (!dejaVu.add(t)) {
+            return true;
+        }
+
+        for (Throwable sup : t.getSuppressed()) {
+            if (existingCauseOrSuppressed(sup, dejaVu)) {
+                return true;
+            }
+        }
+
+        return existingCauseOrSuppressed(t.getCause(), dejaVu);
+    }
+
+    /**
      * Unwraps exception cause from wrappers like CompletionException and ExecutionException.
      *
      * @param e Throwable.

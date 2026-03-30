@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -720,6 +721,26 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.node(index);
     }
 
+    protected static Stream<Ignite> runningNodesStream() {
+        return CLUSTER.runningNodes();
+    }
+
+    protected static List<IgniteImpl> runningNodesList() {
+        return CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList());
+    }
+
+    protected final IgniteImpl anyNode() {
+        return unwrapIgniteImpl(CLUSTER.runningNodes().findAny().orElseThrow());
+    }
+
+    protected final IgniteImpl findNode(Predicate<IgniteImpl> pred) {
+        return CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(pred)
+                .findFirst()
+                .orElseThrow();
+    }
+
     protected static IgniteImpl igniteImpl(int index) {
         return unwrapIgniteImpl(node(index));
     }
@@ -769,7 +790,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         }
 
         private static void dumpClusterState() {
-            List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
+            List<Ignite> nodes = CLUSTER.runningNodes().collect(toList());
             for (Ignite node : nodes) {
                 unwrapIgniteImpl(node).dumpClusterState();
             }

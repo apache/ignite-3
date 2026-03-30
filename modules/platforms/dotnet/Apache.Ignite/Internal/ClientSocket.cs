@@ -54,7 +54,8 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
             ProtocolBitmaskFeature.SqlPartitionAwareness |
             ProtocolBitmaskFeature.SqlPartitionAwarenessTableName |
-            ProtocolBitmaskFeature.ComputeObservableTs;
+            ProtocolBitmaskFeature.ComputeObservableTs |
+            ProtocolBitmaskFeature.SqlUpdateCounters2;
 
         /** Features as a byte array */
         private static readonly byte[] FeatureBytes = Features.ToBytes();
@@ -482,6 +483,8 @@ namespace Apache.Ignite.Internal
                 }
             }
 
+            Debug.Assert(reader.End, "All error response bytes should be consumed.");
+
             return ex;
         }
 
@@ -705,7 +708,7 @@ namespace Apache.Ignite.Internal
             {
                 await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
 
-                await using var cancellation = RegisterCancellation(requestId, cancellationToken).ConfigureAwait(false);
+                await using var cancellation = RegisterCancellation(requestId, clientOp, cancellationToken).ConfigureAwait(false);
 
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
@@ -736,8 +739,8 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private CancellationTokenRegistration RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
-            cancellationToken == CancellationToken.None
+        private CancellationTokenRegistration RegisterCancellation(long requestId, ClientOp op, CancellationToken cancellationToken) =>
+            cancellationToken == CancellationToken.None || !op.IsCancellable()
                 ? default
                 : cancellationToken.Register(() => _ = CancelRequestAsync(requestId));
 
