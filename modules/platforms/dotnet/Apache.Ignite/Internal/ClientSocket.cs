@@ -467,9 +467,8 @@ namespace Apache.Ignite.Internal
                 javaStackTrace += $"{Environment.NewLine}---- End of server-side stack trace ----{Environment.NewLine}";
             }
 
-            var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
-
             long[]? updateCounters = null;
+            int? expectedSchemaVersion = null;
 
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             for (int i = 0; i < extensionCount; i++)
@@ -477,7 +476,7 @@ namespace Apache.Ignite.Internal
                 var key = reader.ReadString();
                 if (key == ErrorExtensions.ExpectedSchemaVersion)
                 {
-                    ex.Data[key] = reader.ReadInt32();
+                    expectedSchemaVersion = reader.ReadInt32();
                 }
                 else if (key == ErrorExtensions.SqlUpdateCounters2)
                 {
@@ -489,17 +488,31 @@ namespace Apache.Ignite.Internal
                 }
             }
 
+            IgniteException ex;
+
             if (updateCounters != null)
             {
-                ex = new Ignite.Sql.SqlBatchException(traceId, code, updateCounters, message, ex.InnerException);
+                ex = new Ignite.Sql.SqlBatchException(
+                    traceId, code, updateCounters, message, new IgniteServerException(traceId, code, className, javaStackTrace));
             }
             else if (className == "org.apache.ignite.sql.SqlBatchException")
             {
-                ex = new Ignite.Sql.SqlBatchException(traceId, code, message, ex.InnerException);
+                ex = new Ignite.Sql.SqlBatchException(
+                    traceId, code, message, new IgniteServerException(traceId, code, className, javaStackTrace));
             }
             else if (className == "org.apache.ignite.sql.SqlException")
             {
-                ex = new Ignite.Sql.SqlException(traceId, code, message, ex.InnerException);
+                ex = new Ignite.Sql.SqlException(
+                    traceId, code, message, new IgniteServerException(traceId, code, className, javaStackTrace));
+            }
+            else
+            {
+                ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+            }
+
+            if (expectedSchemaVersion != null)
+            {
+                ex.Data[ErrorExtensions.ExpectedSchemaVersion] = expectedSchemaVersion.Value;
             }
 
             Debug.Assert(reader.End, "All error response bytes should be consumed.");
