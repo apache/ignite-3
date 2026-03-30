@@ -100,7 +100,7 @@ public class ClientLazyTransaction implements Transaction {
     public CompletableFuture<Void> rollbackAsync() {
         var tx0 = tx;
 
-        // This is really fishy. It will probably let you reuse a transaction after calling a rollback :(
+        // TODO: IGNITE-28405 This is really fishy. It will probably let you reuse a transaction after calling a rollback :(
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
             return nullCompletedFuture();

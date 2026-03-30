@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 class DirectTransactionWithFirstRequest implements InternalTransaction, Wrapper {
     private final InternalTransaction base;
 
-    // We could alos just accept a lambda.
+    // We could also just accept a lambda.
     private final Map<Long, Long> reqToTxMap;
 
     private final long firstReqId;

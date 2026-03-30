@@ -306,8 +306,7 @@ public class ClientInboundMessageHandler
      *
      * <p><b>Mappings are removed:</b>
      * <ul>
-     *     <li>During a rollback request.</li>
-     *     <li>After the first request response is sent to the client.</li>
+     *     <li>During a commit or rollback request. Hook is added at creation.</li>
      * </ul>
      */
     private final Map<Long, Long> firstReqToTxResMap = new ConcurrentHashMap<>();
