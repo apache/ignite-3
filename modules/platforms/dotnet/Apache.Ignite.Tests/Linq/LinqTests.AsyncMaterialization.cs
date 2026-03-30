@@ -107,7 +107,7 @@ public partial class LinqTests
         Assert.AreEqual(6L, (await query.FirstAsync(x => x.Key > 5)).Key);
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.FirstAsync(x => x.Key > 1000));
-        StringAssert.StartsWith("ResultSet is empty: ", ex!.Message);
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
     }
 
     [Test]
@@ -129,10 +129,10 @@ public partial class LinqTests
         Assert.AreEqual(6L, (await query.SingleAsync(x => x.Key == 6)).Key);
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.SingleAsync());
-        StringAssert.StartsWith("ResultSet is expected to have one row, but has more: ", ex!.Message);
+        Assert.AreEqual("Sequence contains more than one matching element", ex!.Message);
 
         var ex2 = Assert.ThrowsAsync<InvalidOperationException>(() => query.SingleAsync(x => x.Key > 1000));
-        StringAssert.StartsWith("ResultSet is empty: ", ex2!.Message);
+        Assert.AreEqual("Sequence contains no elements", ex2!.Message);
     }
 
     [Test]
@@ -145,7 +145,7 @@ public partial class LinqTests
         Assert.IsNull(await query.SingleOrDefaultAsync(x => x.Key > 1000));
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.SingleOrDefaultAsync());
-        StringAssert.StartsWith("ResultSet is expected to have one row, but has more: ", ex!.Message);
+        Assert.AreEqual("Sequence contains more than one matching element", ex!.Message);
     }
 
     [Test]
