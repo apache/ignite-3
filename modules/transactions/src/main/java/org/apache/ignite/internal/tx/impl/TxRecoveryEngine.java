@@ -129,13 +129,9 @@ public class TxRecoveryEngine {
                 })
                 .thenCompose(Function.identity())
                 .whenComplete((v, ex) -> {
-                    // v contains the actual resolved transaction state (COMMITTED or ABORTED).
-                    // We must pass it to cleanup so the correct commit flag is used.
-                    // Previously, runCleanupOnNode always used commit=false (hardcoded in the 3-param
-                    // TxCleanupRequestSender.cleanup), which caused data corruption when the transaction
-                    // was actually COMMITTED: the abort cleanup would race with the legitimate commit
-                    // cleanup, and whichever arrived first at each partition would win, producing a mix
-                    // of committed and aborted rows within the same transaction.
+                    // Cleanup must use the actual resolved tx state; using commit=false unconditionally
+                    // would corrupt data when the tx is actually COMMITTED (abort cleanup races with
+                    // commit cleanup, producing a mix of committed and aborted rows).
                     boolean commit = v != null && v.txState() == COMMITTED;
                     @Nullable HybridTimestamp commitTs = v != null ? v.commitTimestamp() : null;
 
