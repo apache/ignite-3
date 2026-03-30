@@ -469,6 +469,8 @@ namespace Apache.Ignite.Internal
 
             var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
+            long[]? updateCounters = null;
+
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             for (int i = 0; i < extensionCount; i++)
             {
@@ -477,15 +479,51 @@ namespace Apache.Ignite.Internal
                 {
                     ex.Data[key] = reader.ReadInt32();
                 }
+                else if (key == ErrorExtensions.SqlUpdateCounters2)
+                {
+                    updateCounters = ReadLongArrayFromBinary(ref reader);
+                }
                 else
                 {
                     reader.Skip(); // Unknown extension - ignore.
                 }
             }
 
+            if (updateCounters != null)
+            {
+                ex = new Ignite.Sql.SqlBatchException(traceId, code, updateCounters, message, ex.InnerException);
+            }
+            else if (className.EndsWith("SqlBatchException", StringComparison.Ordinal) && ex is not Ignite.Sql.SqlBatchException)
+            {
+                ex = new Ignite.Sql.SqlBatchException(traceId, code, message, ex.InnerException);
+            }
+
             Debug.Assert(reader.End, "All error response bytes should be consumed.");
 
             return ex;
+        }
+
+        private static long[] ReadLongArrayFromBinary(ref MsgPackReader reader)
+        {
+            if (reader.TryReadNil())
+            {
+                return Array.Empty<long>();
+            }
+
+            var bytes = reader.ReadBinary();
+
+            if (bytes.Length % 8 != 0)
+            {
+                throw new IgniteClientException(ErrorGroups.Client.Protocol, "Invalid binary long array size: " + bytes.Length);
+            }
+
+            var result = new long[bytes.Length / 8];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = BinaryPrimitives.ReadInt64BigEndian(bytes.Slice(i * 8, 8));
+            }
+
+            return result;
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
