@@ -38,51 +38,60 @@ elseif (NOT IGNITE3_CLIENT_PUBLIC_HEADERS)
     message(WARNING "compile-public-headers: IGNITE3_CLIENT_PUBLIC_HEADERS is empty. "
                     "Check ignite/client/CMakeLists.txt.")
 else()
-    set(_hcc_dir "${CMAKE_BINARY_DIR}/hcc")
+    set(CPH_DIR "${CMAKE_BINARY_DIR}/compile-public-headers")
 
     # Write the list of public headers to a cmake file that the
     # sub-project will include. This avoids command-line quoting
     # issues when passing a list with semicolons.
-    set(_hcc_list_file "${_hcc_dir}/headers_list.cmake")
-    set(_hcc_list_content "set(IGNITE_PUBLIC_HEADERS\n")
-    foreach(_h IN LISTS IGNITE3_CLIENT_PUBLIC_HEADERS)
-        string(APPEND _hcc_list_content "    \"${_h}\"\n")
+    set(CPH_LIST_FILE "${CPH_DIR}/headers_list.cmake")
+    set(CPH_LIST_CONTENT "set(IGNITE_PUBLIC_HEADERS\n")
+    foreach(H IN LISTS IGNITE3_CLIENT_PUBLIC_HEADERS)
+        string(APPEND CPH_LIST_CONTENT "    \"${H}\"\n")
     endforeach()
-    string(APPEND _hcc_list_content ")\n")
-    file(MAKE_DIRECTORY "${_hcc_dir}")
-    file(WRITE "${_hcc_list_file}" "${_hcc_list_content}")
+    string(APPEND CPH_LIST_CONTENT ")\n")
+    file(MAKE_DIRECTORY "${CPH_DIR}")
+    file(WRITE "${CPH_LIST_FILE}" "${CPH_LIST_CONTENT}")
 
-    set(_hcc_install_prefix "${_hcc_dir}/install")
-    set(_hcc_sub_src "${CMAKE_SOURCE_DIR}/tests/package-test/compile_public_headers")
-    set(_hcc_sub_bin "${_hcc_dir}/build")
-    set(_hcc_stamp   "${_hcc_dir}/compile-public-headers.stamp")
+    set(CPH_INSTALL_PREFIX "${CPH_DIR}/install")
+    set(CPH_SUB_SRC "${CMAKE_SOURCE_DIR}/tests/package-test/compile_public_headers")
+    set(CPH_SUB_BIN "${CPH_DIR}/build")
+    set(CPH_STAMP   "${CPH_DIR}/compile-public-headers.stamp")
+
+    # Forward the generator (and platform on Windows) so the sub-project uses the
+    # same toolchain as the parent.  Without -A x64, Visual Studio generators
+    # default to 32-bit and cannot locate the installed 64-bit ignite package.
+    set(CPH_GENERATOR_ARGS -G "${CMAKE_GENERATOR}")
+    if (CMAKE_GENERATOR_PLATFORM)
+        list(APPEND CPH_GENERATOR_ARGS -A "${CMAKE_GENERATOR_PLATFORM}")
+    endif()
 
     # Use add_custom_command so the check is skipped when ignite3-client has
     # not been rebuilt since the last successful run (stamp file is up-to-date).
     add_custom_command(
-        OUTPUT  "${_hcc_stamp}"
+        OUTPUT  "${CPH_STAMP}"
         # Install the already-built client to a temp prefix.
         # Only files declared with COMPONENT client are installed -
         # internal headers not in PUBLIC_HEADERS are absent.
         COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}"
-                    --prefix "${_hcc_install_prefix}"
+                    --prefix "${CPH_INSTALL_PREFIX}"
                     --component client
         # Configure sub-project against the installed package.
         # INTERFACE_INCLUDE_DIRECTORIES resolves to <prefix>/include
         # (INSTALL_INTERFACE), so the compiler cannot reach internal headers.
         COMMAND ${CMAKE_COMMAND}
-                    "-DCMAKE_PREFIX_PATH=${_hcc_install_prefix}"
-                    "-DIGNITE_HEADERS_LIST_FILE=${_hcc_list_file}"
+                    ${CPH_GENERATOR_ARGS}
+                    "-DCMAKE_PREFIX_PATH=${CPH_INSTALL_PREFIX}"
+                    "-DIGNITE_HEADERS_LIST_FILE=${CPH_LIST_FILE}"
                     "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
                     "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-                    "-S${_hcc_sub_src}"
-                    "-B${_hcc_sub_bin}"
-        COMMAND ${CMAKE_COMMAND} --build "${_hcc_sub_bin}"
-        COMMAND ${CMAKE_COMMAND} -E touch "${_hcc_stamp}"
+                    "-S${CPH_SUB_SRC}"
+                    "-B${CPH_SUB_BIN}"
+        COMMAND ${CMAKE_COMMAND} --build "${CPH_SUB_BIN}"
+        COMMAND ${CMAKE_COMMAND} -E touch "${CPH_STAMP}"
         DEPENDS ignite3-client
         COMMENT "compile-public-headers: compiling each public header against installed package"
         VERBATIM
     )
 
-    add_custom_target(compile-public-headers ALL DEPENDS "${_hcc_stamp}")
+    add_custom_target(compile-public-headers ALL DEPENDS "${CPH_STAMP}")
 endif()

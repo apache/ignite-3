@@ -48,14 +48,14 @@ find_package(ignite REQUIRED COMPONENTS client)
 # Load the list of public headers (variable: IGNITE_PUBLIC_HEADERS).
 include("${IGNITE_HEADERS_LIST_FILE}")
 
-foreach(_h IN LISTS IGNITE_PUBLIC_HEADERS)
+foreach(H IN LISTS IGNITE_PUBLIC_HEADERS)
     # Derive a CMake-identifier-safe target name from the header path.
-    string(MAKE_C_IDENTIFIER "${_h}" _safe)
+    string(MAKE_C_IDENTIFIER "${H}" CPH_SAFE_NAME)
 
-    set(_cpp "${CMAKE_CURRENT_BINARY_DIR}/${_safe}.cpp")
-    file(WRITE "${_cpp}" "#include <ignite/client/${_h}>\n")
+    set(CPH_CPP "${CMAKE_CURRENT_BINARY_DIR}/${CPH_SAFE_NAME}.cpp")
+    file(WRITE "${CPH_CPP}" "#include <ignite/client/${H}>\n")
 
     # Compile the generated file as an object (no link step needed).
-    add_library(hcc_${_safe} OBJECT "${_cpp}")
-    target_link_libraries(hcc_${_safe} PRIVATE ignite::client)
+    add_library(cph_${CPH_SAFE_NAME} OBJECT "${CPH_CPP}")
+    target_link_libraries(cph_${CPH_SAFE_NAME} PRIVATE ignite::client)
 endforeach()
