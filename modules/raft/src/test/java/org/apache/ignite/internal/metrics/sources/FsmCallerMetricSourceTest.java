@@ -26,6 +26,7 @@ import java.util.Set;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -55,7 +56,10 @@ public class FsmCallerMetricSourceTest extends BaseIgniteAbstractTest {
         expectedMetrics.add("CommitTime");
 
         for (FSMCallerImpl.TaskType type : FSMCallerImpl.TaskType.values()) {
-            expectedMetrics.add(type.metricName);
+            // Committed is a stub, not a real task type.
+            if (type != TaskType.COMMITTED) {
+                expectedMetrics.add(type.metricName);
+            }
         }
 
         var actualMetrics = new HashSet<String>();
