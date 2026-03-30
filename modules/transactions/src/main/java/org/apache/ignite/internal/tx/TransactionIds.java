@@ -87,6 +87,7 @@ public class TransactionIds {
         return TxPriority.fromOrdinal(ordinal);
     }
 
+    // TODO remove
     public static int retryCnt(UUID txId) {
         return (int) (txId.getLeastSignificantBits() & MASK) >> 1;
     }

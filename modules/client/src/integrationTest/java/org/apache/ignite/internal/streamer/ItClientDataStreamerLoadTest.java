@@ -29,8 +29,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -46,17 +44,15 @@ import org.junit.jupiter.api.Timeout;
  * Data streamer load test.
  */
 public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItClientDataStreamerLoadTest.class);
-
     private static final String TABLE_NAME = "test_table";
 
     private static final int CLIENT_COUNT = 2;
 
-    private static final int SERVER_COUNT = 1;
+    private static final int SERVER_COUNT = 2;
 
     private static final int ROW_COUNT = 100_000;
 
-    private static final int LOOP_COUNT = 1;
+    private static final int LOOP_COUNT = 10;
 
     private static final IgniteClient[] clients = new IgniteClient[CLIENT_COUNT];
 
@@ -85,7 +81,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME, 1, 1);
+        createTable(TABLE_NAME, 1, 10);
     }
 
     @BeforeEach
@@ -137,9 +133,8 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
-                    //.perPartitionParallelOperations(rnd.nextInt(2) + 1)
-                    .perPartitionParallelOperations(1)
-                    .pageSize(1000)
+                    .perPartitionParallelOperations(rnd.nextInt(2) + 1)
+                    .pageSize(rnd.nextInt(1000) + 100)
                     .retryLimit(1)
                     .build();
 
@@ -147,14 +142,12 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
             // Insert same data over and over again.
             for (int j = 0; j < LOOP_COUNT; j++) {
-                LOG.info("DBG: loop " + j);
                 for (int i = 0; i < ROW_COUNT; i++) {
                     publisher.submit(DataStreamerItem.of(tuple(i, "foo_" + i)));
                 }
             }
         }
 
-        LOG.info("DBG: done");
         streamerFut.orTimeout(10, TimeUnit.SECONDS).join();
     }
 

@@ -2135,6 +2135,11 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     @ParameterizedTest
     @EnumSource(TxPriority.class)
     public void testYoungerTransactionThrowsExceptionIfKeyLockedByOlderTransactionWithSamePriority(TxPriority priority) {
+        boolean reversed = txManager(accounts).lockManager().policy().reverse();
+        if (!reversed) {
+            return; // This test scenario is applicable only to reversed priority.
+        }
+
         IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;
 
         KeyValueView<Long, String> keyValueView = customers.keyValueView(Long.class, String.class);

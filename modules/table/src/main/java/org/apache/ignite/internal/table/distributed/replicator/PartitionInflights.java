@@ -24,8 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -34,8 +32,6 @@ import org.jetbrains.annotations.TestOnly;
  * Client transaction inflights tracker.
  */
 public class PartitionInflights {
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionInflights.class);
-
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS_HINT = 1024;
 
@@ -96,7 +92,7 @@ public class PartitionInflights {
                 return null;
             }
 
-            LOG.info("DBG: finishFuture " + txId + " " + ctx.inflights);
+            // LOG.info("DBG: finishFuture " + txId + " " + ctx.inflights);
 
             if (ctx.finishFut == null) {
                 ctx.finishFut = ctx.inflights.get() == 0 ? nullCompletedFuture() : new CompletableFuture<>();

@@ -1539,11 +1539,11 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-         LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
+        // LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
 
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
-                    LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
+                    //LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
 
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
@@ -1575,7 +1575,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             releaseGuardLock.writeLock().lock();
 
             try {
-
                 lockManager.failAllWaiters(txId, new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                         format("Can't acquire a lock because {} [{}].",
@@ -1707,6 +1706,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             CompletableFuture<T> fut;
 
             releaseGuardLock.readLock(idx).lock();
+
             try {
                 fut = op.get();
             } finally {
@@ -1757,6 +1757,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             CompletableFuture<T> fut;
 
             releaseGuardLock.readLock(idx).lock();
+
             try {
                 fut = op.get();
             } finally {

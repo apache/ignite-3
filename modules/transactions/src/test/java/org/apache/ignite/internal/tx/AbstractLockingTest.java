@@ -83,7 +83,7 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
         DeadlockPreventionPolicy policy = deadlockPreventionPolicy();
         lockManager.start(policy);
         if (!policy.reverse()) {
-            // Test are written for wait die policy. Sort according to that.
+            // Test are written for reversed policy. Sort according to that.
             Arrays.sort(txns, Comparator.reverseOrder());
         }
     }

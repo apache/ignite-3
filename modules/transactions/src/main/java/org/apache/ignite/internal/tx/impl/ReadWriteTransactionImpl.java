@@ -349,7 +349,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        LOG.info("DBG: kill " + id());
         return finishInternal(false, null, false, false, new TransactionKilledException(id(), txManager));
     }
 
