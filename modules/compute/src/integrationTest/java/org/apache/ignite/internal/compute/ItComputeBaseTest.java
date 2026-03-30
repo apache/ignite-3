@@ -679,7 +679,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         // RuntimeException is thrown when SleepJob catches the InterruptedException
         assertThat(runtimeException.toString(), containsString(InterruptedException.class.getName()));
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @ParameterizedTest
@@ -729,7 +729,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         // Cancel running task
         assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @ParameterizedTest(name = "local: {0}")

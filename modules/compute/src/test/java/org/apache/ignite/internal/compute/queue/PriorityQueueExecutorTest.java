@@ -284,9 +284,10 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         assertThat(execution.cancel(), is(true));
 
+        // InterruptedException is not CancellationException, so the job transitions to FAILED.
         await().until(
                 execution::state,
-                jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
+                jobStateWithStatusAndCreateTimeStartTime(FAILED, executingState.createTime(), executingState.startTime())
         );
         assertThat(execution.resultAsync(), willThrow(InterruptedException.class));
     }
@@ -368,7 +369,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         await().until(execution::state, jobStateWithStatus(EXECUTING));
         execution.cancel();
 
-        await().until(execution::state, jobStateWithStatus(CANCELED));
+        // InterruptedException is not CancellationException, so the job transitions to FAILED (no retry).
+        await().until(execution::state, jobStateWithStatus(FAILED));
         assertThat(runTimes.get(), is(1));
     }
 

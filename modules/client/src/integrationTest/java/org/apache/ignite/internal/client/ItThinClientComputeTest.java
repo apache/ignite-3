@@ -297,8 +297,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         // Async job completes normally after cooperative cancellation (returns from isCancelled() check) — COMPLETED.
-        // Sync job throws on thread interruption — CANCELED.
-        JobStatus expectedStatus = asyncJob ? COMPLETED : CANCELED;
+        // Sync job throws RuntimeException on thread interruption — FAILED (not CancellationException).
+        JobStatus expectedStatus = asyncJob ? COMPLETED : FAILED;
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(expectedStatus)));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(expectedStatus)));
     }
@@ -729,7 +729,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @ParameterizedTest
@@ -751,7 +751,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @Test

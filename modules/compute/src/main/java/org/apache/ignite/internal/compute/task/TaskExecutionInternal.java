@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -47,12 +48,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
@@ -190,14 +191,13 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     }
 
     private void captureReduceSubmitFailure(Throwable throwable) {
-        if (isCancelled.get()) {
+        TaskStatus status = unwrapCause(throwable) instanceof CancellationException ? CANCELED : FAILED;
+
+        if (status == CANCELED) {
             LOG.warn("Reduce job for task {} was cancelled.", taskId);
         } else {
             LOG.error("Failed to submit reduce job for task {}", throwable, taskId);
         }
-
-        // Capture the reduce submit failure reason and time.
-        TaskStatus status = isCancelled.get() ? CANCELED : FAILED;
 
         logEvent(eventLog, status == CANCELED ? COMPUTE_TASK_CANCELED : COMPUTE_TASK_FAILED, eventMetadata);
 
@@ -215,15 +215,12 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
     private void handleReduceResult(QueueExecution<R> reduceExecution) {
         reduceExecution.resultAsync().whenComplete((result, throwable) -> {
-            if (result != null) {
+            if (throwable == null) {
                 logEvent(eventLog, COMPUTE_TASK_COMPLETED, eventMetadata);
             } else {
-                JobState reduceState = reduceExecution.state();
-                // The state should never be null since it was just submitted, but check just in case.
-                if (reduceState != null) {
-                    IgniteEventType type = reduceState.status() == JobStatus.FAILED ? COMPUTE_TASK_FAILED : COMPUTE_TASK_CANCELED;
-                    logEvent(eventLog, type, eventMetadata);
-                }
+                IgniteEventType type = unwrapCause(throwable) instanceof CancellationException
+                        ? COMPUTE_TASK_CANCELED : COMPUTE_TASK_FAILED;
+                logEvent(eventLog, type, eventMetadata);
             }
         });
     }
