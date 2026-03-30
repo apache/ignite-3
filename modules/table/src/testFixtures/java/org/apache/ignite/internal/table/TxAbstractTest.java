@@ -1009,7 +1009,11 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertTrue(waitForCondition(() -> TxState.ABORTED == tx2.state(), 5_000), tx2.state().toString());
 
         owner.commit();
-        waiter.rollback();
+        try {
+            waiter.rollback();
+        } catch (TransactionException e) {
+            // Expected.
+        }
 
         validateBalance(accounts.recordView().getAll(null, List.of(makeKey(2), makeKey(1))), 200., 300.);
     }

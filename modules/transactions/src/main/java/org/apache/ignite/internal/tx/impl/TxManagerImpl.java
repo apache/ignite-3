@@ -1218,11 +1218,6 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
         TxStateMeta state = txStateVolatileStorage.state(txId);
 
         if (state != null && state.tx() != null) {
-            // TODO: IGNITE-24382 Kill implicit read-write transaction.
-            if (!state.tx().isReadOnly() && state.tx().implicit()) {
-                return falseCompletedFuture();
-            }
-
             return state.tx().kill().thenApply(unused -> true);
         }
 

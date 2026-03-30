@@ -196,6 +196,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.PrimaryReplicaChangeDuringWriteIntentResolutionException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
@@ -213,6 +214,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
@@ -261,6 +263,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final int CONCURRENCY = Runtime.getRuntime().availableProcessors();
 
     private final ZonePartitionId replicationGroupId;
 
@@ -340,6 +344,13 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     /** Registry of replica request handlers. */
     private final ReplicaRequestHandlers requestHandlers;
+
+    /**
+     * This lock guards agains concurrent pending lock release on await cleanup path and lock acqusition.
+     * A situation is possible then a table operation acquires large number of locks and release attempt
+     * is done in the middle of it. Some locks are released in this situation.
+     */
+    private final IgniteStripedReadWriteLock releaseGuardLock = new IgniteStripedReadWriteLock(CONCURRENCY);
 
     /**
      * The constructor.
@@ -1528,11 +1539,11 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        // LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
+         LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
 
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
-                    //LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
+                    LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
 
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
@@ -1560,18 +1571,26 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
             // Using non-retriable exception intentionally to prevent unnecessary retries.
             // Killed state will be propagated in the cause.
-            lockManager.failAllWaiters(txId, new TransactionException(
-                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                    format("Can't acquire a lock because {} [{}].",
-                            finishedTransactionErrorMessage(
-                                    isFinishedDueToTimeout,
-                                    isFinishedDueToError,
-                                    causeErrorCode,
-                                    publicCause != null
-                            ).toLowerCase(Locale.ROOT),
-                            formatTxInfo(txId, txManager)),
-                    publicCause
-            ));
+
+            releaseGuardLock.writeLock().lock();
+
+            try {
+
+                lockManager.failAllWaiters(txId, new TransactionException(
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format("Can't acquire a lock because {} [{}].",
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        causeErrorCode,
+                                        publicCause != null
+                                ).toLowerCase(Locale.ROOT),
+                                formatTxInfo(txId, txManager)),
+                        publicCause
+                ));
+            } finally {
+                releaseGuardLock.writeLock().unlock();
+            }
         }
 
         if (cleanupContext == null) {
@@ -1682,8 +1701,19 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             boolean full,
             Supplier<CompletableFuture<T>> op
     ) {
+        int idx = TransactionIds.hash(txId, CONCURRENCY);
+
         if (full) {
-            return op.get().whenComplete((v, th) -> {
+            CompletableFuture<T> fut;
+
+            releaseGuardLock.readLock(idx).lock();
+            try {
+                fut = op.get();
+            } finally {
+                releaseGuardLock.readLock(idx).unlock();
+            }
+
+            return fut.whenComplete((v, th) -> {
                 // Fast unlock.
                 releaseTxLocks(txId);
             });
@@ -1724,7 +1754,14 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         }
 
         try {
-            CompletableFuture<T> fut = op.get(); // Starts the operation.
+            CompletableFuture<T> fut;
+
+            releaseGuardLock.readLock(idx).lock();
+            try {
+                fut = op.get();
+            } finally {
+                releaseGuardLock.readLock(idx).unlock();
+            }
 
             fut.whenComplete((v, th) -> {
                 if (th != null) {

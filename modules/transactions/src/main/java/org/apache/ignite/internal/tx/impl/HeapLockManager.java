@@ -51,6 +51,8 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.AcquireLockTimeoutException;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.LockTableOverflowException;
 import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.Waiter;
@@ -85,6 +88,8 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
+    private static final IgniteLogger LOG = Loggers.forClass(HeapLockManager.class);
+
     /** Table size. */
     public static final int DEFAULT_SLOTS = 1_048_576;
 
@@ -258,6 +263,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void releaseAll(UUID txId) {
+        LOG.info("DBG: releaseAll " + txId);
+
         ConcurrentLinkedQueue<Releasable> states = this.txMap.remove(txId);
 
         if (states != null) {
@@ -541,7 +548,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 return lock;
             }
 
-            int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
+            int idx = TransactionIds.hash(txId, CONCURRENCY);
 
             stripedLock.readLock(idx).lock();
 
@@ -571,7 +578,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         @Override
         public void tryFail(UUID txId, Exception cause) {
-            int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
+            int idx = TransactionIds.hash(txId, CONCURRENCY);
 
             IgniteBiTuple<Lock, CompletableFuture<Lock>> waiter0 = null;
 
@@ -661,7 +668,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     }
 
                 case IX:
-                    int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
+                    int idx = TransactionIds.hash(txId, CONCURRENCY);
 
                     stripedLock.readLock(idx).lock();
 
@@ -792,7 +799,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     break;
                 case IX:
-                    int idx = Math.floorMod(spread(lock.txId().hashCode()), CONCURRENCY);
+                    int idx = TransactionIds.hash(lock.txId(), CONCURRENCY);
 
                     Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> wakeups;
 
@@ -1525,10 +1532,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         public String toString() {
             return S.toString(WaiterImpl.class, this, "notified", fut.isDone(), "failed", fut.isDone() && fut.isCompletedExceptionally());
         }
-    }
-
-    private static int spread(int h) {
-        return (h ^ (h >>> 16)) & 0x7fffffff;
     }
 
     @TestOnly

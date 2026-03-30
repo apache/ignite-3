@@ -97,4 +97,12 @@ public class TransactionIds {
         // Shift the int 32 bits and combine with the boolean
         return ((long) nodeId << 32) | ((long) retryCnt << 1) | priorityAsInt;
     }
+
+    public static int hash(UUID txId, int divisor) {
+        return Math.floorMod(spread(txId.hashCode()), divisor);
+    }
+
+    private static int spread(int h) {
+        return (h ^ (h >>> 16)) & 0x7fffffff;
+    }
 }

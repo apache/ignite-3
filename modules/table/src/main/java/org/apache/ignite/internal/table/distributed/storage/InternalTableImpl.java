@@ -91,6 +91,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -143,6 +145,8 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
+
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
@@ -634,6 +638,8 @@ public class InternalTableImpl implements InternalTable {
 
         if (full) { // Full transaction retries are handled in postEnlist.
             return replicaSvc.invokeRaw(enlistment.primaryNodeConsistentId(), request).handle((r, e) -> {
+                LOG.info("DBG: invokeRaw " + tx.id());
+
                 boolean hasError = e != null;
                 assert hasError || r instanceof TimestampAware;
 
@@ -729,9 +735,13 @@ public class InternalTableImpl implements InternalTable {
     private static <T> CompletableFuture<T> postEnlist(
             CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
     ) {
+        LOG.info("DBG: postEnlist " + tx0.id());
+
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
+            LOG.info("DBG: postEnlist 2 " + tx0.id());
+
             if (full || tx0.remote()) {
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
@@ -1170,7 +1180,12 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
+
+
         InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
+
+        LOG.info("DBG: rows " + rows.size() + " id=" + tx.id());
+
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
