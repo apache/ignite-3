@@ -730,6 +730,14 @@ namespace Apache.Ignite.Tests.Compute
 
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 10_000, cts.Token);
 
+            // Wait until all jobs are executing to avoid timing-dependent status.
+            await TestUtils.WaitForConditionAsync(
+                async () =>
+                {
+                    var states = await taskExec.GetJobStatesAsync();
+                    return states.All(s => s?.Status == JobStatus.Executing);
+                });
+
             await cts.CancelAsync();
 
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
