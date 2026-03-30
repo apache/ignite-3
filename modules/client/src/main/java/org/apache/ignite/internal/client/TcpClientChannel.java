@@ -50,7 +50,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
@@ -660,23 +659,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             msg = (idx == -1) ? errMsg + '\n' + causeStr : causeStr.substring(idx);
         }
 
-        Function<Boolean, Throwable> exceptionFactory = isRetriable -> {
-            try {
-                Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
-                @Nullable Throwable ex = copyExceptionWithCause(errCls, traceId, code, msg, null);
-                if (ex == null) {
-                    ex = new IgniteException(traceId, code, msg);
-                }
-
-                // TODO: Check if we can give it a simple message to avoid msg duplication.
-                return isRetriable
-                        ? new ClientRetriableTransactionException(code, msg, ex)
-                        : ex;
-            } catch (ClassNotFoundException ignored) {
-                return new IgniteException(traceId, code, errClassName + ": " + msg);
-            }
-        };
-
         int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
         int expectedSchemaVersion = -1;
         boolean retriable = false;
@@ -694,7 +676,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 return new SqlBatchException(traceId, code, unpacker.unpackLongArrayAsBinary(),
                         msg != null ? msg : "SQL batch execution error", null);
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
-                Throwable causeWithStackTrace = exceptionFactory.apply(false);
+                Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.TX_KILL)) {
                 return new ClientTransactionKilledException(traceId, code, msg, unpacker.unpackUuid(), null);
@@ -708,7 +690,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
-            Throwable causeWithStackTrace = exceptionFactory.apply(false);
+            Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
             if (expectedSchemaVersion == -1) {
                 return new IgniteException(
                         traceId, PROTOCOL_ERR, "Expected schema version is not specified in error extension map.", causeWithStackTrace);
@@ -717,7 +699,24 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return new ClientSchemaVersionMismatchException(traceId, code, msg, expectedSchemaVersion, null);
         }
 
-        return exceptionFactory.apply(retriable);
+        return createException(errClassName, traceId, code, msg, retriable);
+    }
+
+    private static Throwable createException(String errClassName, UUID traceId, int code, String msg, boolean isRetriable) {
+        try {
+            Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
+            @Nullable Throwable ex = copyExceptionWithCause(errCls, traceId, code, msg, null);
+            if (ex == null) {
+                ex = new IgniteException(traceId, code, msg);
+            }
+
+            // TODO: Check if we can give it a simple message to avoid msg duplication.
+            return isRetriable
+                    ? new ClientRetriableTransactionException(code, msg, ex)
+                    : ex;
+        } catch (ClassNotFoundException ignored) {
+            return new IgniteException(traceId, code, errClassName + ": " + msg);
+        }
     }
 
     /** {@inheritDoc} */

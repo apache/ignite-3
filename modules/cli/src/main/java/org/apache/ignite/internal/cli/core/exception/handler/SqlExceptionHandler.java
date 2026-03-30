@@ -69,10 +69,17 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
             InvalidCredentialsException invalidCredentialsException = findCause(cause, InvalidCredentialsException.class);
             if (invalidCredentialsException != null) {
                 var msg = invalidCredentialsException.getMessage();
-                var details = msg.substring(0, msg.indexOf('\n'));
-                int traceInfoIdx = msg.indexOf(" TraceId:");
-                if (traceInfoIdx > 0) {
-                    details = msg.substring(0, traceInfoIdx);
+
+                String details;
+                var headerIdx = msg.indexOf('\n');
+                if (headerIdx != -1) {
+                    details = msg.substring(0, headerIdx);
+                    int traceInfoIdx = details.indexOf(" TraceId:");
+                    if (traceInfoIdx != -1) {
+                        details = details.substring(0, traceInfoIdx);
+                    }
+                } else {
+                    details = msg;
                 }
 
                 return ErrorUiComponent.builder()

@@ -63,7 +63,6 @@ public final class ViewUtils {
     /**
      * Ensures the provided exception complies with our public API.
      * <ol>
-     *   <li>Finds the root cause of the exception.</li>
      *   <li>Errors caused by {@link IgniteException} and {@link IgniteCheckedException} are treated as server-side exceptions.
      *      Their stack trace is rebased to the current stack trace.</li>
      *   <li>Other errors are mapped using {@link IgniteExceptionMapperUtil#mapToPublicException(Throwable, Function)},

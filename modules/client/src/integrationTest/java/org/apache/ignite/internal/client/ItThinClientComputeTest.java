@@ -879,11 +879,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
             IgniteException cause = getExceptionInTaskExecutionAsync(client.compute().submitMapReduce(taskDescriptor, null));
 
-            publicExceptionWithHint(
-                    Jobs.CustomException.class,
-                    COLUMN_NOT_FOUND_ERR,
-                    "Custom job error"
-            ).withTraceId(is(Jobs.TRACE_ID));
+            assertThat(cause,
+                    publicExceptionWithHint(
+                            Jobs.CustomException.class,
+                            COLUMN_NOT_FOUND_ERR,
+                            "Custom job error"
+                    ).withTraceId(is(Jobs.TRACE_ID))
+            );
         }
     }
 

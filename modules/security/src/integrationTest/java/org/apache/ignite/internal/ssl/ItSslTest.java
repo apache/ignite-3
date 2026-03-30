@@ -242,12 +242,14 @@ public class ItSslTest {
                 }
             });
 
-            IgniteExceptionTestUtils.publicException(
-                    IgniteClientConnectionException.class,
-                    CLIENT_SSL_CONFIGURATION_ERR,
-                    "Client SSL configuration error: keystore password was incorrect",
-                    emptyList()
-            ).withCause(isA(IOException.class));
+            assertThat(ex,
+                    IgniteExceptionTestUtils.publicException(
+                        IgniteClientConnectionException.class,
+                        CLIENT_SSL_CONFIGURATION_ERR,
+                        "Client SSL configuration error: keystore password was incorrect",
+                        emptyList()
+                    ).withCause(isA(IOException.class))
+            );
             assertThat(ex.getCause().getMessage(), is("keystore password was incorrect"));
         }
 
