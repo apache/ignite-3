@@ -31,6 +31,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledHeapByteBuf;
 import java.util.HexFormat;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientClusterNode;
@@ -145,7 +146,12 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
         var hexStr = "6669656c64373a3231313638383532";
         byte[] bytes = hexToBytes(hexStr);
         ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-        ClientMessageUnpacker unpacker = new ClientMessageUnpacker(buf);
+        ClientMessageUnpacker in = new ClientMessageUnpacker(buf);
+
+        long id = in.unpackLong();
+        UUID txId = in.unpackUuid();
+        UUID coordId = in.unpackUuid();
+        long timeout = in.unpackLong();
     }
 
     public static byte[] hexToBytes(String hex) {
