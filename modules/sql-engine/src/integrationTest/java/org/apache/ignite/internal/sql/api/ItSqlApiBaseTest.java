@@ -45,13 +45,19 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
@@ -86,8 +92,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -1278,21 +1286,52 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     @Test
     public abstract void cancelBatch() throws InterruptedException;
 
-    @Test
+    private static Stream<Arguments> rounds() {
+        return IntStream.range(0, 50).mapToObj(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("rounds")
     public void cancelDdlScript() {
         IgniteSql sql = igniteSql();
 
+        String targetTable = "TEST2";
         String script =
                 "CREATE TABLE test1 (id INT PRIMARY KEY);"
-                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE %s (id INT PRIMARY KEY);"
                         + "CREATE TABLE test3 (id INT PRIMARY KEY);";
 
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+        CountDownLatch cancelLatch = new CountDownLatch(1);
+        AtomicBoolean cancelled = new AtomicBoolean(false);
 
-        waitUntilRunningQueriesCount(greaterThan(0));
+        EventListener<CreateTableEventParameters> listener = parameters -> {
+            if (targetTable.equalsIgnoreCase(parameters.tableDescriptor().name()) && cancelled.compareAndSet(false, true)) {
+                cancelLatch.countDown();
+                return CompletableFuture.completedFuture(true);
+            }
+
+            return CompletableFuture.completedFuture(false);
+        };
+
+        CLUSTER.aliveNodesWithIndices().forEach(tuple -> {
+            Ignite ign = tuple.get2();
+            assert ign != null : "Ignite instance is null";
+
+            unwrapIgniteImpl(ign)
+                    .catalogManager()
+                    .listen(CatalogEvent.TABLE_CREATE, listener);
+        });
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, String.format(script, targetTable)));
+
+        try {
+            cancelLatch.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Interrupted while waiting for table creation event", e);
+        }
 
         cancelHandle.cancel();
 
@@ -1335,9 +1374,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started),
-     * the query will either not be started or will be cancelled. That is, it is impossible for a remote cancellation request
-     * to be processed by the server before the query itself is started.
+     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started), the query will
+     * either not be started or will be cancelled. That is, it is impossible for a remote cancellation request to be processed by the server
+     * before the query itself is started.
      *
      * @throws Exception If failed.
      */
