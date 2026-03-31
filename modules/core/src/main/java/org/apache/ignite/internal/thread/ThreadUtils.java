@@ -60,7 +60,7 @@ public class ThreadUtils {
      * @param log Logger.
      * @param threadId ID of a thread to dump.
      * @param isErrorLevel {@code true} if thread dump must be printed with {@code ERROR} logging level, {@code false} if thread dump must
-     * be printed with {@code WARN} logging level.
+     *      be printed with {@code WARN} logging level.
      */
     public static void dumpThread(IgniteLogger log, long threadId, boolean isErrorLevel) {
         // We don't really need a full stack, and shorter trace should be less disruptive I think.
