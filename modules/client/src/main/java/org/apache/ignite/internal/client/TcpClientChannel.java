@@ -710,7 +710,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 ex = new IgniteException(traceId, code, msg);
             }
 
-            // TODO: Check if we can give it a simple message to avoid msg duplication.
             return isRetriable
                     ? new ClientRetriableTransactionException(code, msg, ex)
                     : ex;
