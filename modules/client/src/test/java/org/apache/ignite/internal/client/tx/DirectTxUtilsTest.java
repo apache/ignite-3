@@ -42,6 +42,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -145,12 +146,25 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
     void decode() {
         var hexStr = "6669656c64373a3231313638383532";
         byte[] bytes = hexToBytes(hexStr);
+        String utfStr = new String(bytes);
+        System.out.println(utfStr); // field7:21168852
         ByteBuf buf = Unpooled.wrappedBuffer(bytes);
         ClientMessageUnpacker in = new ClientMessageUnpacker(buf);
 
         // Header
         Long resId = in.unpackLong();
         int flags = in.unpackInt();
+
+        var error = ResponseFlags.getErrorFlag(flags);
+        var notification = ResponseFlags.getNotificationFlag(flags);
+        var partitionAssignmentChanged = ResponseFlags.getPartitionAssignmentChangedFlag(flags);
+
+        long maxStartTime = - 1;
+
+        if (partitionAssignmentChanged) {
+            maxStartTime = in.unpackLong();
+        }
+
         long observableTimestamp = in.unpackLong();
 
         // Tx
