@@ -148,6 +148,12 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
         ByteBuf buf = Unpooled.wrappedBuffer(bytes);
         ClientMessageUnpacker in = new ClientMessageUnpacker(buf);
 
+        // Header
+        Long resId = in.unpackLong();
+        int flags = in.unpackInt();
+        long observableTimestamp = in.unpackLong();
+
+        // Tx
         long id = in.unpackLong();
         UUID txId = in.unpackUuid();
         UUID coordId = in.unpackUuid();
