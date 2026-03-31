@@ -1304,16 +1304,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        CountDownLatch cancelLatch = new CountDownLatch(1);
+        CountDownLatch preCancel = new CountDownLatch(1);
         AtomicBoolean cancelled = new AtomicBoolean(false);
+        CompletableFuture<Boolean> postCancelFut = new CompletableFuture<>();
 
         EventListener<CreateTableEventParameters> listener = parameters -> {
             if (targetTable.equalsIgnoreCase(parameters.tableDescriptor().name()) && cancelled.compareAndSet(false, true)) {
-                cancelLatch.countDown();
-                return CompletableFuture.completedFuture(true);
+                preCancel.countDown();
+                return postCancelFut;
             }
 
-            return CompletableFuture.completedFuture(false);
+            return CompletableFuture.completedFuture(cancelled.get()); // once cancelled, we don't need to listen anymore
         };
 
         CLUSTER.aliveNodesWithIndices().forEach(tuple -> {
@@ -1328,12 +1329,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, String.format(script, targetTable)));
 
         try {
-            cancelLatch.await();
+            preCancel.await();
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while waiting for table creation event", e);
         }
 
-        cancelHandle.cancel();
+        CompletableFuture.runAsync(cancelHandle::cancel);
+        postCancelFut.complete(true);
 
         expectQueryCancelled(() -> await(scriptFut));
 
