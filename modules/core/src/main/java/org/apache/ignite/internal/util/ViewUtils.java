@@ -25,9 +25,12 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
@@ -39,6 +42,8 @@ import org.apache.ignite.lang.TraceableException;
  * Table view utilities.
  */
 public final class ViewUtils {
+    private static final Map<Class<?>, Optional<MethodHandle>> COPY_FACTORY_METHOD_CACHE = new ConcurrentHashMap<>();
+
     /**
      * Waits for async operation completion.
      *
@@ -92,19 +97,16 @@ public final class ViewUtils {
     // TODO: consider removing after IGNITE-22721 gets resolved.
     private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
         // Copy exception with cause does not respect custom exception fields.
-        // We should just create this during compile time and call it a day, or at least cache this. Create ticket.
-        try {
-            Class<T> klass = (Class<T>) e.getClass();
-            MethodHandles.Lookup privateLookup = MethodHandles.privateLookupIn(klass, MethodHandles.lookup());
-            MethodHandle mhandle = privateLookup.findStatic(
-                    klass,
-                    "copy",
-                    MethodType.methodType(klass, klass) // adjust signature
-            );
+        // TODO: IGNITE-28422 We should just create this during compile time and call it a day
+        Optional<MethodHandle> copyMethodHandleOpt = COPY_FACTORY_METHOD_CACHE.computeIfAbsent(e.getClass(),
+                ViewUtils::createMethodHandleForCopy);
 
-            return (T) mhandle.invoke(e);
-        } catch (Throwable ignored) {
-            // Intentionally left blank.
+        if (copyMethodHandleOpt.isPresent()) {
+            try {
+                return (T) copyMethodHandleOpt.get().invoke(e);
+            } catch (Throwable ignored) {
+                // Intentionally left blank.
+            }
         }
 
         Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e.getCause());
@@ -114,6 +116,21 @@ public final class ViewUtils {
 
         return new IgniteException(INTERNAL_ERR, "Public Ignite exception-derived class does not have required constructor: "
                 + e.getClass().getName(), e);
+    }
+
+    private static Optional<MethodHandle> createMethodHandleForCopy(Class<?> type) {
+        try {
+            MethodHandles.Lookup privateLookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
+            MethodHandle mhandle = privateLookup.findStatic(
+                    type,
+                    "copy",
+                    MethodType.methodType(type, type) // adjust signature
+            );
+
+            return Optional.of(mhandle);
+        } catch (IllegalAccessException | NoSuchMethodException ignored) {
+            return Optional.empty();
+        }
     }
 
     /**
