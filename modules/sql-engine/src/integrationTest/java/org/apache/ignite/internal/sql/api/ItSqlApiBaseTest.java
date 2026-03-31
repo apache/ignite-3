@@ -45,10 +45,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -65,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.CursorClosedException;
@@ -1304,38 +1303,21 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        CountDownLatch preCancel = new CountDownLatch(1);
-        AtomicBoolean cancelled = new AtomicBoolean(false);
-        CompletableFuture<Boolean> postCancelFut = new CompletableFuture<>();
-
         EventListener<CreateTableEventParameters> listener = parameters -> {
-            if (targetTable.equalsIgnoreCase(parameters.tableDescriptor().name()) && cancelled.compareAndSet(false, true)) {
-                preCancel.countDown();
-                return postCancelFut;
+            if (targetTable.equalsIgnoreCase(parameters.tableDescriptor().name())) {
+                cancelHandle.cancelAsync();
+                return CompletableFutures.trueCompletedFuture();
             }
 
-            return CompletableFuture.completedFuture(cancelled.get()); // once cancelled, we don't need to listen anymore
+            return CompletableFutures.falseCompletedFuture();
         };
 
-        CLUSTER.aliveNodesWithIndices().forEach(tuple -> {
-            Ignite ign = tuple.get2();
-            assert ign != null : "Ignite instance is null";
-
-            unwrapIgniteImpl(ign)
-                    .catalogManager()
-                    .listen(CatalogEvent.TABLE_CREATE, listener);
-        });
+        CLUSTER.nodes().forEach(ignite -> unwrapIgniteImpl(ignite)
+                .catalogManager()
+                .listen(CatalogEvent.TABLE_CREATE, listener)
+        );
 
         CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, String.format(script, targetTable)));
-
-        try {
-            preCancel.await();
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Interrupted while waiting for table creation event", e);
-        }
-
-        CompletableFuture.runAsync(cancelHandle::cancel);
-        postCancelFut.complete(true);
 
         expectQueryCancelled(() -> await(scriptFut));
 
