@@ -88,7 +88,7 @@ public class PageHeader {
     /** Page temp copy buffer relative pointer offset. */
     private static final int PAGE_TMP_BUF_OFFSET = PAGE_LOCK_OFFSET + OffheapReadWriteLock.LOCK_SIZE;
 
-    /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 8b Lock, 8b Temporary buffer. */
+    /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 16b Lock, 8b Temporary buffer. */
     public static final int PAGE_OVERHEAD = PAGE_TMP_BUF_OFFSET + Long.BYTES;
 
     /**
@@ -170,6 +170,10 @@ public class PageHeader {
             int flags = getIntVolatile(null, absPtr + FLAGS_OFFSET);
 
             boolean was = (flags & flagMask) != 0;
+
+            if (was == set) {
+                return was;
+            }
 
             int newFlags = set ? (flags | flagMask) : (flags & ~flagMask);
 
