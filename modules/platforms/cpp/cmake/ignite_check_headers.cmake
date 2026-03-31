@@ -30,38 +30,38 @@ function(ignite_check_headers)
         message(FATAL_ERROR "ignite_check_headers: SOURCE_DIR is required")
     endif()
 
-    file(GLOB_RECURSE CONFIGURE_DEPENDS _all_headers RELATIVE "${ARGS_SOURCE_DIR}" "${ARGS_SOURCE_DIR}/*.h")
-    list(SORT _all_headers)
+    file(GLOB_RECURSE CONFIGURE_DEPENDS ALL_HEADERS RELATIVE "${ARGS_SOURCE_DIR}" "${ARGS_SOURCE_DIR}/*.h")
+    list(SORT ALL_HEADERS)
 
-    set(_errors)
+    set(ERRORS)
 
     # Check for headers that appear in both lists.
-    foreach(_h IN LISTS ARGS_PUBLIC)
-        if (_h IN_LIST ARGS_PRIVATE)
-            list(APPEND _errors "  ${_h}  [listed in both PUBLIC_HEADERS and PRIVATE_HEADERS]")
+    foreach(H IN LISTS ARGS_PUBLIC)
+        if (H IN_LIST ARGS_PRIVATE)
+            list(APPEND ERRORS "  ${H}  [listed in both PUBLIC_HEADERS and PRIVATE_HEADERS]")
         endif()
     endforeach()
 
     # Check for headers that are not listed in either list.
-    foreach(_h IN LISTS _all_headers)
-        set(_in_public FALSE)
-        set(_in_private FALSE)
-        if (_h IN_LIST ARGS_PUBLIC)
-            set(_in_public TRUE)
+    foreach(H IN LISTS ALL_HEADERS)
+        set(IN_PUBLIC FALSE)
+        set(IN_PRIVATE FALSE)
+        if (H IN_LIST ARGS_PUBLIC)
+            set(IN_PUBLIC TRUE)
         endif()
-        if (_h IN_LIST ARGS_PRIVATE)
-            set(_in_private TRUE)
+        if (H IN_LIST ARGS_PRIVATE)
+            set(IN_PRIVATE TRUE)
         endif()
-        if (NOT _in_public AND NOT _in_private)
-            list(APPEND _errors "  ${_h}  [not listed in PUBLIC_HEADERS or PRIVATE_HEADERS]")
+        if (NOT IN_PUBLIC AND NOT IN_PRIVATE)
+            list(APPEND ERRORS "  ${H}  [not listed in PUBLIC_HEADERS or PRIVATE_HEADERS]")
         endif()
     endforeach()
 
-    if (_errors)
-        list(JOIN _errors "\n" _error_msg)
+    if (ERRORS)
+        list(JOIN ERRORS "\n" ERROR_MSG)
         message(FATAL_ERROR
             "Header classification error in ${ARGS_SOURCE_DIR}:\n"
-            "${_error_msg}\n"
+            "${ERROR_MSG}\n"
             "Every header must appear in exactly one of PUBLIC_HEADERS or PRIVATE_HEADERS.")
     endif()
 endfunction()
