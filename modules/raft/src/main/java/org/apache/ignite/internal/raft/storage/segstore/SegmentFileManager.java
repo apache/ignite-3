@@ -182,8 +182,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 indexFileManager,
                 logStorageView.softLogSizeLimitBytes(),
                 new MostGarbageFirstCompactionStrategy(segmentFilesDir, indexFileManager),
-                failureProcessor,
-                isSync
+                failureProcessor
         );
 
         checkpointer = new RaftLogCheckpointer(

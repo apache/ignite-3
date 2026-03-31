@@ -159,7 +159,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testFindSegmentPayloadReturnsBufferWhenOffsetPresent(@Mock SegmentFile mockFile, @Mock StripedMemTable mockMemTable) {
+    void testFindSegmentPayloadReturnsBufferWhenOffsetPresent(@Mock SegmentFile mockFile) {
         var blockFuture = new CompletableFuture<Void>();
 
         try {
@@ -172,15 +172,13 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
             long groupId = 2;
             long logIndex = 5;
 
-            var segmentInfo = new SegmentInfo(1);
+            var memTable = new SingleThreadMemTable();
 
             for (int i = 1; i <= 10; i++) {
-                segmentInfo.addOffset(i, i);
+                memTable.appendSegmentFileOffset(groupId, i, i);
             }
 
-            when(mockMemTable.segmentInfo(groupId)).thenReturn(segmentInfo);
-
-            checkpointer.onRollover(mockFile, mockMemTable);
+            checkpointer.onRollover(mockFile, memTable);
 
             EntrySearchResult res = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
@@ -192,7 +190,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testFindSegmentPayloadReturnsEmptyWhenPrefixTombstoneCutsOff(@Mock SegmentFile mockFile, @Mock StripedMemTable mockMemTable) {
+    void testFindSegmentPayloadReturnsEmptyWhenPrefixTombstoneCutsOff(@Mock SegmentFile mockFile) {
         var blockFuture = new CompletableFuture<Void>();
 
         try {
@@ -200,14 +198,15 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
             long groupId = 2;
 
-            SegmentInfo mockSegmentInfo = mock(SegmentInfo.class);
+            var memTable = new SingleThreadMemTable();
 
-            when(mockMemTable.segmentInfo(groupId)).thenReturn(mockSegmentInfo);
-            when(mockSegmentInfo.lastLogIndexExclusive()).thenReturn(20L);
-            // Emulate prefix truncation from index 10.
-            when(mockSegmentInfo.firstIndexKept()).thenReturn(10L);
+            for (long i = 1; i <= 20; i++) {
+                memTable.appendSegmentFileOffset(groupId, i, 1);
+            }
 
-            checkpointer.onRollover(mockFile, mockMemTable);
+            memTable.truncatePrefix(groupId, 10);
+
+            checkpointer.onRollover(mockFile, memTable);
 
             EntrySearchResult res = checkpointer.findSegmentPayloadInQueue(groupId, 5);
 

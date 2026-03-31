@@ -92,8 +92,6 @@ class RaftLogGarbageCollector {
 
     private final FailureProcessor failureProcessor;
 
-    private final boolean isSync;
-
     private final AtomicLong logSizeBytes = new AtomicLong();
 
     private final Thread gcThread;
@@ -104,15 +102,13 @@ class RaftLogGarbageCollector {
             IndexFileManager indexFileManager,
             long softLimitBytes,
             SegmentFileCompactionStrategy strategy,
-            FailureProcessor failureProcessor,
-            boolean isSync
+            FailureProcessor failureProcessor
     ) {
         this.segmentFilesDir = segmentFilesDir;
         this.indexFileManager = indexFileManager;
         this.softLimitBytes = softLimitBytes;
         this.strategy = strategy;
         this.failureProcessor = failureProcessor;
-        this.isSync = isSync;
 
         gcThread = new IgniteThread(nodeName, "segstore-gc", new GcTask());
     }
@@ -236,7 +232,7 @@ class RaftLogGarbageCollector {
 
             logSizeDelta = Files.size(segmentFilePath) + Files.size(indexFilePath);
         } else {
-            SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
+            SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
 
             try {
                 logSizeDelta = compactSegmentFile(segmentFile, indexFilePath, segmentFileDescription);

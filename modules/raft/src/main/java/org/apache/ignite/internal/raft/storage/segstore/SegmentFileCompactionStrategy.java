@@ -30,7 +30,7 @@ import java.util.stream.Stream;
  * <p>The GC consumes candidates from the stream in order, compacting each one, and stops as soon as the log size
  * drops below the soft limit or the stream is exhausted.
  */
-@FunctionalInterface
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 interface SegmentFileCompactionStrategy {
     /**
      * Returns an ordered stream of segment file candidates for compaction. The stream must be closed by the caller.

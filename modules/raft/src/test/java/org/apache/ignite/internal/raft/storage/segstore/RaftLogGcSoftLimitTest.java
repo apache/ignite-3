@@ -125,6 +125,8 @@ class RaftLogGcSoftLimitTest extends IgniteAbstractTest {
         appendBytes(GROUP_ID_2, batches.size() + 1, createRandomData(FILE_SIZE / 4, 1).get(0));
 
         await().until(() -> garbageCollector.logSizeBytes(), is(lessThanOrEqualTo(SMALL_SOFT_LIMIT)));
+
+        assertThat(garbageCollector.logSizeBytes(), is(totalLogSizeFromDisk(fileManager)));
     }
 
     @RepeatedTest(10)
@@ -160,9 +162,8 @@ class RaftLogGcSoftLimitTest extends IgniteAbstractTest {
                 for (int i = 0; i < numBatches; i++) {
                     int index = i;
                     fileManager.getEntry(GROUP_ID_2, i, bs -> {
-                        if (bs != null) {
-                            assertThat(bs, is(batches.get(index)));
-                        }
+                        assertThat(bs, is(batches.get(index)));
+
                         return null;
                     });
                 }
