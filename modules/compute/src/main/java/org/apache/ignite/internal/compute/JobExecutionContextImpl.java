@@ -20,13 +20,14 @@ package org.apache.ignite.internal.compute;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 public class JobExecutionContextImpl implements JobExecutionContext {
     private final Ignite ignite;
 
-    private final AtomicBoolean isInterrupted;
+    private final CancelHandle cancelHandle;
 
     private final UnitsClassLoader classLoader;
 
@@ -48,18 +49,18 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      * Constructor.
      *
      * @param ignite Ignite instance.
-     * @param isInterrupted Interrupted flag.
+     * @param cancelHandle Cancel handle for this job.
      * @param classLoader Job class loader.
      * @param partition Partition associated with this job.
      */
     public JobExecutionContextImpl(
             Ignite ignite,
-            AtomicBoolean isInterrupted,
+            CancelHandle cancelHandle,
             UnitsClassLoader classLoader,
             @Nullable Partition partition
     ) {
         this.ignite = ignite;
-        this.isInterrupted = isInterrupted;
+        this.cancelHandle = cancelHandle;
         this.classLoader = classLoader;
         this.partition = partition;
         this.deploymentUnits = new Lazy<>(this::initDeploymentUnits);
@@ -72,7 +73,12 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     @Override
     public boolean isCancelled() {
-        return isInterrupted.get();
+        return cancelHandle.isCancelled();
+    }
+
+    @Override
+    public CancellationToken cancellationToken() {
+        return cancelHandle.token();
     }
 
     @Override

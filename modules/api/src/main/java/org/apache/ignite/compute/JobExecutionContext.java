@@ -20,6 +20,7 @@ package org.apache.ignite.compute;
 import java.util.Collection;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +49,14 @@ public interface JobExecutionContext {
      * @return Partition associated with this job.
      */
     @Nullable Partition partition();
+
+    /**
+     * Cancellation token that is canceled when the job is canceled. Can be passed to SQL queries and other operations
+     * that accept {@link CancellationToken} to propagate cancellation from the job to those operations.
+     *
+     * @return Cancellation token associated with this job.
+     */
+    CancellationToken cancellationToken();
 
     /**
      * Collection of deployment units associated with this job execution.
