@@ -201,6 +201,9 @@ public class DirectTxUtils {
             HybridTimestampTracker observableTimestamp
     ) {
         ClientMessageUnpacker in = payloadChannel.in();
+
+        System.out.println(in.hexDump());
+
         if (ctx.firstReqFut != null) {
             assert tx == null;
 

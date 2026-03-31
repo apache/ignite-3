@@ -35,6 +35,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
@@ -93,20 +94,24 @@ public class ClientMessageUnpacker implements AutoCloseable {
             String name = format.getValueType().name();
             String typeName = name.charAt(0) + name.substring(1).toLowerCase();
 
-            // Convert all bytes from the start of the buffer to the current position to a string for debugging
-            ByteBuf slice = buf.slice(0, buf.readerIndex());
-
-            int maxBufSliceLen = 256;
-            if (slice.readableBytes() > maxBufSliceLen) {
-                slice = slice.slice(slice.readableBytes() - maxBufSliceLen, maxBufSliceLen);
-            }
-
-            String bufContent = ByteBufUtil.hexDump(slice);
+            String bufContent = hexDump();
             int problemPos = buf.readerIndex() - 1;
 
             return new MessageTypeException(
                     String.format("Expected %s, but got %s (%02x) at pos %s: '%s'", expected, typeName, b, problemPos, bufContent));
         }
+    }
+
+    public String hexDump() {
+        // Convert all bytes from the start of the buffer to the current position to a string for debugging
+        ByteBuf slice = buf.slice(0, buf.readerIndex());
+
+        int maxBufSliceLen = 256;
+        if (slice.readableBytes() > maxBufSliceLen) {
+            slice = slice.slice(slice.readableBytes() - maxBufSliceLen, maxBufSliceLen);
+        }
+
+        return ByteBufUtil.hexDump(slice);
     }
 
     /**
