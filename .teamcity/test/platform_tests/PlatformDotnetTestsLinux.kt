@@ -105,6 +105,18 @@ object PlatformDotnetTestsLinux : BuildType({
             failureMessage = "NullReferenceException in log"
             reverse = false
         }
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Unexpected notification ID"
+            failureMessage = "Unexpected notification ID in log"
+            reverse = false
+        }
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Unexpected response ID"
+            failureMessage = "Unexpected response ID in log"
+            reverse = false
+        }
     }
 
     requirements {
