@@ -32,12 +32,13 @@ public class Lazy<T> {
 
     private volatile Supplier<T> supplier;
 
-    // This is a safe race, because we follow two simple rules: single read and safe initialization
-    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
-    private @Nullable T val;
+    private volatile @Nullable T val;
 
     /**
-     * Creates the lazy value with the given value supplier.
+    * Creates the lazy value with the given value supplier.
+     * 
+     * <p>In case of the given {@code supplier} throws an exception, the next call to {@link #get()} will re-invoke the supplier.
+     * Take this into account especially when the supplier has side effects.
      *
      * @param supplier A supplier of the value.
      */

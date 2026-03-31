@@ -73,6 +73,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlTableRef;
 import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
@@ -97,6 +98,7 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
@@ -227,7 +229,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Override
     public void validateInsert(SqlInsert insert) {
         SqlValidatorTable table = table(validatedNamespace(insert, unknownType));
-        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) insert.getTargetTable(), table);
+        IgniteTable igniteTable = resolveIgniteTableForModification(insert.getTargetTable(), table);
 
         if (insert.getTargetColumnList() == null) {
             insert.setOperand(3, inferColumnList(igniteTable));
@@ -434,6 +436,15 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return getIgniteTableForModification(identifier, table);
     }
 
+    private IgniteTable resolveIgniteTableForModification(SqlNode table, SqlValidatorTable validatorTable) {
+        IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolvedTable = resolveTableIdentifierAndHints(table);
+
+        SqlIdentifier targetTable = resolvedTable.get1();
+        assert targetTable != null : "Table should not be null";
+
+        return getIgniteTableForModification(targetTable, validatorTable);
+    }
+
     private IgniteTable getIgniteTableForModification(SqlIdentifier identifier, SqlValidatorTable table) {
         IgniteDataSource dataSource = table.unwrap(IgniteDataSource.class);
         assert dataSource != null;
@@ -470,7 +481,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         //
 
         int selectListSize = selectFromUpdate.getSelectList().size();
-        int columnsToUpdateSize = update.getTargetColumnList().size(); 
+        int columnsToUpdateSize = update.getTargetColumnList().size();
         List<SqlNode> sourceExpressionList = selectFromUpdate.getSelectList().subList(selectListSize - columnsToUpdateSize, selectListSize);
         SqlNodeList selectList = selectFromMerge.getSelectList();
         int sourceExprListSize = sourceExpressionList.size();
@@ -586,8 +597,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
-        final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
-        final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
+        IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolvedTable = resolveTableIdentifierAndHints(call.getTargetTable());
+
+        SqlIdentifier targetTable = resolvedTable.get1();
+        assert targetTable != null : "Table should not be null";
+
+        SqlNodeList hints = resolvedTable.get2();
+
+        SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
 
         IgniteTable igniteTable = getTableForModification(targetTable);
 
@@ -615,7 +632,19 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                call.getCondition(), null, null, null, null, null, null, null, null);
+                call.getCondition(), null, null, null, null, null, null, null, hints);
+    }
+
+    private static IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolveTableIdentifierAndHints(SqlNode targetTable) {
+        if (targetTable instanceof SqlTableRef) {
+            SqlTableRef tableRef = (SqlTableRef) targetTable;
+            SqlIdentifier tableName = (SqlIdentifier) tableRef.getOperandList().get(0);
+            SqlNodeList hints = (SqlNodeList) tableRef.getOperandList().get(1);
+
+            return new IgniteBiTuple<>(tableName, hints);
+        }
+
+        return new IgniteBiTuple<>((SqlIdentifier) targetTable, null);
     }
 
     /** {@inheritDoc} */
@@ -629,8 +658,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
-        final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
-        final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
+        IgniteBiTuple<SqlIdentifier, @Nullable SqlNodeList> resolvedTable = resolveTableIdentifierAndHints(call.getTargetTable());
+
+        SqlIdentifier targetTable = resolvedTable.get1();
+        assert targetTable != null : "Table should not be null";
+
+        SqlNodeList hints = resolvedTable.get2();
+
+        SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
 
         IgniteTable igniteTable = getTableForModification(targetTable);
 
@@ -649,7 +684,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
-                call.getCondition(), null, null, null, null, null, null, null, null);
+                call.getCondition(), null, null, null, null, null, null, null, hints);
     }
 
     /** {@inheritDoc} */
@@ -1172,7 +1207,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         final SqlValidatorNamespace ns = validatedNamespace(call, unknownType);
         final SqlValidatorTable table = table(ns);
-        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) call.getTargetTable(), table);
+        IgniteTable igniteTable = resolveIgniteTableForModification(call.getTargetTable(), table);
 
         final RelDataType baseType = table.getRowType();
         final RelOptTable relOptTable = relOptTable(ns);
