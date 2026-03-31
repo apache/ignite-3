@@ -27,6 +27,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledHeapByteBuf;
+import java.util.HexFormat;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientClusterNode;
@@ -35,6 +39,7 @@ import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -133,6 +138,36 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
         WriteContext ctx = new WriteContext(emptyTracker(), ClientOp.TUPLE_UPSERT);
 
         assertThrows(IllegalArgumentException.class, () -> DirectTxUtils.resolveChannel(ctx, ch2, true, tx, null));
+    }
+
+    @Test
+    void decode() {
+        var hexStr = "6669656c64373a3231313638383532";
+        byte[] bytes = hexToBytes(hexStr);
+        ByteBuf buf = Unpooled.wrappedBuffer(bytes);
+        ClientMessageUnpacker unpacker = new ClientMessageUnpacker(buf);
+    }
+
+    public static byte[] hexToBytes(String hex) {
+        int len = hex.length();
+        if (len % 2 != 0) {
+            throw new IllegalArgumentException("Hex string must have even length");
+        }
+
+        byte[] result = new byte[len / 2];
+
+        for (int i = 0; i < len; i += 2) {
+            int high = Character.digit(hex.charAt(i), 16);
+            int low = Character.digit(hex.charAt(i + 1), 16);
+
+            if (high == -1 || low == -1) {
+                throw new IllegalArgumentException("Invalid hex character");
+            }
+
+            result[i / 2] = (byte) ((high << 4) + low);
+        }
+
+        return result;
     }
 
     @SuppressWarnings("DataFlowIssue")
