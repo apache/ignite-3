@@ -1119,7 +1119,7 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
-                return ClientSqlCursorNextResultRequest.process(in, resources, partitionOperationsExecutor, metrics);
+                return ClientSqlCursorNextResultRequest.process(partitionOperationsExecutor, in, resources, metrics, tsTracker);
 
             case ClientOp.OPERATION_CANCEL:
                 return ClientOperationCancelRequest.process(in, cancelHandles);
