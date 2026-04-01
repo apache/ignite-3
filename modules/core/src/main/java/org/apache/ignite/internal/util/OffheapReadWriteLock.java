@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  * </pre>
  */
 public class OffheapReadWriteLock {
-    private final IgniteLogger LOG = Loggers.forClass(OffheapReadWriteLock.class);
+    private final IgniteLogger log = Loggers.forClass(OffheapReadWriteLock.class);
 
     /** Default concurrency level for the lock. */
     public static final int DEFAULT_CONCURRENCY_LEVEL = 128;
@@ -591,7 +591,7 @@ public class OffheapReadWriteLock {
             if (passedNanos >= timeoutNanos) {
                 long ownerId = getOwnerId(lock);
 
-                ThreadUtils.dumpThread(LOG, ownerId, true);
+                ThreadUtils.dumpThread(log, ownerId, true);
 
                 //noinspection InfiniteLoopStatement
                 while (true) {
