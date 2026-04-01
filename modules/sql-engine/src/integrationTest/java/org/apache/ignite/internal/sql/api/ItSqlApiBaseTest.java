@@ -49,7 +49,6 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -91,10 +90,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
