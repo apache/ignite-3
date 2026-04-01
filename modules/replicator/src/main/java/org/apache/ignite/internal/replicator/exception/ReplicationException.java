@@ -28,8 +28,7 @@ import org.apache.ignite.tx.RetriableTransactionException;
 /**
  * The exception is thrown when some issue happened during a replication.
  */
-public class ReplicationException extends IgniteInternalException implements RetriableTransactionException,
-        RetriableReplicaRequestException {
+public class ReplicationException extends IgniteInternalException implements RetriableReplicaRequestException {
     /**
      * Constructor.
      *
