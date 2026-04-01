@@ -34,15 +34,15 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Lock state structure is as follows.
  * <pre>
- *     +----------------+---------------+---------+----------+
- *     | WRITE WAIT CNT | READ WAIT CNT |   TAG   | LOCK CNT |
- *     +----------------+---------------+---------+----------+
- *     |     2 bytes    |     2 bytes   | 2 bytes |  2 bytes |
- *     +----------------+---------------+---------+----------+
+ *     +----------------+---------------+---------+----------+----------+
+ *     | WRITE WAIT CNT | READ WAIT CNT |   TAG   | LOCK CNT | OWNER ID |
+ *     +----------------+---------------+---------+----------+----------+
+ *     |     2 bytes    |     2 bytes   | 2 bytes |  2 bytes |  8 bytes |
+ *     +----------------+---------------+---------+----------+----------+
  * </pre>
  */
 public class OffheapReadWriteLock {
-    private static final IgniteLogger LOG = Loggers.forClass(OffheapReadWriteLock.class);
+    private final IgniteLogger LOG = Loggers.forClass(OffheapReadWriteLock.class);
 
     /** Default concurrency level for the lock. */
     public static final int DEFAULT_CONCURRENCY_LEVEL = 128;
