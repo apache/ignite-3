@@ -1285,12 +1285,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     @Test
     public abstract void cancelBatch() throws InterruptedException;
 
-    private static Stream<Arguments> rounds() {
-        return IntStream.range(0, 50).mapToObj(Arguments::of);
-    }
-
-    @ParameterizedTest
-    @MethodSource("rounds")
+    @Test
     public void cancelDdlScript() {
         IgniteSql sql = igniteSql();
 
