@@ -55,7 +55,7 @@ public class ThreadUtils {
 
     /**
      * Performs thread dump and prints all available info to the given log with {@code WARN} or {@code ERROR} logging level depending on
-     * {@code isErrorLevel} parameter.
+     * {@code isErrorLevel} parameter. If there's no thread with a given ID, or ID is invalid, then nothing is printed.
      *
      * @param log Logger.
      * @param threadId ID of a thread to dump.
@@ -63,6 +63,10 @@ public class ThreadUtils {
      *      be printed with {@code WARN} logging level.
      */
     public static void dumpThread(IgniteLogger log, long threadId, boolean isErrorLevel) {
+        if (threadId <= 0) {
+            return;
+        }
+
         // We don't really need a full stack, and shorter trace should be less disruptive I think.
         int maxStackElements = 15;
 

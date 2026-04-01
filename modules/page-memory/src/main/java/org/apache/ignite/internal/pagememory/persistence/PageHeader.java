@@ -38,7 +38,7 @@ import org.apache.ignite.internal.util.OffheapReadWriteLock;
  * <p>Page header has the following structure:</p>
  * <pre>
  * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
- * |     8 bytes     |       4 bytes       |4 bytes |8 bytes |4 bytes  |4 bytes   |8 bytes   |       8 bytes        |
+ * |     8 bytes     |       4 bytes       |4 bytes |8 bytes |4 bytes  |4 bytes   |16 bytes  |       8 bytes        |
  * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
  * |Marker/Timestamp |Partition generation |Flags   |Page ID |Group ID |Pin count |Lock data |Checkpoint tmp buffer |
  * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
