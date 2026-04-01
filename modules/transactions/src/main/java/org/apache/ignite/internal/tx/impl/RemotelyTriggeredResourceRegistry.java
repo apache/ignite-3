@@ -148,6 +148,11 @@ public class RemotelyTriggeredResourceRegistry {
     public void closeByRemoteHostId(UUID remoteHostId) {
         Set<FullyQualifiedResourceId> resourceIds = remoteHostsToResources.get(remoteHostId);
 
+        if (resourceIds == null) {
+            // Remote host resources were already closed, likely by a concurrent call of "removeRemoteHostResource" method.
+            return;
+        }
+
         for (FullyQualifiedResourceId resourceId : resourceIds) {
             try {
                 close(resourceId);

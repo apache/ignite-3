@@ -66,13 +66,13 @@ import org.jetbrains.annotations.Nullable;
 public class TransactionStateResolver {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionStateResolver.class);
 
-    private final IgniteThrottledLogger throttledLogger;
-
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private final IgniteThrottledLogger throttledLogger;
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
     //  we will store coordinator as ClusterNode in local tx state map.
@@ -145,7 +145,7 @@ public class TransactionStateResolver {
                         .whenComplete((txStateMeta, e) -> {
                             if (e != null) {
                                 Throwable cause = unwrapCause(e);
-                                throttledLogger.info(cause.getMessage());
+                                throttledLogger.info("Failed to abort the transaction on coordinator", cause.getMessage());
 
                                 // Will cause fallback to commit partition path.
                                 txStateMeta = TxStateMeta.builder(UNKNOWN).build();

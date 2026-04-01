@@ -171,7 +171,7 @@ public class Replicator implements ThreadId.OnError {
     public Replicator(final ReplicatorOptions replicatorOptions, final RaftOptions raftOptions) {
         super();
         this.options = replicatorOptions;
-        this.nodeMetrics = this.options.getNode().getNodeMetrics();
+        this.nodeMetrics = this.options.getNode().getJraftNodeMetrics();
         this.nextIndex = this.options.getLogManager().getLastLogIndex() + 1;
         this.timerManager = replicatorOptions.getTimerManager();
         this.raftOptions = raftOptions;
@@ -917,7 +917,7 @@ public class Replicator implements ThreadId.OnError {
         }
 
         // Register replicator metric set.
-        final MetricRegistry metricRegistry = opts.getNode().getNodeMetrics().getMetricRegistry();
+        final MetricRegistry metricRegistry = opts.getNode().getJraftNodeMetrics().getMetricRegistry();
         if (metricRegistry != null) {
             try {
                 if (!metricRegistry.getNames().contains(r.metricName)) {

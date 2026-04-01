@@ -277,6 +277,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncMetricSource;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -944,7 +945,15 @@ public class IgniteImpl implements Ignite {
         schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime(), metaStorageMgr.watchExecutor());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+        SchemaSyncMetricSource schemaSyncMetricSource = new SchemaSyncMetricSource();
+        metricManager.registerSource(schemaSyncMetricSource);
+        metricManager.enable(schemaSyncMetricSource);
+
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(
+                schemaSafeTimeTracker,
+                delayDurationMsSupplier,
+                schemaSyncMetricSource::recordWait
+        );
 
         schemaManager = new SchemaManager(registry, catalogManager);
 

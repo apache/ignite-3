@@ -40,7 +40,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
     @BeforeAll
     void beforeAll() {
         // Disable all metrics except "jvm".
-        Arrays.stream(ALL_METRIC_SOURCES).map(MetricSource::getName).forEach(name -> {
+        Arrays.stream(getExpectedClusterMetrics()).map(MetricSource::getName).forEach(name -> {
             if ("jvm".equals(name)) {
                 return;
             }

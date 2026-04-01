@@ -16,11 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.IOException;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftException;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
@@ -31,10 +37,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
@@ -49,7 +51,10 @@ public class LocalRaftMetaStorageTest extends BaseStorageTest {
     @BeforeEach
     public void setup() throws Exception {
         this.raftMetaStorage = new LocalRaftMetaStorage(this.path.toString(), new RaftOptions());
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(null);
+
+        NodeOptions nodeOptions = newNodeOptions();
+        Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
+
         assertTrue(this.raftMetaStorage.init(newOptions()));
     }
 
@@ -77,7 +82,10 @@ public class LocalRaftMetaStorageTest extends BaseStorageTest {
         assertEquals(new PeerId("localhost", 8083), this.raftMetaStorage.getVotedFor());
 
         this.raftMetaStorage = new LocalRaftMetaStorage(this.path.toString(), new RaftOptions());
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(null);
+
+        NodeOptions nodeOptions = newNodeOptions();
+        Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
+
         this.raftMetaStorage.init(newOptions());
         assertEquals(100, this.raftMetaStorage.getTerm());
         assertEquals(new PeerId("localhost", 8083), this.raftMetaStorage.getVotedFor());
@@ -88,5 +96,12 @@ public class LocalRaftMetaStorageTest extends BaseStorageTest {
         IgniteUtils.deleteIfExists(this.path);
         assertFalse(this.raftMetaStorage.setVotedFor(new PeerId("localhost", 8081)));
         Mockito.verify(this.node, Mockito.times(1)).onError((RaftException) Mockito.any());
+    }
+
+    private static NodeOptions newNodeOptions() {
+        NodeOptions mockOptions = Mockito.mock(NodeOptions.class);
+        Mockito.when(mockOptions.getRaftMetrics()).thenReturn(Mockito.mock(RaftMetricSource.class));
+
+        return mockOptions;
     }
 }
