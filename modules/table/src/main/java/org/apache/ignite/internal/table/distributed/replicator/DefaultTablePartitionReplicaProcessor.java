@@ -564,10 +564,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         if (request instanceof ReadWriteReplicaRequest) {
             var req = (ReadWriteReplicaRequest) request;
 
-            // Saving state is not needed for full transactions.
-            if (!req.full()) {
-                replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
-            }
+            // Saving state for full transactions. This is required for implicit kill to work properly.
+            replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
         }
 
         if (request instanceof GetEstimatedSizeRequest) {
@@ -1539,11 +1537,11 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        // LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
+        //LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
 
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
-                    //LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
+                    // LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
 
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
@@ -1718,6 +1716,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             return fut.whenComplete((v, th) -> {
                 // Fast unlock.
                 releaseTxLocks(txId);
+                // Drop volatile state.
+                txManager.updateTxMeta(txId, ignored -> null);
             });
         }
 
@@ -2107,6 +2107,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 });
             }
             case RW_UPSERT_ALL: {
+                // LOG.info("DBG: RW_UPSERT_ALL 1 " + txId);
+
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
                 BinaryTuple[] pks = new BinaryTuple[searchRows.size()];
 
@@ -2173,6 +2175,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 int uniqueKeysCountFinal = uniqueKeysCount;
 
                 return allOf(rowIdFuts).thenCompose(ignore -> {
+                    // LOG.info("DBG: RW_UPSERT_ALL 2 " + txId);
+
                     Map<UUID, TimedBinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
                     List<RowId> rows = new ArrayList<>();
 
@@ -2212,6 +2216,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                                     )
                             )
                             .thenApply(res -> {
+                                // LOG.info("DBG: RW_UPSERT_ALL 3 " + txId);
+
                                 metrics.onWrite(uniqueKeysCountFinal);
 
                                 // Release short term locks.

@@ -735,12 +735,12 @@ public class InternalTableImpl implements InternalTable {
     private static <T> CompletableFuture<T> postEnlist(
             CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
     ) {
-        //LOG.info("DBG: postEnlist " + tx0.id());
+        // LOG.info("DBG: postEnlist " + tx0.id());
 
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            //LOG.warn("DBG: postEnlist 2 " + tx0.id(), e);
+            // LOG.info("DBG: postEnlist 2 " + tx0.id());
 
             if (full || tx0.remote()) {
                 return e != null ? failedFuture(e) : completedFuture(r);
@@ -1180,8 +1180,6 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
-
-
         InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
 
         // LOG.info("DBG: rows " + rows.size() + " id=" + tx.id());
