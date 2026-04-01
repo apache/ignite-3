@@ -1705,12 +1705,14 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         if (full) {
             CompletableFuture<T> fut;
 
+            //releaseGuardLock.writeLock().lock();
             releaseGuardLock.readLock(idx).lock();
 
             try {
                 fut = op.get();
             } finally {
                 releaseGuardLock.readLock(idx).unlock();
+                //releaseGuardLock.writeLock().unlock();
             }
 
             return fut.whenComplete((v, th) -> {
@@ -1757,11 +1759,13 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             CompletableFuture<T> fut;
 
             releaseGuardLock.readLock(idx).lock();
+            //releaseGuardLock.writeLock().lock();
 
             try {
                 fut = op.get();
             } finally {
                 releaseGuardLock.readLock(idx).unlock();
+                //releaseGuardLock.writeLock().unlock();
             }
 
             fut.whenComplete((v, th) -> {

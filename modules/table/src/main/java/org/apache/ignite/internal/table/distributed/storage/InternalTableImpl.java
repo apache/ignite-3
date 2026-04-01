@@ -91,6 +91,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -131,11 +133,13 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.RetriableReplicaRequestException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -143,6 +147,8 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
+
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
@@ -729,9 +735,13 @@ public class InternalTableImpl implements InternalTable {
     private static <T> CompletableFuture<T> postEnlist(
             CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
     ) {
+        //LOG.info("DBG: postEnlist " + tx0.id());
+
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
+            //LOG.warn("DBG: postEnlist 2 " + tx0.id(), e);
+
             if (full || tx0.remote()) {
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
@@ -1170,7 +1180,12 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
+
+
         InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
+
+        // LOG.info("DBG: rows " + rows.size() + " id=" + tx.id());
+
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
@@ -2303,16 +2318,7 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean exceptionAllowsImplicitTxRetry(Throwable e) {
-        return matchAny(
-                unwrapCause(e),
-                ACQUIRE_LOCK_ERR,
-                GROUP_OVERLOADED_ERR,
-                REPLICA_MISS_ERR,
-                REPLICA_UNAVAILABLE_ERR,
-                REPLICA_ABSENT_ERR,
-                PRIMARY_REPLICA_AWAIT_ERR,
-                PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR
-        );
+        return ExceptionUtils.hasCause(e, RetriableTransactionException.class);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicationGroupId, HybridTimestamp timestamp) {
