@@ -112,7 +112,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Send discard requests to directly mapped partitions.
      */
-    TX_DIRECT_MAPPING_SEND_DISCARD(17);
+    TX_DIRECT_MAPPING_SEND_DISCARD(17),
+
+    /**
+     * Allow rolling back direct transactions using the first request id.
+     */
+    TX_ROLLBACK_USING_FIRST_REQUEST(18);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

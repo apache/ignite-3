@@ -106,7 +106,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
             ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
-            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD,
+            ProtocolBitmaskFeature.TX_ROLLBACK_USING_FIRST_REQUEST
     ));
 
     /** Minimum supported heartbeat interval. */

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ROLLBACK_USING_FIRST_REQUEST;
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -41,6 +43,9 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
+    private static final CompletableFuture<?> NOT_SUPPORTED_FUTURE =
+            failedFuture(new UnsupportedOperationException("TX_ROLLBACK_USING_FIRST_REQUEST is not supported"));
+
     private final long observableTimestamp;
 
     private final @Nullable TransactionOptions options;
@@ -109,9 +114,14 @@ public class ClientLazyTransaction implements Transaction {
         // If the transaction is not started. Issue the rollback and wait for the server response.
         if (!tx0.isDone() && cancelled.compareAndSet(false, true)) {
             return requestInfoFuture
-                    .thenCompose(reqInfo ->
-                            reqInfo.ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(-reqInfo.firstReqId), r -> null)
-                    )
+                    .thenCompose(reqInfo -> {
+                        ClientChannel ch = reqInfo.ch;
+                        if (ch.protocolContext().isFeatureSupported(TX_ROLLBACK_USING_FIRST_REQUEST)) {
+                            return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(-reqInfo.firstReqId), r -> null);
+                        } else {
+                            return NOT_SUPPORTED_FUTURE;
+                        }
+                    })
                     .handle((res, e) -> {
                         // If ok, we don't need to wait for the response. If error, let's block.
                         if (e == null) {
