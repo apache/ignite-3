@@ -371,7 +371,7 @@ public class PersistentPageMemory implements PageMemory {
         }
     }
 
-    long readLock(int grpId, long pageId, long page) {
+    long readLock(long pageId, long page) {
         assert started;
 
         return readLock(page, pageId, false);
@@ -410,7 +410,7 @@ public class PersistentPageMemory implements PageMemory {
         return readLock(absPtr, pageId, force, true);
     }
 
-    void readUnlock(int grpId, long pageId, long page) {
+    void readUnlock(long page) {
         assert started;
 
         readUnlockPage(page);
@@ -564,12 +564,6 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         return pageId;
-    }
-
-    boolean freePage(int grpId, long pageId) {
-        assert false : "Free page should be never called directly when persistence is enabled.";
-
-        return false;
     }
 
     long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
@@ -793,6 +787,7 @@ public class PersistentPageMemory implements PageMemory {
         return sysPageSize;
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     int realPageSize(int grpId) {
         return pageSize();
     }
@@ -1000,7 +995,7 @@ public class PersistentPageMemory implements PageMemory {
         return total;
     }
 
-    long readLockForce(int grpId, long pageId, long page) {
+    long readLockForce(long pageId, long page) {
         assert started;
 
         return readLock(page, pageId, true);

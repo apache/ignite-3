@@ -64,7 +64,9 @@ class PartitionPageMemoryDelegate implements PartitionPageMemory {
 
     @Override
     public boolean freePage(int groupId, long pageId) {
-        return delegate.freePage(groupId, pageId);
+        assert false : "Free page should be never called directly when persistence is enabled.";
+
+        return false;
     }
 
     @Override
@@ -79,17 +81,17 @@ class PartitionPageMemoryDelegate implements PartitionPageMemory {
 
     @Override
     public long readLock(int groupId, long pageId, long page) {
-        return delegate.readLock(groupId, pageId, page);
+        return delegate.readLock(pageId, page);
     }
 
     @Override
     public long readLockForce(int groupId, long pageId, long page) {
-        return delegate.readLockForce(groupId, pageId, page);
+        return delegate.readLockForce(pageId, page);
     }
 
     @Override
     public void readUnlock(int groupId, long pageId, long page) {
-        delegate.readUnlock(groupId, pageId, page);
+        delegate.readUnlock(page);
     }
 
     @Override
