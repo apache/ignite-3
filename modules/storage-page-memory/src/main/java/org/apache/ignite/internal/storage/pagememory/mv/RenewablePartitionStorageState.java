@@ -29,8 +29,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
  * partition rebalance.
  */
 class RenewablePartitionStorageState {
-    private final PartitionPageMemory partitionPageMemory;
-
     private final VersionChainTree versionChainTree;
 
     private final FreeListImpl freeList;
@@ -52,7 +50,6 @@ class RenewablePartitionStorageState {
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
     ) {
-        this.partitionPageMemory = partitionPageMemory;
         this.versionChainTree = versionChainTree;
         this.freeList = freeList;
         this.indexMetaTree = indexMetaTree;
