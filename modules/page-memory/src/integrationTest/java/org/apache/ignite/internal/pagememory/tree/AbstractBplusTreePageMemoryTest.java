@@ -82,6 +82,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -234,7 +235,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     protected abstract @Nullable ReuseList createReuseList(
             int grpId,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             long rootId,
             boolean initNew
     ) throws Exception;
@@ -2802,7 +2803,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 FullPageId metaPageId,
                 @Nullable ReuseList reuseList,
                 boolean canGetRow,
-                PageMemory pageMem,
+                PartitionPageMemory pageMem,
                 AtomicLong globalRmvId,
                 boolean initNew
         ) throws Exception {

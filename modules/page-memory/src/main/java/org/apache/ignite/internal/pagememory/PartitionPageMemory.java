@@ -17,29 +17,26 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 
-/**
- * Class responsible for pages storage and handling.
- */
-// TODO IGNITE-16350 Improve javadoc in this class.
-// TODO IGNITE-28429 Remove the inheritance.
-public interface PageMemory extends PartitionPageMemory {
+// TODO IGNITE-28429 Remove "groupId" parameter from all methods.
+public interface PartitionPageMemory extends PageSupport, PageIdAllocator {
     /**
-     * Stops page memory.
-     *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse on subsequent {@code start()}
+     * Returns a registry to obtain {@link PageIo} instances for pages.
      */
-    void stop(boolean deallocate) throws IgniteInternalException;
+    PageIoRegistry ioRegistry();
 
     /**
-     * Returns a page's size with system overhead, in bytes.
+     * Returns a page's size in bytes.
+     */
+    int pageSize();
+
+    /**
+     * Returns a page size without the encryption overhead, in bytes.
+     *
+     * @param groupId Group id.
      */
     // TODO IGNITE-16350 Consider renaming.
-    int systemPageSize();
-
-    /**
-     * Returns the total number of pages loaded into memory.
-     */
-    long loadedPages();
+    int realPageSize(int groupId);
 }

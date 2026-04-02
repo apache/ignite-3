@@ -24,6 +24,7 @@ import java.util.stream.LongStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
@@ -92,7 +93,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
     protected @Nullable ReuseList createReuseList(
             int grpId,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             long rootId,
             boolean initNew
     ) {

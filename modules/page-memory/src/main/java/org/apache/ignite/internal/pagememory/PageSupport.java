@@ -23,6 +23,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
  * Class responsible for acquiring/releasing and locking/unlocking pages.
  */
 // TODO IGNITE-16350 Document a naming convention for "page" and "pageAddr" parameters.
+// TODO IGNITE-28429 Remove "groupId" parameter from all methods.
 public interface PageSupport {
     /**
      * Returns an absolute pointer to a page, associated with the given page ID. Each pointer obtained with this method must be released by
@@ -102,14 +103,4 @@ public interface PageSupport {
      * @param dirtyFlag Determines whether the page was modified since the last checkpoint.
      */
     void writeUnlock(int groupId, long pageId, long page, boolean dirtyFlag);
-
-    /**
-     * Checks whether the page is dirty.
-     *
-     * @param groupId Group ID.
-     * @param pageId  Page ID.
-     * @param page    Page pointer.
-     * @return {@code True} if the page is dirty.
-     */
-    boolean isDirty(int groupId, long pageId, long page);
 }

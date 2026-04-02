@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
@@ -126,7 +127,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
          */
         public TestPairTree(
                 FullPageId metaPageId,
-                PageMemory pageMem
+                PartitionPageMemory pageMem
         ) throws IgniteInternalCheckedException {
             super(
                     "test",

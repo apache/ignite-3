@@ -54,7 +54,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.pagememory.CorruptedDataStructureException;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -924,7 +924,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             int grpId,
             @Nullable String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -954,7 +954,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             int grpId,
             @Nullable String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList

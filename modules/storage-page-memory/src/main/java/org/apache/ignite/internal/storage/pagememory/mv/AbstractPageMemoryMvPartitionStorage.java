@@ -126,7 +126,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     AbstractPageMemoryMvPartitionStorage(
             int partitionId,
-            AbstractPageMemoryTableStorage tableStorage,
+            AbstractPageMemoryTableStorage<?> tableStorage,
             RenewablePartitionStorageState renewableState,
             ExecutorService destructionExecutor,
             FailureProcessor failureProcessor

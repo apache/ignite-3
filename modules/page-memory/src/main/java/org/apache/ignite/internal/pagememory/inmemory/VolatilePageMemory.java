@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.pagememory.inmemory;
 
 import static java.lang.System.lineSeparator;
-import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -236,10 +234,6 @@ public class VolatilePageMemory implements PageMemory {
                 }
             }
         }
-    }
-
-    @Override public ByteBuffer pageBuffer(long pageAddr) {
-        return wrapPointer(pageAddr, pageSize());
     }
 
     @Override public long allocatePageNoReuse(int grpId, int partId, byte flags) {
@@ -485,11 +479,6 @@ public class VolatilePageMemory implements PageMemory {
         long actualId = PageIo.getPageId(page + PAGE_OVERHEAD);
 
         rwLock.writeUnlock(page + LOCK_OFFSET, PageIdUtils.tag(actualId));
-    }
-
-    @Override public boolean isDirty(int cacheId, long pageId, long page) {
-        // always false for page no store.
-        return false;
     }
 
     @Override

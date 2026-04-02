@@ -398,7 +398,7 @@ class CheckpointWorkflow {
 
         // Then we iterate regions that don't have dirty pages, but somehow have dirty partitions.
         for (Entry<DataRegion<?>, Set<DirtyFullPageId>> entry : dirtyPartitionsMap.entrySet()) {
-            PageMemory pageMemory = entry.getKey().pageMemory();
+            PageMemory pageMemory = entry.getKey().pageMemory(); // Why not make the type non-wildcard?
 
             assert pageMemory instanceof PersistentPageMemory;
 

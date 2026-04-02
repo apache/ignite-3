@@ -41,6 +41,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -79,6 +80,11 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
         ));
 
         blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1);
+    }
+
+    @AfterEach
+    void destroyStorage() {
+        pageMemory.stop(true);
     }
 
     @Test

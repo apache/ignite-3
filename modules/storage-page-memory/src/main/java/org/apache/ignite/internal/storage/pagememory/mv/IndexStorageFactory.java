@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdT
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -274,7 +274,7 @@ class IndexStorageFactory {
 
     private <T> IndexTreeAndMeta<T> createIndexTree(StorageIndexDescriptor descriptor, IndexTreeConstructor<T> treeConstructor) {
         try {
-            PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+            PartitionPageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
             long metaPageId = pageMemory.allocatePage(freeList, tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX);
 

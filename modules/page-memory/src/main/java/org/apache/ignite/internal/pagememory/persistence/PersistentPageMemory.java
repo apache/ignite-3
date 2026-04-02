@@ -469,14 +469,6 @@ public class PersistentPageMemory implements PageMemory {
         writeUnlockPage(page, new FullPageId(pageId, grpId), dirtyFlag, restore);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean isDirty(int grpId, long pageId, long page) {
-        assert started;
-
-        return isDirty(page);
-    }
-
     /**
      * Returns {@code true} if page is dirty.
      *
@@ -578,12 +570,6 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         return pageId;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ByteBuffer pageBuffer(long pageAddr) {
-        return wrapPointer(pageAddr, pageSize());
     }
 
     /** {@inheritDoc} */
