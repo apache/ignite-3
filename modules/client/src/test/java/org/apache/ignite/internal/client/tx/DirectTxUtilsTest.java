@@ -144,7 +144,14 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void decode() {
-        var hexStr = "6669656c64373a3231313638383532";
+        decode("6669656c64373a3231313638383532");
+        decode("656c64393a2d313138303534333437");
+        decode("313034373533313738333138393030");
+        decode("3132393137383436383a3135383236");
+        decode("303734303731363a31363332353035");
+    }
+
+    void decode(String hexStr) {
         byte[] bytes = hexToBytes(hexStr);
         String utfStr = new String(bytes);
         System.out.println(utfStr); // field7:21168852
