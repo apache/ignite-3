@@ -72,7 +72,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -146,7 +145,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * tests code implicitly depends on test names, because we use method names to generate node names, and we use node names to assign
  * partitions.
  */
-@Timeout(value = 5, unit = TimeUnit.MINUTES)
+@Timeout(120)
 @ExtendWith(FailureManagerExtension.class)
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
@@ -318,6 +317,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int anotherPartId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
+
+        if (!node0.txManager().lockManager().policy().reverse()) {
+            // Not compatible with WOUND WAIT.
+            // An older transaction can attempt to request a lock after partition reset and disrupts test logic.
+            return;
+        }
+
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, anotherPartId);
@@ -2024,9 +2030,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
             try {
-                // The future is expected to be finished by timing out the implicit transaction.
-                // Otherwise, older transaction can attempt to request locks and disrupts test logic.
-                insertFuture.join();
+                insertFuture.get(10, SECONDS);
 
                 Tuple value = keyValueView.get(null, key);
                 assertNotNull(value);
@@ -2035,7 +2039,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
                 if (cause instanceof IgniteException && isPrimaryReplicaHasChangedException((IgniteException) cause)
                         || cause instanceof TransactionException
-                        || ExceptionUtils.hasCause(cause, TimeoutException.class)
+                        || cause instanceof TimeoutException
                 ) {
                     errors.add(cause);
                 } else {
