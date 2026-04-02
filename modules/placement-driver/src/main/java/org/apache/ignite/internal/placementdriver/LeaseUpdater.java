@@ -249,7 +249,7 @@ public class LeaseUpdater {
 
         leaseNegotiator.cancelAgreement(grpId);
 
-        Leases leasesCurrent = leaseTracker.leasesLatest();
+        Leases leasesCurrent = leaseTracker.latestLeases();
 
         Collection<Lease> currentLeases = leasesCurrent.leaseByGroupId().values();
 
@@ -418,7 +418,7 @@ public class LeaseUpdater {
 
             HybridTimestamp newExpirationTimestamp = new HybridTimestamp(currentTime.getPhysical() + leaseExpirationInterval, 0);
 
-            Leases leasesCurrent = leaseTracker.leasesLatest();
+            Leases leasesCurrent = leaseTracker.latestLeases();
             Map<ReplicationGroupId, LeaseAgreement> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId().size());
 
@@ -779,6 +779,13 @@ public class LeaseUpdater {
                             clusterService.messagingService().respond(sender, response, correlationId);
                         }
                     });
+                } else {
+                    StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
+                            .stopLeaseProlongationMessageResponse()
+                            .deniedLeaseExpirationTimeLong(NULL_HYBRID_TIMESTAMP)
+                            .build();
+
+                    clusterService.messagingService().respond(sender, response, correlationId);
                 }
             } else {
                 LOG.warn("Unknown message type [msg={}]", msg.getClass().getSimpleName());
