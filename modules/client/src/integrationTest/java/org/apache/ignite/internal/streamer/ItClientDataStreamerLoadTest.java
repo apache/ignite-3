@@ -19,6 +19,7 @@ package org.apache.ignite.internal.streamer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -99,9 +100,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     public void testHighLoad() throws InterruptedException {
         IgniteImpl ignite = TestWrappers.unwrapIgniteImpl(node(0));
-        if (!ignite.txManager().lockManager().policy().reverse()) {
-            return; // TODO https://issues.apache.org/jira/browse/IGNITE-28365
-        }
+        boolean reversed = ignite.txManager().lockManager().policy().reverse();
 
         Thread[] threads = new Thread[CLIENT_COUNT];
 
@@ -131,6 +130,15 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
         for (int i = 0; i < ROW_COUNT; i++) {
             Tuple res = values.get(i);
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-28365
+            // A row might be missing in the following scenario (assuming 2 concurrent streamers):
+            // batch 1 is concurrently mapped to partition K, streamer 0 wins the conflict
+            // batch 2 is concurrently mapped to partition N, streamer 1 wins the conflict
+            // Both streamers become invalidated without proper implicit retries and stop.
+            if (!reversed) {
+                continue;
+            }
 
             assertNotNull(res, "Row not found: " + i);
             assertEquals("foo_" + i, res.value("name"));
