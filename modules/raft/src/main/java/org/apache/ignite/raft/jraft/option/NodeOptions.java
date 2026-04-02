@@ -445,10 +445,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.snapshotThrottle = snapshotThrottle;
     }
 
-    public void setEnableMetrics(final boolean enableMetrics) {
-        this.enableMetrics = enableMetrics;
-    }
-
     /**
      * Raft options
      */
@@ -766,7 +762,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setCliRpcThreadPoolSize(this.cliRpcThreadPoolSize);
         nodeOptions.setRaftRpcThreadPoolSize(this.raftRpcThreadPoolSize);
         nodeOptions.setCommonThreadPollSize(this.commonThreadPollSize);
-        nodeOptions.setEnableMetrics(this.enableMetrics);
         nodeOptions.setRaftOptions(this.raftOptions.copy());
         nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
         nodeOptions.setCommonExecutor(this.getCommonExecutor());

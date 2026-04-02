@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import java.io.Serializable;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,16 +67,16 @@ public class PartitionPruningMetadata implements Serializable {
     }
 
     /**
-     * Returns a subset of this metadata that uses the given tables.
+     * Returns a subset of this metadata that uses the given sources.
      *
-     * @param tables Tables.
+     * @param sources sources.
      * @return Metadata.
      */
-    public PartitionPruningMetadata subset(Long2ObjectMap<IgniteTable> tables) {
+    public PartitionPruningMetadata subset(LongSet sources) {
         Long2ObjectMap<PartitionPruningColumns> out = new Long2ObjectOpenHashMap<>();
 
         for (Long2ObjectMap.Entry<PartitionPruningColumns> e : data.long2ObjectEntrySet()) {
-            if (tables.containsKey(e.getLongKey())) {
+            if (sources.contains(e.getLongKey())) {
                 out.put(e.getLongKey(), e.getValue());
             }
         }

@@ -141,6 +141,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
@@ -178,6 +179,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
@@ -283,9 +285,13 @@ public class PartitionReplicaLifecycleManager extends
 
     private final MetricManager metricManager;
 
+    private final IndexMetasAccess indexMetasAccess;
+
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final TransactionStateResolver transactionStateResolver;
+
+    private final PlacementDriverHelper placementDriverHelper;
 
     private final TxMessageSender txMessageSender;
 
@@ -353,7 +359,8 @@ public class PartitionReplicaLifecycleManager extends
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             MetricManager metricManager,
             MessagingService messagingService,
-            ReplicaService replicaService
+            ReplicaService replicaService,
+            IndexMetasAccess indexMetasAccess
     ) {
         this(
                 catalogService,
@@ -387,7 +394,8 @@ public class PartitionReplicaLifecycleManager extends
                 ),
                 metricManager,
                 messagingService,
-                replicaService
+                replicaService,
+                indexMetasAccess
         );
     }
 
@@ -414,7 +422,8 @@ public class PartitionReplicaLifecycleManager extends
             ZoneResourcesManager zoneResourcesManager,
             MetricManager metricManager,
             MessagingService messagingService,
-            ReplicaService replicaService
+            ReplicaService replicaService,
+            IndexMetasAccess indexMetasAccess
     ) {
         this.catalogService = catalogService;
         this.replicaMgr = replicaMgr;
@@ -434,6 +443,7 @@ public class PartitionReplicaLifecycleManager extends
         this.dataStorageManager = dataStorageManager;
         this.zoneResourcesManager = zoneResourcesManager;
         this.metricManager = metricManager;
+        this.indexMetasAccess = indexMetasAccess;
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -451,12 +461,14 @@ public class PartitionReplicaLifecycleManager extends
                 clockService
         );
 
+        placementDriverHelper = new PlacementDriverHelper(executorInclinedPlacementDriver, clockService);
+
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
                 clockService,
                 topologyService,
                 messagingService,
-                executorInclinedPlacementDriver,
+                placementDriverHelper,
                 txMessageSender,
                 txRecoveryEngine,
                 new Lazy<>(topologyService::localMember),
@@ -842,10 +854,11 @@ public class PartitionReplicaLifecycleManager extends
                                                 zoneResources.txStatePartitionStorage(),
                                                 clockService,
                                                 txManager,
-                                                new CatalogValidationSchemasSource(catalogService, schemaManager),
+                                                new CatalogValidationSchemasSource(catalogService, schemaManager, indexMetasAccess),
                                                 executorInclinedSchemaSyncService,
                                                 catalogService,
                                                 executorInclinedPlacementDriver,
+                                                placementDriverHelper,
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.schemacompat;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogVersionsSpan;
 import org.apache.ignite.internal.partition.replicator.schema.ColumnDefinitionDiff;
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff;
@@ -47,13 +49,14 @@ public class SchemaCompatibilityValidator {
     private final SchemaSyncService schemaSyncService;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
-    private final ConcurrentMap<TableDefinitionDiffKey, ValidationResult> forwardDiffToResultCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogVersionsSpan, CompatValidationResult> forwardCompatValidationResultCache = new ConcurrentHashMap<>();
 
     private static final List<ForwardCompatibilityValidator> FORWARD_COMPATIBILITY_VALIDATORS = List.of(
             new RenameTableValidator(),
             new AddColumnsValidator(),
             new DropColumnsValidator(),
-            new ChangeColumnsValidator()
+            new ChangeColumnsValidator(),
+            new IndexStartedBuildingValidator()
     );
 
     /** Constructor. */
@@ -138,14 +141,26 @@ public class SchemaCompatibilityValidator {
 
         assert !tableSchemas.isEmpty() : "No table schemas for table " + tableId + " between " + beginTimestamp + " and " + commitTimestamp;
 
+        int initialSchemaCatalogVersion = tableSchemas.get(0).catalogVersion();
+        int commitSchemaCatalogVersion = tableSchemas.get(tableSchemas.size() - 1).catalogVersion();
+
+        return forwardCompatValidationResultCache.computeIfAbsent(
+                new CatalogVersionsSpan(tableId, initialSchemaCatalogVersion, commitSchemaCatalogVersion),
+                key -> validateForwardSchemaCompatibility(initialSchemaCatalogVersion, tableSchemas)
+        );
+    }
+
+    private static CompatValidationResult validateForwardSchemaCompatibility(
+            int initialSchemaCatalogVersion,
+            List<FullTableSchema> tableSchemas
+    ) {
+        ValidationContext context = new ValidationContext(initialSchemaCatalogVersion);
+
         for (int i = 0; i < tableSchemas.size() - 1; i++) {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
 
-            ValidationResult validationResult = forwardDiffToResultCache.computeIfAbsent(
-                    new TableDefinitionDiffKey(oldSchema.tableId(), oldSchema.catalogVersion(), newSchema.catalogVersion()),
-                    key -> validateForwardSchemaCompatibility(oldSchema, newSchema)
-            );
+            ValidationResult validationResult = validateForwardSchemaCompatibility(oldSchema, newSchema, context);
 
             if (validationResult.verdict == ValidatorVerdict.INCOMPATIBLE) {
                 return CompatValidationResult.incompatibleChange(
@@ -160,13 +175,17 @@ public class SchemaCompatibilityValidator {
         return CompatValidationResult.success();
     }
 
-    private static ValidationResult validateForwardSchemaCompatibility(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+    private static ValidationResult validateForwardSchemaCompatibility(
+            FullTableSchema prevSchema,
+            FullTableSchema nextSchema,
+            ValidationContext context
+    ) {
         TableDefinitionDiff diff = nextSchema.diffFrom(prevSchema);
 
         boolean accepted = false;
 
         for (ForwardCompatibilityValidator validator : FORWARD_COMPATIBILITY_VALIDATORS) {
-            ValidationResult validationResult = validator.compatible(diff);
+            ValidationResult validationResult = validator.compatible(diff, context);
             switch (validationResult.verdict) {
                 case COMPATIBLE:
                     accepted = true;
@@ -332,9 +351,17 @@ public class SchemaCompatibilityValidator {
         DONT_CARE
     }
 
+    private static class ValidationContext {
+        private final int initialSchemaCatalogVersion;
+
+        private ValidationContext(int initialSchemaCatalogVersion) {
+            this.initialSchemaCatalogVersion = initialSchemaCatalogVersion;
+        }
+    }
+
     @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
     private interface ForwardCompatibilityValidator {
-        ValidationResult compatible(TableDefinitionDiff diff);
+        ValidationResult compatible(TableDefinitionDiff diff, ValidationContext context);
     }
 
     private static class RenameTableValidator implements ForwardCompatibilityValidator {
@@ -344,7 +371,7 @@ public class SchemaCompatibilityValidator {
         );
 
         @Override
-        public ValidationResult compatible(TableDefinitionDiff diff) {
+        public ValidationResult compatible(TableDefinitionDiff diff, ValidationContext context) {
             return diff.nameDiffers() ? INCOMPATIBLE : ValidationResult.DONT_CARE;
         }
     }
@@ -352,7 +379,7 @@ public class SchemaCompatibilityValidator {
     private static class AddColumnsValidator implements ForwardCompatibilityValidator {
 
         @Override
-        public ValidationResult compatible(TableDefinitionDiff diff) {
+        public ValidationResult compatible(TableDefinitionDiff diff, ValidationContext context) {
             if (diff.addedColumns().isEmpty()) {
                 return ValidationResult.DONT_CARE;
             }
@@ -378,7 +405,7 @@ public class SchemaCompatibilityValidator {
         );
 
         @Override
-        public ValidationResult compatible(TableDefinitionDiff diff) {
+        public ValidationResult compatible(TableDefinitionDiff diff, ValidationContext context) {
             return diff.removedColumns().isEmpty() ? ValidationResult.DONT_CARE : INCOMPATIBLE;
         }
     }
@@ -397,7 +424,7 @@ public class SchemaCompatibilityValidator {
         );
 
         @Override
-        public ValidationResult compatible(TableDefinitionDiff diff) {
+        public ValidationResult compatible(TableDefinitionDiff diff, ValidationContext context) {
             if (diff.changedColumns().isEmpty()) {
                 return ValidationResult.DONT_CARE;
             }
@@ -480,6 +507,29 @@ public class SchemaCompatibilityValidator {
             return diff.typeChangeIsSupported()
                     ? ValidationResult.COMPATIBLE
                     : new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Column type changed incompatibly");
+        }
+    }
+
+    private static class IndexStartedBuildingValidator implements ForwardCompatibilityValidator {
+        @Override
+        public ValidationResult compatible(TableDefinitionDiff diff, ValidationContext context) {
+            Int2IntMap indexesJustStartedBeingBuilt = diff.indexesJustStartedBeingBuilt();
+            if (indexesJustStartedBeingBuilt.isEmpty()) {
+                return ValidationResult.DONT_CARE;
+            }
+
+            for (int indexId : indexesJustStartedBeingBuilt.keySet()) {
+                int registeredCatalogVersion = indexesJustStartedBeingBuilt.get(indexId);
+
+                if (context.initialSchemaCatalogVersion < registeredCatalogVersion) {
+                    // This means that the coordinator of the transaction has left and there was a race between it leaving and
+                    // this transaction being committed, that's why we mention the stale coordinator. We don't mention index building
+                    // as that might confuse the user.
+                    return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Transaction coordinator is stale");
+                }
+            }
+
+            return ValidationResult.COMPATIBLE;
         }
     }
 }

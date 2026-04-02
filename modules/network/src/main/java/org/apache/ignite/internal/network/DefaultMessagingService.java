@@ -307,8 +307,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        boolean shouldDropMessage;
+
+        try {
+            shouldDropMessage = shouldDropMessage(recipient, msg);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
         // TODO: IGNITE-18493 - remove/move this
-        if (shouldDropMessage(recipient, msg)) {
+        if (shouldDropMessage) {
             return nullCompletedFuture();
         }
 
@@ -368,8 +376,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        boolean shouldDropMessage;
+
+        try {
+            shouldDropMessage = shouldDropMessage(recipient, msg);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
         // TODO: IGNITE-18493 - remove/move this
-        if (shouldDropMessage(recipient, msg)) {
+        if (shouldDropMessage) {
             return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
         }
 

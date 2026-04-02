@@ -135,6 +135,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -439,7 +440,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 row2Tuple
         ));
 
-        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(indexId, PART_ID, true, this.txManager.lockManager(), row2Tuple);
 
         safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
@@ -526,6 +527,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
+                new PlacementDriverHelper(placementDriver, CLOCK_SERVICE),
                 mock(ClusterNodeResolver.class),
                 svc,
                 mock(FailureProcessor.class),

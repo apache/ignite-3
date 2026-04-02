@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
@@ -89,6 +90,22 @@ public class PartitionPruningColumns implements Serializable {
                         .sorted(Entry.comparingByKey())
                         .collect(Collectors.toList()))
                 .collect(Collectors.toList());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PartitionPruningColumns columns1 = (PartitionPruningColumns) o;
+        return Objects.equals(columns, columns1.columns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(columns);
     }
 
     /**

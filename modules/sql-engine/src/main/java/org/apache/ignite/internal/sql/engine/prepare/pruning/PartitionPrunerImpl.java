@@ -61,7 +61,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
                 continue;
             }
 
-            PartitionPruningMetadata fragmentPruningMetadata = metadata.subset(fragment.tables());
+            PartitionPruningMetadata fragmentPruningMetadata = metadata.subset(fragment.tables().keySet());
 
             if (fragmentPruningMetadata.data().isEmpty()) {
                 updatedFragments.add(mappedFragment);

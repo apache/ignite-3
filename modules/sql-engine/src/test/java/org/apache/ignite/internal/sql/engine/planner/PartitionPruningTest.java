@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -29,13 +34,13 @@ import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -93,14 +98,42 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .end()
                 .build();
 
-        PartitionPruningMetadata actual = extractMetadata(
-                "SELECT * FROM t WHERE c1 = 42",
-                table
-        );
+        // SELECT
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "SELECT * FROM t WHERE c1 = 42",
+                    table
+            );
 
-        PartitionPruningColumns cols = actual.get(1);
-        assertNotNull(cols, "No metadata for source=1");
-        assertEquals("[[0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
+            expectMetadata(Map.of(1L, "[[0=42]]"), actual);
+        }
+
+        // INSERT
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t SELECT c1, c2 FROM t WHERE c1 = 42",
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[0=42]]", 2L, "[[0=42]]"), actual);
+        }
+
+        // UPDATE
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "UPDATE t SET c2=99 WHERE c1 = 42",
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[0=42]]", 2L, "[[0=42]]"), actual);
+        }
+
+        // DELETE
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "DELETE FROM t WHERE c1 = 42",
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[0=42]]", 2L, "[[0=42]]"), actual);
+        }
     }
 
     @Test
@@ -211,8 +244,188 @@ public class PartitionPruningTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26203")
     public void testInsertFromSelect() throws Exception {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
+                .build();
+
+        // Same table: same metadata
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, c3 FROM t1 WHERE c2 = 42 and c1 = ?",
+                    table1
+            );
+            expectMetadata(Map.of(
+                            1L, "[[0=?0, 1=42]]",
+                            2L, "[[0=?0, 1=42]]"),
+                    actual
+            );
+        }
+
+        // Same table
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, c3 FROM t1 WHERE c2 IN (42, 99) and c1 = ?",
+                    table1
+            );
+            expectMetadata(Map.of(
+                            1L, "[[0=?0, 1=42], [0=?0, 1=99]]",
+                            2L, "[[0=?0, 1=42], [0=?0, 1=99]]"),
+                    actual
+            );
+        }
+
+        // Same table: multiple values in both columns
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, c3 FROM t1 WHERE c2 IN (42, 99) and c1 IN (?, 10, 56)",
+                    table1
+            );
+            expectMetadata(Map.of(
+                            1L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=56, 1=42], [0=56, 1=99]]",
+                            2L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=56, 1=42], [0=56, 1=99]]"),
+                    actual
+            );
+        }
+
+        // Star expansion
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT * FROM t1 WHERE c2=42 and c1=?",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Projection with constants but insert order still matches.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, 3 FROM t1 WHERE  c2=42 and c3=99 and c1=?",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Permuting projection does not allow propagation
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c3, c2, c1 FROM t1 WHERE c2=42 and c1=?",
+                    table1
+            );
+            expectMetadata(Map.of(2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Constant replaces C1; C2 comes from scan (42). Both colocation keys are known at the INSERT site.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c1 FROM t1 WHERE  c2=42 and c3=99 and c1=?",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[0=10, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Constant replaces C1; C2 and C3 are taken from the scan. C1=10 is a known constant.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c3 FROM t1 WHERE c2=42 and c1=?",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[0=10, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+    }
+
+    @Test
+    public void testInsertFromSelectNonSequentialKeyColumns() throws Exception {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32)
+                .addKeyColumn("C4", NativeTypes.INT32)
+                .addColumn("C5", NativeTypes.INT32)
+                .distribution(TestBuilders.affinity(List.of(3, 1), 1, 2))
+                .build();
+
+        // Insertion order matches
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c3, c4, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[1=42, 3=78]]", 2L, "[[1=42, 3=78]]"), actual);
+        }
+
+        // Insertion order is incorrect
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c3, c1, c4, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
+                    table1
+            );
+            expectMetadata(Map.of(2L, "[[1=42, 3=78]]"), actual);
+        }
+
+        // C2 and C4 (both colocation keys) come through the projection correctly; constants 10 and 78 fill other positions.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 10, c2, c3, 78, 100 FROM t1 WHERE c5=999 and c2=42 and c3=? and c1=99 and c4=78",
+                    table1
+            );
+            expectMetadata(Map.of(1L, "[[1=42, 3=78]]", 2L, "[[1=42, 3=78]]"), actual);
+        }
+    }
+
+    @Test
+    public void testInsertFromSelectDifferentTables() throws Exception {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
+                .build();
+
+        IgniteTable table2 = TestBuilders.table()
+                .name("T2")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
+                .build();
+
+        // Different tables: identity projection — colocation keys propagate through to the INSERT target.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, c3 FROM t2 WHERE c2=42 and c1=?",
+                    table1, table2
+            );
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Different tables: constant replaces C3, C1 and C2 still propagate.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT c1, c2, 100 FROM t2 WHERE c2=42 and c1=?",
+                    table1, table2
+            );
+            expectMetadata(Map.of(1L, "[[0=?0, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+
+        // Different tables: constant 99 replaces C1 — INSERT target gets a fully determined partition.
+        {
+            PartitionPruningMetadata actual = extractMetadata(
+                    "INSERT INTO t1 SELECT 99, c2, c3 FROM t2 WHERE c2=42 and c1=?",
+                    table1, table2
+            );
+            expectMetadata(Map.of(1L, "[[0=99, 1=42]]", 2L, "[[0=?0, 1=42]]"), actual);
+        }
+    }
+
+    @Test
+    public void testDelete() throws Exception {
         IgniteTable table = TestBuilders.table()
                 .name("T")
                 .addKeyColumn("C1", NativeTypes.INT32)
@@ -221,14 +434,188 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
                 .build();
 
-        PartitionPruningMetadata actual = extractMetadata(
-                "INSERT INTO t SELECT * FROM t WHERE c2=1 and c1=2",
-                table
-        );
+        // Simple
+        {
+            String query = "DELETE FROM t WHERE c1 = 42 and c2=?";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[0=42, 1=?0]]", 2L, "[[0=42, 1=?0]]"), actual);
+        }
 
-        PartitionPruningColumns cols = actual.get(1);
-        assertNotNull(cols, "No metadata for source=1");
-        assertEquals("[[0=2, 1=1]]", PartitionPruningColumns.canonicalForm(cols).toString());
+        // Multiple values
+        {
+            String query = "DELETE FROM t WHERE c2 IN (42, ?, 99) and c1=?";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(
+                    1L, "[[0=?1, 1=42], [0=?1, 1=99], [0=?1, 1=?0]]",
+                    2L, "[[0=?1, 1=42], [0=?1, 1=99], [0=?1, 1=?0]]"
+            ), actual);
+        }
+
+        {
+            String query = "DELETE FROM t WHERE c2 IN (SELECT c3 FROM t WHERE c2=? AND c1 IN (42, 99))";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(), actual);
+        }
+
+        // Simple selects are not constant-folded
+        {
+            String query = "DELETE FROM t WHERE c2 = (SELECT 42) and c1 = (SELECT 99)";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(), actual);
+        }
+    }
+
+    @Test
+    public void testDeleteShortKey() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1), 1, 2))
+                .build();
+
+        {
+            String query = "DELETE FROM t WHERE c1 = 42 and c2=? and c3=99";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?0]]", 2L, "[[1=?0]]"), actual);
+        }
+
+        // swap columns
+        {
+            String query = "DELETE FROM t WHERE c2=? and c3=99 and c1 = 42";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?0]]", 2L, "[[1=?0]]"), actual);
+        }
+
+        // Colocation key is not specified.
+        {
+            String query = "DELETE FROM t WHERE c1 = 42";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(), actual);
+        }
+    }
+
+    @Test
+    public void testDeleteKeyWithGaps() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .addKeyColumn("C4", NativeTypes.INT32)
+                .addColumn("C5", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(3, 1), 1, 2))
+                .build();
+
+        {
+            String query = "DELETE FROM t WHERE c1 = ? and c2=? and c4=111 and c3=?";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?1, 3=111]]", 2L, "[[1=?1, 3=111]]"), actual);
+        }
+
+        // swap columns
+        {
+            String query = "DELETE FROM t WHERE  c4=111 and c2=? and c3=99 and c1 = 42";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[1=?0, 3=111]]", 2L, "[[1=?0, 3=111]]"), actual);
+        }
+    }
+
+    @Test
+    public void testUpdate() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
+                .build();
+
+        // Simple
+        {
+            String query = "UPDATE t SET c3 = 100 WHERE c1 = 42 and c2=?";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(1L, "[[0=42, 1=?0]]", 2L, "[[0=42, 1=?0]]"), actual);
+        }
+
+        // Multiple values
+        {
+            String query = "UPDATE t SET c3 = 100 WHERE c2 IN (42, 99) and c1 IN (?, 10, 101)";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(
+                    1L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=101, 1=42], [0=101, 1=99]]",
+                    2L, "[[0=?0, 1=42], [0=?0, 1=99], [0=10, 1=42], [0=10, 1=99], [0=101, 1=42], [0=101, 1=99]]"
+            ), actual);
+        }
+
+        // Simple selects are not constant-folded
+        {
+            String query = "UPDATE t SET c3 = 100 WHERE c2 = (SELECT 42) and c1 = (SELECT 99)";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            expectMetadata(Map.of(), actual);
+        }
+    }
+
+    @Test
+    public void insertToSelectKvInsert() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
+                .build();
+
+        {
+            String query = "INSERT INTO t SELECT 42 as c1, 99 as c2, 0 as c3";
+            PartitionPruningMetadata actual = extractMetadata(
+                    query,
+                    table
+            );
+            assertTrue(actual.data().isEmpty(), "Columns: " + actual);
+
+            // Key value plan
+            IgniteSchema schema = createSchema(table);
+            IgniteRel rel = physicalPlan(query, schema);
+            assertInstanceOf(IgniteKeyValueModify.class, rel);
+        }
     }
 
     @Test
@@ -244,13 +631,13 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T2")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 2, 2))
                 .build();
 
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 
         PartitionPruningMetadata actual = extractMetadata(extractor,
-                "SELECT /*+ disable_decorrelation */ * FROM t1 as cor WHERE" 
+                "SELECT /*+ disable_decorrelation */ * FROM t1 as cor WHERE"
                         + " EXISTS (SELECT 1 FROM t2 WHERE t2.c1 = cor.c1 OR t2.c1=42)", table1, table2);
 
         PartitionPruningColumns cols = actual.get(2);
@@ -288,5 +675,14 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 return super.visit(rel);
             }
         }
+    }
+
+    private static void expectMetadata(Map<Long, String> expected, PartitionPruningMetadata actualMetadata) {
+        Map<Long, String> actualMetadataAsStr = actualMetadata.data().long2ObjectEntrySet()
+                .stream()
+                .map(e -> Map.entry(e.getLongKey(), PartitionPruningColumns.canonicalForm(e.getValue()).toString()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        assertEquals(new TreeMap<>(expected), new TreeMap<>(actualMetadataAsStr), "Partition pruning metadata");
     }
 }

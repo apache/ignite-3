@@ -54,7 +54,8 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
             ProtocolBitmaskFeature.SqlPartitionAwareness |
             ProtocolBitmaskFeature.SqlPartitionAwarenessTableName |
-            ProtocolBitmaskFeature.ComputeObservableTs;
+            ProtocolBitmaskFeature.ComputeObservableTs |
+            ProtocolBitmaskFeature.SqlUpdateCounters2;
 
         /** Features as a byte array */
         private static readonly byte[] FeatureBytes = Features.ToBytes();
@@ -466,7 +467,8 @@ namespace Apache.Ignite.Internal
                 javaStackTrace += $"{Environment.NewLine}---- End of server-side stack trace ----{Environment.NewLine}";
             }
 
-            var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+            long[]? updateCounters = null;
+            int? expectedSchemaVersion = null;
 
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             for (int i = 0; i < extensionCount; i++)
@@ -474,13 +476,46 @@ namespace Apache.Ignite.Internal
                 var key = reader.ReadString();
                 if (key == ErrorExtensions.ExpectedSchemaVersion)
                 {
-                    ex.Data[key] = reader.ReadInt32();
+                    expectedSchemaVersion = reader.ReadInt32();
+                }
+                else if (key == ErrorExtensions.SqlUpdateCounters2)
+                {
+                    updateCounters = reader.ReadBinaryLongArray();
                 }
                 else
                 {
                     reader.Skip(); // Unknown extension - ignore.
                 }
             }
+
+            IgniteException ex;
+
+            if (updateCounters != null)
+            {
+                ex = new Ignite.Sql.SqlBatchException(
+                    traceId, code, updateCounters, message, new IgniteServerException(traceId, code, className, javaStackTrace));
+            }
+            else if (className == "org.apache.ignite.sql.SqlBatchException")
+            {
+                ex = new Ignite.Sql.SqlBatchException(
+                    traceId, code, message, new IgniteServerException(traceId, code, className, javaStackTrace));
+            }
+            else if (className == "org.apache.ignite.sql.SqlException")
+            {
+                ex = new Ignite.Sql.SqlException(
+                    traceId, code, message, new IgniteServerException(traceId, code, className, javaStackTrace));
+            }
+            else
+            {
+                ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+            }
+
+            if (expectedSchemaVersion != null)
+            {
+                ex.Data[ErrorExtensions.ExpectedSchemaVersion] = expectedSchemaVersion.Value;
+            }
+
+            Debug.Assert(reader.End, "All error response bytes should be consumed.");
 
             return ex;
         }
@@ -705,7 +740,7 @@ namespace Apache.Ignite.Internal
             {
                 await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
 
-                await using var cancellation = RegisterCancellation(requestId, cancellationToken).ConfigureAwait(false);
+                await using var cancellation = RegisterCancellation(requestId, clientOp, cancellationToken).ConfigureAwait(false);
 
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
@@ -736,8 +771,8 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private CancellationTokenRegistration RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
-            cancellationToken == CancellationToken.None
+        private CancellationTokenRegistration RegisterCancellation(long requestId, ClientOp op, CancellationToken cancellationToken) =>
+            cancellationToken == CancellationToken.None || !op.IsCancellable()
                 ? default
                 : cancellationToken.Register(() => _ = CancelRequestAsync(requestId));
 

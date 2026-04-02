@@ -26,7 +26,9 @@ import org.jetbrains.annotations.Nullable;
  * Base class for all metric sources.
  *
  * @param <T> Holder type.
+ * @deprecated Use {@link SimpleMetricSource} instead.
  */
+@Deprecated
 public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder<T>> implements MetricSource {
     /** Holder field updater. */
     @SuppressWarnings("rawtypes")

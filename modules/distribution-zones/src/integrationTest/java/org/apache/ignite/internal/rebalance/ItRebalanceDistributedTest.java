@@ -1562,7 +1562,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     outgoingSnapshotManager,
                     metricManager,
                     clusterService.messagingService(),
-                    replicaSvc
+                    replicaSvc,
+                    indexMetaStorage
             );
 
             tableManager = new TableManager(
@@ -1578,7 +1579,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     dataStorageMgr,
                     metaStorageManager,
                     schemaManager,
-                    new CatalogValidationSchemasSource(catalogManager, schemaManager),
+                    new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage),
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,

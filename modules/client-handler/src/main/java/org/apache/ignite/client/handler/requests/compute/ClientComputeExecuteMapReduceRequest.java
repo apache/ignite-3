@@ -82,7 +82,6 @@ public class ClientComputeExecuteMapReduceRequest {
                 .clientAddress(clientContext.remoteAddress().toString());
 
         TaskExecution<Object> execution = compute.submitMapReduceInternal(taskDescriptor, metadataBuilder, arg, null);
-        sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()
                 .handle((ids, ex) -> {
@@ -90,10 +89,14 @@ public class ClientComputeExecuteMapReduceRequest {
                     return ex == null ? ids : Collections.<UUID>emptyList();
                 });
 
-        return execution.idAsync().thenCompose(id -> idsAsync.thenApply(ids -> out -> {
-            //noinspection DataFlowIssue
-            out.packUuid(id);
-            packJobIds(out, ids);
+        return execution.idAsync().thenCompose(id -> idsAsync.thenApply(ids -> {
+            sendTaskResult(execution, notificationSender);
+
+            return out -> {
+                //noinspection DataFlowIssue
+                out.packUuid(id);
+                packJobIds(out, ids);
+            };
         }));
     }
 

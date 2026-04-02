@@ -23,6 +23,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,4 +73,41 @@ public interface IndexLocker {
      * @return A future representing a result.
      */
     CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
+
+    /**
+     * Composite context ID for lock keys, that includes partition ID and index ID.
+     */
+    class PartitionIndexId {
+        final int partitionId;
+        final int indexId;
+        private final int hash;
+
+        /**
+         * Constructor.
+         */
+        public PartitionIndexId(int partitionId, int indexId) {
+            this.partitionId = partitionId;
+            this.indexId = indexId;
+            this.hash = IgniteUtils.hash(65535 * partitionId + indexId);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            PartitionIndexId that = (PartitionIndexId) o;
+            return partitionId == that.partitionId && indexId == that.indexId;
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+    }
 }

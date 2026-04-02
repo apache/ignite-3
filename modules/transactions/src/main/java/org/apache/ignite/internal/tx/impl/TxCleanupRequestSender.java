@@ -45,12 +45,12 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
-import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
@@ -68,6 +68,8 @@ public class TxCleanupRequestSender {
     private static final int RETRY_INITIAL_TIMEOUT_MS = 20;
     private static final int RETRY_MAX_TIMEOUT_MS = 30_000;
 
+    private static final String UNSUCCESSFUL_TXN_CLEANUP_LOG_KEY = "Unsuccessful transaction cleanup after N attempts";
+
     private final IgniteThrottledLogger throttledLog;
 
     /** Placement driver helper. */
@@ -80,6 +82,8 @@ public class TxCleanupRequestSender {
 
     /** Local transaction state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
+
+    private final ClusterNodeResolver clusterNodeResolver;
 
     /** Executor that executes async cleanup actions. */
     private final ExecutorService cleanupExecutor;
@@ -95,19 +99,22 @@ public class TxCleanupRequestSender {
      * @param txStateVolatileStorage Volatile transaction state storage.
      * @param cleanupExecutor Cleanup executor.
      * @param commonScheduler Common scheduler.
+     * @param clusterNodeResolver Cluster node resolver.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
             VolatileTxStateMetaStorage txStateVolatileStorage,
             ExecutorService cleanupExecutor,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
         this.txStateVolatileStorage = txStateVolatileStorage;
         this.cleanupExecutor = cleanupExecutor;
         this.retryExecutor = commonScheduler;
+        this.clusterNodeResolver = clusterNodeResolver;
         this.throttledLog = toThrottledLogger(Loggers.forClass(TxCleanupRequestSender.class), commonScheduler);
     }
 
@@ -139,57 +146,46 @@ public class TxCleanupRequestSender {
         });
 
         if (ctx != null && ctx.partitions.isEmpty()) {
-            markTxnCleanupReplicated(info.txId(), ctx.txState, ctx.commitPartitionId);
+            markTxnCleanupReplicated(info.txId(), ctx.txState, ctx.commitTimestamp, ctx.commitPartitionId);
 
             writeIntentsReplicated.remove(info.txId());
         }
     }
 
-    private void markTxnCleanupReplicated(UUID txId, TxState state, ZonePartitionId commitPartitionId) {
+    private void markTxnCleanupReplicated(
+            UUID txId,
+            TxState state,
+            @Nullable HybridTimestamp commitTimestamp,
+            ZonePartitionId commitPartitionId
+    ) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        TxStateMeta txStateMeta = txStateVolatileStorage.state(txId);
-        final CompletableFuture<HybridTimestamp> commitTimestampFuture;
-        if (state == TxState.COMMITTED && (txStateMeta == null || txStateMeta.commitTimestamp() == null)) {
-            commitTimestampFuture = placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartitionId)
-                    .thenCompose(replicaMeta -> {
-                                String primaryNode = replicaMeta.getLeaseholder();
-                                HybridTimestamp startTime = replicaMeta.getStartTime();
-                                return txMessageSender.resolveTxStateFromCommitPartition(
-                                            primaryNode,
-                                            txId,
-                                            commitPartitionId,
-                                            startTime.longValue(),
-                                            null,
-                                            null
-                                        )
-                                        .thenApply(TransactionMeta::commitTimestamp);
-                            }
-                    );
-        } else {
-            HybridTimestamp existingCommitTs = txStateMeta == null ? null : txStateMeta.commitTimestamp();
-            commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
-        }
-
-        commitTimestampFuture.thenAccept(commitTimestamp ->
-                txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                        .commitPartitionId(commitPartitionId)
-                        .commitTimestamp(commitTimestamp)
-                        .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                        .build())
+        txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                .commitPartitionId(commitPartitionId)
+                .commitTimestamp(commitTimestamp)
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .build()
         );
     }
 
     /**
-     * Sends unlock request to the nodes than initiated recovery.
+     * Sends cleanup request to the node that initiated recovery.
      *
      * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
+     * @param commit Whether the transaction was committed.
+     * @param commitTimestamp Commit timestamp, if committed.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
-        return sendCleanupMessageWithRetries(commitPartitionId, false, null, txId, node, null, RETRY_INITIAL_TIMEOUT_MS, 0);
+    public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node, null, RETRY_INITIAL_TIMEOUT_MS, 0);
     }
 
     /**
@@ -213,7 +209,12 @@ public class TxCleanupRequestSender {
         if (commitPartitionId != null) {
             writeIntentsReplicated.put(
                     txId,
-                    new CleanupContext(commitPartitionId, enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED)
+                    new CleanupContext(
+                            commitPartitionId,
+                            enlistedPartitions.keySet(),
+                            commit ? TxState.COMMITTED : TxState.ABORTED,
+                            commitTimestamp
+                    )
             );
         }
 
@@ -265,8 +266,12 @@ public class TxCleanupRequestSender {
             // Start tracking the partitions we want to learn the replication confirmation from.
             writeIntentsReplicated.put(
                     txId,
-                    new CleanupContext(commitPartitionId, new HashSet<>(partitionIds.keySet()),
-                            commit ? TxState.COMMITTED : TxState.ABORTED)
+                    new CleanupContext(
+                            commitPartitionId,
+                            new HashSet<>(partitionIds.keySet()),
+                            commit ? TxState.COMMITTED : TxState.ABORTED,
+                            commitTimestamp
+                    )
             );
         }
 
@@ -394,6 +399,7 @@ public class TxCleanupRequestSender {
                         if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
                             if (attemptsMade > ATTEMPTS_LOG_THRESHOLD) {
                                 throttledLog.warn(
+                                        UNSUCCESSFUL_TXN_CLEANUP_LOG_KEY,
                                         "Unsuccessful transaction cleanup after {} attempts, keep retrying [txId={}]",
                                         throwable,
                                         ATTEMPTS_LOG_THRESHOLD,
@@ -410,7 +416,12 @@ public class TxCleanupRequestSender {
                             // At the end of the day all write intents will be properly converted.
                             if (partitions == null) {
                                 // If we don't have any partition, which is the recovery or "unlock only" case,
-                                // just try again with the same node.
+                                // just try again with the same node, if it is online.
+                                InternalClusterNode n = clusterNodeResolver.getByConsistentId(node);
+                                if (n == null) {
+                                    return CompletableFutures.<Void>nullCompletedFuture();
+                                }
+
                                 return scheduleRetry(
                                         () -> sendCleanupMessageWithRetries(
                                                 commitPartitionId,
@@ -471,10 +482,19 @@ public class TxCleanupRequestSender {
          */
         private final TxState txState;
 
-        private CleanupContext(ZonePartitionId commitPartitionId, Set<ZonePartitionId> partitions, TxState txState) {
+        @Nullable
+        private final HybridTimestamp commitTimestamp;
+
+        private CleanupContext(
+                ZonePartitionId commitPartitionId,
+                Set<ZonePartitionId> partitions,
+                TxState txState,
+                @Nullable HybridTimestamp commitTimestamp
+        ) {
             this.commitPartitionId = commitPartitionId;
             this.partitions = partitions;
             this.txState = txState;
+            this.commitTimestamp = commitTimestamp;
         }
     }
 

@@ -20,7 +20,9 @@ package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.List;
+import java.util.Objects;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
@@ -28,14 +30,18 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.RelWithSources;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -91,7 +97,7 @@ public class PartitionAwarenessMetadataExtractor {
             return getMetadata((IgniteKeyValueGet) rel);
         } else if (rel instanceof IgniteKeyValueModify) {
             return getMetadata((IgniteKeyValueModify) rel);
-        } else if (partitionPruningMetadata != null) {
+        } else if (partitionPruningMetadata != null && !partitionPruningMetadata.data().isEmpty()) {
             return tryConvertPartitionPruningMetadata(relationWithSources, partitionPruningMetadata);
         } else {
             return null;
@@ -178,51 +184,20 @@ public class PartitionAwarenessMetadataExtractor {
             RelWithSources relationWithSources,
             PartitionPruningMetadata metadata
     ) {
-        // Partition awareness metadata is created once per source table,
-        // so we do not consider plan that have more then 1 source.
-        if (metadata.data().size() != 1) {
+        ExtractCompatibleMetadata collector = new ExtractCompatibleMetadata(metadata);
+        CompatibleMetadata compatibleMetadata = collector.go(relationWithSources);
+
+        // If partition pruning metadata is not compatible with partition-awareness, terminate.
+        if (compatibleMetadata == null) {
             return null;
         }
 
-        Long2ObjectMap.Entry<PartitionPruningColumns> entry = metadata.data()
-                .long2ObjectEntrySet()
-                .iterator().next();
-
-        long sourceId = entry.getLongKey();
-        IgniteRel sourceRel = relationWithSources.get(sourceId);
-        assert sourceRel != null;
-
-        RelOptTable optTable = sourceRel.getTable();
-        assert optTable != null;
-
-        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
-        assert igniteTable != null;
-
-        // Partition pruning (PP) metadata includes information to identify all possible partitions. 
-        // However, partition awareness restricts execution to a single partition, 
-        // so we should reject PP metadata that has more than one set of columns.
-        //
-        // Ignore PP with correlated variables as well, because some queries 
-        // can access additional partitions.
-        PartitionPruningColumns columns = entry.getValue();
-        if (columns.columns().size() != 1 || columns.containCorrelatedVariables()) {
-            return null;
-        }
-
-        boolean dml = relationWithSources.modifiedTables().contains(igniteTable.id());
-        long numSources = numberOfModifyAndSourceRels(relationWithSources);
-
-        // Accept queries that have exactly one source rel.
-        if (!dml && numSources != 1) {
-            return null;
-        }
-
-        // Accept DMLs that have a ModifyNode and a single source rel.
-        if (dml && numSources != 2) {
-            return null;
-        }
+        PartitionPruningColumns columns = compatibleMetadata.columns;
+        RelOptTable optTable = compatibleMetadata.relOptTable;
+        IgniteTable igniteTable = compatibleMetadata.table;
 
         // Choose appropriate tx mode.
+        boolean dml = relationWithSources.modifiedTables().contains(igniteTable.id());
         DirectTxMode directTxMode = dml ? DirectTxMode.NOT_SUPPORTED : DirectTxMode.SUPPORTED;
 
         ImmutableIntList colocationKeys = igniteTable.distribution().getKeys();
@@ -298,5 +273,154 @@ public class PartitionAwarenessMetadataExtractor {
         Object internalVal = TypeUtils.fromInternal(val, nativeType.spec());
 
         return ColocationUtils.hash(internalVal, nativeType);
+    }
+
+    private static class CompatibleMetadata {
+        final IgniteTable table;
+        final PartitionPruningColumns columns;
+        final RelOptTable relOptTable;
+
+        CompatibleMetadata(IgniteTable table, PartitionPruningColumns columns, RelOptTable relOptTable) {
+            this.columns = columns;
+            this.relOptTable = relOptTable;
+            this.table = table;
+        }
+    }
+
+    private static class ExtractCompatibleMetadata extends IgniteRelShuttle {
+
+        private final PartitionPruningMetadata metadata;
+        private boolean sameTable;
+        private IgniteTable igniteTable;
+
+        private ExtractCompatibleMetadata(PartitionPruningMetadata metadata) {
+            this.metadata = metadata;
+        }
+
+        @Nullable CompatibleMetadata go(RelWithSources relationWithSources) {
+            PartitionPruningMetadata compatibleMetadata = tryCollect(relationWithSources.root());
+            if (compatibleMetadata == null) {
+                return null;
+            }
+
+            Long2ObjectMap.Entry<PartitionPruningColumns> entry = compatibleMetadata.data()
+                    .long2ObjectEntrySet()
+                    .iterator().next();
+
+            long sourceId = entry.getLongKey();
+
+            IgniteRel sourceRel = relationWithSources.get(sourceId);
+            assert sourceRel != null;
+
+            RelOptTable optTable = sourceRel.getTable();
+            assert optTable != null;
+
+            IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
+            assert igniteTable != null;
+
+            // Partition pruning (PP) metadata includes information to identify all possible partitions. 
+            // However, partition awareness restricts execution to a single partition, 
+            // so we should reject PP metadata that has more than one set of columns.
+            //
+            // Ignore PP with correlated variables as well, because some queries 
+            // can access additional partitions.
+            PartitionPruningColumns columns = entry.getValue();
+            if (columns.columns().size() != 1 || columns.containCorrelatedVariables()) {
+                return null;
+            }
+
+            boolean dml = relationWithSources.modifiedTables().contains(igniteTable.id());
+            long numSources = numberOfModifyAndSourceRels(relationWithSources);
+
+            // Accept queries that have exactly one source rel.
+            if (!dml && numSources != 1) {
+                return null;
+            }
+
+            // Accept DMLs that have a ModifyNode and a single source rel.
+            if (dml && numSources != 2) {
+                return null;
+            }
+
+            return new CompatibleMetadata(igniteTable, columns, optTable);
+        }
+
+        private @Nullable PartitionPruningMetadata tryCollect(IgniteRel rel) {
+            // Partition pruning metadata is partition-awareness compatible iff 
+            // all sources refer the same table and all of them have equal PP columns.
+
+            // If there is only one source, metadata can be check for compatibility.
+            if (metadata.data().size() == 1) {
+                return metadata;
+            }
+
+            // Check that all metadata is the same.
+            PartitionPruningColumns previous = null;
+            Long firstSourceId = null;
+            boolean allEqual = true;
+
+            for (Long2ObjectMap.Entry<PartitionPruningColumns> entry : metadata.data().long2ObjectEntrySet()) {
+                long id = entry.getLongKey();
+                PartitionPruningColumns columns = entry.getValue();
+                if (previous == null) {
+                    previous = columns;
+                    firstSourceId = id;
+                } else if (!previous.equals(columns)) {
+                    allEqual = false;
+                }
+            }
+
+            // if metadata is not equal, metadata is not compatible with partition-awareness.
+            if (!allEqual) {
+                return null;
+            }
+
+            rel.accept(this);
+
+            // If there are multiple tables, metadata is not compatible with partition-awareness.
+            if (!sameTable) {
+                return null;
+            }
+
+            // Return the first object, since all metadata objects have the same structure.
+            assert firstSourceId != null;
+            return metadata.subset(LongSet.of(firstSourceId));
+        }
+
+        @Override
+        public IgniteRel visit(IgniteTableModify rel) {
+            checkTable(rel.getTable());
+
+            return super.visit(rel);
+        }
+
+        @Override
+        public IgniteRel visit(IgniteIndexScan rel) {
+            checkTable(rel.getTable());
+
+            return super.visit(rel);
+        }
+
+        @Override
+        public IgniteRel visit(IgniteTableScan rel) {
+            checkTable(rel.getTable());
+
+            return super.visit(rel);
+        }
+
+        private void checkTable(@Nullable RelOptTable table) {
+            if (table == null) {
+                return;
+            }
+            IgniteTable currentTable = table.unwrap(IgniteTable.class);
+            assert currentTable != null;
+
+            if (igniteTable == null) {
+                igniteTable = currentTable;
+                sameTable = true;
+            } else if (!Objects.equals(igniteTable.id(), currentTable.id())) {
+                sameTable = false;
+            }
+        }
     }
 }

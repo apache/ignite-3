@@ -4,36 +4,40 @@ Sort
     est: (rows=100)
   Filter
       predicate: >=(CNT, 10)
-      est: (rows=28746)
+      est: (rows=25872)
     ColocatedHashAggregate
         fieldNames: [STATE, CNT]
         group: [STATE]
         aggregation: [COUNT()]
-        est: (rows=57493)
+        est: (rows=51744)
       Project
           fieldNames: [STATE]
           projection: [CA_STATE]
-          est: (rows=287465)
+          est: (rows=258718)
         HashJoin
             predicate: =(C_CUSTOMER_SK, SS_CUSTOMER_SK)
             type: inner
-            est: (rows=287465)
+            est: (rows=258718)
           HashJoin
               predicate: =(SS_ITEM_SK, I_ITEM_SK)
               type: inner
-              est: (rows=287465)
+              est: (rows=258718)
             HashJoin
                 predicate: AND(=(I_CATEGORY, I_CATEGORY$0), >(CAST(I_CURRENT_PRICE):DECIMAL(23, 17), *(1.2:DECIMAL(2, 1), EXPR$0)))
                 fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_CATEGORY, I_CATEGORY$0, EXPR$0]
                 type: inner
-                est: (rows=4374000)
+                est: (rows=3936600)
               Exchange
                   distribution: single
-                  est: (rows=18000)
-                TableScan
-                    table: PUBLIC.ITEM
-                    fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_CATEGORY]
-                    est: (rows=18000)
+                  est: (rows=16200)
+                Sort
+                    collation: [I_ITEM_SK ASC]
+                    est: (rows=16200)
+                  TableScan
+                      table: PUBLIC.ITEM
+                      predicate: IS NOT NULL(I_CATEGORY)
+                      fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_CATEGORY]
+                      est: (rows=16200)
               Project
                   fieldNames: [I_CATEGORY, EXPR$0]
                   projection: [f0, DECIMAL_DIVIDE(CAST(f0_1):DECIMAL(14, 2), f1_2, 21, 16)]

@@ -199,7 +199,6 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -278,6 +277,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncMetricSource;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -330,6 +330,8 @@ public class IgniteImpl implements Ignite {
     private final String name;
 
     private final Path workDir;
+
+    private final Executor asyncContinuationExecutor;
 
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
@@ -553,6 +555,7 @@ public class IgniteImpl implements Ignite {
     ) {
         this.name = node.name();
         this.workDir = workDir;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -942,11 +945,32 @@ public class IgniteImpl implements Ignite {
         schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime(), metaStorageMgr.watchExecutor());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+        SchemaSyncMetricSource schemaSyncMetricSource = new SchemaSyncMetricSource();
+        metricManager.registerSource(schemaSyncMetricSource);
+        metricManager.enable(schemaSyncMetricSource);
+
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(
+                schemaSafeTimeTracker,
+                delayDurationMsSupplier,
+                schemaSyncMetricSource::recordWait
+        );
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
-        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
+        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
+
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureManager,
+                clusterSvc.messagingService()
+        );
+
+        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
+
+        var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         replicaMgr = new ReplicaManager(
                 name,
@@ -977,8 +1001,6 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = partitionsWorkDir.dbPath();
 
-        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
-
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
                 metricManager,
@@ -1004,17 +1026,6 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureManager,
-                clusterSvc.messagingService()
-        );
-
-        this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -1133,7 +1144,8 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager,
                 metricManager,
                 messagingServiceReturningToStorageOperationsPool,
-                replicaSvc
+                replicaSvc,
+                indexMetaStorage
         );
 
         systemViewManager.register(txManager);
@@ -1262,6 +1274,7 @@ public class IgniteImpl implements Ignite {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
                 this,
+                this::createJobScopedIgnite,
                 stateMachine,
                 computeCfg,
                 clusterSvc.topologyService(),
@@ -1293,8 +1306,7 @@ public class IgniteImpl implements Ignite {
                 ),
                 computeExecutor,
                 computeCfg,
-                eventLog,
-                observableTimestampTracker
+                eventLog
         );
 
         systemViewManager.register(computeComponent);
@@ -1360,6 +1372,10 @@ public class IgniteImpl implements Ignite {
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
         publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService(), clusterIdService));
+    }
+
+    private JobScopedIgnite createJobScopedIgnite(HybridTimestampTracker tracker) {
+        return new JobScopedIgnite(this, tracker, txManager, sql, asyncContinuationExecutor);
     }
 
     private GroupStoragesContextResolver createGroupStoragesContextResolver() {

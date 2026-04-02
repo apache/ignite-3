@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.impl;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -60,7 +61,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 .map(DummyValidationSchemasSource::columnDescriptor)
                 .collect(toList());
 
-        var fullSchema = new FullTableSchema(-1, 1, tableId, "test", columns);
+        var fullSchema = new FullTableSchema(-1, 1, tableId, "test", columns, Int2IntMaps.EMPTY_MAP);
 
         return List.of(fullSchema);
     }

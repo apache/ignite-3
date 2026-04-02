@@ -173,8 +173,11 @@ public class ClientTransactionCommitRequest {
         if (existing == null) {
             tx.enlist(replicationGroupId, table.tableId(), consistentId, token);
         } else {
+            boolean tokenMatch = existing.consistencyToken() == token;
+            existing.addTableId(table.tableId());
+
             // Enlistment tokens should be equal on commit.
-            return !commit || existing.consistencyToken() == token;
+            return !commit || tokenMatch;
         }
 
         return true;
@@ -207,6 +210,11 @@ public class ClientTransactionCommitRequest {
 
         long token() {
             return token;
+        }
+
+        @Override
+        public String toString() {
+            return "(tableId=" + tableId + ", partId=" + partitionId + ", node=" + consistentId + ")";
         }
     }
 }

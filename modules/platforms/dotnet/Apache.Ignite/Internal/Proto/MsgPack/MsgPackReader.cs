@@ -210,6 +210,33 @@ internal ref struct MsgPackReader
     public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
 
     /// <summary>
+    /// Reads a binary-encoded array of big-endian longs. Returns an empty array if nil.
+    /// </summary>
+    /// <returns>Array of long.</returns>
+    public long[] ReadBinaryLongArray()
+    {
+        if (TryReadNil())
+        {
+            return [];
+        }
+
+        ReadOnlySpan<byte> bytes = ReadBinary();
+
+        if (bytes.Length % 8 != 0)
+        {
+            throw new IgniteClientException(ErrorGroups.Client.Protocol, "Invalid binary long array size: " + bytes.Length);
+        }
+
+        var result = new long[bytes.Length / 8];
+        for (int i = 0; i < result.Length; i++)
+        {
+            result[i] = BinaryPrimitives.ReadInt64BigEndian(bytes.Slice(i * 8, 8));
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Reads GUID value.
     /// </summary>
     /// <returns>Guid.</returns>

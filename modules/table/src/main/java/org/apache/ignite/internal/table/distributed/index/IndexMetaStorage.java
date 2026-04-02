@@ -82,6 +82,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
 import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -113,7 +114,7 @@ import org.jetbrains.annotations.Nullable;
  *     less than or equal to the active catalog version for the new watermark.</li>
  * </ul>
  */
-public class IndexMetaStorage implements IgniteComponent {
+public class IndexMetaStorage implements IndexMetasAccess, IgniteComponent {
     private static final String INDEX_META_VERSION_KEY_PREFIX = "index.meta.version.";
 
     private static final String INDEX_META_VALUE_KEY_PREFIX = "index.meta.value.";
@@ -200,11 +201,13 @@ public class IndexMetaStorage implements IgniteComponent {
      *
      * @param indexId Index ID.
      */
+    @Override
     public @Nullable IndexMeta indexMeta(int indexId) {
         return indexMetaByIndexId.get(indexId);
     }
 
     /** Returns a view of all index meta. */
+    @Override
     public Collection<IndexMeta> indexMetas() {
         return unmodifiableCollection(indexMetaByIndexId.values());
     }

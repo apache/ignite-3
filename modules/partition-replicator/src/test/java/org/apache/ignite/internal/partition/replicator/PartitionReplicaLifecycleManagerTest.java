@@ -91,6 +91,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -307,7 +308,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 zoneResourcesManager,
                 new NoOpMetricManager(),
                 clusterService.messagingService(),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(IndexMetasAccess.class)
         );
 
         var componentContext = new ComponentContext();
