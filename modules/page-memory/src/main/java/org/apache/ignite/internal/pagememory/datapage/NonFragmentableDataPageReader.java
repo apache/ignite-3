@@ -29,7 +29,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Contains logic for reading values (that cannot be fragmented, that it, occupy more than one page) from page memory data pages.
  */
-@Deprecated
 public abstract class NonFragmentableDataPageReader<T> {
     private final PartitionPageMemory pageMemory;
     private final int groupId;
