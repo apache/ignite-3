@@ -401,7 +401,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             req.packInt(opCode);
             req.packLong(id);
 
-            System.out.println("SEND: id=" + id + ", op=" + opCode);
+            // System.out.println("SEND: id=" + id + ", op=" + opCode);
 
             if (payloadWriter != null) {
                 payloadWriter.accept(payloadCh);
@@ -555,7 +555,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         Long resId = unpacker.unpackLong();
         int flags = unpacker.unpackInt();
 
-        System.out.println("RESPONSE: " + resId);
+        // System.out.println("RESPONSE: " + resId);
 
         handlePartitionAssignmentChange(flags, unpacker);
         handleObservableTimestamp(unpacker);

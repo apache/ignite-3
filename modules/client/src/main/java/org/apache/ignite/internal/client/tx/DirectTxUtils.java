@@ -202,7 +202,7 @@ public class DirectTxUtils {
     ) {
         ClientMessageUnpacker in = payloadChannel.in();
 
-        System.out.println(in.hexDump());
+        // System.out.println(in.hexDump());
 
         if (ctx.firstReqFut != null) {
             assert tx == null;
