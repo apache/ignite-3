@@ -54,61 +54,61 @@ class VolatilePageMemoryDelegate implements PartitionPageMemory {
 
     @Override
     public int realPageSize(int groupId) {
-        return delegate.realPageSize(groupId);
+        return delegate.realPageSize();
     }
 
     @Override
     public long allocatePageNoReuse(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException {
-        return delegate.allocatePageNoReuse(groupId, partitionId, flags);
+        return delegate.allocatePageNoReuse(partitionId, flags);
     }
 
     @Override
     public boolean freePage(int groupId, long pageId) {
-        return delegate.freePage(groupId, pageId);
+        return delegate.freePage(pageId);
     }
 
     @Override
     public long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException {
-        return delegate.acquirePage(groupId, pageId);
+        return delegate.acquirePage(pageId);
     }
 
     @Override
     public void releasePage(int groupId, long pageId, long page) {
-        delegate.releasePage(groupId, pageId, page);
+        delegate.releasePage(pageId);
     }
 
     @Override
     public long readLock(int groupId, long pageId, long page) {
-        return delegate.readLock(groupId, pageId, page);
+        return delegate.readLock(pageId, page);
     }
 
     @Override
     public long readLockForce(int groupId, long pageId, long page) {
-        return delegate.readLockForce(groupId, pageId, page);
+        return delegate.readLockForce(page);
     }
 
     @Override
     public void readUnlock(int groupId, long pageId, long page) {
-        delegate.readUnlock(groupId, pageId, page);
+        delegate.readUnlock(page);
     }
 
     @Override
     public long writeLock(int groupId, long pageId, long page) {
-        return delegate.writeLock(groupId, pageId, page, false);
+        return delegate.writeLock(pageId, page, false);
     }
 
     @Override
     public long writeLockForce(int groupId, long pageId, long page) {
-        return delegate.writeLock(groupId, pageId, page, true);
+        return delegate.writeLock(pageId, page, true);
     }
 
     @Override
     public long tryWriteLock(int groupId, long pageId, long page) {
-        return delegate.tryWriteLock(groupId, pageId, page);
+        return delegate.tryWriteLock(pageId, page);
     }
 
     @Override
     public void writeUnlock(int groupId, long pageId, long page, boolean dirtyFlag) {
-        delegate.writeUnlock(groupId, pageId, page, dirtyFlag);
+        delegate.writeUnlock(page);
     }
 }

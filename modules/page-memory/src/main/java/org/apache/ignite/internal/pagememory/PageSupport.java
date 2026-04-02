@@ -84,7 +84,6 @@ public interface PageSupport {
      */
     long writeLock(int groupId, long pageId, long page);
 
-
     /**
      * Acquired a write lock on the page, without checking the page tag.
      *

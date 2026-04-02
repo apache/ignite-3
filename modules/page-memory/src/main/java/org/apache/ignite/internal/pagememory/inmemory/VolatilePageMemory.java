@@ -243,7 +243,7 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    long allocatePageNoReuse(int grpId, int partId, byte flags) {
+    long allocatePageNoReuse(int partId, byte flags) {
         assert started;
 
         long relPtr = borrowFreePage();
@@ -304,7 +304,7 @@ public class VolatilePageMemory implements PageMemory {
         return pageId;
     }
 
-    boolean freePage(int grpId, long pageId) {
+    boolean freePage(long pageId) {
         assert started;
 
         releaseFreePage(pageId);
@@ -320,7 +320,7 @@ public class VolatilePageMemory implements PageMemory {
         return sysPageSize;
     }
 
-    int realPageSize(int grpId) {
+    int realPageSize() {
         return pageSize();
     }
 
@@ -406,7 +406,7 @@ public class VolatilePageMemory implements PageMemory {
         return res;
     }
 
-    long acquirePage(int cacheId, long pageId) {
+    long acquirePage(long pageId) {
         assert started;
 
         int pageIdx = PageIdUtils.pageIndex(pageId);
@@ -416,7 +416,7 @@ public class VolatilePageMemory implements PageMemory {
         return seg.acquirePage(pageIdx);
     }
 
-    void releasePage(int cacheId, long pageId, long page) {
+    void releasePage(long pageId) {
         assert started;
 
         if (trackAcquiredPages) {
@@ -426,7 +426,7 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    long readLock(int cacheId, long pageId, long page) {
+    long readLock(long pageId, long page) {
         assert started;
 
         if (rwLock.readLock(page + LOCK_OFFSET, PageIdUtils.tag(pageId))) {
@@ -436,23 +436,23 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    long readLockForce(int cacheId, long pageId, long page) {
+    long readLockForce(long page) {
         assert started;
 
-        if (rwLock.readLock(page + LOCK_OFFSET, -1)) {
+        if (rwLock.readLock(page + LOCK_OFFSET, TAG_LOCK_ALWAYS)) {
             return page + PAGE_OVERHEAD;
         }
 
         return 0L;
     }
 
-    void readUnlock(int cacheId, long pageId, long page) {
+    void readUnlock(long page) {
         assert started;
 
         rwLock.readUnlock(page + LOCK_OFFSET);
     }
 
-    long writeLock(int cacheId, long pageId, long page, boolean force) {
+    long writeLock(long pageId, long page, boolean force) {
         assert started;
 
         if (rwLock.writeLock(page + LOCK_OFFSET, force ? TAG_LOCK_ALWAYS : PageIdUtils.tag(pageId))) {
@@ -462,7 +462,7 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    long tryWriteLock(int cacheId, long pageId, long page) {
+    long tryWriteLock(long pageId, long page) {
         assert started;
 
         if (rwLock.tryWriteLock(page + LOCK_OFFSET, PageIdUtils.tag(pageId))) {
@@ -472,12 +472,7 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    void writeUnlock(
-            int cacheId,
-            long pageId,
-            long page,
-            boolean dirtyFlag
-    ) {
+    void writeUnlock(long page) {
         assert started;
 
         long actualId = PageIo.getPageId(page + PAGE_OVERHEAD);
