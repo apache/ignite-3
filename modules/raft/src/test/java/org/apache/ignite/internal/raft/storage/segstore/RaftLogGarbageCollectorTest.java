@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -129,7 +130,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         FileProperties fileProperties = SegmentFile.fileProperties(segmentFilePath);
 
-        runCompaction(segmentFilePath);
+        garbageCollector.runCompaction(fileProperties);
 
         assertThat(segmentFilePath, not(exists()));
         assertThat(indexFileManager.indexFilePath(fileProperties), not(exists()));
@@ -165,7 +166,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         FileProperties originalFileProperties = SegmentFile.fileProperties(firstSegmentFile);
 
-        runCompaction(firstSegmentFile);
+        garbageCollector.runCompaction(originalFileProperties);
 
         // Segment file should be replaced by a new one with increased generation.
         assertThat(firstSegmentFile, not(exists()));
@@ -287,7 +288,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
                     long sizeBeforeCompaction = Files.size(curSegmentFilePath);
 
-                    runCompaction(curSegmentFilePath);
+                    garbageCollector.runCompaction(fileProperties);
 
                     FileProperties newFileProperties = new FileProperties(fileProperties.ordinal(), fileProperties.generation() + 1);
 
@@ -590,8 +591,8 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     /**
-     * Reproducer for the stale-deque-entry corruption bug: after fully deleting a middle segment file, its {@link IndexFileMeta} remains
-     * in the same deque block as the preceding file's meta. When the preceding file is subsequently partially compacted (its live log range
+     * Reproducer for the stale-deque-entry corruption bug: after fully deleting a middle segment file, its {@link IndexFileMeta} remains in
+     * the same deque block as the preceding file's meta. When the preceding file is subsequently partially compacted (its live log range
      * shrinks), {@link IndexFileMetaArray#onIndexCompacted} asserts that the new meta's {@code lastLogIndexExclusive} equals the next
      * entry's {@code firstLogIndexInclusive}.
      */
@@ -641,6 +642,30 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
             assertThat(bs, is(batches.get(1)));
             return null;
         });
+    }
+
+    @Test
+    void testLogSizeBytesInitializedCorrectlyOnStartup() throws Exception {
+        // Fill multiple segment files to create both segment and index files.
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        // Wait for at least one checkpoint so index files exist.
+        await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(1)));
+
+        long expectedSize = totalLogSizeFromDisk(fileManager);
+
+        assertThat(garbageCollector.logSizeBytes(), is(expectedSize));
+
+        restartSegmentFileManager();
+
+        assertThat(garbageCollector.logSizeBytes(), is(expectedSize));
+    }
+
+    private void runCompaction(Path segmentFilePath) throws IOException {
+        garbageCollector.runCompaction(SegmentFile.fileProperties(segmentFilePath));
     }
 
     private List<Path> segmentFiles() throws IOException {
@@ -720,15 +745,22 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         );
 
         fileManager.start();
+
+        indexFileManager = fileManager.indexFileManager();
+        garbageCollector = fileManager.garbageCollector();
     }
 
-    private void runCompaction(Path segmentFilePath) throws IOException {
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
-
-        try {
-            garbageCollector.runCompaction(segmentFile);
-        } finally {
-            segmentFile.close();
+    private static long totalLogSizeFromDisk(SegmentFileManager manager) throws IOException {
+        try (Stream<Path> files = Stream.concat(Files.list(manager.segmentFilesDir()), Files.list(manager.indexFilesDir()))) {
+            return files
+                    .mapToLong(p -> {
+                        try {
+                            return Files.size(p);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .sum();
         }
     }
 }
