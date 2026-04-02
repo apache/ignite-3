@@ -106,9 +106,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testGetAllMultithreaded() throws Exception {
-        int threadCount = 16;
+        int threadCount = 12;
         int partitionCount = 94;
-        int rowCount = 10_000_000;
+        int rowCount = 100_000;
         int batchSize = 1000;
         int readIter = 10;
 

@@ -53,7 +53,11 @@ public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
             return null;
         }
 
-        return super.decode(ctx, in);
+        Object decoded = super.decode(ctx, in);
+
+        in.discardReadBytes();
+
+        return decoded;
     }
 
     /**
