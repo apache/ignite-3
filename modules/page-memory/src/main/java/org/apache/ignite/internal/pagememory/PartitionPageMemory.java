@@ -26,6 +26,16 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 // TODO IGNITE-28429 Remove "groupId" parameter from all methods.
 public interface PartitionPageMemory extends PageSupport, PageIdAllocator {
     /**
+     * Returns a group ID associated with this instance.
+     */
+    int groupId();
+
+    /**
+     * Returns a partition ID associated with this instance.
+     */
+    int partitionId();
+
+    /**
      * Returns a registry to obtain {@link PageIo} instances for pages.
      */
     PageIoRegistry ioRegistry();

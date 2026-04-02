@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.inmemory;
 
 import static java.lang.System.lineSeparator;
+import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWAYS;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -218,6 +220,11 @@ public class VolatilePageMemory implements PageMemory {
     }
 
     @Override
+    public PartitionPageMemory createPartitionPageMemory(int groupId, int partitionId) {
+        return new VolatilePageMemoryDelegate(this, groupId, partitionId);
+    }
+
+    @Override
     public void stop(boolean deallocate) throws IgniteInternalException {
         synchronized (segmentsLock) {
             LOG.debug("Stopping page memory");
@@ -236,7 +243,7 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    @Override public long allocatePageNoReuse(int grpId, int partId, byte flags) {
+    long allocatePageNoReuse(int grpId, int partId, byte flags) {
         assert started;
 
         long relPtr = borrowFreePage();
@@ -297,7 +304,7 @@ public class VolatilePageMemory implements PageMemory {
         return pageId;
     }
 
-    @Override public boolean freePage(int grpId, long pageId) {
+    boolean freePage(int grpId, long pageId) {
         assert started;
 
         releaseFreePage(pageId);
@@ -313,7 +320,7 @@ public class VolatilePageMemory implements PageMemory {
         return sysPageSize;
     }
 
-    @Override public int realPageSize(int grpId) {
+    int realPageSize(int grpId) {
         return pageSize();
     }
 
@@ -399,9 +406,7 @@ public class VolatilePageMemory implements PageMemory {
         return res;
     }
 
-    // *** PageSupport methods ***
-
-    @Override public long acquirePage(int cacheId, long pageId) {
+    long acquirePage(int cacheId, long pageId) {
         assert started;
 
         int pageIdx = PageIdUtils.pageIndex(pageId);
@@ -411,7 +416,7 @@ public class VolatilePageMemory implements PageMemory {
         return seg.acquirePage(pageIdx);
     }
 
-    @Override public void releasePage(int cacheId, long pageId, long page) {
+    void releasePage(int cacheId, long pageId, long page) {
         assert started;
 
         if (trackAcquiredPages) {
@@ -421,7 +426,7 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    @Override public long readLock(int cacheId, long pageId, long page) {
+    long readLock(int cacheId, long pageId, long page) {
         assert started;
 
         if (rwLock.readLock(page + LOCK_OFFSET, PageIdUtils.tag(pageId))) {
@@ -431,7 +436,7 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    @Override public long readLockForce(int cacheId, long pageId, long page) {
+    long readLockForce(int cacheId, long pageId, long page) {
         assert started;
 
         if (rwLock.readLock(page + LOCK_OFFSET, -1)) {
@@ -441,23 +446,23 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    @Override public void readUnlock(int cacheId, long pageId, long page) {
+    void readUnlock(int cacheId, long pageId, long page) {
         assert started;
 
         rwLock.readUnlock(page + LOCK_OFFSET);
     }
 
-    @Override public long writeLock(int cacheId, long pageId, long page) {
+    long writeLock(int cacheId, long pageId, long page, boolean force) {
         assert started;
 
-        if (rwLock.writeLock(page + LOCK_OFFSET, PageIdUtils.tag(pageId))) {
+        if (rwLock.writeLock(page + LOCK_OFFSET, force ? TAG_LOCK_ALWAYS : PageIdUtils.tag(pageId))) {
             return page + PAGE_OVERHEAD;
         }
 
         return 0L;
     }
 
-    @Override public long tryWriteLock(int cacheId, long pageId, long page) {
+    long tryWriteLock(int cacheId, long pageId, long page) {
         assert started;
 
         if (rwLock.tryWriteLock(page + LOCK_OFFSET, PageIdUtils.tag(pageId))) {
@@ -467,8 +472,7 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    @Override
-    public void writeUnlock(
+    void writeUnlock(
             int cacheId,
             long pageId,
             long page,
@@ -481,8 +485,7 @@ public class VolatilePageMemory implements PageMemory {
         rwLock.writeUnlock(page + LOCK_OFFSET, PageIdUtils.tag(actualId));
     }
 
-    @Override
-    public PageIoRegistry ioRegistry() {
+    PageIoRegistry ioRegistry() {
         return ioRegistry;
     }
 

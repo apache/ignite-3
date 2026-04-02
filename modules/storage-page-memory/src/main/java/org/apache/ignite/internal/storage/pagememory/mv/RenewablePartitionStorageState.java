@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
+import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -27,6 +29,8 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
  * partition rebalance.
  */
 class RenewablePartitionStorageState {
+    private final PartitionPageMemory partitionPageMemory;
+
     private final VersionChainTree versionChainTree;
 
     private final FreeListImpl freeList;
@@ -37,15 +41,18 @@ class RenewablePartitionStorageState {
 
     private final IndexStorageFactory indexStorageFactory;
 
+    private final DataPageReader rowVersionDataPageReader;
+
     /** Creates a new instance. */
     RenewablePartitionStorageState(
-            AbstractPageMemoryTableStorage tableStorage,
-            int partitionId,
+            AbstractPageMemoryTableStorage<?> tableStorage,
+            PartitionPageMemory partitionPageMemory,
             VersionChainTree versionChainTree,
             FreeListImpl freeList,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
     ) {
+        this.partitionPageMemory = partitionPageMemory;
         this.versionChainTree = versionChainTree;
         this.freeList = freeList;
         this.indexMetaTree = indexMetaTree;
@@ -53,10 +60,12 @@ class RenewablePartitionStorageState {
 
         this.indexStorageFactory = new IndexStorageFactory(
                 tableStorage,
-                partitionId,
+                partitionPageMemory,
                 indexMetaTree,
                 freeList
         );
+
+        this.rowVersionDataPageReader = new DataPageReader(partitionPageMemory, tableStorage.getTableId());
     }
 
     VersionChainTree versionChainTree() {
@@ -77,5 +86,9 @@ class RenewablePartitionStorageState {
 
     IndexStorageFactory indexStorageFactory() {
         return indexStorageFactory;
+    }
+
+    public DataPageReader rowVersionDataPageReader() {
+        return rowVersionDataPageReader;
     }
 }

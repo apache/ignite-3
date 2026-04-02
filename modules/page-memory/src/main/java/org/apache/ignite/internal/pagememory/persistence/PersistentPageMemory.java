@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -330,6 +332,11 @@ public class PersistentPageMemory implements PageMemory {
         return regions;
     }
 
+    @Override
+    public PartitionPageMemory createPartitionPageMemory(int groupId, int partitionId) {
+        return new PartitionPageMemoryDelegate(this, groupId, partitionId);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void stop(boolean deallocate) throws IgniteInternalException {
@@ -350,9 +357,7 @@ public class PersistentPageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void releasePage(int grpId, long pageId, long page) {
+    void releasePage(int grpId, long pageId, long page) {
         assert started;
 
         Segment seg = segment(grpId, pageId);
@@ -366,9 +371,7 @@ public class PersistentPageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public long readLock(int grpId, long pageId, long page) {
+    long readLock(int grpId, long pageId, long page) {
         assert started;
 
         return readLock(page, pageId, false);
@@ -407,17 +410,13 @@ public class PersistentPageMemory implements PageMemory {
         return readLock(absPtr, pageId, force, true);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void readUnlock(int grpId, long pageId, long page) {
+    void readUnlock(int grpId, long pageId, long page) {
         assert started;
 
         readUnlockPage(page);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public long writeLock(int grpId, long pageId, long page) {
+    long writeLock(int grpId, long pageId, long page) {
         assert started;
 
         return writeLock(grpId, pageId, page, false);
@@ -438,17 +437,13 @@ public class PersistentPageMemory implements PageMemory {
         return writeLockPage(page, new FullPageId(pageId, grpId), !restore);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public long tryWriteLock(int grpId, long pageId, long page) {
+    long tryWriteLock(int grpId, long pageId, long page) {
         assert started;
 
         return tryWriteLockPage(page, new FullPageId(pageId, grpId), true);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void writeUnlock(int grpId, long pageId, long page, boolean dirtyFlag) {
+    void writeUnlock(int grpId, long pageId, long page, boolean dirtyFlag) {
         assert started;
 
         writeUnlock(grpId, pageId, page, dirtyFlag, false);
@@ -478,8 +473,7 @@ public class PersistentPageMemory implements PageMemory {
         return dirty(absPtr);
     }
 
-    @Override
-    public long allocatePageNoReuse(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
+    long allocatePageNoReuse(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : "grpId=" + grpId + ", partId=" + partId;
 
         assert started : "grpId=" + grpId + ", partId=" + partId;
@@ -572,17 +566,13 @@ public class PersistentPageMemory implements PageMemory {
         return pageId;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean freePage(int grpId, long pageId) {
+    boolean freePage(int grpId, long pageId) {
         assert false : "Free page should be never called directly when persistence is enabled.";
 
         return false;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
+    long acquirePage(int grpId, long pageId) throws IgniteInternalCheckedException {
         assert started : "grpId=" + grpId + ", pageId=" + hexLong(pageId);
         assert pageIndex(pageId) != 0 : String.format(
                 "Partition meta should should not be read through PageMemory so as not to occupy memory: [grpId=%s, pageId=%s]",
@@ -803,9 +793,7 @@ public class PersistentPageMemory implements PageMemory {
         return sysPageSize;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int realPageSize(int grpId) {
+    int realPageSize(int grpId) {
         return pageSize();
     }
 
@@ -1012,9 +1000,7 @@ public class PersistentPageMemory implements PageMemory {
         return total;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public long readLockForce(int grpId, long pageId, long page) {
+    long readLockForce(int grpId, long pageId, long page) {
         assert started;
 
         return readLock(page, pageId, true);
@@ -1735,9 +1721,7 @@ public class PersistentPageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public PageIoRegistry ioRegistry() {
+    PageIoRegistry ioRegistry() {
         return ioRegistry;
     }
 

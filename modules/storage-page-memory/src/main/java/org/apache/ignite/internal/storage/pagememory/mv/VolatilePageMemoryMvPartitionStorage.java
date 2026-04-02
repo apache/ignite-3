@@ -37,6 +37,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -81,7 +82,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * Constructor.
      *
      * @param tableStorage Table storage instance.
-     * @param partitionId Partition id.
+     * @param partitionPageMemory Page memory instance for a specific partition.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
@@ -90,7 +91,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
-            int partitionId,
+            PartitionPageMemory partitionPageMemory,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
@@ -98,11 +99,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             FailureProcessor failureProcessor
     ) {
         super(
-                partitionId,
+                partitionPageMemory.partitionId(),
                 tableStorage,
                 new RenewablePartitionStorageState(
                         tableStorage,
-                        partitionId,
+                        partitionPageMemory,
                         versionChainTree,
                         tableStorage.dataRegion().freeList(),
                         indexMetaTree,
@@ -347,6 +348,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
+            PartitionPageMemory partitionPageMemory,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
@@ -356,6 +358,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         RenewablePartitionStorageState prevState = this.renewableState;
 
         updateRenewableState(
+                partitionPageMemory,
                 versionChainTree,
                 prevState.freeList(),
                 indexMetaTree,

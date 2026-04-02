@@ -24,13 +24,18 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
  */
 // TODO IGNITE-16350 Improve javadoc in this class.
 // TODO IGNITE-28429 Remove the inheritance.
-public interface PageMemory extends PartitionPageMemory {
+public interface PageMemory {
     /**
      * Stops page memory.
      *
      * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse on subsequent {@code start()}
      */
     void stop(boolean deallocate) throws IgniteInternalException;
+
+    /**
+     * Returns a page's size in bytes.
+     */
+    int pageSize();
 
     /**
      * Returns a page's size with system overhead, in bytes.
@@ -42,4 +47,9 @@ public interface PageMemory extends PartitionPageMemory {
      * Returns the total number of pages loaded into memory.
      */
     long loadedPages();
+
+    /**
+     * Creates a new instance of {@link PartitionPageMemory} for a specified partition.
+     */
+    PartitionPageMemory createPartitionPageMemory(int groupId, int partitionId);
 }

@@ -68,9 +68,13 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     @Nullable
     protected PageMemory pageMem;
 
+    @Nullable
+    protected PartitionPageMemory partitionPageMemory;
+
     @BeforeEach
     protected void beforeEach() throws Exception {
         pageMem = createPageMemory();
+        partitionPageMemory = pageMem.createPartitionPageMemory(GROUP_ID, 0);
     }
 
     @AfterEach
@@ -93,7 +97,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     private FullPageId allocateMetaPage() throws IgniteInternalCheckedException {
-        return new FullPageId(pageMem.allocatePageNoReuse(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+        return new FullPageId(partitionPageMemory.allocatePageNoReuse(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /**
@@ -420,7 +424,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TestPairTree prepareBplusTree() throws Exception {
-        TestPairTree tree = new TestPairTree(allocateMetaPage(), pageMem);
+        TestPairTree tree = new TestPairTree(allocateMetaPage(), partitionPageMemory);
 
         tree.putx(new Pair(1, 0));
         tree.putx(new Pair(2, 0));

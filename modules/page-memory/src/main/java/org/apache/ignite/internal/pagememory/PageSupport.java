@@ -84,6 +84,17 @@ public interface PageSupport {
      */
     long writeLock(int groupId, long pageId, long page);
 
+
+    /**
+     * Acquired a write lock on the page, without checking the page tag.
+     *
+     * @param groupId Group ID.
+     * @param pageId  Page ID.
+     * @param page    Page pointer.
+     * @return Address of a buffer with contents of the given page or {@code 0L} if attempt to take the write lock failed.
+     */
+    long writeLockForce(int groupId, long pageId, long page);
+
     /**
      * Tries to acquire a write lock on the page.
      *

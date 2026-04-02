@@ -144,6 +144,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     protected PageMemory pageMem;
 
     @Nullable
+    protected PartitionPageMemory partitionPageMemory;
+
+    @Nullable
     private ReuseList reuseList;
 
     /** Stop. */
@@ -166,8 +169,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         rnd = new Random(seed);
 
         pageMem = createPageMemory();
+        partitionPageMemory = pageMem.createPartitionPageMemory(GROUP_ID, 0);
 
-        reuseList = createReuseList(GROUP_ID, 0, pageMem, 0, true);
+        reuseList = createReuseList(GROUP_ID, 0, partitionPageMemory, 0, true);
     }
 
     @AfterEach
@@ -2569,7 +2573,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private TestTree reCreateTestTree(TestTree tree, long globalRmvId) throws Exception {
-        return new TestTree(tree.metaFullPageId(), reuseList, tree.canGetRow, pageMem, new AtomicLong(globalRmvId), false);
+        return new TestTree(tree.metaFullPageId(), reuseList, tree.canGetRow, partitionPageMemory, new AtomicLong(globalRmvId), false);
     }
 
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
@@ -2763,7 +2767,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private TestTree createTestTree(boolean canGetRow, AtomicLong globalRmvId) throws Exception {
-        var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem, globalRmvId, true);
+        var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, partitionPageMemory, globalRmvId, true);
 
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
@@ -2776,7 +2780,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private FullPageId allocateMetaPage() throws Exception {
-        return new FullPageId(pageMem.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+        return new FullPageId(partitionPageMemory.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /** Test tree. */
