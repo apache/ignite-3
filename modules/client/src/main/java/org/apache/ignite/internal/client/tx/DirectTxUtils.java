@@ -217,7 +217,8 @@ public class DirectTxUtils {
                     new ClientTransaction(payloadChannel.clientChannel(), ch, id, ctx.readOnly, txId, ctx.pm, coordId, observableTimestamp,
                             timeout);
 
-            ctx.firstReqFut.complete(startedTx);
+            boolean completed = ctx.firstReqFut.complete(startedTx);
+            assert completed : "Transaction future was already completed by another thread";
         } else if (ctx.enlistmentToken != null) { // Use enlistment meta only for remote transactions.
             assert tx != null;
             assert ctx.pm != null;
