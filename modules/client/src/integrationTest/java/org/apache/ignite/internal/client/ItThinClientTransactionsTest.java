@@ -110,6 +110,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         int partitionCount = 94;
         int rowCount = 10_000_000;
         int batchSize = 1000;
+        int readIter = 10;
 
         String testTableName = "test_getall_mt";
         String testZoneName = "test_getall_mt_zone";
@@ -139,6 +140,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
                 .build();
 
         try (client) {
+            long streamingStartTime = System.currentTimeMillis();
             Table table = client.tables().table(testTableName);
             RecordView<Tuple> view = table.recordView();
 
@@ -159,51 +161,56 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             // Wait for data to be loaded
             streamerFut.orTimeout(300, TimeUnit.SECONDS).join();
+            System.out.println(">>> Streaming done in " + (System.currentTimeMillis() - streamingStartTime) / 1000 + " seconds");
 
-            // Run 16 threads and read all data with getAll in batches of 1000 keys
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (int i = 0; i < readIter; i++) {
+                System.out.println(">>> Iteration " + i);
 
-            for (int threadIdx = 0; threadIdx < threadCount; threadIdx++) {
-                int finalThreadIdx = threadIdx;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-                    long keysPerThread = rowCount / threadCount;
-                    long startKey = finalThreadIdx * keysPerThread;
-                    long endKey = (finalThreadIdx == threadCount - 1) ? rowCount : startKey + keysPerThread;
+                // Run 16 threads and read all data with getAll in batches of 1000 keys
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-                    for (long batchStart = startKey; batchStart < endKey; batchStart += batchSize) {
-                        long batchEnd = Math.min(batchStart + batchSize, endKey);
-                        List<Tuple> keys = new ArrayList<>();
+                for (int threadIdx = 0; threadIdx < threadCount; threadIdx++) {
+                    int finalThreadIdx = threadIdx;
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+                        long keysPerThread = rowCount / threadCount;
+                        long startKey = finalThreadIdx * keysPerThread;
+                        long endKey = (finalThreadIdx == threadCount - 1) ? rowCount : startKey + keysPerThread;
 
-                        for (long key = batchStart; key < batchEnd; key++) {
-                            keys.add(Tuple.create().set("key", key));
-                        }
+                        for (long batchStart = startKey; batchStart < endKey; batchStart += batchSize) {
+                            long batchEnd = Math.min(batchStart + batchSize, endKey);
+                            List<Tuple> keys = new ArrayList<>();
 
-                        Map<Tuple, Tuple> result = kvView.getAll(null, keys);
-                        assertEquals(keys.size(), result.size(),
-                                "Thread " + finalThreadIdx + " batch starting at " + batchStart);
+                            for (long key = batchStart; key < batchEnd; key++) {
+                                keys.add(Tuple.create().set("key", key));
+                            }
 
-                        // Verify data
-                        for (long key = batchStart; key < batchEnd; key++) {
-                            Tuple keyTuple = Tuple.create().set("key", key);
-                            Tuple value = result.get(keyTuple);
-                            assertNotNull(value, "Missing value for key " + key);
+                            Map<Tuple, Tuple> result = kvView.getAll(null, keys);
+                            assertEquals(keys.size(), result.size(),
+                                    "Thread " + finalThreadIdx + " batch starting at " + batchStart);
 
-                            for (int fieldIdx = 1; fieldIdx <= 10; fieldIdx++) {
-                                String expectedValue = "value_" + key + "_" + fieldIdx;
-                                assertEquals(expectedValue, value.stringValue("field" + fieldIdx),
-                                        "Wrong value for key " + key + " field" + fieldIdx);
+                            // Verify data
+                            for (long key = batchStart; key < batchEnd; key++) {
+                                Tuple keyTuple = Tuple.create().set("key", key);
+                                Tuple value = result.get(keyTuple);
+                                assertNotNull(value, "Missing value for key " + key);
+
+                                for (int fieldIdx = 1; fieldIdx <= 10; fieldIdx++) {
+                                    String expectedValue = "value_" + key + "_" + fieldIdx;
+                                    assertEquals(expectedValue, value.stringValue("field" + fieldIdx),
+                                            "Wrong value for key " + key + " field" + fieldIdx);
+                                }
                             }
                         }
-                    }
-                });
-                futures.add(future);
-            }
+                    });
+                    futures.add(future);
+                }
 
-            // Wait for all threads to complete
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .orTimeout(300, TimeUnit.SECONDS)
-                    .join();
+                // Wait for all threads to complete
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                        .orTimeout(300, TimeUnit.SECONDS)
+                        .join();
+            }
         } finally {
             // Clean up
             server().sql().execute("DROP TABLE " + testTableName);
