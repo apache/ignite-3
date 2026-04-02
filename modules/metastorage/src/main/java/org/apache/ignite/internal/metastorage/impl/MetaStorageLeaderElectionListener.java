@@ -36,7 +36,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -101,7 +100,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     MetaStorageLeaderElectionListener(
             IgniteSpinBusyLock busyLock,
-            ClusterService clusterService,
+            String nodeName,
             LogicalTopologyService logicalTopologyService,
             FailureProcessor failureProcessor,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
@@ -112,7 +111,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             BooleanSupplier leaderSecondaryDutiesPaused
     ) {
         this.busyLock = busyLock;
-        this.nodeName = clusterService.nodeName();
+        this.nodeName = nodeName;
         this.logicalTopologyService = logicalTopologyService;
         this.failureProcessor = failureProcessor;
         this.metaStorageSvcFut = metaStorageSvcFut;

@@ -428,7 +428,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
-        when(topologyService.localMember()).thenReturn(node);
+        when(clusterService.staticLocalNode()).thenReturn(node);
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
         when(txManager.transactionMetricsSource()).thenReturn(mock(TransactionMetricsSource.class));
 
@@ -439,7 +439,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
 
         replicaMgr = spy(new ReplicaManager(
-                NODE_NAME,
                 clusterService,
                 mock(ClusterManagementGroupManager.class, RETURNS_DEEP_STUBS),
                 groupId -> completedFuture(Assignments.EMPTY),
@@ -540,6 +539,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 metaStorageManager,
                 topologyService,
+                node,
                 lowWatermark,
                 failureProcessor,
                 ForkJoinPool.commonPool(),
@@ -568,6 +568,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
+                node,
                 mock(LockManager.class),
                 null,
                 txManager,

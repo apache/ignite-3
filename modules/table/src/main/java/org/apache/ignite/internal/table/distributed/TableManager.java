@@ -93,6 +93,7 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -306,6 +307,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicationConfiguration replicationConfiguration,
             MessagingService messagingService,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             LockManager lockMgr,
             ReplicaService replicaSvc,
             TxManager txManager,
@@ -390,6 +392,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 this.executorInclinedSchemaSyncService,
                 this.executorInclinedPlacementDriver,
                 topologyService,
+                localNode,
                 remotelyTriggeredResourceRegistry,
                 failureProcessor,
                 schemaManager,

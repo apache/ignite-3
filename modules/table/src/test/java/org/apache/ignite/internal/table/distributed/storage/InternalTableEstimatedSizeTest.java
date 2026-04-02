@@ -200,7 +200,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        node = clusterService.topologyService().localMember();
+        node = clusterService.staticLocalNode();
 
         var clockService = new ClockServiceImpl(
                 clock,

@@ -357,7 +357,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     "test",
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     workingDir.raftLogPath(),
                     raftConfiguration.fsync().value()
             );
@@ -387,7 +387,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             });
 
             OutgoingSnapshotsManager outgoingSnapshotsManager = new OutgoingSnapshotsManager(
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     clusterService.messagingService(),
                     new NoOpFailureManager()
             );

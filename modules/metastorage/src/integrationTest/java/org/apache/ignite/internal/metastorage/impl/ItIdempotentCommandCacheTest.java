@@ -212,10 +212,9 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(lozaDir);
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
-            );
+            String nodeName = clusterService.staticLocalNode().name();
+
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -241,8 +240,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
 
-            msLogStorageManager =
-                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
@@ -250,7 +248,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
             storage = spy(new RocksDbKeyValueStorage(
-                    clusterService.nodeName(),
+                    nodeName,
                     metastorageWorkDir.dbPath(),
                     new NoOpFailureManager(),
                     readOperationForCompactionTracker,
@@ -258,7 +256,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             ));
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    clusterService,
+                    clusterService.staticLocalNode(),
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
@@ -271,7 +269,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     readOperationForCompactionTracker
             );
 
-            clockWaiter = new ClockWaiter(clusterService.nodeName(), clock, scheduledExecutorService);
+            clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutorService);
 
             clockService = new ClockServiceImpl(
                     clock,
@@ -326,7 +324,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             boolean res = e != null && !e.empty() && !e.tombstone() && Arrays.equals(e.value(), testValueExpected);
 
             if (!res) {
-                log.warn("Test: checkValueInStorage found no value [node=" + clusterService.nodeName()
+                log.warn("Test: checkValueInStorage found no value [node=" + clusterService.staticLocalNode().name()
                         + ", empty=" + (e == null ? "null" : e.empty())
                         + ", tombstone=" + (e == null ? "null" : e.tombstone())
                         + ", value=" + (e == null ? "null" : Arrays.toString(e.value()))
@@ -442,7 +440,11 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         doRetriedInvoke(invoker, leader);
 
-        nodes.forEach(n -> assertThat(raftClient().snapshot(new Peer(n.clusterService.nodeName()), true), willCompleteSuccessfully()));
+        nodes.forEach(n -> {
+            String nodeName = n.clusterService.staticLocalNode().name();
+
+            assertThat(raftClient().snapshot(new Peer(nodeName), true), willCompleteSuccessfully());
+        });
 
         restartCluster();
     }
@@ -457,7 +459,9 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         Node currentLeader = leader(raftClient);
 
-        log.info("Test: current leader is " + currentLeader.clusterService.nodeName());
+        String currentLeaderName = currentLeader.clusterService.staticLocalNode().name();
+
+        log.info("Test: current leader is " + currentLeaderName);
 
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
@@ -465,11 +469,13 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertTrue(currentLeader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
 
         Node newLeader = nodes.stream()
-                .filter(n -> !n.clusterService.nodeName().equals(currentLeader.clusterService.nodeName()))
+                .filter(n -> !n.clusterService.staticLocalNode().name().equals(currentLeaderName))
                 .findAny()
                 .orElseThrow();
 
-        CompletableFuture<Void> transferLeadershipFut = raftClient.transferLeadership(new Peer(newLeader.clusterService.nodeName()));
+        String newLeaderName = newLeader.clusterService.staticLocalNode().name();
+
+        CompletableFuture<Void> transferLeadershipFut = raftClient.transferLeadership(new Peer(newLeaderName));
         assertThat(transferLeadershipFut, willCompleteSuccessfully());
 
         CompletableFuture<Boolean> futAfterLeaderChange = raftClient.run(invokeCommand);
@@ -500,7 +506,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         // Do the snapshot.
-        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName()), false));
+        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.staticLocalNode().name()), false));
 
         // Restart nodes in order to trigger idempotent volatile cache initialization from snapshot.
         restartCluster();
@@ -568,14 +574,14 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertThat(leader, is(notNullValue()));
         String currentLeader = leader.consistentId();
 
-        return nodes.stream().filter(n -> n.clusterService.nodeName().equals(currentLeader)).findAny().orElseThrow();
+        return nodes.stream().filter(n -> n.clusterService.staticLocalNode().name().equals(currentLeader)).findAny().orElseThrow();
     }
 
     private RaftGroupService raftClient() {
         Node node = nodes.get(0);
 
         PeersAndLearners configuration = PeersAndLearners
-                .fromConsistentIds(nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet()));
+                .fromConsistentIds(nodes.stream().map(n -> n.clusterService.staticLocalNode().name()).collect(toSet()));
 
         try {
             return node.raftManager
@@ -649,7 +655,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             nodes.add(node);
         }
 
-        Set<String> nodeNames = nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet());
+        Set<String> nodeNames = nodes.stream().map(n -> n.clusterService.staticLocalNode().name()).collect(toSet());
         CompletableFuture<Set<String>> metaStorageNodesFut = new CompletableFuture<>();
 
         nodes.forEach(n -> n.start(metaStorageNodesFut));

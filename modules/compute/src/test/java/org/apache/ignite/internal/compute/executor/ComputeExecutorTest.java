@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import java.util.Map;
@@ -58,8 +57,10 @@ import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,8 +77,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
 
-    @Mock(answer = RETURNS_DEEP_STUBS)
-    private TopologyService topologyService;
+    private final InternalClusterNode localNode = new ClusterNodeImpl(UUID.randomUUID(), "testNode", new NetworkAddress("host", 1));
 
     private ComputeExecutor computeExecutor;
 
@@ -91,7 +91,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 tracker -> ignite,
                 stateMachine,
                 computeConfiguration,
-                topologyService,
+                localNode,
                 new TestClockService(new HybridClockImpl()),
                 EventLog.NOOP
         );

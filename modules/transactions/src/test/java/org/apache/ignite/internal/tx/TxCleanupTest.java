@@ -127,8 +127,6 @@ public class TxCleanupTest extends IgniteAbstractTest {
     /** Init test callback. */
     @BeforeEach
     public void setup() {
-        when(topologyService.localMember().address()).thenReturn(LOCAL_NODE.address());
-
         when(messagingService.invoke(anyString(), any(), anyLong())).thenReturn(nullCompletedFuture());
 
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());

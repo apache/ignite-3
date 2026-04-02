@@ -692,12 +692,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(LOCAL_NODE);
 
         ClusterService clusterService = mock(ClusterService.class);
 
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(LOCAL_NODE);
 
         VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
 

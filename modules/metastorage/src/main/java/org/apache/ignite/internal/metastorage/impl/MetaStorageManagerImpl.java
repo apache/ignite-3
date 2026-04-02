@@ -97,7 +97,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
@@ -136,7 +136,7 @@ import org.jetbrains.annotations.TestOnly;
 public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance, WatchProcessorAccess {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
-    private final ClusterService clusterService;
+    private final InternalClusterNode localNode;
 
     /** Raft manager that is used for metastorage raft group handling. */
     private final RaftManager raftMgr;
@@ -244,7 +244,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /**
      * The constructor.
      *
-     * @param clusterService Cluster network service.
+     * @param localNode Local node.
      * @param cmgMgr Cluster management service Manager.
      * @param logicalTopologyService Logical topology service.
      * @param raftMgr Raft manager.
@@ -257,7 +257,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      * @param failureProcessor Failure processor to use when reporting failures.
      */
     public MetaStorageManagerImpl(
-            ClusterService clusterService,
+            InternalClusterNode localNode,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
@@ -272,13 +272,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Executor ioExecutor,
             FailureProcessor failureProcessor
     ) {
-        this.clusterService = clusterService;
+        this.localNode = localNode;
         this.raftMgr = raftMgr;
         this.cmgMgr = cmgMgr;
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
         this.clock = clock;
-        this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock, failureProcessor);
+        this.clusterTime = new ClusterTimeImpl(localNode.name(), busyLock, clock, failureProcessor);
         this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime, this::computeAvailablePeers, () -> msAvailable ? 1 : 0);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
@@ -300,7 +300,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     @TestOnly
     public MetaStorageManagerImpl(
-            ClusterService clusterService,
+            InternalClusterNode localNode,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
@@ -312,7 +312,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
-                clusterService,
+                localNode,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
@@ -331,7 +331,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     @TestOnly
     public MetaStorageManagerImpl(
-            ClusterService clusterService,
+            InternalClusterNode localNode,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
@@ -344,7 +344,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             ReadOperationForCompactionTracker tracker
     ) {
         this(
-                clusterService,
+                localNode,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
@@ -498,11 +498,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetastorage(MetaStorageInfo metaStorageInfo) {
-        String thisNodeName = clusterService.nodeName();
-
         CompletableFuture<? extends RaftGroupService> localRaftServiceFuture;
         try {
-            localRaftServiceFuture = metaStorageInfo.metaStorageNodes().contains(thisNodeName)
+            localRaftServiceFuture = metaStorageInfo.metaStorageNodes().contains(localNode.name())
                     ? startVotingNode(metaStorageInfo)
                     : startLearnerNode(metaStorageInfo);
         } catch (NodeStoppingException e) {
@@ -518,20 +516,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private MetaStorageServiceImpl createMetaStorageService(RaftGroupService raftService) {
-        return new MetaStorageServiceImpl(
-                clusterService.nodeName(),
-                raftService,
-                busyLock,
-                clock,
-                clusterService.topologyService().localMember().id()
-        );
+        return new MetaStorageServiceImpl(localNode, raftService, busyLock, clock);
     }
 
     private CompletableFuture<? extends RaftGroupService> startVotingNode(
             MetaStorageInfo metaStorageInfo
     ) throws NodeStoppingException {
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageInfo.metaStorageNodes());
-        Peer localPeer = configuration.peer(clusterService.nodeName());
+        Peer localPeer = configuration.peer(localNode.name());
         assert localPeer != null;
 
         return startRaftNode(configuration, localPeer, metaStorageInfo);
@@ -540,7 +532,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private CompletableFuture<? extends RaftGroupService> startLearnerNode(
             MetaStorageInfo metaStorageInfo
     ) throws NodeStoppingException {
-        String thisNodeName = clusterService.nodeName();
+        String thisNodeName = localNode.name();
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageInfo.metaStorageNodes(), Set.of(thisNodeName));
         Peer localPeer = configuration.learner(thisNodeName);
         assert localPeer != null;
@@ -609,7 +601,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         // dependency between these two components.
         return new MetaStorageLeaderElectionListener(
                 busyLock,
-                clusterService,
+                localNode.name(),
                 logicalTopologyService,
                 failureProcessor,
                 metaStorageSvcFut,
@@ -631,7 +623,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private RaftNodeId raftNodeId() {
-        return raftNodeId(new Peer(clusterService.nodeName()));
+        return raftNodeId(new Peer(localNode.name()));
     }
 
     private static RaftNodeId raftNodeId(Peer localPeer) {
@@ -737,7 +729,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private boolean thisNodeIsEstablishedAsLonelyLeader(RaftGroupConfiguration configuration) {
-        return configuration.peers().size() == 1 && clusterService.nodeName().equals(configuration.peers().get(0));
+        return configuration.peers().size() == 1 && localNode.name().equals(configuration.peers().get(0));
     }
 
     private static boolean targetVotingSetIsEstablished(RaftGroupConfiguration configuration, PeersChangeState currentState) {
@@ -798,7 +790,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         metricManager.enable(metaStorageMetricSource);
 
         availabilityCheckExecutor = Executors.newSingleThreadScheduledExecutor(
-                IgniteThreadFactory.create(clusterService.nodeName(), "metastorage-availability-check", LOG)
+                IgniteThreadFactory.create(localNode.name(), "metastorage-availability-check", LOG)
         );
         availabilityCheckExecutor.scheduleWithFixedDelay(
                 this::checkMgAvailability,
@@ -818,7 +810,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         if (!resetClusterMessage.metastorageRepairRequested()) {
             return nullCompletedFuture();
         }
-        if (!clusterService.nodeName().equals(resetClusterMessage.conductor())) {
+        if (!localNode.name().equals(resetClusterMessage.conductor())) {
             return nullCompletedFuture();
         }
 

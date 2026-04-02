@@ -112,7 +112,7 @@ class ItJraftServerTest extends JraftAbstractTest {
     }
 
     private Peer localPeer() {
-        String localNodeName = server.clusterService().topologyService().localMember().name();
+        String localNodeName = server.clusterService().staticLocalNode().name();
         return localPeer(localNodeName);
     }
 

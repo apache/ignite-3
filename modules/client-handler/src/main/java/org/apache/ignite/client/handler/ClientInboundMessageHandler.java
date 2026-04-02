@@ -626,7 +626,7 @@ public class ClientInboundMessageHandler
 
         packer.packLong(configuration.idleTimeoutMillis());
 
-        InternalClusterNode localMember = clusterService.topologyService().localMember();
+        InternalClusterNode localMember = clusterService.staticLocalNode();
         packer.packUuid(localMember.id());
         packer.packString(localMember.name());
 

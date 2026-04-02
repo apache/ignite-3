@@ -127,7 +127,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             workingDir = new ComponentWorkingDir(workDir);
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     workingDir.raftLogPath()
             );
             this.eventsClientListener = new RaftGroupEventsClientListener();
@@ -198,7 +198,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     );
                 }
 
-                this.raftService = new CmgRaftService(raftService, clusterService.topologyService(), logicalTopology);
+                this.raftService = new CmgRaftService(raftService, clusterService.staticLocalNode(), logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }
@@ -219,7 +219,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         InternalClusterNode localMember() {
-            return clusterService.topologyService().localMember();
+            return clusterService.staticLocalNode();
         }
 
         private CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
@@ -494,7 +494,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         // Node has not passed validation.
         String errMsg = String.format(
                 "JoinReady request denied, reason: Node \"%s\" has not yet passed the validation step",
-                cluster.get(0).clusterService.topologyService().localMember()
+                cluster.get(0).clusterService.staticLocalNode()
         );
 
         assertThrowsWithCause(

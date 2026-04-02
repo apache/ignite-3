@@ -282,7 +282,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         }
 
         Request readOnlySingleRowPkReplicaRequest(K pk) {
-            InternalClusterNode clusterNode = node.clusterService().topologyService().localMember();
+            InternalClusterNode clusterNode = node.clusterService().staticLocalNode();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
             Row pkRow = marshaller.marshal(pk);
@@ -302,7 +302,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         }
 
         Request readOnlyMultiRowPkReplicaRequest(K... pk) {
-            InternalClusterNode clusterNode = node.clusterService().topologyService().localMember();
+            InternalClusterNode clusterNode = node.clusterService().staticLocalNode();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
             List<ByteBuffer> buffers = Arrays.stream(pk).map(marshaller::marshal).map(BinaryRow::tupleSlice).collect(Collectors.toList());
@@ -323,7 +323,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         }
 
         Request readOnlyScanRetrieveBatchReplicaRequest() {
-            InternalClusterNode clusterNode = node.clusterService().topologyService().localMember();
+            InternalClusterNode clusterNode = node.clusterService().staticLocalNode();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
 
@@ -356,7 +356,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             IgniteBiTuple<K, V> invokeAndGetFirstRow() {
                 PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
 
-                InternalClusterNode sender = node.clusterService().topologyService().localMember();
+                InternalClusterNode sender = node.clusterService().staticLocalNode();
                 CompletableFuture<ReplicaResult> fut = replicaListener.invoke(request, sender.id());
 
                 assertThat(fut, willCompleteSuccessfully());

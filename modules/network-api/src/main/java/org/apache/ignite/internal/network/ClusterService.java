@@ -31,9 +31,17 @@ import org.apache.ignite.network.NodeMetadata;
  */
 public interface ClusterService extends IgniteComponent {
     /**
-     * Returns the network alias of the node.
+     * Returns the local node information.
+     *
+     * <p>This method is lightweight and does not involve any topology lookups. It is the preferred way to obtain the local node's
+     * {@link InternalClusterNode#id() ID} and {@link InternalClusterNode#name() name}.
+     *
+     * <p><b>Restriction:</b> the returned node object does not reflect updates to {@link NodeMetadata}.
+     * If up-to-date metadata is required, use {@link TopologyService#localMember()} instead.
+     *
+     * @return The local node.
      */
-    String nodeName();
+    InternalClusterNode staticLocalNode();
 
     /**
      * Returns the {@link TopologyService} for working with the cluster topology.

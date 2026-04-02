@@ -50,9 +50,7 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -165,7 +163,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
 
         return new StandaloneMetaStorageManager(
-                mockClusterService(),
                 mockClusterGroupManager(),
                 logicalTopologyService,
                 mockRaftManager(),
@@ -179,7 +176,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private StandaloneMetaStorageManager(
-            ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
@@ -191,7 +187,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
         super(
-                clusterService,
+                TEST_NODE,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
@@ -203,19 +199,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 raftGroupOptionsConfigurer,
                 readOperationForCompactionTracker
         );
-    }
-
-    private static ClusterService mockClusterService() {
-        ClusterService clusterService = mock(ClusterService.class, LENIENT_SETTINGS);
-
-        when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
-
-        TopologyService topologyService = mock(TopologyService.class, LENIENT_SETTINGS);
-        when(topologyService.localMember()).thenReturn(TEST_NODE);
-
-        when(clusterService.topologyService()).thenReturn(topologyService);
-
-        return clusterService;
     }
 
     private static ClusterManagementGroupManager mockClusterGroupManager() {

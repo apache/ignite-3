@@ -126,12 +126,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftNode(ClusterService clusterService) {
             this.clusterService = clusterService;
 
-            Path raftDir = workDir.resolve(clusterService.nodeName());
+            Path raftDir = workDir.resolve(clusterService.staticLocalNode().name());
 
             partitionsWorkDir = new ComponentWorkingDir(raftDir);
 
             logStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     partitionsWorkDir.raftLogPath()
             );
 
@@ -139,7 +139,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         String consistentId() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.staticLocalNode().name();
         }
 
         Peer asPeer() {

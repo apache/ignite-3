@@ -52,7 +52,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -281,11 +280,8 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
 
     private static ClusterService createClusterService() {
         ClusterService clusterService = mock(ClusterService.class);
-        TopologyService topologyService = mock(TopologyService.class);
 
-        when(topologyService.localMember()).thenReturn(LOCAL_NODE);
-
-        when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(LOCAL_NODE);
 
         return clusterService;
     }

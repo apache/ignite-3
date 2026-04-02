@@ -275,10 +275,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
             return localState.clusterTag();
         });
-        this.localTopologyMetricsSource = new LocalTopologyMetricsSource(clusterService.topologyService());
+
+        InternalClusterNode localNode = clusterService.staticLocalNode();
+
+        this.localTopologyMetricsSource = new LocalTopologyMetricsSource(localNode);
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                IgniteThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+                IgniteThreadFactory.create(localNode.name(), "cmg-manager", LOG)
         );
 
         cmgMessageHandler = createMessageHandler();
@@ -520,7 +523,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         return destroyCmgWithEvents()
                 .thenCompose(unused -> {
-                    if (resetClusterMessage.newCmgNodes().contains(clusterService.nodeName())) {
+                    if (resetClusterMessage.newCmgNodes().contains(clusterService.staticLocalNode().name())) {
                         return doReinit(resetClusterMessage);
                     } else {
                         // Let's just wait for new CMG nodes to establish a majority and send us an invitation to join.
@@ -769,10 +772,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                             // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                             // because being unable to send ClusterState messages should not fail the CMG service startup.
-                            InternalClusterNode thisNode = topologyService.localMember();
+                            InternalClusterNode thisNode = clusterService.staticLocalNode();
 
                             Collection<InternalClusterNode> otherNodes = topologyService.allMembers().stream()
-                                    .filter(node -> !thisNode.equals(node))
+                                    .filter(node -> !thisNode.name().equals(node.name()))
                                     .collect(toList());
 
                             sendClusterState(service, otherNodes);
@@ -874,7 +877,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                 raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
-                RaftNodeId nodeId = raftNodeId(new Peer(clusterService.nodeName()));
+                RaftNodeId nodeId = raftNodeId(new Peer(clusterService.staticLocalNode().name()));
                 raftManager.destroyRaftNodeStorages(nodeId, raftGroupOptionsConfigurer);
 
                 localStateStorage.clear();
@@ -983,7 +986,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         }
 
         try {
-            String thisNodeConsistentId = clusterService.nodeName();
+            String thisNodeConsistentId = clusterService.staticLocalNode().name();
 
             // If we are not in the CMG, we must be a learner. List of learners will be updated by a leader accordingly,
             // but just to start a RAFT service we must include ourselves in the initial learners list, that's why we
@@ -1025,7 +1028,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     raftGroupOptionsConfigurer
             );
 
-            return new CmgRaftService(raftGroupService, clusterService.topologyService(), logicalTopology);
+            return new CmgRaftService(raftGroupService, clusterService.staticLocalNode(), logicalTopology);
         } catch (NodeStoppingException e) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         } finally {

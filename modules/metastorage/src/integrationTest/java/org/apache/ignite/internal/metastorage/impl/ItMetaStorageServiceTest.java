@@ -216,10 +216,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(dataPath.resolve(name()));
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
-            );
+            String nodeName = clusterService.staticLocalNode().name();
+
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
 
             partitionsRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath());
@@ -230,7 +229,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                     systemLocalConfiguration,
                     clock
             );
-            this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
+
+            this.clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
         }
@@ -248,16 +248,15 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             metaStorageRaftService = startRaftService(configuration);
 
             metaStorageService = new MetaStorageServiceImpl(
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode(),
                     metaStorageRaftService,
                     new IgniteSpinBusyLock(),
-                    clock,
-                    clusterService.topologyService().localMember().id()
+                    clock
             );
         }
 
         String name() {
-            return clusterService.nodeName();
+            return clusterService.staticLocalNode().name();
         }
 
         private RaftGroupService startRaftService(PeersAndLearners configuration) {

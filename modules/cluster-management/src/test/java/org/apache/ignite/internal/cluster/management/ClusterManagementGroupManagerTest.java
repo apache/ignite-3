@@ -96,8 +96,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
 
         ClusterState clusterState = cmgMessagesFactory.clusterState()
                 .clusterTag(cmgMessagesFactory.clusterTag().clusterId(UUID.randomUUID()).clusterName("foo").build())
-                .cmgNodes(Set.of(clusterService.nodeName()))
-                .metaStorageNodes(Set.of(clusterService.nodeName()))
+                .cmgNodes(Set.of(clusterService.staticLocalNode().name()))
+                .metaStorageNodes(Set.of(clusterService.staticLocalNode().name()))
                 .version("foo")
                 .build();
 
@@ -142,13 +142,13 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
         CmgInitMessage initMessage = cmgMessagesFactory.cmgInitMessage()
                 .clusterName("foo")
                 .clusterId(UUID.randomUUID())
-                .cmgNodes(Set.of(clusterService.nodeName()))
-                .metaStorageNodes(Set.of(clusterService.nodeName()))
+                .cmgNodes(Set.of(clusterService.staticLocalNode().name()))
+                .metaStorageNodes(Set.of(clusterService.staticLocalNode().name()))
                 .initialClusterConfiguration("")
                 .build();
 
         CompletableFuture<NetworkMessage> invokeFuture = clusterService.messagingService()
-                .invoke(clusterService.nodeName(), initMessage, 10_000);
+                .invoke(clusterService.staticLocalNode().name(), initMessage, 10_000);
 
         assertThat(cmgManager.startAsync(componentContext), willCompleteSuccessfully());
 

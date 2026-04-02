@@ -93,6 +93,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Topology service. */
     private final TopologyService topologyService;
 
+    private final InternalClusterNode localNode;
+
     private final StaleIdDetector staleIdDetector;
 
     /** User object marshaller. */
@@ -149,6 +151,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param nodeName Consistent ID (aka name) of the local node associated with the service to create.
      * @param factory Network messages factory.
      * @param topologyService Topology service.
+     * @param localNode Local cluster node.
      * @param staleIdDetector Used to detect stale node IDs.
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
@@ -161,6 +164,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             String nodeName,
             NetworkMessagesFactory factory,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             StaleIdDetector staleIdDetector,
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
@@ -172,6 +176,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.staleIdDetector = staleIdDetector;
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
@@ -509,7 +514,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             HandlerContext handlerContext = handlerContexts.get(i);
 
             // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            handlerContext.handler().onReceived(message, topologyService.localMember(), correlationId);
+            handlerContext.handler().onReceived(message, localNode, correlationId);
         }
     }
 

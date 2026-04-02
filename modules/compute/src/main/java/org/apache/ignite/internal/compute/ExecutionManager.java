@@ -34,7 +34,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
-import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -44,7 +44,7 @@ import org.jetbrains.annotations.TestOnly;
 public class ExecutionManager {
     private final ComputeConfiguration computeConfiguration;
 
-    private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
 
     private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
@@ -54,9 +54,9 @@ public class ExecutionManager {
     /** Node-local executions map (including failover executions). */
     private final Map<UUID, CancellableJobExecution<?>> localExecutions = new ConcurrentHashMap<>();
 
-    ExecutionManager(ComputeConfiguration computeConfiguration, TopologyService topologyService) {
+    ExecutionManager(ComputeConfiguration computeConfiguration, InternalClusterNode localNode) {
         this.computeConfiguration = computeConfiguration;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
     }
 
     /**
@@ -86,7 +86,7 @@ public class ExecutionManager {
      */
     void start() {
         long ttlMillis = computeConfiguration.statesLifetimeMillis().value();
-        String nodeName = topologyService.localMember().name();
+        String nodeName = localNode.name();
         cleaner.start(this::cleanExecution, ttlMillis, nodeName);
     }
 
