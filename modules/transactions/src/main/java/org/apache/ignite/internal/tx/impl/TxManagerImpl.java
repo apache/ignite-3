@@ -1163,8 +1163,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
-        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
+    public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId, commit, commitTimestamp);
     }
 
     @Override

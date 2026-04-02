@@ -49,6 +49,7 @@ import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -208,11 +209,13 @@ import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaReques
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -1309,19 +1312,71 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return nullCompletedFuture();
         }
 
-        IndexRow indexRow = cursor.next();
+        List<Pair<IndexRow, CompletableFuture<TimedBinaryRow>>> indexRowWithWriteIntentFutures = null;
+        int resultStartIndex = result.size();
 
-        RowId rowId = indexRow.rowId();
+        while (result.size() < batchSize && cursor.hasNext()) {
+            IndexRow indexRow = cursor.next();
+            RowId rowId = indexRow.rowId();
 
-        return resolvePlainReadResult(rowId, null, readTimestamp).thenComposeAsync(resolvedReadResult -> {
-            BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
+            CompletableFuture<@Nullable TimedBinaryRow> resolutionResult = resolvePlainReadResult(rowId, null, readTimestamp);
 
-            if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
-                result.add(binaryRow);
+            if (resolutionResult.isDone() && !resolutionResult.isCompletedExceptionally()) {
+                BinaryRow binaryRow = upgrade(binaryRow(resolutionResult.join()), tableVersion);
+
+                if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
+                    result.add(binaryRow);
+                }
+            } else {
+                if (indexRowWithWriteIntentFutures == null) {
+                    indexRowWithWriteIntentFutures = new ArrayList<>();
+                }
+
+                indexRowWithWriteIntentFutures.add(new Pair<>(indexRow, resolutionResult));
+                result.add(null); // Placeholder; will be filled or removed after write intent resolution.
             }
+        }
 
-            return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, readTimestamp, batchSize, result, tableVersion);
-        }, scanRequestExecutor);
+        if (nullOrEmpty(indexRowWithWriteIntentFutures)) {
+            return nullCompletedFuture();
+        }
+
+        List<Pair<IndexRow, CompletableFuture<TimedBinaryRow>>> finalIndexRowWithWriteIntentFutures = indexRowWithWriteIntentFutures;
+        return CompletableFutures.allOf(view(indexRowWithWriteIntentFutures, Pair::getSecond))
+                .thenComposeAsync(unused -> {
+                    int futureIdx = 0;
+
+                    ListIterator<BinaryRow> it = result.listIterator(resultStartIndex);
+
+                    while (it.hasNext()) {
+                        BinaryRow row = it.next();
+
+                        if (row == null) {
+                            Pair<IndexRow, CompletableFuture<TimedBinaryRow>> indexRowWithWriteIntent
+                                    = finalIndexRowWithWriteIntentFutures.get(futureIdx);
+                            IndexRow indexRow = indexRowWithWriteIntent.getFirst();
+                            TimedBinaryRow resolved = indexRowWithWriteIntent.getSecond().join();
+                            futureIdx++;
+
+                            BinaryRow binaryRow = upgrade(binaryRow(resolved), tableVersion);
+
+                            if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
+                                it.set(binaryRow);
+                            } else {
+                                it.remove();
+                            }
+                        }
+                    }
+
+                    assert futureIdx == finalIndexRowWithWriteIntentFutures.size()
+                            : "Expected " + finalIndexRowWithWriteIntentFutures.size() + " iterations but was " + futureIdx;
+
+                    if (result.size() < batchSize && cursor.hasNext()) {
+                        return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, readTimestamp, batchSize, result, tableVersion);
+                    }
+
+                    return nullCompletedFuture();
+                }, scanRequestExecutor);
     }
 
     /**

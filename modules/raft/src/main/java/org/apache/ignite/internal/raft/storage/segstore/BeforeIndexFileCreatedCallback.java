@@ -17,22 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import java.util.Map.Entry;
-import org.jetbrains.annotations.Nullable;
-
-/**
- * Immutable version of an index memtable used by the {@link RaftLogCheckpointer}.
- *
- * @see WriteModeIndexMemTable
- */
-interface ReadModeIndexMemTable extends Iterable<Entry<Long, SegmentInfo>> {
-    /**
-     * Returns information about a segment file for the given group ID or {@code null} if it is not present in this memtable.
-     */
-    @Nullable SegmentInfo segmentInfo(long groupId);
-
-    /**
-     * Returns the number of Raft Group IDs stored in this memtable.
-     */
-    int numGroups();
+/** Callback executed by the {@link RaftLogCheckpointer} before an index file is created. */
+@FunctionalInterface
+interface BeforeIndexFileCreatedCallback {
+    void beforeIndexFileCreated(long indexFileSize);
 }

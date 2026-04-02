@@ -17,22 +17,23 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import java.util.Map.Entry;
-import org.jetbrains.annotations.Nullable;
+import java.io.IOException;
+import java.util.stream.Stream;
 
 /**
- * Immutable version of an index memtable used by the {@link RaftLogCheckpointer}.
+ * Strategy for selecting which segment files to compact during garbage collection.
  *
- * @see WriteModeIndexMemTable
+ * <p>Each implementation is fully responsible for discovering and ordering compaction candidates. This includes
+ * determining which files are eligible (e.g. skipping files that have not yet been checkpointed) and ranking them
+ * by priority.
+ *
+ * <p>The GC consumes candidates from the stream in order, compacting each one, and stops as soon as the log size
+ * drops below the soft limit or the stream is exhausted.
  */
-interface ReadModeIndexMemTable extends Iterable<Entry<Long, SegmentInfo>> {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+interface SegmentFileCompactionStrategy {
     /**
-     * Returns information about a segment file for the given group ID or {@code null} if it is not present in this memtable.
+     * Returns an ordered stream of segment file candidates for compaction. The stream must be closed by the caller.
      */
-    @Nullable SegmentInfo segmentInfo(long groupId);
-
-    /**
-     * Returns the number of Raft Group IDs stored in this memtable.
-     */
-    int numGroups();
+    Stream<FileProperties> selectCandidates() throws IOException;
 }

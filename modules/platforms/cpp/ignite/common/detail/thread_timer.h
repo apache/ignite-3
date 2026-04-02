@@ -60,6 +60,26 @@ class thread_timer final {
         bool operator>(const timed_event& other) const { return timestamp > other.timestamp; }
     };
 
+    /**
+     * Shared mutable state owned jointly by the thread_timer object and the timer thread's lambda.
+     * This ensures the state (mutex, condition variable, event queue) remains valid even if
+     * thread_timer is destroyed from within a timer callback (which would otherwise cause a
+     * self-join deadlock in stop()).
+     */
+    struct timer_state {
+        /** The stop flag. */
+        bool m_stopping{false};
+
+        /** Mutex. */
+        std::mutex m_mutex;
+
+        /** Conditional variable. */
+        std::condition_variable m_condition;
+
+        /** Timed event queue. */
+        std::priority_queue<timed_event, std::vector<timed_event>, std::greater<>> m_events;
+    };
+
 public:
     /**
      * Destructor.
@@ -93,20 +113,11 @@ private:
      */
     thread_timer() = default;
 
-    /** The stop flag. */
-    bool m_stopping{false};
+    /** Shared mutable state (kept alive independently of the thread_timer object lifetime). */
+    std::shared_ptr<timer_state> m_state{std::make_shared<timer_state>()};
 
     /** Thread. */
     std::thread m_thread;
-
-    /** Mutex. */
-    std::mutex m_mutex;
-
-    /** Conditional variable. */
-    std::condition_variable m_condition;
-
-    /** Timed event. */
-    std::priority_queue<timed_event, std::vector<timed_event>, std::greater<>> m_events;
 };
 
 } // namespace ignite::detail
