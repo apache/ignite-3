@@ -204,6 +204,7 @@ public class DirectTxUtils {
 
         // System.out.println(in.hexDump());
 
+        // TODO: Likely a race condition, but it does not explain corrupt data?
         if (ctx.firstReqFut != null) {
             assert tx == null;
 
