@@ -320,7 +320,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         if (!node0.txManager().lockManager().policy().reverse()) {
             // Not compatible with WOUND WAIT.
-            // An older transaction can attempt to request a lock after partition reset and disrupts test logic.
+            // An older transaction can attempt to request a lock after partition reset, because it's not dead, and disrupts test logic.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-28365
             return;
         }
 
