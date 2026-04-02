@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Iterator;
-import java.util.function.LongConsumer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -63,14 +62,14 @@ class RaftLogCheckpointer {
 
     private final FailureProcessor failureProcessor;
 
-    private final LongConsumer beforeIndexFileCreated;
+    private final BeforeIndexFileCreatedCallback beforeIndexFileCreated;
 
     RaftLogCheckpointer(
             String nodeName,
             IndexFileManager indexFileManager,
             FailureProcessor failureProcessor,
             int maxQueueSize,
-            LongConsumer beforeIndexFileCreated
+            BeforeIndexFileCreatedCallback beforeIndexFileCreated
     ) {
         this.indexFileManager = indexFileManager;
         this.failureProcessor = failureProcessor;
@@ -163,7 +162,7 @@ class RaftLogCheckpointer {
                     long indexFileSize = IndexFileManager.computeIndexFileSize(entry.memTable());
 
                     // Notify about the upcoming log size increase.
-                    beforeIndexFileCreated.accept(indexFileSize);
+                    beforeIndexFileCreated.beforeIndexFileCreated(indexFileSize);
 
                     indexFileManager.saveNewIndexMemtable(entry.memTable());
 

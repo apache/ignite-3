@@ -46,6 +46,7 @@ class MostGarbageFirstCompactionStrategy implements SegmentFileCompactionStrateg
                 Comparator.<FileProperties>comparingLong(props -> scores.computeIfAbsent(props, this::score))
                         .thenComparing(Comparator.naturalOrder());
 
+        //noinspection resource
         return Files.list(segmentFilesDir)
                 .filter(p -> !p.getFileName().toString().endsWith(".tmp"))
                 .map(SegmentFile::fileProperties)
@@ -57,7 +58,7 @@ class MostGarbageFirstCompactionStrategy implements SegmentFileCompactionStrateg
         Long2ObjectMap<IndexFileMeta> description = indexFileManager.describeSegmentFile(props.ordinal());
 
         if (description.isEmpty()) {
-            return -1; // fully deletable — highest priority
+            return -1; // Fully deletable — highest priority.
         }
 
         long liveCount = 0;

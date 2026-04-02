@@ -216,10 +216,8 @@ class IndexFileManager {
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
             os.write(fileHeaderWithIndexMetas.header());
 
-            Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-            while (it.hasNext()) {
-                SegmentInfo segmentInfo = it.next().getValue();
+            for (Entry<Long, SegmentInfo> longSegmentInfoEntry : indexMemTable) {
+                SegmentInfo segmentInfo = longSegmentInfoEntry.getValue();
 
                 // Segment Info may not contain payload in case of suffix truncation, see "IndexMemTable#truncateSuffix".
                 if (segmentInfo.size() > 0) {
@@ -386,11 +384,7 @@ class IndexFileManager {
 
         var metaSpecs = new ArrayList<IndexMetaSpec>(numGroups);
 
-        Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-        while (it.hasNext()) {
-            Entry<Long, SegmentInfo> entry = it.next();
-
+        for (Entry<Long, SegmentInfo> entry : indexMemTable) {
             // Using the boxed value to avoid unnecessary autoboxing later.
             Long groupId = entry.getKey();
 
@@ -511,10 +505,8 @@ class IndexFileManager {
     static long computeIndexFileSize(ReadModeIndexMemTable indexMemTable) {
         long total = headerSize(indexMemTable.numGroups());
 
-        Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-        while (it.hasNext()) {
-            total += payloadSize(it.next().getValue());
+        for (Entry<Long, SegmentInfo> longSegmentInfoEntry : indexMemTable) {
+            total += payloadSize(longSegmentInfoEntry.getValue());
         }
 
         return total;

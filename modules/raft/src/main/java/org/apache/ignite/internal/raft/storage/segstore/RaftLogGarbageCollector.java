@@ -418,7 +418,7 @@ class RaftLogGarbageCollector {
                     if (!it.hasNext()) {
                         LOG.warn(
                                 "Log size is above the soft limit but there are no files to compact "
-                                        + "[current log size = {} bytes, soft limit = {} bytes].",
+                                        + "[currentLogSize = {} bytes, softLimit = {} bytes].",
                                 logSizeBytes.get(), softLimitBytes
                         );
 
