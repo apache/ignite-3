@@ -20,6 +20,9 @@ package org.apache.ignite.internal.pagememory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 
+/**
+ * A page memory instance that's supposed to be bound to a single partition only. Currently it's not the case, the job is split into phases.
+ */
 // TODO IGNITE-28429 Remove "groupId" parameter from all methods.
 public interface PartitionPageMemory extends PageSupport, PageIdAllocator {
     /**
