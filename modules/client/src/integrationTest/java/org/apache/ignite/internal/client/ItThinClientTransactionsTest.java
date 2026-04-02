@@ -112,8 +112,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         int batchSize = 1000;
 
         String testTableName = "test_getall_mt";
+        String testZoneName = "test_getall_mt_zone";
 
-        // Create table with specified partition count, int64 key, and 10 string fields
+        // Create zone with specified partition count
+        String createZoneSql = "CREATE ZONE " + testZoneName
+                + " (REPLICAS 1, PARTITIONS " + partitionCount + ") STORAGE PROFILES ['default']";
+        server().sql().execute(createZoneSql);
+
+        // Create table with int64 key and 10 string fields
         StringBuilder createTableSql = new StringBuilder();
         createTableSql.append("CREATE TABLE ").append(testTableName).append(" (");
         createTableSql.append("key BIGINT PRIMARY KEY, ");
@@ -123,7 +129,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
                 createTableSql.append(", ");
             }
         }
-        createTableSql.append(") WITH REPLICAS=1, PARTITIONS=").append(partitionCount);
+        createTableSql.append(") ZONE ").append(testZoneName);
 
         server().sql().execute(createTableSql.toString());
 
@@ -201,6 +207,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         } finally {
             // Clean up
             server().sql().execute("DROP TABLE " + testTableName);
+            server().sql().execute("DROP ZONE " + testZoneName);
         }
     }
 
