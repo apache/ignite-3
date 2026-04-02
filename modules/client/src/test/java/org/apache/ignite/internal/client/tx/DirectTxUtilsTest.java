@@ -144,17 +144,17 @@ public class DirectTxUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void decode() {
-        decode("6669656c64373a3231313638383532");
-        decode("656c64393a2d313138303534333437");
-        decode("313034373533313738333138393030");
-        decode("3132393137383436383a3135383236");
-        decode("303734303731363a31363332353035");
+        decode("6669656c64373a3231313638383532"); // field7:21168852
+        decode("656c64393a2d313138303534333437"); // eld9:-118054347
+        decode("313034373533313738333138393030"); // 104753178318900
+        decode("3132393137383436383a3135383236"); // 129178468:15826
+        decode("303734303731363a31363332353035"); // 0740716:1632505
     }
 
     void decode(String hexStr) {
         byte[] bytes = hexToBytes(hexStr);
         String utfStr = new String(bytes);
-        System.out.println(utfStr); // field7:21168852
+        System.out.println(utfStr);
         ByteBuf buf = Unpooled.wrappedBuffer(bytes);
         ClientMessageUnpacker in = new ClientMessageUnpacker(buf);
 
