@@ -72,6 +72,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -145,7 +146,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * tests code implicitly depends on test names, because we use method names to generate node names, and we use node names to assign
  * partitions.
  */
-@Timeout(120)
+@Timeout(value = 5, unit = TimeUnit.MINUTES)
 @ExtendWith(FailureManagerExtension.class)
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
@@ -2023,7 +2024,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
             try {
-                insertFuture.get(10, SECONDS);
+                // The future is expected to be finished by timing out the implicit transaction.
+                // Otherwise, older transaction can attempt to request locks and disrupts test logic.
+                insertFuture.join();
 
                 Tuple value = keyValueView.get(null, key);
                 assertNotNull(value);
@@ -2032,7 +2035,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
                 if (cause instanceof IgniteException && isPrimaryReplicaHasChangedException((IgniteException) cause)
                         || cause instanceof TransactionException
-                        || cause instanceof TimeoutException
+                        || ExceptionUtils.hasCause(cause, TimeoutException.class)
                 ) {
                     errors.add(cause);
                 } else {
