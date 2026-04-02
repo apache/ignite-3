@@ -156,6 +156,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
                         tuple.set("field" + fieldIdx, "value_" + i + "_" + fieldIdx);
                     }
                     publisher.submit(DataStreamerItem.of(tuple));
+
+                    if (i % 100000 == 0) {
+                        System.out.println(">>> Submitted " + i + " rows");
+                    }
                 }
             }
 
