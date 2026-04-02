@@ -59,6 +59,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
@@ -126,8 +127,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         server().sql().execute(createTableSql.toString());
 
-        try {
-            Table table = client().tables().table(testTableName);
+        var client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]))
+                .operationTimeout(15_000)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
+                .build();
+
+        try (client) {
+            Table table = client.tables().table(testTableName);
             RecordView<Tuple> view = table.recordView();
 
             // Insert rowCount rows with data streamer
