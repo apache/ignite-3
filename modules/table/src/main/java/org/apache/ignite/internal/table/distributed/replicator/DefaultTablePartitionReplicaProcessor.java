@@ -85,6 +85,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -187,6 +188,7 @@ import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildInd
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ReadOnlyReplicaRequestHandler;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandler;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandlers;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandlers.Builder;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ScanCloseRequestHandler;
 import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.DelayedAckException;
@@ -214,7 +216,6 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
@@ -346,11 +347,11 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     private final ReplicaRequestHandlers requestHandlers;
 
     /**
-     * This lock guards agains concurrent pending lock release on await cleanup path and lock acqusition.
+     * This lock guards against concurrent pending lock release on await cleanup path and lock acquisition.
      * A situation is possible then a table operation acquires large number of locks and release attempt
      * is done in the middle of it. Some locks are released in this situation.
      */
-    private final IgniteStripedReadWriteLock releaseGuardLock = new IgniteStripedReadWriteLock(CONCURRENCY);
+    private final Map<UUID, Void> releaseLocksGuard = new ConcurrentHashMap<>(CONCURRENCY);
 
     /**
      * The constructor.
@@ -440,7 +441,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        ReplicaRequestHandlers.Builder handlersBuilder = new ReplicaRequestHandlers.Builder();
+        Builder handlersBuilder = new Builder();
 
         handlersBuilder.addHandler(
                 PartitionReplicationMessageGroup.GROUP_TYPE,
@@ -1570,9 +1571,10 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             // Using non-retriable exception intentionally to prevent unnecessary retries.
             // Killed state will be propagated in the cause.
 
-            releaseGuardLock.writeLock().lock();
+            //releaseGuardLock.writeLock().lock();
 
-            try {
+            //try {
+            releaseLocksGuard.compute(txId, (k, v) -> {
                 lockManager.failAllWaiters(txId, new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                         format("Can't acquire a lock because {} [{}].",
@@ -1585,9 +1587,12 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                                 formatTxInfo(txId, txManager)),
                         publicCause
                 ));
-            } finally {
-                releaseGuardLock.writeLock().unlock();
-            }
+
+                return null;
+            });
+//            } finally {
+//                releaseGuardLock.writeLock().unlock();
+//            }
         }
 
         if (cleanupContext == null) {
@@ -1701,19 +1706,25 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         int idx = TransactionIds.hash(txId, CONCURRENCY);
 
         if (full) {
-            CompletableFuture<T> fut;
+            AtomicReference<CompletableFuture<T>> fut = new AtomicReference<>();
 
             //releaseGuardLock.writeLock().lock();
-            releaseGuardLock.readLock(idx).lock();
+            //releaseGuardLock.readLock(idx).lock();
 
-            try {
-                fut = op.get();
-            } finally {
-                releaseGuardLock.readLock(idx).unlock();
-                //releaseGuardLock.writeLock().unlock();
-            }
+            //try {
+            releaseLocksGuard.compute(txId, (k, v) -> {
+                fut.set(op.get());
 
-            return fut.whenComplete((v, th) -> {
+                return null;
+            });
+
+
+//            } finally {
+//                releaseGuardLock.readLock(idx).unlock();
+//                //releaseGuardLock.writeLock().unlock();
+//            }
+
+            return fut.get().whenComplete((v, th) -> {
                 // Fast unlock.
                 releaseTxLocks(txId);
                 // Drop volatile state.
@@ -1756,19 +1767,25 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         }
 
         try {
-            CompletableFuture<T> fut;
+            AtomicReference<CompletableFuture<T>> fut = new AtomicReference<>();
 
-            releaseGuardLock.readLock(idx).lock();
+            //releaseGuardLock.readLock(idx).lock();
             //releaseGuardLock.writeLock().lock();
 
-            try {
-                fut = op.get();
-            } finally {
-                releaseGuardLock.readLock(idx).unlock();
-                //releaseGuardLock.writeLock().unlock();
-            }
+            releaseLocksGuard.compute(txId, (k, v) -> {
+                fut.set(op.get());
 
-            fut.whenComplete((v, th) -> {
+                return null;
+            });
+
+            //try {
+
+//            } finally {
+//                releaseGuardLock.readLock(idx).unlock();
+//                //releaseGuardLock.writeLock().unlock();
+//            }
+
+            fut.get().whenComplete((v, th) -> {
                 if (th != null) {
                     partitionInflights.removeInflight(ctx);
                 } else {
@@ -1788,7 +1805,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 }
             });
 
-            return fut;
+            return fut.get();
         } catch (Throwable err) {
             partitionInflights.removeInflight(ctx);
             throw err;
