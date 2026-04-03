@@ -159,21 +159,23 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 // UPDATE
                 Arguments.of("UPDATE t SET c2=1 WHERE c1=?", meta(new int[]{0}, new int[0], DirectTxMode.NOT_SUPPORTED)),
                 Arguments.of("UPDATE t SET c2=? WHERE c1=1", meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
-                Arguments.of("UPDATE t SET c2=? WHERE c1=1 AND c3 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
-                        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("UPDATE t SET c2=? WHERE c1=1 AND c3 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
+                //        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
 
                 // Can refer multiple partitions - skip
                 Arguments.of("UPDATE t SET c2=1 WHERE c1=1 or c1=2", null),
                 Arguments.of("UPDATE t SET c2=? WHERE c1 IN (?, 2)", null),
 
                 // INSERT  
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26203 No partition pruning metadata for INSERT INTO ... SELECT
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28201 Sql. Partition Pruning. Arbitrary projections
                 // Arguments.of("INSERT INTO t SELECT 1 as c1, 2 as c2, x as c3 FROM SYSTEM_RANGE(1, 100)",
                 //        meta(new int[]{-1}, new int[]{1}), DirectTxMode.NOT_SUPPORTED),
 
                 // DELETE
-                Arguments.of("DELETE FROM t WHERE c1=1 AND c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100)) ",
-                        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("DELETE FROM t WHERE c1=1 AND c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100)) ",
+                //        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)),
                 // Can refer multiple partitions - skip
                 Arguments.of("DELETE FROM t WHERE c1=1 or c1=2", null)
         );
@@ -251,20 +253,22 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("UPDATE t SET c1=? WHERE c3=1 and c2=?",
                         meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)
                 ),
-                Arguments.of("UPDATE t SET c1=? WHERE c3=1 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
-                        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)
-                ),
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("UPDATE t SET c1=? WHERE c3=1 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
+                //        meta(new int[]{-1}, new int[]{1}, DirectTxMode.NOT_SUPPORTED)
+                // ),
 
                 // INSERT
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26203 No partition pruning metadata for INSERT INTO ... SELECT
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28201 Sql. Partition Pruning. Arbitrary projections
                 // Arguments.of("INSERT INTO t SELECT 1 as c1, 2 as c2, 3 as c3 FROM SYSTEM_RANGE(1, 100)",
                 //        meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED)
                 // ),
 
                 // DELETE
-                Arguments.of("DELETE FROM t WHERE c3=3", meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED)),
-                Arguments.of("DELETE FROM t WHERE c3=3 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
-                        meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-28199 Requires single bottom-up traversal
+                // Arguments.of("DELETE FROM t WHERE c3=3 and c2 IN (SELECT * FROM SYSTEM_RANGE(1, 100))",
+                //        meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED))
+                Arguments.of("DELETE FROM t WHERE c3=3", meta(new int[]{-1}, new int[]{3}, DirectTxMode.NOT_SUPPORTED))
         );
     }
 
@@ -334,8 +338,9 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c2=? and c3=?", null),
 
                 // INSERT
-                // TODO https://issues.apache.org/jira/browse/IGNITE-26203 No partition pruning metadata for INSERT INTO ... SELECT
-                // Arguments.of("INSERT INTO t SELECT * FROM t WHERE c1=1 and c2=2 and c3=3", null)
+                Arguments.of("INSERT INTO t SELECT * FROM t WHERE c1=1 and c2=2 and c3=3",
+                        meta(new int[]{-1, -2, -3}, new int[]{3, 1, 2}, DirectTxMode.NOT_SUPPORTED)
+                ),
 
                 // UPDATE
                 Arguments.of("UPDATE t SET c4=? WHERE c1=? and c2=? and c3=?",

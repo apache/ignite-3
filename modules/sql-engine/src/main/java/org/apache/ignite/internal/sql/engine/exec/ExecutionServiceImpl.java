@@ -72,7 +72,6 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
@@ -196,7 +195,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * Constructor.
      *
      * @param messageService Message service.
-     * @param topSrvc Topology service.
+     * @param localNode Local node.
      * @param mappingService Nodes mapping calculation service.
      * @param sqlSchemaManager Schema manager.
      * @param ddlCmdHnd Handler of the DDL commands.
@@ -211,7 +210,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      */
     public ExecutionServiceImpl(
             MessageService messageService,
-            TopologyService topSrvc,
+            InternalClusterNode localNode,
             MappingService mappingService,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCmdHnd,
@@ -227,7 +226,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             long shutdownTimeout,
             SqlPlanToTxSchemaVersionValidator planValidator
     ) {
-        this.localNode = topSrvc.localMember();
+        this.localNode = localNode;
         this.handler = handler;
         this.rowFactoryFactory = rowFactoryFactory;
         this.messageService = messageService;
@@ -249,7 +248,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * Creates the execution services.
      *
      * @param <RowT> Type of the sql row.
-     * @param topSrvc Topology service.
+     * @param localNode Local node.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
      * @param ddlCommandHandler Handler of the DDL commands.
@@ -269,7 +268,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(
-            TopologyService topSrvc,
+            InternalClusterNode localNode,
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCommandHandler,
@@ -290,7 +289,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
-                topSrvc,
+                localNode,
                 mappingService,
                 sqlSchemaManager,
                 ddlCommandHandler,

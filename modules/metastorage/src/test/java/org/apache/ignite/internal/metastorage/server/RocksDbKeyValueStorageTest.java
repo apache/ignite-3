@@ -85,17 +85,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
 
         long revisionBeforeRestart = storage.revision();
 
-        storage.close();
-
-        storage = new RocksDbKeyValueStorage(
-                NODE_NAME,
-                workDir.resolve("storage"),
-                new NoOpFailureManager(),
-                new ReadOperationForCompactionTracker(),
-                scheduledExecutorService
-        );
-
-        storage.start();
+        restartStorage();
 
         assertEquals(revisionBeforeRestart, storage.revision());
 

@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
@@ -193,8 +194,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
 
-    /** Topology service. */
-    private final TopologyService topologyService;
+    /** Local node. */
+    private final InternalClusterNode localNode;
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -246,6 +247,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
+    private final RemotelyTriggeredResourceRegistry resourcesRegistry;
+
     private final RetryContext retryContext;
 
     /**
@@ -289,7 +292,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             TimeoutStrategy timeoutStrategy
     ) {
         this(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode(),
                 txConfig,
                 systemCfg,
                 clusterService.messagingService(),
@@ -336,7 +339,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param timeoutStrategy Timeout strategy.
      */
     public TxManagerImpl(
-            String nodeName,
+            InternalClusterNode localNode,
             TransactionConfiguration txConfig,
             SystemDistributedConfiguration systemCfg,
             MessagingService messagingService,
@@ -366,7 +369,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.messagingService = messagingService;
         this.primaryReplicaExpiredListener = this::primaryReplicaExpiredListener;
         this.primaryReplicaElectedListener = this::primaryReplicaElectedListener;
@@ -378,6 +381,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
         this.metricsManager = metricManager;
+        this.resourcesRegistry = resourcesRegistry;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -385,7 +389,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         writeIntentSwitchPool = Executors.newFixedThreadPool(
                 cpus,
-                IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(localNode.name(), "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         orphanDetector = new OrphanDetector(
@@ -399,7 +403,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         txMessageSender = new TxMessageSender(messagingService, replicaService, clockService);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender,
-                topologyService, txStateVolatileStorage);
+                localNode, txStateVolatileStorage);
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
@@ -421,6 +425,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txStateVolatileStorage,
                 writeIntentSwitchPool,
                 commonScheduler,
+                topologyService,
                 retryContext
         );
 
@@ -447,9 +452,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
         return primaryReplicaEventListener(eventParameters, groupId -> {
             if (localNodeId.equals(eventParameters.leaseholderId())) {
-                String localNodeName = topologyService.localMember().name();
-
-                txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+                txMessageSender.sendRecoveryCleanup(localNode.name(), groupId);
             }
         });
     }
@@ -721,7 +724,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (finishingStateMeta != stateMeta) {
             // If the state is FINISHING then someone else is in the middle of finishing this tx.
             if (stateMeta.txState() == FINISHING) {
-                return ((TxStateMetaFinishing) stateMeta).txFinishFuture()
+                return castToFinishing(txId, stateMeta).txFinishFuture()
                         .thenCompose(meta -> checkTxOutcome(commitIntent, txId, meta));
             } else {
                 // The TX has already been finished. Check whether it finished with the same outcome.
@@ -999,7 +1002,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
 
         // Adjust the timeout so local expiration happens after coordinator expiration.
-        var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, topologyService.localMember(),
+        var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, localNode,
                 timeout + clockService.maxClockSkewMillis()) {
             boolean isTimeout = false;
             TxState txState = PENDING;
@@ -1061,13 +1064,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         // TODO https://issues.apache.org/jira/browse/IGNITE-23539
         lockManager.start(deadlockPreventionPolicy);
 
-        localNodeId = topologyService.localMember().id();
+        localNodeId = localNode.id();
 
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
         persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
                 replicaService,
-                topologyService.localMember(),
+                localNode,
                 clockService,
                 placementDriver
         );
@@ -1182,8 +1185,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
-        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
+    public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId, commit, commitTimestamp);
     }
 
     @Override
@@ -1219,17 +1228,29 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
-        return txCleanupRequestHandler.discardLocalWriteIntents(groups, txId).handle((r, e) -> {
-            // We don't need tx state any more.
-            updateTxMeta(txId, old -> null);
-            return null;
-        });
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx) {
+        CompletableFuture<Object> f = nullCompletedFuture();
+
+        if (abortTx) {
+            f = orphanDetector.sendTxRecoveryMessage(txId);
+        }
+
+        return f.thenCompose(unused -> txCleanupRequestHandler.discardLocalWriteIntents(groups, txId))
+                .handle((r, e) -> {
+                    // We don't need tx state any more.
+                    updateTxMeta(txId, old -> null);
+                    return null;
+                });
     }
 
     @Override
     public int lockRetryCount() {
         return lockRetryCount;
+    }
+
+    @Override
+    public RemotelyTriggeredResourceRegistry resourceRegistry() {
+        return resourcesRegistry;
     }
 
     @Override

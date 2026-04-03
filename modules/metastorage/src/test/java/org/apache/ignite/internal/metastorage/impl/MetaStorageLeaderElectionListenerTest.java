@@ -25,7 +25,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -123,12 +121,9 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture
     ) {
-        ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.nodeName()).thenReturn(NODE_NAME);
-
         return new MetaStorageLeaderElectionListener(
                 busyLock,
-                clusterService,
+                NODE_NAME,
                 mock(LogicalTopologyService.class),
                 new NoOpFailureManager(),
                 metaStorageSvcFut,

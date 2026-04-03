@@ -41,6 +41,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
@@ -277,12 +278,9 @@ public class ItComputeSystemViewTest extends AbstractSystemViewTest {
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException e) {
-                    // No op, just return from loop
-                    break;
+                    throw new CancellationException();
                 }
             }
-
-            return null;
         }
     }
 

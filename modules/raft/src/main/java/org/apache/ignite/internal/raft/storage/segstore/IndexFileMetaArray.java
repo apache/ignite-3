@@ -29,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Reads from multiple threads are thread-safe, but writes are expected to be done from a single thread only.
  */
 class IndexFileMetaArray {
+    private static final int MISSING_ARRAY_INDEX = -1;
+
     static final int INITIAL_CAPACITY = 10;
 
     private final IndexFileMeta[] array;
@@ -48,8 +50,8 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
-        assert indexFileMeta.firstLogIndexInclusive() == array[size - 1].lastLogIndexExclusive() :
-                String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+        assert indexFileMeta.firstLogIndexInclusive() >= array[size - 1].lastLogIndexExclusive() :
+                String.format("Index File Metas must be increasing. Expected log index: %d, actual log index: %d",
                         array[size - 1].lastLogIndexExclusive(),
                         indexFileMeta.firstLogIndexInclusive()
                 );
@@ -165,14 +167,9 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray onIndexCompacted(FileProperties oldProperties, IndexFileMeta newMeta) {
-        // Find index meta associated with the file being compacted.
-        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+        int updateIndex = arrayIndexByFileOrdinal(oldProperties.ordinal());
 
-        assert oldProperties.ordinal() >= smallestOrdinal;
-
-        int updateIndex = oldProperties.ordinal() - smallestOrdinal;
-
-        if (updateIndex >= size) {
+        if (updateIndex == MISSING_ARRAY_INDEX) {
             return this;
         }
 
@@ -184,8 +181,8 @@ class IndexFileMetaArray {
         if (updateIndex > 0) {
             IndexFileMeta prevOldMeta = array[updateIndex - 1];
 
-            assert newMeta.firstLogIndexInclusive() == prevOldMeta.lastLogIndexExclusive() :
-                    String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+            assert newMeta.firstLogIndexInclusive() >= prevOldMeta.lastLogIndexExclusive() :
+                    String.format("Index File Metas must be increasing. Expected log index: %d, actual log index: %d",
                             prevOldMeta.lastLogIndexExclusive(),
                             newMeta.firstLogIndexInclusive()
                     );
@@ -194,8 +191,8 @@ class IndexFileMetaArray {
         if (updateIndex < size - 1) {
             IndexFileMeta nextOldMeta = array[updateIndex + 1];
 
-            assert newMeta.lastLogIndexExclusive() == nextOldMeta.firstLogIndexInclusive() :
-                    String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+            assert newMeta.lastLogIndexExclusive() <= nextOldMeta.firstLogIndexInclusive() :
+                    String.format("Index File Metas must be increasing. Expected log index: %d, actual log index: %d",
                             nextOldMeta.firstLogIndexInclusive(),
                             newMeta.lastLogIndexExclusive()
                     );
@@ -206,6 +203,47 @@ class IndexFileMetaArray {
         newArray[updateIndex] = newMeta;
 
         return new IndexFileMetaArray(newArray, size);
+    }
+
+    /**
+     * Replaces the meta for the given file with an empty meta when an index file gets removed to preserve contiguous file ordinals.
+     */
+    IndexFileMetaArray onIndexRemoved(FileProperties oldProperties) {
+        int updateIndex = arrayIndexByFileOrdinal(oldProperties.ordinal());
+
+        if (updateIndex == MISSING_ARRAY_INDEX) {
+            return this;
+        }
+
+        IndexFileMeta oldMeta = array[updateIndex];
+
+        assert oldMeta.indexFileProperties().equals(oldProperties)
+                : String.format("File properties mismatch [expected=%s, actual=%s].", oldMeta.indexFileProperties(), oldProperties);
+
+        IndexFileMeta[] newArray = array.clone();
+
+        newArray[updateIndex] = IndexFileMeta.empty(oldMeta.lastLogIndexExclusive(), oldMeta.indexFileProperties());
+
+        return new IndexFileMetaArray(newArray, size);
+    }
+
+    @Nullable
+    IndexFileMeta findByFileOrdinal(int fileOrdinal) {
+        int arrayIndex = arrayIndexByFileOrdinal(fileOrdinal);
+
+        return arrayIndex == MISSING_ARRAY_INDEX ? null : array[arrayIndex];
+    }
+
+    private int arrayIndexByFileOrdinal(int fileOrdinal) {
+        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+
+        if (fileOrdinal < smallestOrdinal) {
+            return MISSING_ARRAY_INDEX;
+        }
+
+        int arrayIndex = fileOrdinal - smallestOrdinal;
+
+        return arrayIndex >= size ? MISSING_ARRAY_INDEX : arrayIndex;
     }
 
     @Override

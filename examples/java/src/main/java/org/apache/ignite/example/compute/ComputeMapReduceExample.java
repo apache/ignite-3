@@ -36,7 +36,6 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the {@link IgniteCompute#executeMapReduce} API.
@@ -59,15 +58,13 @@ public class ComputeMapReduceExample {
      */
     public static void main(String[] args) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(args);
-
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
             //--------------------------------------------------------------------------------------
@@ -76,9 +73,9 @@ public class ComputeMapReduceExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring map reduce task...");
+            System.out.println("Configuring map reduce task...");
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             TaskDescriptor<String, Integer> taskDescriptor = TaskDescriptor.builder(PhraseWordLengthCountMapReduceTask.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -90,7 +87,7 @@ public class ComputeMapReduceExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nExecuting map reduce task...");
+            System.out.println("Executing map reduce task...");
 
             String phrase = "Count characters using map reduce";
 
@@ -102,7 +99,7 @@ public class ComputeMapReduceExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nTotal number of characters in the words is '" + result + "'.");
+            System.out.println("Total number of characters in the words is '" + result + "'.");
         } finally {
 
             System.out.println("Cleaning up resources");
@@ -159,7 +156,7 @@ public class ComputeMapReduceExample {
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String arg) {
             assert arg != null;
 
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(arg.length());
         }

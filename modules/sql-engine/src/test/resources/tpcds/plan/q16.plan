@@ -4,56 +4,57 @@ Sort
     est: (rows=100)
   Project
       projection: [order count, CAST(total shipping cost):DECIMAL(14, 2), CAST(total net profit):DECIMAL(14, 2)]
-      est: (rows=981399350335625)
+      est: (rows=883259415302063)
     ColocatedSortAggregate
         fieldNames: [order count, total shipping cost, total net profit]
         collation: []
         group: []
         aggregation: [COUNT(CS_ORDER_NUMBER), SUM(total shipping cost), SUM(total net profit)]
-        est: (rows=981399350335625)
+        est: (rows=883259415302063)
       ColocatedSortAggregate
           fieldNames: [CS_ORDER_NUMBER, total shipping cost, total net profit]
           collation: [CS_ORDER_NUMBER ASC]
           group: [CS_ORDER_NUMBER]
           aggregation: [SUM(CS_EXT_SHIP_COST), SUM(CS_NET_PROFIT)]
-          est: (rows=981399350335625)
+          est: (rows=883259415302063)
         Project
             fieldNames: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
             projection: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
-            est: (rows=4906996751678128)
+            est: (rows=4416297076510316)
           Filter
               predicate: IS NULL($f1)
-              est: (rows=4906996751678128)
+              est: (rows=4416297076510316)
             MergeJoin
                 predicate: =(CS_ORDER_NUMBER, CR_ORDER_NUMBER)
                 type: left
-                est: (rows=19627987006712512)
+                est: (rows=17665188306041262)
               HashJoin
                   predicate: AND(=(CS_WAREHOUSE_SK, CS_WAREHOUSE_SK0), =(CS_ORDER_NUMBER, CS_ORDER_NUMBER0))
                   type: inner
-                  est: (rows=4540509525340)
+                  est: (rows=4086458572806)
                 HashJoin
                     predicate: =(CS_CALL_CENTER_SK, CC_CALL_CENTER_SK)
                     type: inner
-                    est: (rows=120009)
+                    est: (rows=108008)
                   HashJoin
                       predicate: =(CS_SHIP_ADDR_SK, CA_ADDRESS_SK)
                       type: inner
-                      est: (rows=120009)
+                      est: (rows=108008)
                     HashJoin
                         predicate: =(CS_SHIP_DATE_SK, D_DATE_SK)
                         type: inner
-                        est: (rows=360387)
+                        est: (rows=324348)
                       Exchange
                           distribution: single
-                          est: (rows=1441548)
+                          est: (rows=1297393)
                         Sort
                             collation: [CS_ORDER_NUMBER ASC, CS_WAREHOUSE_SK ASC]
-                            est: (rows=1441548)
+                            est: (rows=1297393)
                           TableScan
                               table: PUBLIC.CATALOG_SALES
+                              predicate: IS NOT NULL(CS_WAREHOUSE_SK)
                               fieldNames: [CS_SHIP_DATE_SK, CS_SHIP_ADDR_SK, CS_CALL_CENTER_SK, CS_WAREHOUSE_SK, CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
-                              est: (rows=1441548)
+                              est: (rows=1297393)
                       Exchange
                           distribution: single
                           est: (rows=18262)

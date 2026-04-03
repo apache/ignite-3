@@ -159,7 +159,6 @@ class SegmentFileManager implements ManuallyCloseable {
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
-            GroupInfoProvider groupInfoProvider,
             RaftConfiguration raftConfiguration,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
@@ -177,14 +176,22 @@ class SegmentFileManager implements ManuallyCloseable {
 
         indexFileManager = new IndexFileManager(baseDir);
 
+        garbageCollector = new RaftLogGarbageCollector(
+                nodeName,
+                segmentFilesDir,
+                indexFileManager,
+                logStorageView.softLogSizeLimitBytes(),
+                new MostGarbageFirstCompactionStrategy(segmentFilesDir, indexFileManager),
+                failureProcessor
+        );
+
         checkpointer = new RaftLogCheckpointer(
                 nodeName,
                 indexFileManager,
                 failureProcessor,
-                logStorageView.maxCheckpointQueueSize()
+                logStorageView.maxCheckpointQueueSize(),
+                garbageCollector::onLogStorageSizeIncreased
         );
-
-        garbageCollector = new RaftLogGarbageCollector(segmentFilesDir, indexFileManager, groupInfoProvider);
     }
 
     void start() throws IOException {
@@ -232,6 +239,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
         // Index File Manager must be started strictly before the checkpointer.
         indexFileManager.start();
+
+        garbageCollector.start();
 
         checkpointer.start();
     }
@@ -513,6 +522,8 @@ class SegmentFileManager implements ManuallyCloseable {
                 throw new IgniteInternalException(NODE_STOPPING_ERR);
             }
 
+            garbageCollector.onLogStorageSizeIncreased(segmentFileSize);
+
             currentSegmentFile.set(allocateNewSegmentFile(++curSegmentFileOrdinal));
 
             rolloverLock.notifyAll();
@@ -539,6 +550,7 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         checkpointer.stop();
+        garbageCollector.stop();
     }
 
     private static void writeHeader(SegmentFile segmentFile) {

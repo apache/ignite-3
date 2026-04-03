@@ -50,7 +50,7 @@ public class CustomPojoSerializationExample {
      */
     static void runPojoCustomJsonSerialization(IgniteClient client) {
 
-        System.out.println("\n[POJO custom] Running POJO job with custom JSON marshallers both on the client and on the server");
+        System.out.println("[POJO custom] Running POJO job with custom JSON marshallers both on the client and on the server");
 
         JobDescriptor<JsonArg, JsonResult> job = JobDescriptor.builder(CustomPojoSerializationJob.class)
                 .argumentMarshaller(new JsonArgMarshaller())

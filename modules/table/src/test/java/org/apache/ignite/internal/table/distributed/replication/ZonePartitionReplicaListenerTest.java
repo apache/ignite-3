@@ -71,6 +71,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -138,7 +141,6 @@ import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -203,6 +205,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -497,8 +500,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
             }
         });
 
-        when(topologySrv.localMember()).thenReturn(localNode);
-
         when(safeTimeTracker.waitFor(any())).thenReturn(nullCompletedFuture());
         when(safeTimeTracker.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
@@ -554,12 +555,12 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
 
-        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, PART_ID, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple, false);
-        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
+        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, PART_ID, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
         );
 
         pkIndexDescriptor = mock(CatalogIndexDescriptor.class);
@@ -610,14 +611,14 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService,
                 clusterNodeResolver,
                 messagingService,
-                mock(PlacementDriver.class),
+                mock(PlacementDriverHelper.class),
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
                         clockService
                 ),
                 new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
-                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                localNode,
                 Runnable::run
         );
 
@@ -650,6 +651,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
+                new PlacementDriverHelper(placementDriver, clockService),
                 clusterNodeResolver,
                 mockRaftClient,
                 failureManager,
@@ -668,9 +670,14 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 Runnable::run,
                 new ZonePartitionId(tableDescriptor.zoneId(), PART_ID),
                 TABLE_ID,
-                () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexLocker),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexLocker)),
                 pkStorageSupplier,
-                () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexStorage)),
                 clockService,
                 safeTimeTracker,
                 transactionStateResolver,
@@ -982,7 +989,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), any(), any());
         doAnswer(invocation -> nullCompletedFuture())
-                .when(txManager).cleanup(any(), anyString(), any());
+                .when(txManager).cleanup(any(), anyString(), any(), anyBoolean(), any());
     }
 
     private void upsertInNewTxFor(TestKey key) {
@@ -1373,6 +1380,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
+                .tableId(TABLE_ID)
+                .senderGroupId(zonePartitionIdMessage(grpId))
+                .senderCurrentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build(), randomUUID());
 
         assertThat(fut, willSucceedFast());
@@ -1397,6 +1408,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(txId)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThat(fut, willSucceedFast());
@@ -1648,6 +1660,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(10L)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThrowsWithCause(
@@ -1665,6 +1678,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .groupId(zonePartitionIdMessage(grpId))
                 .txId(newTxId())
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .rowId(TX_MESSAGES_FACTORY.rowIdMessage().partitionId(PART_ID).uuid(randomUUID()).build())
                 .build(), localNode.id());
 
         assertThrowsWithCause(
@@ -1739,7 +1753,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns, Int2IntMaps.EMPTY_MAP);
     }
 
     private CompletableFuture<?> beginAndCommitTx() {

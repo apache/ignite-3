@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
@@ -25,7 +26,6 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
@@ -37,7 +37,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -183,7 +182,7 @@ public class OrphanDetector {
 
             // We can path the work to another thread without any condition, because it is a very rare scenario in which the transaction
             // coordinator left topology.
-            partitionOperationsExecutor.execute(() -> sendTxRecoveryMessage(txState.commitPartitionId(), txId));
+            partitionOperationsExecutor.execute(() -> sendTxRecoveryMessageIgnoreErrors(txState.commitPartitionId(), txId));
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
@@ -197,28 +196,9 @@ public class OrphanDetector {
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      */
-    private void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
-        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
-                .thenCompose(replicaMeta -> {
-                    InternalClusterNode commitPartPrimaryNode =
-                            replicaMeta != null ? topologyService.getByConsistentId(replicaMeta.getLeaseholder()) : null;
-
-                    if (commitPartPrimaryNode == null) {
-                        LOG.warn(
-                                "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
-                                cmpPartGrp,
-                                txId
-                        );
-
-                        return nullCompletedFuture();
-                    }
-
-                    return replicaService.invoke(commitPartPrimaryNode, TX_MESSAGES_FACTORY.txRecoveryMessage()
-                            .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
-                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                            .txId(txId)
-                            .build());
-                }).exceptionally(throwable -> {
+    private void sendTxRecoveryMessageIgnoreErrors(ZonePartitionId cmpPartGrp, UUID txId) {
+        sendTxRecoveryMessage(cmpPartGrp, txId)
+                .exceptionally(throwable -> {
                     if (throwable != null) {
                         LOG.warn("A recovery message for the transaction was handled with the error {}.",
                                 throwable, formatTxInfo(txId, txLocalStateStorage));
@@ -226,6 +206,38 @@ public class OrphanDetector {
 
                     return null;
                 });
+    }
+
+    /**
+     * Sends transaction recovery message to commit partition for particular transaction.
+     *
+     * @param txId Transaction id.
+     * @return Future.
+     */
+    CompletableFuture<Object> sendTxRecoveryMessage(UUID txId) {
+        TxStateMeta txState = txLocalStateStorage.state(txId);
+
+        if (txState == null || isFinalState(txState.txState())) {
+            return completedFuture(null);
+        }
+
+        return sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+    }
+
+    /**
+     * Sends transaction recovery message to commit partition for particular transaction.
+     *
+     * @param cmpPartGrp Replication group of commit partition.
+     * @param txId Transaction id.
+     * @return Future.
+     */
+    private CompletableFuture<Object> sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
+        return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
+                .thenCompose(replicaMeta -> replicaService.invoke(replicaMeta.getLeaseholder(), TX_MESSAGES_FACTORY.txRecoveryMessage()
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
+                        .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                        .txId(txId)
+                        .build()));
     }
 
     /**

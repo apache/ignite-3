@@ -47,7 +47,6 @@ import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.future.InFlightFutures;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -80,6 +79,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     private final InFlightFutures inFlightFutures = new InFlightFutures();
 
+    private final InternalClusterNode localNode;
+
     private final TopologyService topologyService;
 
     private final LogicalTopologyService logicalTopologyService;
@@ -89,8 +90,6 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     private final ComputeExecutor executor;
 
     private final EventLog eventLog;
-
-    private final HybridTimestampTracker observableTimestampTracker;
 
     private final ComputeMessaging messaging;
 
@@ -107,21 +106,21 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             String nodeName,
             MessagingService messagingService,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             LogicalTopologyService logicalTopologyService,
             UnitsContextManager jobContextManager,
             ComputeExecutor executor,
             ComputeConfiguration computeConfiguration,
-            EventLog eventLog,
-            HybridTimestampTracker observableTimestampTracker
+            EventLog eventLog
     ) {
+        this.localNode = localNode;
         this.topologyService = topologyService;
         this.logicalTopologyService = logicalTopologyService;
         this.jobContextManager = jobContextManager;
         this.executor = executor;
         this.eventLog = eventLog;
-        this.observableTimestampTracker = observableTimestampTracker;
-        executionManager = new ExecutionManager(computeConfiguration, topologyService);
-        messaging = new ComputeMessaging(executionManager, messagingService, topologyService);
+        executionManager = new ExecutionManager(computeConfiguration, localNode);
+        messaging = new ComputeMessaging(executionManager, messagingService, topologyService, localNode);
         failoverExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "compute-job-failover", LOG)
         );
@@ -137,8 +136,6 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
-            observableTimestampTracker.update(executionContext.observableTimestamp());
-
             CompletableFuture<UnitsClassLoaderContext> classLoaderFut =
                     jobContextManager.acquireClassLoader(executionContext.units(), executionContext.jobClassName());
 
@@ -209,7 +206,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
             result.idAsync().thenAccept(jobId -> executionManager.addLocalExecution(
                     jobId,
-                    new TaskToJobExecutionWrapper<>(result, topologyService.localMember())
+                    new TaskToJobExecutionWrapper<>(result, localNode)
             ));
             return result;
         } finally {
@@ -258,7 +255,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable CancellationToken cancellationToken
     ) {
         return ComputeJobFailover.failSafeExecute(
-                        this, logicalTopologyService, topologyService, failoverExecutor, eventLog,
+                        this, logicalTopologyService, topologyService, localNode, failoverExecutor, eventLog,
                         remoteNode, nextWorkerSelector, executionContext
                 )
                 .thenApply(execution -> {

@@ -108,7 +108,7 @@ public class TestValidationUtil {
 
         validator.validate(annotation, ctx);
 
-        if (errorMessagePrefixes == null) {
+        if (errorMessagePrefixes == null || errorMessagePrefixes.length == 0) {
             assertThat(argumentCaptor.getAllValues(), empty());
         } else {
             List<String> messages = argumentCaptor.getAllValues().stream()

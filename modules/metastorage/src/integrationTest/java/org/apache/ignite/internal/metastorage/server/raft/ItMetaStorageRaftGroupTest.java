@@ -261,7 +261,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        log.info("Test: old raft leader: " + oldLeaderServer.clusterService().nodeName());
+        log.info("Test: old raft leader: " + oldLeaderServer.clusterService().staticLocalNode().name());
 
         // Server that will be alive after we stop leader.
         RaftServer liveServer = raftServers.stream()
@@ -269,7 +269,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        log.info("Test: liveServer: " + liveServer.clusterService().nodeName());
+        log.info("Test: liveServer: " + liveServer.clusterService().staticLocalNode().name());
 
         RaftGroupService raftGroupServiceOfLiveServer = raftServersRaftGroups.stream()
                 .filter(p -> p.key.equals(liveServer))
@@ -278,11 +278,10 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .value;
 
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
-                liveServer.clusterService().nodeName(),
+                liveServer.clusterService().staticLocalNode(),
                 raftGroupServiceOfLiveServer,
                 new IgniteSpinBusyLock(),
-                new HybridClockImpl(),
-                liveServer.clusterService().topologyService().localMember().id());
+                new HybridClockImpl());
 
         var resultFuture = new CompletableFuture<Void>();
 
@@ -376,7 +375,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         ComponentWorkingDir workingDir1 = new ComponentWorkingDir(workDir.resolve("node1"));
 
         logStorageManager1 = SharedLogStorageManagerUtils.create(
-                cluster.get(0).nodeName(),
+                cluster.get(0).staticLocalNode().name(),
                 workingDir1.raftLogPath()
         );
 
@@ -389,7 +388,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         ComponentWorkingDir workingDir2 = new ComponentWorkingDir(workDir.resolve("node2"));
 
         logStorageManager2 = SharedLogStorageManagerUtils.create(
-                cluster.get(1).nodeName(),
+                cluster.get(1).staticLocalNode().name(),
                 workingDir2.raftLogPath()
         );
 
@@ -402,7 +401,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         ComponentWorkingDir workingDir3 = new ComponentWorkingDir(workDir.resolve("node3"));
 
         logStorageManager3 = SharedLogStorageManagerUtils.create(
-                cluster.get(2).nodeName(),
+                cluster.get(2).staticLocalNode().name(),
                 workingDir3.raftLogPath()
         );
 
@@ -530,7 +529,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     }
 
     private static String localMemberName(ClusterService service) {
-        return service.topologyService().localMember().name();
+        return service.staticLocalNode().name();
     }
 
     /**

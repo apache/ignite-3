@@ -82,6 +82,7 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.example.jobs.embedded.CancelAwareSleepJob;
 import org.example.jobs.embedded.FailingJob;
 import org.example.jobs.embedded.FailingJobMapReduceTask;
 import org.example.jobs.embedded.FailingReduceMapReduceTask;
@@ -247,6 +248,35 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
+        // SilentSleepJob catches interruption and completes normally — cooperative cancellation honors the result.
+        assertThat(execution.resultAsync(), willBe(nullValue()));
+
+        UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
+        String jobClassName = jobDescriptor.jobClassName();
+        String targetNode = node(targetNodeIndex).name();
+
+        assertEvents(
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode)
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void cancelAwareJob(int targetNodeIndex) {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobDescriptor<Long, Void> jobDescriptor = JobDescriptor.builder(CancelAwareSleepJob.class).build();
+        JobTarget target = JobTarget.node(clusterNode(targetNodeIndex));
+        JobExecution<Void> execution = submit(target, jobDescriptor, cancelHandle.token(), Long.MAX_VALUE);
+
+        // Wait for start executing
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        cancelHandle.cancel();
+
         assertThat(execution.resultAsync(), willThrow(ComputeException.class));
 
         UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
@@ -267,7 +297,7 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         // Start first job
         CancelHandle cancelHandle1 = CancelHandle.create();
 
-        JobDescriptor<Long, Void> jobDescriptor = JobDescriptor.builder(SilentSleepJob.class).build();
+        JobDescriptor<Long, Void> jobDescriptor = JobDescriptor.builder(CancelAwareSleepJob.class).build();
         JobTarget target = JobTarget.node(clusterNode(targetNodeIndex));
         JobExecution<Void> execution1 = submit(target, jobDescriptor, cancelHandle1.token(), Long.MAX_VALUE);
         // Wait for it to start executing

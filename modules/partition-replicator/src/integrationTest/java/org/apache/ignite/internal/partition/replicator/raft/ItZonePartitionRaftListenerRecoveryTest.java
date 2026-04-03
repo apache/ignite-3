@@ -66,6 +66,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -182,6 +183,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    private final ClockService clockService = new TestClockService(clock);
+
     private final Map<Integer, MockMvPartitionStorage> storagesByTableId = new HashMap<>();
 
     private static class MockMvPartitionStorage {
@@ -273,7 +276,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(raftManager);
 
         var sharedRockDbStorage = new TxStateRocksDbSharedStorage(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 workDir.resolve("tx"),
                 scheduledExecutorService,
                 executor,
@@ -284,7 +287,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(sharedRockDbStorage);
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 clusterService.messagingService(),
                 failureProcessor
         );
@@ -293,7 +296,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         logStorageManager = SharedLogStorageManagerUtils.create(
                 "table data log",
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 componentWorkingDir.raftLogPath(),
                 true
         );
@@ -305,6 +308,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         txStateStorage = new TxStateRocksDbStorage(PARTITION_ID.zoneId(), 10, sharedRockDbStorage);
 
         partitionSnapshotStorage = new PartitionSnapshotStorage(
+                clusterService.staticLocalNode().name(),
                 new PartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId()),
                 clusterService.topologyService(),
                 outgoingSnapshotsManager,
@@ -336,7 +340,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
                 new PendingComparableValuesTracker<>(0L),
                 outgoingSnapshotsManager,
-                executor
+                executor,
+                clockService
         );
 
         for (int tableId : tableIds) {
@@ -349,7 +354,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
             currentRaftListener.addTableProcessorOnRecovery(tableId, createTableProcessor(tableId));
         }
 
-        var peersAndLearners = PeersAndLearners.fromConsistentIds(Set.of(clusterService.nodeName()));
+        var peersAndLearners = PeersAndLearners.fromConsistentIds(Set.of(clusterService.staticLocalNode().name()));
 
         RaftGroupOptions options = RaftGroupOptions.forPersistentStores();
 
@@ -363,7 +368,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         raftGroupOptionsConfigurer.configure(options);
 
         return raftManager.startRaftGroupNode(
-                new RaftNodeId(PARTITION_ID, new Peer(clusterService.nodeName())),
+                new RaftNodeId(PARTITION_ID, new Peer(clusterService.staticLocalNode().name())),
                 peersAndLearners,
                 currentRaftListener,
                 RaftGroupEventsListener.noopLsnr,
@@ -392,6 +397,10 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
 
         return new TablePartitionProcessor(
                 txManager,
@@ -400,7 +409,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 catalogService,
                 schemaRegistry,
                 indexMetaStorage,
-                clusterService.topologyService().localMember().id(),
+                clusterService.staticLocalNode().id(),
                 minimumRequiredTimeCollectorService,
                 placementDriver,
                 clockService,
@@ -409,7 +418,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
     }
 
     private MockMvPartitionStorage mockStorage(int tableId) {
-        return storagesByTableId.computeIfAbsent(tableId, id -> new MockMvPartitionStorage(clusterService.topologyService().localMember()));
+        return storagesByTableId.computeIfAbsent(tableId, id -> new MockMvPartitionStorage(clusterService.staticLocalNode()));
     }
 
     @Test
@@ -459,7 +468,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         // Execute a snapshot and then apply some commands on top of it for a new table.
         // We then expect that the new commands will be re-applied on startup.
         assertThat(
-                raftGroupService.snapshot(new Peer(clusterService.nodeName()), true),
+                raftGroupService.snapshot(new Peer(clusterService.staticLocalNode().name()), true),
                 willCompleteSuccessfully()
         );
 
@@ -493,7 +502,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         List<UUID> rowIds = applyRandomUpdateCommands(raftGroupService, tableIds);
 
         assertThat(
-                raftGroupService.snapshot(new Peer(clusterService.nodeName()), true),
+                raftGroupService.snapshot(new Peer(clusterService.staticLocalNode().name()), true),
                 willCompleteSuccessfully()
         );
 
@@ -520,7 +529,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         applyRandomUpdateCommands(raftGroupService, tableIds);
 
         assertThat(
-                raftGroupService.snapshot(new Peer(clusterService.nodeName()), true),
+                raftGroupService.snapshot(new Peer(clusterService.staticLocalNode().name()), true),
                 willCompleteSuccessfully()
         );
 

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**

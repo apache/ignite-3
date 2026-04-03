@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -49,8 +50,8 @@ class TestClusterService implements ClusterService {
     }
 
     @Override
-    public String nodeName() {
-        throw new AssertionError("Should not be called");
+    public InternalClusterNode staticLocalNode() {
+        return topologyService().localMember();
     }
 
     /** {@inheritDoc} */

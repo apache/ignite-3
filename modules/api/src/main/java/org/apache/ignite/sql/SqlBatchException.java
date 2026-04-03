@@ -45,7 +45,7 @@ public class SqlBatchException extends SqlException {
      * @param message Detailed message.
      * @param cause Optional cause.
      */
-    public SqlBatchException(UUID traceId, int code, long[] updCntrs, String message, @Nullable Throwable cause) {
+    public SqlBatchException(UUID traceId, int code, long @Nullable [] updCntrs, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
 
         this.updCntrs = updCntrs != null ? updCntrs : LONG_EMPTY_ARRAY;

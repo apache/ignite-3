@@ -454,7 +454,12 @@ public class ErrorGroups {
         /** Operation failed because the transaction is already finished. */
         public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
 
-        /** Failure due to a stale operation of a completed transaction is detected. */
+        /**
+         * Failure due to a stale operation of a completed transaction is detected.
+         *
+         * @deprecated This error is no longer used.
+         */
+        @Deprecated
         public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
 
         /**
@@ -554,11 +559,8 @@ public class ErrorGroups {
         /** Address or port bind error. */
         public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** File transfer error. */
-        public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** File validation error. */
-        public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
+        // Error codes 3 (FILE_TRANSFER_ERR) and 4 (FILE_VALIDATION_ERR) were removed along with the file-transfer module.
+        // These codes are reserved forever and must not be reused.
 
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);

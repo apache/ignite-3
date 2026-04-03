@@ -76,6 +76,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
                 + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"
@@ -253,6 +254,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28316")
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -314,6 +316,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28316")
     void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -506,6 +509,9 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         assertEquals(3, followers.size());
 
+        // Set a high timeout to prevent multiple recovery events from firing when followers leave topology one by one.
+        changePartitionDistributionTimeout(node0, (int) TimeUnit.MINUTES.toSeconds(5));
+
         // Stop all followers.
         followers.forEach(n -> stopNode(n.consistentId()));
 
@@ -515,6 +521,9 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 .collect(Collectors.toSet());
 
         IgniteImpl node = igniteImpl(nodeIndex(learners.iterator().next()));
+
+        // Trigger a single recovery event by setting timeout to 0.
+        changePartitionDistributionTimeout(node0, 0);
 
         // Wait for the partition to become available on the learners.
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0), learners);
@@ -536,6 +545,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  nodeAttributes.nodeAttributes: " + nodeAtrributes + ",\n"
                 + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
                 + "  network: {\n"
+                + "    listenAddresses: [127.0.0.1],\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ {} ]\n"

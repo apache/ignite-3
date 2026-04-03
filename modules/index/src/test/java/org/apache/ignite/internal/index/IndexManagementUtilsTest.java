@@ -51,7 +51,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -210,10 +209,8 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     private static ClusterService clusterService(InternalClusterNode localNode) {
         ClusterService clusterService = mock(ClusterService.class);
-        TopologyService topologyService = mock(TopologyService.class);
 
-        when(topologyService.localMember()).thenReturn(localNode);
-        when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(localNode);
 
         return clusterService;
     }

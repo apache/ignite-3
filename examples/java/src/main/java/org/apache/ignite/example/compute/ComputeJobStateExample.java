@@ -30,7 +30,6 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This code demonstrates the usage of the {@link JobExecution} interface that allows to get job statuses and, for example, handle
@@ -55,15 +54,13 @@ public class ComputeJobStateExample {
      */
     public static void main(String[] args) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(args);
-
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
         //--------------------- -----------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -75,9 +72,9 @@ public class ComputeJobStateExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()),
                     JobDescriptor.builder(WordPrintJob.class)
@@ -87,7 +84,7 @@ public class ComputeJobStateExample {
 
             execution.get().stateAsync().thenApply(state -> {
                 if (state.status() == FAILED) {
-                    System.out.println("\nJob failed...");
+                    System.out.println("Job failed...");
                 }
                 return null;
             });
@@ -106,7 +103,7 @@ public class ComputeJobStateExample {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(null);
         }

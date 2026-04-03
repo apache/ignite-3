@@ -29,13 +29,14 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.LogManagerMetricSource;
 import org.apache.ignite.internal.raft.storage.TermCache;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -55,7 +56,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ArrayDeque;
-import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.SegmentList;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -90,9 +90,18 @@ public class LogManagerImpl implements LogManager {
     private RingBuffer<StableClosureEvent> diskQueue;
     private RaftOptions raftOptions;
     private volatile CountDownLatch shutDownLatch;
-    private NodeMetrics nodeMetrics;
+    private final LogManagerMetricSource metrics;
+    private final MetricManager metricManager;
     private final CopyOnWriteArrayList<LastLogIndexListener> lastLogIndexListeners = new CopyOnWriteArrayList<>();
     private NodeOptions nodeOptions;
+
+    public LogManagerImpl(MetricManager metricManager, String groupId) {
+        this.metricManager = metricManager;
+
+        metrics = new LogManagerMetricSource(groupId);
+        metricManager.registerSource(metrics);
+        metricManager.enable(metrics);
+    }
 
     private enum EventType {
         OTHER, // other event type.
@@ -164,7 +173,6 @@ public class LogManagerImpl implements LogManager {
                 return false;
             }
             this.raftOptions = opts.getRaftOptions();
-            this.nodeMetrics = opts.getNodeMetrics();
             this.logStorage = opts.getLogStorage();
             this.configManager = opts.getConfigurationManager();
             this.nodeOptions = opts.getNode().getOptions();
@@ -186,11 +194,6 @@ public class LogManagerImpl implements LogManager {
 
             this.diskQueue = disruptor.subscribe(this.nodeId, new StableClosureEventHandler(),
                 (event, ex) -> reportError(-1, "LogManager handle event error"));
-
-            if (this.nodeMetrics.getMetricRegistry() != null) {
-                this.nodeMetrics.getMetricRegistry().register("jraft-log-manager-disruptor",
-                    new DisruptorMetricSet(this.diskQueue));
-            }
         }
         finally {
             this.writeLock.unlock();
@@ -239,6 +242,7 @@ public class LogManagerImpl implements LogManager {
             this.stopped = true;
             doUnlock = false;
             wakeupAllWaiter(this.writeLock);
+            metricManager.unregisterSource(metrics);
         }
         finally {
             if (doUnlock) {
@@ -406,14 +410,13 @@ public class LogManagerImpl implements LogManager {
         if (!this.hasError) {
             final long startMs = Utils.monotonicMs();
             final int entriesCount = toAppend.size();
-            this.nodeMetrics.recordSize("append-logs-count", entriesCount);
+
+            int writtenSize = 0;
             try {
-                int writtenSize = 0;
                 for (int i = 0; i < entriesCount; i++) {
                     final LogEntry entry = toAppend.get(i);
                     writtenSize += entry.getData() != null ? entry.getData().remaining() : 0;
                 }
-                this.nodeMetrics.recordSize("append-logs-bytes", writtenSize);
                 final int nAppent = appendToLogStorage(toAppend);
                 if (nAppent != entriesCount) {
                     LOG.error("**Critical error**, fail to appendEntries, nAppent={}, toAppend={}", nAppent,
@@ -425,7 +428,7 @@ public class LogManagerImpl implements LogManager {
                 }
             }
             finally {
-                this.nodeMetrics.recordLatency("append-logs", Utils.monotonicMs() - startMs);
+                this.metrics.onAppendLogs(entriesCount, writtenSize, Utils.monotonicMs() - startMs);
             }
         }
         return lastId;
@@ -541,8 +544,7 @@ public class LogManagerImpl implements LogManager {
                             ret = LogManagerImpl.this.logStorage.truncatePrefix(tpc.firstIndexKept);
                         }
                         finally {
-                            LogManagerImpl.this.nodeMetrics.recordLatency("truncate-log-prefix", Utils.monotonicMs()
-                                - startMs);
+                            LogManagerImpl.this.metrics.onTruncateLogPrefix(Utils.monotonicMs() - startMs);
                         }
                         break;
                     case TRUNCATE_SUFFIX:
@@ -562,8 +564,7 @@ public class LogManagerImpl implements LogManager {
                             }
                         }
                         finally {
-                            LogManagerImpl.this.nodeMetrics.recordLatency("truncate-log-suffix", Utils.monotonicMs()
-                                - startMs);
+                            LogManagerImpl.this.metrics.onTruncateLogSuffix(Utils.monotonicMs() - startMs);
                         }
                         break;
                     case RESET:

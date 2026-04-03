@@ -135,7 +135,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         );
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+        when(clusterService.staticLocalNode().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
                 systemDistributedConfiguration,

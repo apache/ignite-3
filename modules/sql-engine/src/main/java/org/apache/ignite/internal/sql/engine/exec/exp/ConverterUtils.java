@@ -221,11 +221,15 @@ public class ConverterUtils {
             methodName = "toTimestampLtzExact";
         }
 
-        return Expressions.call(
-                IgniteSqlFunctions.class,
-                methodName,
-                operand,
-                Expressions.constant(targetType.getPrecision())
+        // Returns either (long) <call> or (Long) <call> depending on nullability of a target type.
+        return Expressions.convert_(
+                Expressions.call(
+                        IgniteSqlFunctions.class,
+                        methodName,
+                        operand,
+                        Expressions.constant(targetType.getPrecision())
+                ), 
+                Commons.typeFactory().getJavaClass(targetType)
         );
     }
 

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 
 /** Supplier table index storages. */
 @FunctionalInterface
@@ -27,5 +27,5 @@ public interface TableIndexStoragesSupplier {
      *
      * <p>Waits for the primary key index and all other registered indexes to be created.
      */
-    Map<Integer, TableSchemaAwareIndexStorage> get();
+    Int2ObjectMap<TableSchemaAwareIndexStorage> get();
 }

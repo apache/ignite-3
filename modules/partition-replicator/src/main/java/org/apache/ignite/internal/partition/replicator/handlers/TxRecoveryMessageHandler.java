@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
 import java.util.UUID;
@@ -73,7 +74,8 @@ public class TxRecoveryMessageHandler {
         // Check whether a transaction has already been finished.
         if (txMeta != null && isFinalState(txMeta.txState())) {
             // Tx recovery message is processed on the commit partition.
-            return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId);
+            boolean commit = txMeta.txState() == COMMITTED;
+            return txRecoveryEngine.runCleanupOnNode(replicationGroupId, txId, senderId, commit, txMeta.commitTimestamp());
         }
 
         LOG.info(

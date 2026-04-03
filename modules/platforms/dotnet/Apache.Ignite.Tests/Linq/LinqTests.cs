@@ -168,8 +168,7 @@ public partial class LinqTests : IgniteTestsBase
             .Select(x => x.Val)
             .Single());
 
-        const string expected = "ResultSet is expected to have one row, but has more: " +
-                                "select _T0.VAL from PUBLIC.TBL1 as _T0 limit 2";
+        const string expected = "Sequence contains more than one matching element";
 
         Assert.AreEqual(expected, ex!.Message);
     }

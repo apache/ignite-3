@@ -21,6 +21,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.AsyncCallFactory;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Factory for {@link DeployUnitCall}. */
@@ -29,12 +30,15 @@ public class DeployUnitCallFactory implements AsyncCallFactory<DeployUnitCallInp
 
     private final ApiClientFactory factory;
 
-    public DeployUnitCallFactory(ApiClientFactory factory) {
+    private final UnitsRegistry unitsRegistry;
+
+    public DeployUnitCallFactory(ApiClientFactory factory, UnitsRegistry unitsRegistry) {
         this.factory = factory;
+        this.unitsRegistry = unitsRegistry;
     }
 
     @Override
     public AsyncCall<DeployUnitCallInput, String> create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+        return new DeployUnitCall(tracker, factory, unitsRegistry);
     }
 }

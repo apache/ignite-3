@@ -18,30 +18,25 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource.CANCELED_QUERIES;
-import static org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource.FAILED_QUERIES;
-import static org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource.SUCCESSFUL_QUERIES;
-import static org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource.TIMED_OUT_QUERIES;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.sql.metrics.QueryMetrics;
 import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
-import org.awaitility.Awaitility;
-import org.hamcrest.Matchers;
+import org.awaitility.core.ThrowingRunnable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,19 +61,13 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);
 
-            long success0 = metricValue(SUCCESSFUL_QUERIES);
-            long failed0 = metricValue(FAILED_QUERIES);
-            long cancelled0 = metricValue(CANCELED_QUERIES);
-            long timedout0 = metricValue(TIMED_OUT_QUERIES);
+            QueryMetrics initialMetrics = currentMetrics();
 
             // The first statement is OK
             boolean rs1 = stmt.execute();
             assertTrue(rs1);
 
-            assertEquals(success0 + 1, metricValue(SUCCESSFUL_QUERIES));
-            assertEquals(failed0, metricValue(FAILED_QUERIES));
-            assertEquals(cancelled0, metricValue(CANCELED_QUERIES));
-            assertEquals(timedout0, metricValue(TIMED_OUT_QUERIES));
+            awaitMetrics(initialMetrics, 1, 0, 0, 0);
 
             // The second statement fails
             assertThrows(SQLException.class, () -> {
@@ -88,10 +77,8 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     rs.getInt(1);
                 }
             });
-            assertEquals(success0 + 1, metricValue(SUCCESSFUL_QUERIES));
-            assertEquals(failed0 + 1, metricValue(FAILED_QUERIES));
-            assertEquals(cancelled0, metricValue(CANCELED_QUERIES));
-            assertEquals(timedout0, metricValue(TIMED_OUT_QUERIES));
+
+            awaitMetrics(initialMetrics, 1, 1, 0, 0);
         }
     }
 
@@ -100,17 +87,13 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
         try (var stmt = conn.prepareStatement("SELECT 1; SELECT 1/?;")) {
             stmt.setInt(1, 0);
 
-            long success0 = metricValue(SUCCESSFUL_QUERIES);
-            long failed0 = metricValue(FAILED_QUERIES);
-            long cancelled0 = metricValue(CANCELED_QUERIES);
+            QueryMetrics initialMetrics = currentMetrics();
 
             // The first statement is OK
             boolean rs1 = stmt.execute();
             assertTrue(rs1);
 
-            assertEquals(success0 + 1, metricValue(SUCCESSFUL_QUERIES));
-            assertEquals(failed0, metricValue(FAILED_QUERIES));
-            assertEquals(cancelled0, metricValue(CANCELED_QUERIES));
+            awaitMetrics(initialMetrics, 1, 0, 0, 0);
 
             // The second statement is cancelled
             assertThrows(SQLException.class, () -> {
@@ -121,23 +104,15 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     rs.getInt(1);
                 }
             });
-            assertEquals(success0 + 1, metricValue(SUCCESSFUL_QUERIES));
-            assertEquals(failed0 + 1, metricValue(FAILED_QUERIES));
-            assertEquals(cancelled0 + 1, metricValue(CANCELED_QUERIES));
+
+            awaitMetrics(initialMetrics, 1, 1, 1, 0);
         }
     }
 
     @Test
     public void testScriptTimeout() {
-        Callable<Map<String, Long>> runScript = () -> {
-
-            long success0 = metricValue(SUCCESSFUL_QUERIES);
-            long failed0 = metricValue(FAILED_QUERIES);
-            long cancelled0 = metricValue(CANCELED_QUERIES);
-            long timedout0 = metricValue(TIMED_OUT_QUERIES);
-
-            log.info("Initial Metrics: success: {}, failed: {}, cancelled: {}, timed out: ",
-                    success0, failed0, cancelled0, timedout0);
+        ThrowingRunnable runScript = () -> {
+            QueryMetrics initialMetrics = currentMetrics();
 
             SQLException err;
 
@@ -176,29 +151,14 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
 
             log.info("Script timed out");
 
-            // Check the metrics
-
-            long success1 = metricValue(SUCCESSFUL_QUERIES);
-            long failed1 = metricValue(FAILED_QUERIES);
-            long cancelled1 = metricValue(CANCELED_QUERIES);
-            long timedout1 = metricValue(TIMED_OUT_QUERIES);
-
-            log.info("Metrics: success: {}, failed: {}, cancelled: {}, timed out: {}",
-                    success1, failed1, cancelled1, timedout1);
-
-            return Map.of(
-                    SUCCESSFUL_QUERIES, success1 - success0,
-                    FAILED_QUERIES, failed1 - failed0,
-                    CANCELED_QUERIES, cancelled1 - cancelled0,
-                    TIMED_OUT_QUERIES, timedout1 - timedout0
-            );
+            assertThat(currentMetrics(), initialMetrics.hasDeltas(1, 2, 0, 2));
         };
 
-        Map<String, Long> delta = Map.of(
-                SUCCESSFUL_QUERIES, 1L, FAILED_QUERIES, 2L, CANCELED_QUERIES, 0L, TIMED_OUT_QUERIES, 2L
-        );
-
-        Awaitility.await().ignoreExceptions().until(runScript, Matchers.equalTo(delta));
+        // We need to guard against first statement possible timeout due to the timing issues, so let's retry the test until success.
+        await()
+                .pollDelay(Duration.ZERO)
+                .ignoreExceptions()
+                .untilAsserted(runScript);
     }
 
     private long metricValue(String name) {
@@ -209,5 +169,19 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
 
             return metric.value();
         }).sum();
+    }
+
+    private QueryMetrics currentMetrics() {
+        return new QueryMetrics(this::metricValue);
+    }
+
+    private void awaitMetrics(
+            QueryMetrics initialMetrics,
+            long succeededDelta,
+            long failedDelta,
+            long canceledDelta,
+            long timedOutDelta
+    ) {
+        initialMetrics.awaitDeltas(this::metricValue, succeededDelta, failedDelta, canceledDelta, timedOutDelta);
     }
 }

@@ -26,8 +26,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
@@ -80,9 +78,7 @@ abstract class AbstractMemTableTest<T extends WriteModeIndexMemTable & ReadModeI
         memTable.appendSegmentFileOffset(1, 0, 3);
         memTable.appendSegmentFileOffset(1, 1, 4);
 
-        Iterator<Entry<Long, SegmentInfo>> it = memTable.iterator();
-
-        it.forEachRemaining(entry -> {
+        memTable.forEach(entry -> {
             long groupId = entry.getKey();
             SegmentInfo segmentInfo = entry.getValue();
 
@@ -201,6 +197,29 @@ abstract class AbstractMemTableTest<T extends WriteModeIndexMemTable & ReadModeI
 
         assertThat(segmentInfo, is(notNullValue()));
         assertThat(segmentInfo.getOffset(1), is(43));
+    }
+
+    @Test
+    void testTruncateSuffixBelowFirstLogIndexPreservesFirstIndexKept() {
+        // Append a single entry at index 15, so firstLogIndexInclusive = 15.
+        memTable.appendSegmentFileOffset(0, 15, 42);
+
+        // Truncate the prefix using an index that is not present in the memtable.
+        memTable.truncatePrefix(0, 10);
+
+        SegmentInfo afterPrefixTruncate = memTable.segmentInfo(0);
+        assertThat(afterPrefixTruncate, is(notNullValue()));
+        assertThat(afterPrefixTruncate.firstIndexKept(), is(10L));
+
+        // Truncate the suffix using an index that is also not present in the memtable.
+        memTable.truncateSuffix(0, 14);
+
+        SegmentInfo afterSuffixTruncate = memTable.segmentInfo(0);
+        assertThat(afterSuffixTruncate, is(notNullValue()));
+
+        // The entry at index 15 must no longer be visible.
+        assertThat(afterSuffixTruncate.getOffset(15), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(afterSuffixTruncate.firstIndexKept(), is(10L));
     }
 
     @Test

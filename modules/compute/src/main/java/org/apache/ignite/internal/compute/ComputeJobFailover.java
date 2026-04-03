@@ -63,6 +63,11 @@ class ComputeJobFailover {
     private final TopologyService topologyService;
 
     /**
+     * Local cluster node.
+     */
+    private final InternalClusterNode localNode;
+
+    /**
      * Thread to run failover logic. We can not perform time-consuming operations in the same thread where we discover topology changes (it
      * is network id thread).
      */
@@ -98,20 +103,17 @@ class ComputeJobFailover {
      * @param computeComponent compute component.
      * @param logicalTopologyService logical topology service.
      * @param topologyService physical topology service.
+     * @param localNode local cluster node.
      * @param executor the thread pool where the failover should run on.
      * @param eventLog Event log.
      * @param workerNode the node to execute the job on.
      * @param nextWorkerSelector the selector that returns the next worker to execute job on.
-     * @param executionOptions execution options like priority or max retries.
-     * @param units deployment units.
-     * @param jobClassName the name of the job class.
-     * @param metadataBuilder Event metadata builder.
-     * @param arg the arguments of the job.
      */
     private ComputeJobFailover(
             ComputeComponent computeComponent,
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             Executor executor,
             EventLog eventLog,
             InternalClusterNode workerNode,
@@ -121,6 +123,7 @@ class ComputeJobFailover {
         this.computeComponent = computeComponent;
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.executor = executor;
         this.eventLog = eventLog;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
@@ -136,6 +139,7 @@ class ComputeJobFailover {
             ComputeComponent computeComponent,
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             Executor executor,
             EventLog eventLog,
             InternalClusterNode workerNode,
@@ -146,6 +150,7 @@ class ComputeJobFailover {
                 computeComponent,
                 logicalTopologyService,
                 topologyService,
+                localNode,
                 executor,
                 eventLog,
                 workerNode,
@@ -174,7 +179,7 @@ class ComputeJobFailover {
     }
 
     private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> launchJobOn(InternalClusterNode runningWorkerNode) {
-        if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
+        if (runningWorkerNode.name().equals(localNode.name())) {
             return computeComponent.executeLocally(jobContext, null);
         } else {
             return computeComponent.executeRemotely(runningWorkerNode, jobContext, null);

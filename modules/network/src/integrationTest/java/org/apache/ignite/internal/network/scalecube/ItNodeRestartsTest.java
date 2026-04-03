@@ -92,7 +92,7 @@ class ItNodeRestartsTest {
                 .collect(toCollection(ArrayList::new)); // ensure mutability
 
         for (ClusterService service : services) {
-            assertTrue(waitForTopology(service, 5, 5_000), service.topologyService().localMember().toString()
+            assertTrue(waitForTopology(service, 5, 5_000), service.staticLocalNode().toString()
                     + ", topSize=" + service.topologyService().allMembers().size());
         }
 
@@ -114,7 +114,7 @@ class ItNodeRestartsTest {
         services.set(idx1, svc2);
 
         for (ClusterService service : services) {
-            assertTrue(waitForTopology(service, 5, 10_000), service.topologyService().localMember().toString()
+            assertTrue(waitForTopology(service, 5, 10_000), service.staticLocalNode().toString()
                     + ", topSize=" + service.topologyService().allMembers().size());
         }
 
@@ -186,7 +186,7 @@ class ItNodeRestartsTest {
                 .collect(toCollection(ArrayList::new)); // ensure mutability
 
         for (ClusterService service : services) {
-            assertTrue(waitForTopology(service, 2, 5_000), service.topologyService().localMember().toString()
+            assertTrue(waitForTopology(service, 2, 5_000), service.staticLocalNode().toString()
                     + ", topSize=" + service.topologyService().allMembers().size());
         }
 
@@ -196,7 +196,7 @@ class ItNodeRestartsTest {
         AtomicBoolean sending = new AtomicBoolean(true);
 
         CompletableFuture<Void> sendingFuture = runAsync(() -> {
-            InternalClusterNode receiverNode = receiver.topologyService().localMember();
+            InternalClusterNode receiverNode = receiver.staticLocalNode();
 
             while (sending.get()) {
                 TestMessage message = new TestMessagesFactory().testMessage().build();

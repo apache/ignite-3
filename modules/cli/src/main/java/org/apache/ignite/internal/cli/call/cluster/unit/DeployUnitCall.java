@@ -33,6 +33,7 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.UnitAlreadyExistsException;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -48,9 +49,12 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
     private final ApiClientFactory clientFactory;
 
-    DeployUnitCall(ProgressTracker tracker, ApiClientFactory clientFactory) {
+    private final UnitsRegistry unitsRegistry;
+
+    DeployUnitCall(ProgressTracker tracker, ApiClientFactory clientFactory, UnitsRegistry unitsRegistry) {
         this.tracker = tracker;
         this.clientFactory = clientFactory;
+        this.unitsRegistry = unitsRegistry;
     }
 
     @Override
@@ -98,6 +102,7 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
             } else if (callback.exception() != null) {
                 return handleException(callback.exception(), input);
             } else {
+                unitsRegistry.refresh();
                 return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());
             }
         });

@@ -131,7 +131,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             Collection<InternalClusterNode> topology = service.topologyService().allMembers();
 
             LOG.error("Topology on node '{}' didn't match expected topology size. Expected: {}, actual: {}.\nTopology nodes: {}",
-                    service.nodeName(),
+                    service.staticLocalNode().name(),
                     expected,
                     topology.size(),
                     topology.stream().map(InternalClusterNode::name).collect(toList())

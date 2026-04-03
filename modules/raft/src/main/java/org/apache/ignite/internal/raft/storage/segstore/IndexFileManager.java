@@ -23,6 +23,8 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 import static org.apache.ignite.internal.util.IgniteUtils.fsyncFile;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import java.io.BufferedInputStream;
@@ -49,6 +51,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * File manager responsible for persisting {@link ReadModeIndexMemTable}s to index files.
@@ -213,10 +216,8 @@ class IndexFileManager {
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
             os.write(fileHeaderWithIndexMetas.header());
 
-            Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-            while (it.hasNext()) {
-                SegmentInfo segmentInfo = it.next().getValue();
+            for (Entry<Long, SegmentInfo> longSegmentInfoEntry : indexMemTable) {
+                SegmentInfo segmentInfo = longSegmentInfoEntry.getValue();
 
                 // Segment Info may not contain payload in case of suffix truncation, see "IndexMemTable#truncateSuffix".
                 if (segmentInfo.size() > 0) {
@@ -264,6 +265,10 @@ class IndexFileManager {
         return newIndexFilePath;
     }
 
+    void onIndexFileRemoved(FileProperties oldIndexFileProperties) {
+        groupIndexMetas.values().forEach(groupIndexMeta -> groupIndexMeta.onIndexRemoved(oldIndexFileProperties));
+    }
+
     /**
      * Returns a pointer into a segment file that contains the entry for the given group's index. Returns {@code null} if the given log
      * index could not be found in any of the index files.
@@ -277,7 +282,7 @@ class IndexFileManager {
                 return null;
             }
 
-            IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
+            IndexFileMeta indexFileMeta = groupIndexMeta.indexMetaByLogIndex(logIndex);
 
             if (indexFileMeta == null) {
                 return null;
@@ -340,6 +345,27 @@ class IndexFileManager {
         return indexFilesDir.resolve(indexFileName(fileProperties));
     }
 
+    /**
+     * Returns information about a segment file (identified by its ordinal) as a [groupId -> descriptor] mapping.
+     *
+     * <p>If all entries from the file for a given group have been <i>logically</i> removed, for example, as a result of later prefix
+     * truncation, then the mapping will not contain an entry for this group. Otherwise, it will contain the smallest and largest log
+     * indices across all index files for this group.
+     */
+    Long2ObjectMap<IndexFileMeta> describeSegmentFile(int fileOrdinal) {
+        var result = new Long2ObjectOpenHashMap<IndexFileMeta>(groupIndexMetas.size());
+
+        groupIndexMetas.forEach((groupId, groupIndexMeta) -> {
+            IndexFileMeta indexMeta = groupIndexMeta.effectiveIndexMetaByFileOrdinal(fileOrdinal);
+
+            if (indexMeta != null) {
+                result.put((long) groupId, indexMeta);
+            }
+        });
+
+        return result;
+    }
+
     private static FileHeaderWithIndexMetas serializeHeaderAndFillMetadata(
             ReadModeIndexMemTable indexMemTable,
             FileProperties fileProperties
@@ -358,11 +384,7 @@ class IndexFileManager {
 
         var metaSpecs = new ArrayList<IndexMetaSpec>(numGroups);
 
-        Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-        while (it.hasNext()) {
-            Entry<Long, SegmentInfo> entry = it.next();
-
+        for (Entry<Long, SegmentInfo> entry : indexMemTable) {
             // Using the boxed value to avoid unnecessary autoboxing later.
             Long groupId = entry.getKey();
 
@@ -477,6 +499,19 @@ class IndexFileManager {
         return payloadBuffer.array();
     }
 
+    /**
+     * Computes the size in bytes that the index file for the given {@code indexMemTable} will occupy on disk.
+     */
+    static long computeIndexFileSize(ReadModeIndexMemTable indexMemTable) {
+        long total = headerSize(indexMemTable.numGroups());
+
+        for (Entry<Long, SegmentInfo> longSegmentInfoEntry : indexMemTable) {
+            total += payloadSize(longSegmentInfoEntry.getValue());
+        }
+
+        return total;
+    }
+
     private static int headerSize(int numGroups) {
         return COMMON_META_SIZE + numGroups * GROUP_META_SIZE;
     }
@@ -485,18 +520,27 @@ class IndexFileManager {
         return segmentInfo.size() * Integer.BYTES;
     }
 
-    private static String indexFileName(FileProperties fileProperties) {
+    @VisibleForTesting
+    static String indexFileName(FileProperties fileProperties) {
         return String.format(INDEX_FILE_NAME_FORMAT, fileProperties.ordinal(), fileProperties.generation());
     }
 
     private void recoverIndexFileMetas(Path indexFilePath) throws IOException {
         FileProperties fileProperties = indexFileProperties(indexFilePath);
 
-        if (curFileOrdinal >= 0 && fileProperties.ordinal() != curFileOrdinal + 1) {
-            throw new IllegalStateException(String.format(
-                    "Unexpected index file ordinal. Expected %d, actual %d (%s).",
-                    curFileOrdinal + 1, fileProperties.ordinal(), indexFilePath
-            ));
+        if (curFileOrdinal >= 0) {
+            int fileOrdinal = fileProperties.ordinal();
+
+            // There can be gaps in file numbering because of suffix truncations and subsequent GCs.
+            if (fileOrdinal > curFileOrdinal + 1) {
+                LOG.info("Missing index files in [{} : {}) range, creating empty index metas", curFileOrdinal + 1, fileOrdinal);
+
+                for (int ordinal = curFileOrdinal + 1; ordinal < fileOrdinal; ordinal++) {
+                    var missingFileProperties = new FileProperties(ordinal, 0);
+
+                    putIndexFileMetasForMissingGroups(LongSet.of(), missingFileProperties);
+                }
+            }
         }
 
         curFileOrdinal = fileProperties.ordinal();

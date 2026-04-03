@@ -20,6 +20,7 @@ object PlatformCppTestsLinux : BuildType({
         %PATH__UNIT_TESTS_RESULT% => test_logs
         %PATH__CLIENT_TEST_RESULTS% => test_logs
         %PATH__CMAKE_BUILD_DIRECTORY%/core => core_dumps
+        %PATH__CMAKE_BUILD_DIRECTORY%/**/*.log => cmake_logs
     """.trimIndent()
 
     params {

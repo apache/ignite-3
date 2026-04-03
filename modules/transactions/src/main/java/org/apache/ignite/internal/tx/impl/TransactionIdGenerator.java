@@ -26,15 +26,11 @@ import org.apache.ignite.internal.tx.TxPriority;
  * Generates transaction IDs.
  */
 public class TransactionIdGenerator {
-    /** Supplies nodeId for transactionId generation. */
-    private final NodeIdSupplier nodeIdSupplier;
-
-    public TransactionIdGenerator(NodeIdSupplier nodeIdSupplier) {
-        this.nodeIdSupplier = nodeIdSupplier;
-    }
+    /** nodeId for transactionId generation. */
+    private final int nodeId;
 
     public TransactionIdGenerator(int nodeId) {
-        this(() -> nodeId);
+        this.nodeId = nodeId;
     }
 
     /**
@@ -55,6 +51,6 @@ public class TransactionIdGenerator {
      * @return Transaction ID.
      */
     public UUID transactionIdFor(HybridTimestamp beginTimestamp, TxPriority priority) {
-        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId(), priority);
+        return TransactionIds.transactionId(beginTimestamp, nodeId, priority);
     }
 }

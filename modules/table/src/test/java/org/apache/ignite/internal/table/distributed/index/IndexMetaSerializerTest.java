@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.STOPPING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.READ_ONLY;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REMOVED;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.STOPPING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Base64;
 import java.util.Map;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 

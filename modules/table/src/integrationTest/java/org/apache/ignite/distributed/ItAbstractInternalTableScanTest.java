@@ -67,6 +67,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -78,7 +79,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -102,8 +103,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /** Mock partition storage. */
-    @Mock
-    private MvPartitionStorage mockStorage;
+    @Spy
+    private MvPartitionStorage mockStorage = new TestMvPartitionStorage(0);
 
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;

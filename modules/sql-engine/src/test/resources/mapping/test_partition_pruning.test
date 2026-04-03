@@ -164,6 +164,7 @@ Fragment#4
             est: (rows=1)
 ---
 # Self join, different predicates that produce disjoint set of partitions
+# TODO https://issues.apache.org/jira/browse/IGNITE-28389: Fix the test. We expect the mapper should eliminate all the disjoined parts.
 N1
 SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ *
   FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2
@@ -172,7 +173,7 @@ SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'Correla
 Fragment#2 root
   distribution: single
   executionNodes: [N1]
-  exchangeSourceNodes: {3=[N2, N3]}
+  exchangeSourceNodes: {3=[N1, N2, N3]}
   colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
@@ -183,37 +184,37 @@ Fragment#2 root
 
 Fragment#3
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
-  executionNodes: [N2, N3]
+  executionNodes: [N1, N2, N3]
   targetNodes: [N1]
-  colocationGroup[0]: {nodes=[N2], sourceIds=[0], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
-  colocationGroup[1]: {nodes=[N3], sourceIds=[1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
-  partitions: [T1_N1N2N3=[N2={1}, N3={2}]]
+  colocationGroup[0]: {nodes=[N1, N2, N3], sourceIds=[0, 1], assignments={part_0=N1:3, part_1=N2:3, part_2=N3:3}, partitionsWithConsistencyTokens={N1=[part_0:3], N2=[part_1:3], N3=[part_2:3]}}
+  colocationGroup[1]: {nodes=[N1, N2, N3], sourceIds=[0, 1], assignments={part_0=N1:3, part_1=N2:3, part_2=N3:3}, partitionsWithConsistencyTokens={N1=[part_0:3], N2=[part_1:3], N3=[part_2:3]}}
+  partitions: [T1_N1N2N3=[N1={0}, N2={1}, N3={2}]]
   tree: 
     Sender
         distribution: single
         targetFragmentId: 2
-        est: (rows=32316)
+        est: (rows=6250)
       MergeJoin
           predicate: =(ID, ID$0)
           fieldNames: [ID, C1, C2, ID$0, C1$0, C2$0]
           type: inner
-          est: (rows=32316)
+          est: (rows=6250)
         Sort
             collation: [ID ASC]
-            est: (rows=56847)
+            est: (rows=25000)
           TableScan
               table: PUBLIC.T1_N1N2N3
-              predicate: SEARCH(ID, Sarg[1, 3])
+              predicate: false
               fieldNames: [ID, C1, C2]
-              est: (rows=56847)
+              est: (rows=25000)
         Sort
             collation: [ID ASC]
-            est: (rows=56847)
+            est: (rows=25000)
           TableScan
               table: PUBLIC.T1_N1N2N3
-              predicate: SEARCH(ID, Sarg[42, 44])
+              predicate: false
               fieldNames: [ID, C1, C2]
-              est: (rows=56847)
+              est: (rows=25000)
 ---
 # Correlated
 # Prune partitions from left arm statically, and pass meta to the right arm.
@@ -479,4 +480,216 @@ Fragment#3
               predicate: SEARCH(ID, Sarg[1, 3])
               fieldNames: [ID, C1]
               est: (rows=56847)
+---
+# Pruning insert into select same table
+# Partition pruning is applied to both Modify and Scan fragments.
+N1
+INSERT INTO t1_n1n2n3 SELECT * FROM t1_n1n2n3 WHERE id = 42
+---
+Fragment#2 root
+  distribution: single
+  executionNodes: [N1]
+  exchangeSourceNodes: {3=[N3]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Project
+        fieldNames: [ROWCOUNT]
+        projection: [CAST($f0):BIGINT NOT NULL]
+        est: (rows=1)
+      ColocatedHashAggregate
+          fieldNames: [$f0]
+          group: []
+          aggregation: [$SUM0(ROWCOUNT)]
+          est: (rows=1)
+        Receiver
+            fieldNames: [ROWCOUNT]
+            sourceFragmentId: 3
+            est: (rows=1)
+
+Fragment#3
+  distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
+  executionNodes: [N3]
+  targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N3], sourceIds=[0], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  colocationGroup[1]: {nodes=[N3], sourceIds=[1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  partitions: [T1_N1N2N3=[N3={2}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 2
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.T1_N1N2N3
+          fieldNames: [ROWCOUNT]
+          type: INSERT
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.T1_N1N2N3
+            predicate: =(ID, 42)
+            fieldNames: [ID, C1, C2]
+            est: (rows=1)
+---
+# Pruning insert into select same table (insert order changed)
+# Partition pruning is applied to only to the Scan fragment because the scan projection does not preserve column order.
+N1
+INSERT INTO t1_n1n2n3 SELECT c1, id, c2 FROM t1_n1n2n3 WHERE id = 42
+---
+Fragment#2 root
+  distribution: single
+  executionNodes: [N1]
+  exchangeSourceNodes: {3=[N1, N2, N3]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Project
+        fieldNames: [ROWCOUNT]
+        projection: [CAST($f0):BIGINT NOT NULL]
+        est: (rows=1)
+      ColocatedHashAggregate
+          fieldNames: [$f0]
+          group: []
+          aggregation: [$SUM0(ROWCOUNT)]
+          est: (rows=1)
+        Receiver
+            fieldNames: [ROWCOUNT]
+            sourceFragmentId: 3
+            est: (rows=1)
+
+Fragment#3
+  distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
+  executionNodes: [N1, N2, N3]
+  targetNodes: [N1]
+  exchangeSourceNodes: {4=[N3]}
+  colocationGroup[0]: {nodes=[N1, N2, N3], sourceIds=[0, 4], assignments={part_0=N1:3, part_1=N2:3, part_2=N3:3}, partitionsWithConsistencyTokens={N1=[part_0:3], N2=[part_1:3], N3=[part_2:3]}}
+  colocationGroup[4]: {nodes=[N1, N2, N3], sourceIds=[0, 4], assignments={part_0=N1:3, part_1=N2:3, part_2=N3:3}, partitionsWithConsistencyTokens={N1=[part_0:3], N2=[part_1:3], N3=[part_2:3]}}
+  partitions: [T1_N1N2N3=[N1={0}, N2={1}, N3={2}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 2
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.T1_N1N2N3
+          fieldNames: [ROWCOUNT]
+          type: INSERT
+          est: (rows=1)
+        Receiver
+            fieldNames: [ID, C1, C2]
+            sourceFragmentId: 4
+            est: (rows=1)
+
+Fragment#4
+  distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
+  executionNodes: [N3]
+  targetNodes: [N1, N2, N3]
+  colocationGroup[1]: {nodes=[N3], sourceIds=[1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  partitions: [T1_N1N2N3=[N3={2}]]
+  tree: 
+    Sender
+        distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1 by [ID]
+        targetFragmentId: 3
+        est: (rows=1)
+      TableScan
+          table: PUBLIC.T1_N1N2N3
+          predicate: =(ID, 42)
+          fieldNames: [ID, C1, C2]
+          est: (rows=1)
+---
+# Pruning in UPDATE is applied to both nodes.
+N1
+UPDATE t1_n1n2n3 SET c1=100 WHERE id = 42
+---
+Fragment#2 root
+  distribution: single
+  executionNodes: [N1]
+  exchangeSourceNodes: {3=[N3]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Project
+        fieldNames: [ROWCOUNT]
+        projection: [CAST($f0):BIGINT NOT NULL]
+        est: (rows=1)
+      ColocatedHashAggregate
+          fieldNames: [$f0]
+          group: []
+          aggregation: [$SUM0(ROWCOUNT)]
+          est: (rows=1)
+        Receiver
+            fieldNames: [ROWCOUNT]
+            sourceFragmentId: 3
+            est: (rows=1)
+
+Fragment#3
+  distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
+  executionNodes: [N3]
+  targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N3], sourceIds=[0], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  colocationGroup[1]: {nodes=[N3], sourceIds=[1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  partitions: [T1_N1N2N3=[N3={2}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 2
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.T1_N1N2N3
+          fieldNames: [ROWCOUNT]
+          type: UPDATE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.T1_N1N2N3
+            predicate: =(ID, 42)
+            fieldNames: [ID, C1, C2, EXPR$0]
+            projection: [ID, C1, C2, 100]
+            est: (rows=1)
+---
+# Pruning in DELETE is applied to both nodes.
+N1
+DELETE FROM t1_n1n2n3 WHERE id = 42
+---
+Fragment#2 root
+  distribution: single
+  executionNodes: [N1]
+  exchangeSourceNodes: {3=[N3]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  tree: 
+    Project
+        fieldNames: [ROWCOUNT]
+        projection: [CAST($f0):BIGINT NOT NULL]
+        est: (rows=1)
+      ColocatedHashAggregate
+          fieldNames: [$f0]
+          group: []
+          aggregation: [$SUM0(ROWCOUNT)]
+          est: (rows=1)
+        Receiver
+            fieldNames: [ROWCOUNT]
+            sourceFragmentId: 3
+            est: (rows=1)
+
+Fragment#3
+  distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
+  executionNodes: [N3]
+  targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N3], sourceIds=[0], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  colocationGroup[1]: {nodes=[N3], sourceIds=[1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  partitions: [T1_N1N2N3=[N3={2}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 2
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.T1_N1N2N3
+          fieldNames: [ROWCOUNT]
+          type: DELETE
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.T1_N1N2N3
+            predicate: =(ID, 42)
+            fieldNames: [ID]
+            est: (rows=1)
 ---

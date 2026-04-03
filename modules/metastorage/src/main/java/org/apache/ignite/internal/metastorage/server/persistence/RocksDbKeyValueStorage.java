@@ -384,7 +384,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 .setAtomicFlush(true)
                 .setCreateMissingColumnFamilies(true)
                 .setListeners(List.of(flusher.listener()))
-                .setCreateIfMissing(true);
+                .setCreateIfMissing(true)
+                // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                .setAvoidFlushDuringShutdown(true);
 
         rocksResources.add(options);
 

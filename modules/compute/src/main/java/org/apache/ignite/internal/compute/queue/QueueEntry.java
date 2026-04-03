@@ -49,12 +49,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     /** Thread used to run the job, initialized once the job starts executing. */
     private @Nullable Thread workerThread;
 
-    /** Future returned from jobAction.call(). */
-    private @Nullable CompletableFuture<R> jobFuture;
-
     private final Lock lock = new ReentrantLock();
-
-    private volatile boolean isInterrupted;
 
     /**
      * Constructor.
@@ -78,7 +73,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
         }
 
         try {
-            jobFuture = jobAction.call();
+            CompletableFuture<R> jobFuture = jobAction.call();
 
             if (jobFuture == null) {
                 // Allow null futures for synchronous jobs.
@@ -111,32 +106,15 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
      * Sets interrupt status of the worker thread.
      */
     void interrupt() {
-        // Interrupt under the lock to prevent interrupting thread used by the pool for another task
+        // Interrupt under the lock to prevent interrupting thread used by the pool for another task.
         lock.lock();
         try {
             if (workerThread != null) {
-                // Set the interrupted flag first since it's used to determine the final status of the job.
-                // Job could handle interruption and exit before this flag is set moving the job to completed state rather than canceled.
-                isInterrupted = true;
                 workerThread.interrupt();
-            }
-
-            if (jobFuture != null) {
-                isInterrupted = true;
-                jobFuture.cancel(true);
             }
         } finally {
             lock.unlock();
         }
-    }
-
-    /**
-     * Indicates whether the execution was interrupted externally.
-     *
-     * @return {@code true} when the execution was interrupted externally.
-     */
-    boolean isInterrupted() {
-        return isInterrupted;
     }
 
     @Override

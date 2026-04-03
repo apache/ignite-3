@@ -109,7 +109,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
             int finalI = i;
             startServer(i, raftServer -> {
-                String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+                String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -228,12 +228,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
         leaderWithTerm.leader().consistentId();
 
-        String leaderName = servers.get(0).clusterService().topologyService().localMember().name();
+        String leaderName = servers.get(0).clusterService().staticLocalNode().name();
 
         AtomicInteger leaderIndex = new AtomicInteger();
 
         forEachIndexed(servers, (srv, index) -> {
-            if (srv.clusterService().topologyService().localMember().name().equals(leaderName)) {
+            if (srv.clusterService().staticLocalNode().name().equals(leaderName)) {
                 leaderIndex.set(index);
             }
         });

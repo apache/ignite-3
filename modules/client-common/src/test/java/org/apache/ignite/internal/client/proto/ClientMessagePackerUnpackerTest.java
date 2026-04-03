@@ -36,6 +36,7 @@ import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.table.QualifiedName;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -243,6 +244,52 @@ public class ClientMessagePackerUnpackerTest {
 
                 assertEquals(QualifiedName.of("S", "T"), unpacker.unpackQualifiedName());
                 assertEquals(QualifiedName.of("A", "B"), unpacker.unpackQualifiedName());
+            }
+        }
+    }
+
+    @Test
+    public void testLongArrayAsBinary() {
+        long[] arr = {1L, 2L, 3L, 100L, 1000L, 10000L};
+        assertArrayEquals(arr, packUnpackLongArrayAsBinary(arr));
+    }
+
+    @Test
+    public void testLongArrayAsBinaryEmpty() {
+        long[] arr = new long[0];
+        long[] res = packUnpackLongArrayAsBinary(arr);
+
+        assertArrayEquals(arr, res);
+    }
+
+    @Test
+    public void testLongArrayAsBinaryNull() {
+        assertNull(packUnpackLongArrayAsBinary(null));
+    }
+
+    @Test
+    public void testLongArrayAsBinarySingleElement() {
+        long[] arr = {42L};
+        assertArrayEquals(arr, packUnpackLongArrayAsBinary(arr));
+    }
+
+    @Test
+    public void testLongArrayAsBinaryMinMaxValues() {
+        long[] arr = {Long.MIN_VALUE, Long.MAX_VALUE, 0L, -1L, 1L};
+        assertArrayEquals(arr, packUnpackLongArrayAsBinary(arr));
+    }
+
+    private static long @Nullable [] packUnpackLongArrayAsBinary(long @Nullable [] arr) {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packLongArrayAsBinary(arr);
+
+            var buf = packer.getBuffer();
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValues(4);
+                return unpacker.unpackLongArrayAsBinary();
             }
         }
     }

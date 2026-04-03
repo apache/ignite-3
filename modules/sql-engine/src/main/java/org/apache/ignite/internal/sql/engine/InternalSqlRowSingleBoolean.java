@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.schema.BinaryTuple;
 
 /**
  * Implementation of {@code InternalSqlRow} allowing to represent a SQL row with a single boolean column.

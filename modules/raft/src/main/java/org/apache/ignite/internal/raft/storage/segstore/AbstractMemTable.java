@@ -56,13 +56,13 @@ abstract class AbstractMemTable implements WriteModeIndexMemTable, ReadModeIndex
         Map<Long, SegmentInfo> memtable = memtable(groupId);
 
         memtable.compute(groupId, (id, segmentInfo) -> {
-            if (segmentInfo == null || lastLogIndexKept < segmentInfo.firstLogIndexInclusive()) {
-                // If the current memtable does not have information for the given group or if we are truncating everything currently
-                // present in the memtable, we need to write a special "empty" SegmentInfo into the memtable to override existing persisted
-                // data during search.
+            if (segmentInfo == null) {
+                // If the current memtable does not have information for the given group, we need to write a special "empty" SegmentInfo
+                // into the memtable to override existing persisted data during search.
                 return new SegmentInfo(lastLogIndexKept + 1);
-            } else if (segmentInfo.isPrefixTombstone()) {
-                // This is a prefix tombstone inserted by "truncatePrefix".
+            } else if (segmentInfo.isPrefixTombstone() || lastLogIndexKept < segmentInfo.firstLogIndexInclusive()) {
+                // This is either a prefix tombstone inserted by "truncatePrefix" or we are removing all data from this segment file
+                // about this group.
                 return new SegmentInfo(lastLogIndexKept + 1, segmentInfo.firstIndexKept());
             } else {
                 return segmentInfo.truncateSuffix(lastLogIndexKept);

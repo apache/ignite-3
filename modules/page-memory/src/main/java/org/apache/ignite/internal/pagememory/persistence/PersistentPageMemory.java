@@ -50,11 +50,7 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
-import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
-import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
-import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
-import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
@@ -77,6 +73,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -1029,28 +1026,6 @@ public class PersistentPageMemory implements PageMemory {
         return total;
     }
 
-    /**
-     * Returns {@code true} if the page is contained in the loaded pages table, {@code false} otherwise.
-     *
-     * @param fullPageId Full page ID to check.
-     */
-    public boolean hasLoadedPage(FullPageId fullPageId) {
-        int grpId = fullPageId.groupId();
-        long pageId = fullPageId.effectivePageId();
-
-        Segment seg = segment(grpId, pageId);
-
-        seg.readLock().lock();
-
-        try {
-            long res = seg.loadedPages.get(grpId, pageId, partGeneration(seg, fullPageId), INVALID_REL_PTR, INVALID_REL_PTR);
-
-            return res != INVALID_REL_PTR;
-        } finally {
-            seg.readLock().unlock();
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
     public long readLockForce(int grpId, long pageId, long page) {
@@ -1107,10 +1082,12 @@ public class PersistentPageMemory implements PageMemory {
     private long postWriteLockPage(long absPtr, FullPageId fullId) {
         timestamp(absPtr, coarseCurrentTimeMillis());
 
+        Segment seg = segment(fullId.groupId(), fullId.pageId());
+
         DirtyFullPageId dirtyFullId = dirtyFullPageId(absPtr);
 
         // Create a buffer copy if the page is scheduled for a checkpoint.
-        if (isInCheckpoint(dirtyFullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
+        if (isInCheckpoint(seg, dirtyFullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
             long tmpRelPtr;
 
             while (true) {
@@ -1129,7 +1106,7 @@ public class PersistentPageMemory implements PageMemory {
             }
 
             // Pin the page until checkpoint is not finished.
-            PageHeader.acquirePage(absPtr);
+            seg.acquirePage(absPtr);
 
             long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
 
@@ -1226,19 +1203,6 @@ public class PersistentPageMemory implements PageMemory {
      */
     boolean isPageReadLocked(long absPtr) {
         return rwLock.isReadLocked(absPtr + PAGE_LOCK_OFFSET);
-    }
-
-    /**
-     * Returns the number of active pages across all segments. Used for test purposes only.
-     */
-    public int activePagesCount() {
-        int total = 0;
-
-        for (Segment seg : segments) {
-            total += seg.acquiredPages();
-        }
-
-        return total;
     }
 
     /**
@@ -1345,17 +1309,11 @@ public class PersistentPageMemory implements PageMemory {
         /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
-        /** Pointer to acquired pages integer counter. */
-        private static final int ACQUIRED_PAGES_SIZEOF = 4;
-
-        /** Padding to read from word beginning. */
-        private static final int ACQUIRED_PAGES_PADDING = 4;
-
         /** Page ID to relative pointer map. */
         private final LoadedPagesMap loadedPages;
 
-        /** Pointer to acquired pages integer counter. */
-        private final long acquiredPagesPtr;
+        /** Acquired pages counter. */
+        private final LongAdder acquiredPages = new LongAdder();
 
         /** Page pool. */
         private final PagePool pool;
@@ -1409,29 +1367,23 @@ public class PersistentPageMemory implements PageMemory {
 
             int pages = (int) (totalMemory / sysPageSize);
 
-            acquiredPagesPtr = region.address();
-
-            putIntVolatile(null, acquiredPagesPtr, 0);
-
-            int ldPagesMapOffInRegion = ACQUIRED_PAGES_SIZEOF + ACQUIRED_PAGES_PADDING;
-
-            long ldPagesAddr = region.address() + ldPagesMapOffInRegion;
+            long ldPagesAddr = region.address();
 
             memPerTbl = RobinHoodBackwardShiftHashMap.requiredMemory(pages);
 
             loadedPages = new RobinHoodBackwardShiftHashMap(ldPagesAddr, memPerTbl);
 
-            pages = (int) ((totalMemory - memPerTbl - ldPagesMapOffInRegion) / sysPageSize);
+            pages = (int) ((totalMemory - memPerTbl) / sysPageSize);
 
             memPerRepl = pageReplacementPolicyFactory.requiredMemory(pages);
 
-            DirectMemoryRegion poolRegion = region.slice(memPerTbl + memPerRepl + ldPagesMapOffInRegion);
+            DirectMemoryRegion poolRegion = region.slice(memPerTbl + memPerRepl);
 
             pool = new PagePool(idx, poolRegion, sysPageSize, rwLock);
 
             pageReplacementPolicy = pageReplacementPolicyFactory.create(
                     this,
-                    region.address() + memPerTbl + ldPagesMapOffInRegion,
+                    region.address() + memPerTbl,
                     pool.pages()
             );
 
@@ -1478,23 +1430,27 @@ public class PersistentPageMemory implements PageMemory {
             return memPerRepl;
         }
 
-        private void acquirePage(long absPtr) {
-            PageHeader.acquirePage(absPtr);
+        protected void acquirePage(long absPtr) {
+            int oldPinCount = PageHeader.acquirePage(absPtr);
 
-            incrementAndGetInt(acquiredPagesPtr);
+            if (oldPinCount == 0) {
+                acquiredPages.increment();
+            }
         }
 
-        private void releasePage(long absPtr) {
-            PageHeader.releasePage(absPtr);
+        protected void releasePage(long absPtr) {
+            int newPinCount = PageHeader.releasePage(absPtr);
 
-            decrementAndGetInt(acquiredPagesPtr);
+            if (newPinCount == 0) {
+                acquiredPages.decrement();
+            }
         }
 
         /**
          * Returns total number of acquired pages.
          */
         private int acquiredPages() {
-            return getInt(acquiredPagesPtr);
+            return acquiredPages.intValue();
         }
 
         /**
@@ -1616,7 +1572,7 @@ public class PersistentPageMemory implements PageMemory {
                 tempBufferPointer(absPtr, INVALID_REL_PTR);
 
                 // We pinned the page when allocated the temp buffer, release it now.
-                PageHeader.releasePage(absPtr);
+                releasePage(absPtr);
 
                 releaseCheckpointBufferPage(tmpBufPtr);
             }
@@ -1854,6 +1810,10 @@ public class PersistentPageMemory implements PageMemory {
     private boolean isInCheckpoint(DirtyFullPageId pageId) {
         Segment seg = segment(pageId.groupId(), pageId.pageId());
 
+        return isInCheckpoint(seg, pageId);
+    }
+
+    private static boolean isInCheckpoint(Segment seg, DirtyFullPageId pageId) {
         CheckpointPages pages0 = seg.checkpointPages;
 
         return pages0 != null && pages0.contains(pageId);
@@ -1877,6 +1837,7 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Makes a full copy of the dirty page for checkpointing, then marks the page as not dirty.
      *
+     * @param seg Segment.
      * @param absPtr Absolute page pointer.
      * @param fullId Full page ID.
      * @param buf Buffer for copy page content for future write via {@link PageStoreWriter}.
@@ -1889,6 +1850,7 @@ public class PersistentPageMemory implements PageMemory {
      *      <b>write lock</b> on page.
      */
     private void copyPageForCheckpoint(
+            Segment seg,
             long absPtr,
             DirtyFullPageId fullId,
             ByteBuffer buf,
@@ -1899,19 +1861,19 @@ public class PersistentPageMemory implements PageMemory {
             boolean useTryWriteLockOnPage
     ) throws IgniteInternalCheckedException {
         assert absPtr != 0 : fullId.pageId();
-        assert isAcquired(absPtr) || !isInCheckpoint(fullId) : fullId.pageId();
+        assert isAcquired(absPtr) || !isInCheckpoint(seg, fullId) : fullId.pageId();
 
         if (useTryWriteLockOnPage) {
             if (!rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS)) {
                 // We release the page only once here because this page will be copied sometime later and
                 // will be released properly then.
                 if (!pageSingleAcquire) {
-                    PageHeader.releasePage(absPtr);
+                    seg.releasePage(absPtr);
                 }
 
                 buf.clear();
 
-                if (isInCheckpoint(fullId)) {
+                if (isInCheckpoint(seg, fullId)) {
                     pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
                 }
 
@@ -1927,7 +1889,7 @@ public class PersistentPageMemory implements PageMemory {
             rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
             if (!pageSingleAcquire) {
-                PageHeader.releasePage(absPtr);
+                seg.releasePage(absPtr);
             }
 
             return;
@@ -1958,7 +1920,7 @@ public class PersistentPageMemory implements PageMemory {
                 // Need release again because we pin page when resolve abs pointer,
                 // and page did not have tmp buffer page.
                 if (!pageSingleAcquire) {
-                    PageHeader.releasePage(absPtr);
+                    seg.releasePage(absPtr);
                 }
             } else {
                 copyInBuffer(absPtr, buf);
@@ -1985,7 +1947,7 @@ public class PersistentPageMemory implements PageMemory {
 
             // We pinned the page either when allocated the temp buffer, or when resolved abs pointer.
             // Must release the page only after write unlock.
-            PageHeader.releasePage(absPtr);
+            seg.releasePage(absPtr);
         }
     }
 
@@ -2024,7 +1986,7 @@ public class PersistentPageMemory implements PageMemory {
         seg.readLock().lock();
 
         try {
-            if (!isInCheckpoint(fullId)) {
+            if (!isInCheckpoint(seg, fullId)) {
                 return;
             }
 
@@ -2046,7 +2008,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 // Pin the page until page will not be copied. This helpful to prevent page replacement of this page.
                 if (tempBufferPointer(absPtr) == INVALID_REL_PTR) {
-                    PageHeader.acquirePage(absPtr);
+                    seg.acquirePage(absPtr);
                 } else {
                     pageSingleAcquire = true;
                 }
@@ -2085,6 +2047,7 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         copyPageForCheckpoint(
+                seg,
                 absPtr,
                 fullId,
                 buf,

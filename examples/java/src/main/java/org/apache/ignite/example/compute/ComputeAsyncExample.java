@@ -33,7 +33,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the {@link IgniteCompute#executeAsync} API.
@@ -57,15 +56,13 @@ public class ComputeAsyncExample {
      */
     public static void main(String[] args) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(args);
-
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -77,10 +74,10 @@ public class ComputeAsyncExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             JobDescriptor<String, Integer> job = JobDescriptor.builder(WordLengthJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -105,7 +102,7 @@ public class ComputeAsyncExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute job for word '" + word + "'...");
+                System.out.println("Executing compute job for word '" + word + "'...");
 
                 CompletableFuture<Integer> jobFuture = client.compute().executeAsync(jobTarget, job, word);
 
@@ -130,7 +127,7 @@ public class ComputeAsyncExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nTotal number of characters in the words is '" + sum + "'.");
+            System.out.println("Total number of characters in the words is '" + sum + "'.");
         } finally {
 
             System.out.println("Cleaning up resources");
@@ -148,7 +145,7 @@ public class ComputeAsyncExample {
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String arg) {
             assert arg != null;
 
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(arg.length());
         }

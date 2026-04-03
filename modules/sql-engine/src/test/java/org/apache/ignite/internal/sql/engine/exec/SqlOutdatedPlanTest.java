@@ -217,7 +217,9 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
                         Semaphore semaphore = prepareBlockHolder.get();
 
                         try {
-                            semaphore.tryAcquire(10, TimeUnit.SECONDS);
+                            boolean acquired = semaphore.tryAcquire(10, TimeUnit.SECONDS);
+
+                            assertThat(acquired, is(true));
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         } finally {

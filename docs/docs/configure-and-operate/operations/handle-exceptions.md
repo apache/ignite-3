@@ -165,8 +165,6 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 |---|---|---|
 | `IGN-NETWORK-1` | The node with the specified ID is not in the physical topology. | Check the error message and node ID. Update node ID if it is incorrect. If the node is offline, check why and bring it back online. |
 | `IGN-NETWORK-2` | Port is already in use. | Most likely, Apache Ignite tried to access the port occupied by a different process. Change the port or free it, and then restart the node. |
-| `IGN-NETWORK-3` | File transfer error. | Check network connectivity and retry the file transfer. |
-| `IGN-NETWORK-4` | File validation error. | Ensure the file is not corrupted. |
 | `IGN-NETWORK-5` | Recipient node has left the physical topology. | Check the error message. The node is unavailable and need to be brought back into the cluster. |
 | `IGN-NETWORK-6` | Could not resolve address. Most likely, the IP address specified in the operation is not available locally. | Change the node configuration to make the address available or use a different IP address. |
 
@@ -260,3 +258,9 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 | `IGN-TX-14` | Failure due to a stale operation of a completed transaction. | Error that occurs when a stale operation of a transaction is detected. Try to rerun the transaction, if necessary. |
 | `IGN-TX-15` | Error occurred when trying to execute an operation in a read-only transaction on a node that has already destroyed data for read timestamp of the transaction. | Retry the transaction with newer read timestamp. Increase data availability time. |
 | `IGN-TX-16` | Operation failed because the transaction is already finished with timeout. | Verify transaction timeout settings and ensure operations are executed before the transaction expires. |
+
+## Unknown Error Codes
+
+| Exception Code | Description | Recommended Action |
+|---|---|---|
+| `UNKNOWN-UNKNOWN{groupCode}-{errorCode}` | The client received an error code it does not recognize. This occurs when an older client connects to a newer server version that introduced error codes unknown to the client. | Update the client to a version compatible with the server to receive proper error details. Check the server logs for the full error context. |
