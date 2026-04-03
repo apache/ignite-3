@@ -27,10 +27,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class FullyQualifiedResourceId implements Comparable<FullyQualifiedResourceId>, Cloneable, Serializable {
 
-    private static final UUID LOWEST_UUID = new UUID(Long.MIN_VALUE, Long.MIN_VALUE);
-
-    private static final UUID HIGHEST_UUID = new UUID(Long.MAX_VALUE, Long.MAX_VALUE);
-
     private static int compareNullable(@Nullable UUID contextId1, @Nullable UUID contextId2) {
         if (contextId1 == null && contextId2 == null) {
             return 0;
@@ -63,14 +59,6 @@ public class FullyQualifiedResourceId implements Comparable<FullyQualifiedResour
 
         this.contextId = contextId;
         this.resourceId = resourceId;
-    }
-
-    public static FullyQualifiedResourceId lower(UUID contextId) {
-        return new FullyQualifiedResourceId(contextId, LOWEST_UUID);
-    }
-
-    public static FullyQualifiedResourceId upper(UUID contextId) {
-        return new FullyQualifiedResourceId(contextId, HIGHEST_UUID);
     }
 
     /**
