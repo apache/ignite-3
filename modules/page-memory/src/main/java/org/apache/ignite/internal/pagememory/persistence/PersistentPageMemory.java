@@ -334,7 +334,7 @@ public class PersistentPageMemory implements PageMemory {
 
     @Override
     public PartitionPageMemory createPartitionPageMemory(int groupId, int partitionId) {
-        return new PartitionPageMemoryDelegate(this, groupId, partitionId);
+        return new PersistentPageMemoryDelegate(this, groupId, partitionId);
     }
 
     /** {@inheritDoc} */
