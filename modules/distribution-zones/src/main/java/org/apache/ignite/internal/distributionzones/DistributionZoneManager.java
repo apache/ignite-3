@@ -65,13 +65,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -114,6 +112,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -197,8 +196,7 @@ public class DistributionZoneManager extends
      */
     @TestOnly
     public DistributionZoneManager(
-            String nodeName,
-            Supplier<UUID> nodeIdSupplier,
+            InternalClusterNode localNode,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
@@ -208,8 +206,7 @@ public class DistributionZoneManager extends
             LowWatermark lowWatermark
     ) {
         this(
-                nodeName,
-                nodeIdSupplier,
+                localNode,
                 metaStorageManager,
                 logicalTopologyService,
                 new FailureManager(new NoOpFailureHandler()),
@@ -224,8 +221,7 @@ public class DistributionZoneManager extends
     /**
      * Creates a new distribution zone manager.
      *
-     * @param nodeName Node name.
-     * @param nodeIdSupplier Node id supplier.
+     * @param localNode Local node.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param failureProcessor Failure processor.
@@ -236,8 +232,7 @@ public class DistributionZoneManager extends
      * @param lowWatermark Low watermark manager.
      */
     public DistributionZoneManager(
-            String nodeName,
-            Supplier<UUID> nodeIdSupplier,
+            InternalClusterNode localNode,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             FailureProcessor failureProcessor,
@@ -251,7 +246,7 @@ public class DistributionZoneManager extends
         this.logicalTopologyService = logicalTopologyService;
         this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
-        this.localNodeName = nodeName;
+        this.localNodeName = localNode.name();
         this.clockService = clockService;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
@@ -275,8 +270,7 @@ public class DistributionZoneManager extends
         );
 
         dataNodesManager = new DataNodesManager(
-                nodeName,
-                nodeIdSupplier,
+                localNode,
                 busyLock,
                 metaStorageManager,
                 catalogManager,

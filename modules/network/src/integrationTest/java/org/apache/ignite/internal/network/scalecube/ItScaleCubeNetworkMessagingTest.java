@@ -167,7 +167,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
             member.messagingService().addMessageHandler(
                     TestMessageTypes.class,
                     (message, sender, correlationId) -> {
-                        messageStorage.put(member.nodeName(), (TestMessage) message);
+                        messageStorage.put(member.staticLocalNode().name(), (TestMessage) message);
                         messageReceivedLatch.countDown();
                     }
             );
@@ -187,7 +187,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         assertTrue(messagesReceived);
 
         testCluster.members.stream()
-                .map(ClusterService::nodeName)
+                .map(s -> s.staticLocalNode().name())
                 .map(messageStorage::get)
                 .forEach(msg -> assertThat(msg.msg(), is(testMessage.msg())));
     }
@@ -224,7 +224,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         ClusterService member = testCluster.members.get(0);
 
-        InternalClusterNode self = member.topologyService().localMember();
+        InternalClusterNode self = member.staticLocalNode();
 
         class Data {
             private final TestMessage message;
@@ -272,7 +272,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         ClusterService member = testCluster.members.get(0);
 
-        InternalClusterNode self = member.topologyService().localMember();
+        InternalClusterNode self = member.staticLocalNode();
 
         var requestMessage = testMessage("request");
         var responseMessage = testMessage("response");
@@ -310,13 +310,13 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
+                member1.staticLocalNode(),
                 messageFactory.testMessage().build(),
                 1000
         );
 
         CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
+                member1.staticLocalNode(),
                 messageFactory.testMessage().build(),
                 1000
         );
@@ -345,13 +345,13 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
+                member1.staticLocalNode(),
                 messageFactory.testMessage().build(),
                 1000
         );
 
         CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
+                member1.staticLocalNode(),
                 messageFactory.testMessage().build(),
                 1000
         );
@@ -390,13 +390,13 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
+                member1.staticLocalNode(),
                 messageFactory.testMessage().build(),
                 1000
         );
 
         CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
+                member1.staticLocalNode(),
                 messageFactory.testMessage().build(),
                 1000
         );
@@ -511,7 +511,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         // Test that a message from the other group is only delivered to a single handler.
         node2.messagingService()
-                .send(node1.topologyService().localMember(), networkMessage)
+                .send(node1.staticLocalNode(), networkMessage)
                 .get(1, SECONDS);
 
         assertThat(testMessageFuture1, willBe(equalTo(testMessage)));
@@ -553,8 +553,8 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         ClusterService notOutcast = testCluster.members.get(0);
         ClusterService outcast = testCluster.members.get(testCluster.members.size() - 1);
 
-        InternalClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
-        InternalClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
+        InternalClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.staticLocalNode().name());
+        InternalClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.staticLocalNode().name());
         assertNotNull(outcastNode);
         assertNotNull(notOutcastNode);
 
@@ -603,7 +603,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
                 TestMessageTypes.class,
                 (message, senderParam, correlationId) -> {
                     if (correlationId != null) {
-                        receiver.messagingService().respond(sender.topologyService().localMember(), message, correlationId);
+                        receiver.messagingService().respond(sender.staticLocalNode(), message, correlationId);
                     }
                 }
         );
@@ -698,7 +698,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
                     if (correlationId != null) {
                         receiver.messagingService().respond(
-                                sender.topologyService().localMember(),
+                                sender.staticLocalNode(),
                                 message,
                                 correlationId
                         );
@@ -713,14 +713,14 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
     private static CompletableFuture<Void> send(TestMessage message, ClusterService sender, ClusterService receiver) {
         return sender.messagingService().send(
-                receiver.topologyService().localMember(),
+                receiver.staticLocalNode(),
                 message
         );
     }
 
     private static CompletableFuture<NetworkMessage> invoke(TestMessage message, ClusterService sender, ClusterService receiver) {
         return sender.messagingService().invoke(
-                receiver.topologyService().localMember(),
+                receiver.staticLocalNode(),
                 message,
                 10_000
         );
@@ -734,7 +734,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
     }
 
     private static NettySender nettySenderForDefaultChannel(ClusterService sender, ClusterService receiver) {
-        UUID receiverId = receiver.topologyService().localMember().id();
+        UUID receiverId = receiver.staticLocalNode().id();
         return connectionManager(sender).channels()
                 .get(new ConnectorKey<>(receiverId, ChannelType.DEFAULT));
     }
@@ -801,9 +801,9 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
     }
 
     private static void establishConnectionWithoutSendingMessages(ClusterService sender, ClusterService receiver) {
-        NetworkAddress receiverAddress = receiver.topologyService().localMember().address();
+        NetworkAddress receiverAddress = receiver.staticLocalNode().address();
         CompletableFuture<NettySender> newSenderFuture = connectionManager(sender).channel(
-                receiver.topologyService().localMember().id(),
+                receiver.staticLocalNode().id(),
                 ChannelType.DEFAULT,
                 new InetSocketAddress(receiverAddress.host(), receiverAddress.port())
         ).toCompletableFuture();
@@ -988,7 +988,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
                 msg,
-                receiver.topologyService().localMember()
+                receiver.staticLocalNode()
         );
 
         assertThat(sendFuture, willCompleteSuccessfully());
@@ -1082,7 +1082,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> sendFuture = operation.send(
                 notOutcast.messagingService(),
                 msg,
-                outcast.topologyService().localMember()
+                outcast.staticLocalNode()
         );
 
         assertThat(sendFuture, willCompleteSuccessfully());
@@ -1114,7 +1114,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
                 msg,
-                receiver.topologyService().localMember()
+                receiver.staticLocalNode()
         );
 
         assertThat(sendFuture, willCompleteSuccessfully());
@@ -1206,10 +1206,11 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         notOutcasts.forEach(service -> {
             DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
-            messagingService.dropMessages((recipientConsistentId, message) -> outcast.nodeName().equals(recipientConsistentId));
+            String outcastName = outcast.staticLocalNode().name();
+            messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
         });
 
-        UUID outcastId = outcast.topologyService().localMember().id();
+        UUID outcastId = outcast.staticLocalNode().id();
 
         // Wait for the remote nodes to close their channels automatically.
         await().until(() ->
@@ -1228,7 +1229,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
         testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
             public void onAppeared(InternalClusterNode member) {
-                if (Objects.equals(member.name(), outcast.nodeName())) {
+                if (Objects.equals(member.name(), outcast.staticLocalNode().name())) {
                     reappeared.compareAndSet(false, true);
 
                     ready.countDown();
@@ -1276,7 +1277,7 @@ class ItScaleCubeNetworkMessagingTest extends BaseIgniteAbstractTest {
 
         ClusterService alice = testCluster.members.get(0);
         ClusterService bob = testCluster.members.get(1);
-        String aliceName = alice.nodeName();
+        String aliceName = alice.staticLocalNode().name();
 
         var aliceShutdownLatch = new CountDownLatch(1);
 

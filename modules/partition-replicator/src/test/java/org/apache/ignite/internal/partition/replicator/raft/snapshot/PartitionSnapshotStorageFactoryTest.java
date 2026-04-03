@@ -44,6 +44,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
     private final PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
+            "test",
             new PartitionKey(1, 1),
             mock(TopologyService.class),
             mock(OutgoingSnapshotsManager.class),

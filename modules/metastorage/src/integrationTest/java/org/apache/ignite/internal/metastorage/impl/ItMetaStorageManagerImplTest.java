@@ -163,8 +163,10 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("loza"));
 
+        String nodeName = clusterService.staticLocalNode().name();
+
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
+                nodeName,
                 workingDir.raftLogPath()
         );
 
@@ -190,20 +192,19 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
-                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(clusterService.nodeName())).build()
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(nodeName)).build()
         ));
         configureCmgManagerToStartMetastorage(cmgManager);
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        msLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+        msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         storage = new RocksDbKeyValueStorage(
-                clusterService.nodeName(),
+                nodeName,
                 metastorageWorkDir.dbPath(),
                 new NoOpFailureManager(),
                 readOperationForCompactionTracker,
@@ -211,7 +212,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         );
 
         metaStorageManager = new MetaStorageManagerImpl(
-                clusterService,
+                clusterService.staticLocalNode(),
                 cmgManager,
                 logicalTopologyService,
                 raftManager,
@@ -295,13 +296,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        Set<String> msNodes = Set.of(clusterService.nodeName());
+        Set<String> msNodes = Set.of(clusterService.staticLocalNode().name());
         CompletableFuture<Set<String>> cmgFut = new CompletableFuture<>();
 
         when(cmgManager.metaStorageNodes()).thenReturn(cmgFut);
 
         metaStorageManager = new MetaStorageManagerImpl(
-                clusterService,
+                clusterService.staticLocalNode(),
                 cmgManager,
                 mock(LogicalTopologyService.class),
                 raftManager,

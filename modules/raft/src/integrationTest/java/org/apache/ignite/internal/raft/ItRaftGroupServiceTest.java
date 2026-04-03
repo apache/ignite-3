@@ -314,7 +314,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             partitionsWorkDir = new ComponentWorkingDir(workDir.resolve("node" + nodes.size()));
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     partitionsWorkDir.raftLogPath()
             );
             this.loza = TestLozaFactory.create(
@@ -326,7 +326,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         String name() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.staticLocalNode().name();
         }
 
         void start() {
@@ -334,7 +334,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void startSystemRaftGroup(PeersAndLearners configuration) {
-            String nodeName = clusterService.topologyService().localMember().name();
+            String nodeName = clusterService.staticLocalNode().name();
 
             Peer serverPeer = configuration.peer(nodeName);
 
@@ -358,7 +358,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void startRaftGroup(PeersAndLearners configuration) {
-            String nodeName = clusterService.topologyService().localMember().name();
+            String nodeName = clusterService.staticLocalNode().name();
 
             Peer serverPeer = configuration.peer(nodeName);
 

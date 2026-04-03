@@ -79,6 +79,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     private final InFlightFutures inFlightFutures = new InFlightFutures();
 
+    private final InternalClusterNode localNode;
+
     private final TopologyService topologyService;
 
     private final LogicalTopologyService logicalTopologyService;
@@ -104,19 +106,21 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             String nodeName,
             MessagingService messagingService,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             LogicalTopologyService logicalTopologyService,
             UnitsContextManager jobContextManager,
             ComputeExecutor executor,
             ComputeConfiguration computeConfiguration,
             EventLog eventLog
     ) {
+        this.localNode = localNode;
         this.topologyService = topologyService;
         this.logicalTopologyService = logicalTopologyService;
         this.jobContextManager = jobContextManager;
         this.executor = executor;
         this.eventLog = eventLog;
-        executionManager = new ExecutionManager(computeConfiguration, topologyService);
-        messaging = new ComputeMessaging(executionManager, messagingService, topologyService);
+        executionManager = new ExecutionManager(computeConfiguration, localNode);
+        messaging = new ComputeMessaging(executionManager, messagingService, topologyService, localNode);
         failoverExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "compute-job-failover", LOG)
         );
@@ -202,7 +206,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
             result.idAsync().thenAccept(jobId -> executionManager.addLocalExecution(
                     jobId,
-                    new TaskToJobExecutionWrapper<>(result, topologyService.localMember())
+                    new TaskToJobExecutionWrapper<>(result, localNode)
             ));
             return result;
         } finally {
@@ -251,7 +255,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable CancellationToken cancellationToken
     ) {
         return ComputeJobFailover.failSafeExecute(
-                        this, logicalTopologyService, topologyService, failoverExecutor, eventLog,
+                        this, logicalTopologyService, topologyService, localNode, failoverExecutor, eventLog,
                         remoteNode, nextWorkerSelector, executionContext
                 )
                 .thenApply(execution -> {

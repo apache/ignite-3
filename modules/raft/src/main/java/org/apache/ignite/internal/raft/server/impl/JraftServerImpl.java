@@ -199,7 +199,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            this.opts.setServerName(service.nodeName());
+            this.opts.setServerName(service.staticLocalNode().name());
         }
 
         /*
@@ -382,7 +382,7 @@ public class JraftServerImpl implements RaftServer {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
-                service.topologyService().localMember().name());
+                service.staticLocalNode().name());
 
         opts.getNodeManager().shutdown();
         rpcServer.shutdown();
@@ -472,7 +472,7 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
     ) {
-        assert nodeId.peer().consistentId().equals(service.topologyService().localMember().name());
+        assert nodeId.peer().consistentId().equals(service.staticLocalNode().name());
 
         // fast track to check if node with the same ID is already created.
         if (nodes.containsKey(nodeId)) {
@@ -691,7 +691,7 @@ public class JraftServerImpl implements RaftServer {
         groupIdsForStorage.addAll(raftNodeMetaStorageIdsOnDisk());
 
         return groupIdsForStorage.stream()
-                .map(nodeIdStr -> RaftNodeId.fromNodeIdStringForStorage(nodeIdStr, service.nodeName()))
+                .map(nodeIdStr -> RaftNodeId.fromNodeIdStringForStorage(nodeIdStr, service.staticLocalNode().name()))
                 .collect(toUnmodifiableSet());
     }
 

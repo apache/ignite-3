@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
@@ -64,6 +65,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
     private final TopologyService topologyService;
 
+    private final InternalClusterNode localNode;
+
     private final CatalogService catalogService;
 
     private final FailureProcessor failureProcessor;
@@ -86,6 +89,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             TxManager txManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor partitionOperationsExecutor,
@@ -96,6 +100,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         this.txManager = txManager;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.catalogService = catalogService;
         this.failureProcessor = failureProcessor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -129,6 +134,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         );
 
         var snapshotStorage = new PartitionSnapshotStorage(
+                localNode.name(),
                 new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,

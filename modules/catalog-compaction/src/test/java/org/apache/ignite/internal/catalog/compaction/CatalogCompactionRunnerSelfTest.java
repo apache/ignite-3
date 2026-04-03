@@ -105,7 +105,6 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
@@ -1179,7 +1178,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         placementDriver = mock(PlacementDriver.class);
         replicaService = mock(ReplicaService.class);
         SchemaSyncService schemaSyncService = mock(SchemaSyncService.class);
-        TopologyService topologyService = mock(TopologyService.class);
 
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
@@ -1217,8 +1215,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             return CompletableFuture.completedFuture(node == null ? null : new TestReplicaMeta(node.id()));
         });
 
-        when(topologyService.localMember()).thenReturn(localNode);
-
         LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(1, topology);
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
@@ -1240,7 +1236,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(nullCompletedFuture());
 
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
-                localNode.name(),
+                localNode,
                 catalogManager,
                 messagingService,
                 logicalTopologyService,
@@ -1248,7 +1244,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 replicaService,
                 clockService,
                 schemaSyncService,
-                topologyService,
                 new TestLowWatermark(),
                 clockService::nowLong,
                 minTimeCollector,

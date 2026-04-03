@@ -214,9 +214,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
-        when(clusterService.topologyService().localMember().address()).thenReturn(addr);
-        when(clusterService.topologyService().localMember().id()).thenReturn(deriveUuidFrom(addr.toString()));
-        when(clusterService.nodeName()).thenReturn(addr.toString());
+        when(clusterService.staticLocalNode().address()).thenReturn(addr);
+        when(clusterService.staticLocalNode().id()).thenReturn(deriveUuidFrom(addr.toString()));
+        when(clusterService.staticLocalNode().name()).thenReturn(addr.toString());
 
         int indexId = pkStorage.id();
 
@@ -278,7 +278,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
-                clusterService.topologyService().localMember().id(),
+                clusterService.staticLocalNode().id(),
                 mock(MinimumRequiredTimeCollectorService.class),
                 placementDriver,
                 clockService,
@@ -295,7 +295,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                             1,
                             111L,
                             110L,
-                            List.of(clusterService.nodeName()),
+                            List.of(clusterService.staticLocalNode().name()),
                             Collections.emptyList(),
                             null,
                             null

@@ -115,10 +115,10 @@ import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -160,7 +160,7 @@ public class DataNodesManager {
     /** Executor for scheduling tasks for scale up and scale down processes. */
     private final StripedScheduledThreadPoolExecutor executor;
 
-    private final Lazy<UUID> localNodeId;
+    private final UUID localNodeId;
 
     private final WatchListener scaleUpTimerPrefixListener;
 
@@ -181,8 +181,7 @@ public class DataNodesManager {
     /**
      * Constructor.
      *
-     * @param nodeName Local node name.
-     * @param nodeIdSupplier Node id supplier.
+     * @param localNode Local node.
      * @param busyLock External busy lock.
      * @param metaStorageManager Meta storage manager.
      * @param catalogManager Catalog manager.
@@ -194,8 +193,7 @@ public class DataNodesManager {
      * @param lowWatermark Low watermark manager.
      */
     public DataNodesManager(
-            String nodeName,
-            Supplier<UUID> nodeIdSupplier,
+            InternalClusterNode localNode,
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
@@ -210,7 +208,7 @@ public class DataNodesManager {
         this.catalogManager = catalogManager;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
-        this.localNodeId = new Lazy<>(nodeIdSupplier);
+        this.localNodeId = localNode.id();
         this.partitionResetClosure = partitionResetClosure;
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
         this.latestLogicalTopologyProvider = latestLogicalTopologyProvider;
@@ -219,7 +217,7 @@ public class DataNodesManager {
 
         executor = createZoneManagerExecutor(
                 min(Runtime.getRuntime().availableProcessors() * 3, 20),
-                IgniteThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
+                IgniteThreadFactory.create(localNode.name(), "dst-zones-scheduler", LOG)
         );
 
         scaleUpTimerPrefixListener = createScaleUpTimerPrefixListener();
@@ -414,7 +412,7 @@ public class DataNodesManager {
                 .collect(toSet());
 
         Set<NodeWithAttributes> removedNodes = latestDataNodes.dataNodes().stream()
-                .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeId(), localNodeId.get()))
+                .filter(node -> !newLogicalTopology.contains(node) && !Objects.equals(node.nodeId(), localNodeId))
                 .filter(node -> !scaleDownTimer.nodes().contains(node))
                 .collect(toSet());
 

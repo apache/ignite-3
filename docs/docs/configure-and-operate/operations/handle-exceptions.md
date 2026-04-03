@@ -258,3 +258,9 @@ When the exception happens, Apache Ignite provides a UUID of the specific except
 | `IGN-TX-14` | Failure due to a stale operation of a completed transaction. | Error that occurs when a stale operation of a transaction is detected. Try to rerun the transaction, if necessary. |
 | `IGN-TX-15` | Error occurred when trying to execute an operation in a read-only transaction on a node that has already destroyed data for read timestamp of the transaction. | Retry the transaction with newer read timestamp. Increase data availability time. |
 | `IGN-TX-16` | Operation failed because the transaction is already finished with timeout. | Verify transaction timeout settings and ensure operations are executed before the transaction expires. |
+
+## Unknown Error Codes
+
+| Exception Code | Description | Recommended Action |
+|---|---|---|
+| `UNKNOWN-UNKNOWN{groupCode}-{errorCode}` | The client received an error code it does not recognize. This occurs when an older client connects to a newer server version that introduced error codes unknown to the client. | Update the client to a version compatible with the server to receive proper error details. Check the server logs for the full error context. |

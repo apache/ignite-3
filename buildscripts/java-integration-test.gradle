@@ -20,7 +20,6 @@ apply plugin: 'jvm-test-suite'
 testing {
     suites {
         integrationTest(JvmTestSuite) {
-            testType = TestSuiteType.INTEGRATION_TEST
             useJUnitJupiter()
 
             dependencies {

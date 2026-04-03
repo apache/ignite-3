@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
@@ -57,6 +56,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -90,22 +90,21 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      */
     public MetaStorageServiceImpl(
-            String nodeName,
+            InternalClusterNode localNode,
             RaftGroupService metaStorageRaftGrpSvc,
             IgniteSpinBusyLock busyLock,
-            HybridClock clock,
-            UUID localNodeId
+            HybridClock clock
     ) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
                 new MetaStorageCommandsFactory(),
                 // TODO: Extract the pool size into configuration, see https://issues.apache.org/jira/browse/IGNITE-18735
-                Executors.newFixedThreadPool(5, IgniteThreadFactory.create(nodeName, "metastorage-publisher", LOG)),
+                Executors.newFixedThreadPool(5, IgniteThreadFactory.create(localNode.name(), "metastorage-publisher", LOG)),
                 busyLock
         );
 
         this.clock = clock;
-        this.commandIdGenerator = new CommandIdGenerator(localNodeId);
+        this.commandIdGenerator = new CommandIdGenerator(localNode.id());
     }
 
     public RaftGroupService raftGroupService() {

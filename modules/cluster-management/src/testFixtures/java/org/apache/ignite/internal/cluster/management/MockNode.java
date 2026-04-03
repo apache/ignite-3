@@ -142,7 +142,7 @@ public class MockNode {
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 this.workDir.resolve("partitions/log")
         );
 
@@ -157,13 +157,13 @@ public class MockNode {
         );
 
         var clusterStateStorage =
-                new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
+                new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.staticLocalNode().name());
 
         FailureManager failureManager = new NoOpFailureManager();
 
         LogStorageManager cmgLogStorageManager =
                 SharedLogStorageManagerUtils.create(
-                        clusterService.nodeName(),
+                        clusterService.staticLocalNode().name(),
                         this.workDir.resolve("cmg/log")
                 );
 
@@ -244,7 +244,7 @@ public class MockNode {
     }
 
     public InternalClusterNode localMember() {
-        return clusterService.topologyService().localMember();
+        return clusterService.staticLocalNode();
     }
 
     public String name() {

@@ -99,9 +99,9 @@ public class ComputeColocatedExample {
 
                 System.out.println("Creating account records...");
 
-                for (int i = 0; i < ACCOUNTS_COUNT; i++) {
-                    view.insert(null, account(i));
-                }
+            for (int i = 0; i < ACCOUNTS_COUNT; i++) {
+                view.insert(account(i));
+            }
 
                 //--------------------------------------------------------------------------------------
                 //
@@ -157,7 +157,7 @@ public class ComputeColocatedExample {
 
             RecordView<Tuple> view = context.ignite().tables().table("accounts").recordView();
 
-            Tuple account = view.get(null, accountKey);
+            Tuple account = view.get(accountKey);
 
             System.out.println("Account info [accountNumber=" + account.intValue(0) +
                     ", name=" + account.stringValue(1) + "]");

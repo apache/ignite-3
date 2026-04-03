@@ -330,8 +330,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(System.currentTimeMillis() - 600_000, 0));
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                name,
-                () -> clusterSvc.topologyService().localMember().id(),
+                clusterSvc.staticLocalNode(),
                 metastore,
                 logicalTopologyService,
                 catalogManager,

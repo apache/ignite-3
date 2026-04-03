@@ -86,7 +86,7 @@ public class ScaleCubeClusterService implements ClusterService {
 
     private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
 
-    private final ClusterNodeImpl localNode;
+    private final InternalClusterNode localNode;
 
     private final ScaleCubeTopologyService topologyService = new ScaleCubeTopologyService();
 
@@ -161,6 +161,7 @@ public class ScaleCubeClusterService implements ClusterService {
                 consistentId,
                 messageFactory,
                 topologyService,
+                localNode,
                 staleIds,
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller(),
@@ -243,8 +244,8 @@ public class ScaleCubeClusterService implements ClusterService {
     }
 
     @Override
-    public String nodeName() {
-        return localNode.name();
+    public InternalClusterNode staticLocalNode() {
+        return localNode;
     }
 
     @Override
@@ -328,7 +329,7 @@ public class ScaleCubeClusterService implements ClusterService {
         }
     }
 
-    private static ClusterNodeImpl createClusterNode(String consistentId, InetSocketAddress localAddress) {
+    private static InternalClusterNode createClusterNode(String consistentId, InetSocketAddress localAddress) {
         InetAddress address = localAddress.getAddress();
 
         try {
