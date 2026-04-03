@@ -56,10 +56,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -91,8 +87,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -130,7 +124,6 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -147,8 +140,6 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
-    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
-
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 

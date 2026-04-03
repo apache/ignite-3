@@ -39,11 +39,15 @@ public class PartitionInflights {
     private final ConcurrentHashMap<UUID, CleanupContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
 
     /**
-     * Registers the inflight update for a transaction.
+     * Registers the inflight for a transaction.
      *
      * @param txId The transaction id.
+     * @param testPred Test predicate.
+     * @param requestType Request type.
+     *
+     * @return Cleanup context.
      */
-    public @Nullable CleanupContext addInflight(UUID txId, Predicate<UUID> testPred, RequestType requestType) {
+    @Nullable CleanupContext addInflight(UUID txId, Predicate<UUID> testPred, RequestType requestType) {
         boolean[] res = {true};
 
         CleanupContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
@@ -51,14 +55,13 @@ public class PartitionInflights {
                 ctx = new CleanupContext();
             }
 
-            //ctx.opFuts.add(new IgniteBiTuple<>(new Exception(), fut));
-
             if (ctx.finishFut != null || testPred.test(txId)) {
                 res[0] = false;
             } else {
-                //ctx.addInflight();
                 ctx.inflights.incrementAndGet();
-                ctx.hasWrites = true;
+                if (requestType.isWrite()) {
+                    ctx.hasWrites = true;
+                }
             }
 
             return ctx;
@@ -72,7 +75,7 @@ public class PartitionInflights {
      *
      * @param ctx Cleanup context.
      */
-    public static void removeInflight(CleanupContext ctx) {
+    static void removeInflight(CleanupContext ctx) {
         long val = ctx.inflights.decrementAndGet();
 
         if (ctx.finishFut != null && val == 0) {

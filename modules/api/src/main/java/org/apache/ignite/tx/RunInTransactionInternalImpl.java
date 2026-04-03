@@ -61,6 +61,7 @@ class RunInTransactionInternalImpl {
         T ret;
 
         while (true) {
+            // TODO IGNITE-28448 Use tx restart counter to avoid starvation.
             tx = igniteTransactions.begin(txOptions);
 
             try {

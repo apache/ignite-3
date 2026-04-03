@@ -1039,27 +1039,20 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
 
             @Override
             public void failAction(UUID owner) {
-                // TODO resolve tx with ABORT and delete locks
+                // TODO IGNITE-28447 sendTxRecoveryMessage and delete locks.
                 TxStateMeta state = txStateVolatileStorage.state(owner);
                 if (state == null || state.txCoordinatorId() == null) {
-                    return; // tx state is invalid. locks should be cleaned up by tx recovery process.
+                    return; // Tx state is invalid. Locks will be cleaned up by tx recovery process.
                 }
 
                 InternalClusterNode coordinator = topologyService.getById(state.txCoordinatorId());
                 if (coordinator == null) {
-                    return; // tx is abandoned. locks should be cleaned up by tx recovery process.
+                    return; // Tx is abandoned. Locks will be cleaned up by tx recovery process.
                 }
 
                 txMessageSender.kill(coordinator, owner);
             }
         };
-
-//        var deadlockPreventionPolicy = new WaitDieDeadlockPreventionPolicy() {
-//            @Override
-//            public long waitTimeout() {
-//                return DEFAULT_LOCK_TIMEOUT;
-//            }
-//        };
 
         txStateVolatileStorage.start();
 
