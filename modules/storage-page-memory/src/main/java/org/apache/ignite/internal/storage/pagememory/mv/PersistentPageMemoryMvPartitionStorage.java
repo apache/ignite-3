@@ -618,7 +618,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 gcQueue
         );
 
-        checkpointManager.addCheckpointListener(checkpointListener, tableStorage.dataRegion());
+        checkpointManager.addCheckpointListener(checkpointListener, (DataRegion<PersistentPageMemory>) tableStorage.dataRegion());
     }
 
     @Override
