@@ -679,7 +679,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         // RuntimeException is thrown when SleepJob catches the InterruptedException
         assertThat(runtimeException.toString(), containsString(InterruptedException.class.getName()));
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @ParameterizedTest
@@ -729,7 +729,31 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         // Cancel running task
         assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(FAILED)));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void asyncJobCompletesNormallyAfterCooperativeCancellation(boolean local) {
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecution<String> execution = submit(
+                JobTarget.node(clusterNode(executeNode)),
+                asyncDelayedCompleteJob(),
+                cancelHandle.token(),
+                null
+        );
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        cancelHandle.cancel();
+
+        // The async job detects cancellation via isCancelled(), does cleanup, then completes with a result.
+        // Cooperative cancellation should honor the result — status must be COMPLETED, not CANCELED.
+        assertThat(execution.resultAsync(), willBe(is("completed-after-cancel")));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -906,11 +930,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         ObservableTimestampResult jobRes = execution.resultAsync().join();
 
         // The per-job tracker should have the client's observable timestamp.
-        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes.perJobTimestamp);
+        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes.perJobTimestamp());
         assertThat(jobObservableTs, is(localObservableTs));
 
         // The node's global tracker should NOT be updated by the compute job.
-        HybridTimestamp targetNodeTsAfter = HybridTimestamp.nullableHybridTimestamp(jobRes.nodeGlobalTimestamp);
+        HybridTimestamp targetNodeTsAfter = HybridTimestamp.nullableHybridTimestamp(jobRes.nodeGlobalTimestamp());
         assertThat(targetNodeTsAfter, is(targetNodeTsBefore));
         assertThat(targetNodeTsAfter, not(jobObservableTs));
     }
@@ -961,6 +985,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private TaskDescriptor<Void, Void> infiniteMapReduceTask() {
         return TaskDescriptor.<Void, Void>builder(jobClassName("InfiniteMapReduceTask")).units(units()).build();
+    }
+
+    private JobDescriptor<Void, String> asyncDelayedCompleteJob() {
+        return JobDescriptor.<Void, String>builder(jobClassName("AsyncDelayedCompleteJob")).units(units()).build();
     }
 
     private JobDescriptor<Tuple, Integer> tupleJob() {

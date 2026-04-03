@@ -21,8 +21,8 @@ package org.example.jobs.embedded;
  * Result of {@link ObservableTimestampJob} containing both per-job and node global observable timestamps.
  */
 public class ObservableTimestampResult {
-    public long perJobTimestamp;
-    public long nodeGlobalTimestamp;
+    private long perJobTimestamp;
+    private long nodeGlobalTimestamp;
 
     public ObservableTimestampResult() {
     }
@@ -30,5 +30,13 @@ public class ObservableTimestampResult {
     public ObservableTimestampResult(long perJobTimestamp, long nodeGlobalTimestamp) {
         this.perJobTimestamp = perJobTimestamp;
         this.nodeGlobalTimestamp = nodeGlobalTimestamp;
+    }
+
+    public long perJobTimestamp() {
+        return perJobTimestamp;
+    }
+
+    public long nodeGlobalTimestamp() {
+        return nodeGlobalTimestamp;
     }
 }

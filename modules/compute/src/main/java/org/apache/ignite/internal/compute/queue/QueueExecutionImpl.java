@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.log
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCompletedEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobExecutingEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobFailedEvent;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.UUID;
@@ -209,11 +210,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 if (throwable instanceof QueueEntryCanceledException) {
                     logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(new CancellationException());
-                } else if (queueEntry.isInterrupted()) {
+                } else if (unwrapCause(throwable) instanceof CancellationException) {
                     stateMachine.cancelJob(jobId);
                     logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(throwable);
-                } else if (retries.decrementAndGet() >= 0) {
+                } else if (!isCanceling() && retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
@@ -239,5 +240,10 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private boolean isCanceled() {
         JobState state = stateMachine.currentState(jobId);
         return state != null && state.status() == JobStatus.CANCELED;
+    }
+
+    private boolean isCanceling() {
+        JobState state = stateMachine.currentState(jobId);
+        return state != null && state.status() == JobStatus.CANCELING;
     }
 }

@@ -559,7 +559,8 @@ TEST_F(compute_test, job_execution_cancel) {
     auto state = execution.get_state();
 
     ASSERT_TRUE(state.has_value());
-    EXPECT_EQ(job_status::CANCELED, state->status);
+    // SleepJob throws RuntimeException on interrupt, not CancellationException.
+    EXPECT_EQ(job_status::FAILED, state->status);
 }
 
 TEST_F(compute_test, job_execution_change_priority) {
