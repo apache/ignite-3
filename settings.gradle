@@ -23,7 +23,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'Apache Ignite 3 (ignite-27685)'
+rootProject.name = 'Apache Ignite 3'
 include(':ignite-page-memory')
 include(':ignite-storage-api')
 include(':ignite-network-annotation-processor')
