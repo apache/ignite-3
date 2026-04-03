@@ -53,6 +53,29 @@ public class PredicatePushDownPlannerTest extends AbstractPlannerTest {
 
     }
 
+    @Test
+    protected void transitivePredicatePushedDownToJoinSources() throws Exception {
+        IgniteSchema schema = createSchema(
+                createTable("T1"),
+                createTable("T2")
+        );
+
+        String sql = ""
+                + " SELECT * "
+                + "   FROM t1 "
+                + "  JOIN t2 ON t1.c1 = t2.c1"
+                + "  WHERE t1.c1 = 10";
+
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(Join.class))
+                .and(hasChildThat(isInstanceOf(ProjectableFilterableTableScan.class)
+                        .and(scan -> scan.condition().toString().contains("=($t0, 10)")
+                                && scan.getTable().getQualifiedName().contains("T1"))))
+                .and(hasChildThat(isInstanceOf(ProjectableFilterableTableScan.class)
+                        .and(scan -> scan.condition().toString().contains("=($t0, 10)")
+                                && scan.getTable().getQualifiedName().contains("T2"))))
+        );
+    }
+
     private static IgniteTable createTable(String tableName) {
         return TestBuilders.table()
                 .name(tableName)

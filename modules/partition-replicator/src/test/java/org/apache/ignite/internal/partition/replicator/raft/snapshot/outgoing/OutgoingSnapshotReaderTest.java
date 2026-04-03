@@ -84,6 +84,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
         var snapshotMetricsSource = new RaftSnapshotsMetricsSource();
 
         var snapshotStorage = new PartitionSnapshotStorage(
+                "test",
                 partitionKey,
                 mock(TopologyService.class),
                 outgoingSnapshotsManager,

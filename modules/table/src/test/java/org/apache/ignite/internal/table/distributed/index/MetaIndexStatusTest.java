@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.index;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
 import org.junit.jupiter.api.Test;
 
 class MetaIndexStatusTest {

@@ -31,7 +31,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 
@@ -56,15 +55,13 @@ public class ComputeWithCustomResultMarshallerExample {
      */
     public static void main(String[] args) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(args);
-
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -76,10 +73,10 @@ public class ComputeWithCustomResultMarshallerExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             JobDescriptor<String, WordInfoResult> job = JobDescriptor.builder(WordInfoJob.class)
                     .resultMarshaller(new WordInfoResultMarshaller())
@@ -99,7 +96,7 @@ public class ComputeWithCustomResultMarshallerExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute job for the word '" + word + "'...");
+                System.out.println("Executing compute job for the word '" + word + "'...");
 
                 WordInfoResult result = client.compute().execute(jobTarget, job, word);
 
@@ -201,7 +198,7 @@ public class ComputeWithCustomResultMarshallerExample {
         public CompletableFuture<WordInfoResult> executeAsync(JobExecutionContext context, String arg) {
             assert arg != null;
 
-            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("Processing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             WordInfoResult result = new WordInfoResult(arg, arg.length());
 

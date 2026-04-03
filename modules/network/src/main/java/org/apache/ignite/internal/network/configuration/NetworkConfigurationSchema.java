@@ -80,7 +80,4 @@ public class NetworkConfigurationSchema {
     @SslConfigurationValidator
     public SslConfigurationSchema ssl;
 
-    /** File transferring configuration. */
-    @ConfigValue
-    public FileTransferConfigurationSchema fileTransfer;
 }

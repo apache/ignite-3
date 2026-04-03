@@ -29,7 +29,7 @@ object OdbcDeb : BuildType({
             scriptContent = """
                 gcc --version || exit 0
                 g++ --version || exit 0
-                
+
                 odbcinst -j || exit 0
                 cat /etc/odbcinst.ini || exit 0
             """.trimIndent()
@@ -42,7 +42,7 @@ object OdbcDeb : BuildType({
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             dockerPull = true
             dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% -e GRADLE_OPTS=\"-Dorg.gradle.caching=true\""
         }
     }
 

@@ -32,8 +32,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
@@ -320,7 +320,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
     private static IndexUpdateHandler createIndexUpdateHandler() {
         // Don’t use mocking to avoid performance degradation for concurrent tests.
-        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of())) {
+        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.emptyMap())) {
             @Override
             public void tryRemoveFromIndexes(
                     BinaryRow rowToRemove,

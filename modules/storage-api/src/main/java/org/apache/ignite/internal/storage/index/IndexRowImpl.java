@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 
 /**

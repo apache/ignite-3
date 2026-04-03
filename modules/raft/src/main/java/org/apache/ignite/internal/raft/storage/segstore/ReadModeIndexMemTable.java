@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import java.util.Iterator;
 import java.util.Map.Entry;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,16 +25,11 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see WriteModeIndexMemTable
  */
-interface ReadModeIndexMemTable {
+interface ReadModeIndexMemTable extends Iterable<Entry<Long, SegmentInfo>> {
     /**
      * Returns information about a segment file for the given group ID or {@code null} if it is not present in this memtable.
      */
     @Nullable SegmentInfo segmentInfo(long groupId);
-
-    /**
-     * Returns an iterator over all {@code Group ID -> SegmentInfo} entries in this memtable.
-     */
-    Iterator<Entry<Long, SegmentInfo>> iterator();
 
     /**
      * Returns the number of Raft Group IDs stored in this memtable.

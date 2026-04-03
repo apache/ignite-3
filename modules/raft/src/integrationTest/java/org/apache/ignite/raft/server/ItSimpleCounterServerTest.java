@@ -106,14 +106,14 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before() throws Exception {
-        var addr = new NetworkAddress("localhost", PORT);
+        var addr = new NetworkAddress("127.0.0.1", PORT);
 
         service = clusterService(PORT, List.of(addr), true);
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                service.nodeName(),
+                service.staticLocalNode().name(),
                 workingDir.raftLogPath()
         );
 
@@ -123,7 +123,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        String serverNodeName = server.clusterService().topologyService().localMember().name();
+        String serverNodeName = server.clusterService().staticLocalNode().name();
 
         PeersAndLearners memberConfiguration = PeersAndLearners.fromConsistentIds(Set.of(serverNodeName));
 
@@ -146,7 +146,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
-        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create(service.nodeName(), Loza.CLIENT_POOL_NAME, logger()));
+        executor = new ScheduledThreadPoolExecutor(
+                20, IgniteThreadFactory.create(service.staticLocalNode().name(), Loza.CLIENT_POOL_NAME, logger())
+        );
 
         ThrottlingContextHolder throttlingContextHolder = throttlingContextHolder();
 

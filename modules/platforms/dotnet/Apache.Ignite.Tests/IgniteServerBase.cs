@@ -20,12 +20,14 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Internal.Buffers;
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public abstract class IgniteServerBase : IDisposable
@@ -69,6 +71,8 @@ public abstract class IgniteServerBase : IDisposable
         set => _dropNewConnections = value;
     }
 
+    public int ConnectionCount => _handlers.Keys.Count(x => x.Connected);
+
     protected Socket Listener => _listener;
 
     public void DropExistingConnection()
@@ -78,6 +82,8 @@ public abstract class IgniteServerBase : IDisposable
             handler.Dispose();
         }
     }
+
+    public void WaitForConnections(int count) => TestUtils.WaitForCondition(() => ConnectionCount == count, 5000);
 
     public void Dispose()
     {

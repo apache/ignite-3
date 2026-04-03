@@ -26,8 +26,8 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.jetbrains.annotations.Nullable;
 

@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -172,7 +173,7 @@ public final class InteractiveJobs {
             try {
                 return GLOBAL_SIGNALS.take();
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new CancellationException();
             }
         }
 
@@ -233,7 +234,7 @@ public final class InteractiveJobs {
             try {
                 return channel.take();
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new CancellationException();
             }
         }
 

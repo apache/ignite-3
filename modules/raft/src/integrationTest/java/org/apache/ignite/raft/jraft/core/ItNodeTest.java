@@ -56,7 +56,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.codahale.metrics.ConsoleReporter;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import java.io.File;
@@ -101,6 +100,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -371,7 +371,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         AtomicInteger c = new AtomicInteger();
 
         Task task1 = new Task(ByteBuffer.wrap(("Test task").getBytes(UTF_8)), new JoinableClosure(status -> {
-            log.info("First task is started.");
+            log.info("First task is started [statusOk={}, statusError={}, status={}].", status.isOk(), status.getRaftError().name(),
+                    status);
 
             if (!status.isOk()) {
                 assertTrue(
@@ -381,7 +382,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }));
 
         Task task2 = new Task(ByteBuffer.wrap(("Test task").getBytes(UTF_8)), new JoinableClosure(status -> {
-            log.info("Second task is started.");
+            log.info("Second task is started [statusOk={}, statusError={}, status={}].", status.isOk(), status.getRaftError().name(),
+                    status);
 
             if (!status.isOk()) {
                 assertTrue(
@@ -1665,40 +1667,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         for (MockStateMachine fsm : cluster.getFsms())
             assertEquals(10000, fsm.getLogs().size());
-    }
-
-    @Test
-    public void testNodeMetrics() throws Exception {
-        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
-
-        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
-        for (TestPeer peer : peers)
-            assertTrue(cluster.start(peer, false, 300, true));
-
-        //elect and get leader
-        Node leader = cluster.waitAndGetLeader();
-        assertNotNull(leader);
-        assertEquals(3, leader.listPeers().size());
-        // apply tasks to leader
-        sendTestTaskAndWait(leader);
-
-        {
-            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes(UTF_8));
-            Task task = new Task(data, null);
-            leader.apply(task);
-        }
-
-        cluster.ensureSame();
-        for (Node node : cluster.getNodes()) {
-            System.out.println("-------------" + node.getNodeId() + "-------------");
-            ConsoleReporter reporter = ConsoleReporter.forRegistry(node.getNodeMetrics().getMetricRegistry())
-                .build();
-            reporter.report();
-            reporter.close();
-            System.out.println();
-        }
-        // TODO check http status https://issues.apache.org/jira/browse/IGNITE-14832
-        assertEquals(2, cluster.getFollowers().size());
     }
 
     @Test
@@ -3331,7 +3299,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
 
-        assertTrue(JRaftUtils.bootstrap(opts));
+        assertTrue(JRaftUtils.bootstrap(opts, new TestMetricManager()));
         assertThat(logStorageProvider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         NodeOptions nodeOpts = new NodeOptions();
@@ -3378,7 +3346,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
 
-        assertTrue(JRaftUtils.bootstrap(opts));
+        assertTrue(JRaftUtils.bootstrap(opts, new TestMetricManager()));
         assertThat(logStorageProvider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         NodeOptions nodeOpts = new NodeOptions();
@@ -4973,7 +4941,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer) {
+        var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, new TestMetricManager()) {
             @Override
             public synchronized void shutdown() {
                 rpcServer.shutdown();

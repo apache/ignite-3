@@ -176,10 +176,9 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
-            );
+            String nodeName = clusterService.staticLocalNode().name();
+
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -202,8 +201,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
-            cmgLogStorageManager =
-                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+            cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -220,6 +218,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurer,
                     metricManager
@@ -236,8 +235,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-            msLogStorageManager =
-                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
@@ -245,7 +243,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    clusterService,
+                    clusterService.staticLocalNode(),
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
@@ -354,7 +352,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         }
 
         String name() {
-            return clusterService.nodeName();
+            return clusterService.staticLocalNode().name();
         }
     }
 
@@ -367,9 +365,9 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
      */
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
-        var firstNodeAddr = new NetworkAddress("localhost", 10000);
+        var firstNodeAddr = new NetworkAddress("127.0.0.1", 10000);
 
-        var secondNodeAddr = new NetworkAddress("localhost", 10001);
+        var secondNodeAddr = new NetworkAddress("127.0.0.1", 10001);
 
         List<NetworkAddress> allNodes = List.of(firstNodeAddr, secondNodeAddr);
 

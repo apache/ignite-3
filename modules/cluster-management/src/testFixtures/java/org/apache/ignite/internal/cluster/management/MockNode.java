@@ -64,6 +64,7 @@ import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -141,20 +142,28 @@ public class MockNode {
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 this.workDir.resolve("partitions/log")
         );
 
-        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
+        var eventsClientListener = new RaftGroupEventsClientListener();
+
+        var raftManager = TestLozaFactory.create(
+                clusterService,
+                raftConfiguration,
+                systemLocalConfiguration,
+                new HybridClockImpl(),
+                eventsClientListener
+        );
 
         var clusterStateStorage =
-                new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
+                new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.staticLocalNode().name());
 
         FailureManager failureManager = new NoOpFailureManager();
 
         LogStorageManager cmgLogStorageManager =
                 SharedLogStorageManagerUtils.create(
-                        clusterService.nodeName(),
+                        clusterService.staticLocalNode().name(),
                         this.workDir.resolve("cmg/log")
                 );
 
@@ -179,6 +188,7 @@ public class MockNode {
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
                 collector,
                 failureManager,
+                eventsClientListener,
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
@@ -234,7 +244,7 @@ public class MockNode {
     }
 
     public InternalClusterNode localMember() {
-        return clusterService.topologyService().localMember();
+        return clusterService.staticLocalNode();
     }
 
     public String name() {

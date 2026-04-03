@@ -15,7 +15,7 @@ object PMD : BuildType({
     steps {
         customGradle {
             name = "PMD check"
-            tasks = "pmdMain pmdTest"
+            tasks = "pmd"
             workingDir = "%VCSROOT__IGNITE3%"
         }
     }

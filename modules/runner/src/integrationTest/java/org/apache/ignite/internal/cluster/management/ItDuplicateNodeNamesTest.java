@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_CLIENT_PORT;
 import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_PORT;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.shortTestMethodName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
@@ -55,15 +56,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
 class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "}";
-
     @WorkDirectory
     private static Path WORK_DIR;
 
@@ -152,7 +144,7 @@ class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
 
     private IgniteServer startEmbeddedNode(String nodeName, int nodeIndex, int nodesCount) {
         String config = IgniteStringFormatter.format(
-                NODE_BOOTSTRAP_CFG_TEMPLATE,
+                NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES,
                 DEFAULT_BASE_PORT + nodeIndex,
                 seedAddressesString(nodesCount),
                 DEFAULT_BASE_CLIENT_PORT + nodeIndex,

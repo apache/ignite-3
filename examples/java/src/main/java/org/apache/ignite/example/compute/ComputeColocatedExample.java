@@ -30,7 +30,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
@@ -58,15 +57,13 @@ public class ComputeColocatedExample {
      */
     public static void main(String[] args) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(args);
-
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
@@ -100,11 +97,11 @@ public class ComputeColocatedExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nCreating account records...");
+                System.out.println("Creating account records...");
 
-                for (int i = 0; i < ACCOUNTS_COUNT; i++) {
-                    view.insert(null, account(i));
-                }
+            for (int i = 0; i < ACCOUNTS_COUNT; i++) {
+                view.insert(account(i));
+            }
 
                 //--------------------------------------------------------------------------------------
                 //
@@ -112,9 +109,9 @@ public class ComputeColocatedExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nConfiguring compute job...");
+                System.out.println("Configuring compute job...");
 
-                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
                 JobDescriptor<Integer, Void> job = JobDescriptor.builder(PrintAccountInfoJob.class)
                         .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -130,7 +127,7 @@ public class ComputeColocatedExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute job for the accountNumber '" + accountNumber + "'...");
+                System.out.println("Executing compute job for the accountNumber '" + accountNumber + "'...");
 
                 client.compute().execute(jobTarget, job, accountNumber);
             } finally {
@@ -139,7 +136,7 @@ public class ComputeColocatedExample {
                 undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
                 /* Drop table */
-                System.out.println("\nDropping the table...");
+                System.out.println("Dropping the table...");
 
                 client.sql().executeScript("DROP TABLE IF EXISTS accounts");
             }
@@ -160,7 +157,7 @@ public class ComputeColocatedExample {
 
             RecordView<Tuple> view = context.ignite().tables().table("accounts").recordView();
 
-            Tuple account = view.get(null, accountKey);
+            Tuple account = view.get(accountKey);
 
             System.out.println("Account info [accountNumber=" + account.intValue(0) +
                     ", name=" + account.stringValue(1) + "]");

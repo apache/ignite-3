@@ -101,6 +101,23 @@ class GroupIndexMeta {
                 }
             }
         }
+
+        boolean onIndexRemoved(FileProperties oldProperties) {
+            while (true) {
+                IndexFileMetaArray fileMetas = this.fileMetas;
+
+                IndexFileMetaArray newFileMetas = fileMetas.onIndexRemoved(oldProperties);
+
+                // Nothing was updated which means the array does not contain index meta for the removed file.
+                if (fileMetas == newFileMetas) {
+                    return false;
+                }
+
+                if (FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas)) {
+                    return true;
+                }
+            }
+        }
     }
 
     /**
@@ -123,17 +140,18 @@ class GroupIndexMeta {
     }
 
     void addIndexMeta(IndexFileMeta indexFileMeta) {
-        IndexMetaArrayHolder curFileMetas = fileMetaDeque.getLast();
+        IndexMetaArrayHolder curFileMetas = fileMetaDeque.peekLast();
+
+        // Deque may be empty due to prefix truncation.
+        if (curFileMetas == null) {
+            fileMetaDeque.add(new IndexMetaArrayHolder(indexFileMeta));
+
+            return;
+        }
 
         long curLastLogIndex = curFileMetas.lastLogIndexExclusive();
 
         long newFirstLogIndex = indexFileMeta.firstLogIndexInclusive();
-
-        assert newFirstLogIndex <= curLastLogIndex :
-                String.format(
-                        "Gaps between Index File Metas are not allowed. Last log index: %d, new log index: %d",
-                        curLastLogIndex, newFirstLogIndex
-                );
 
         int lastFileOrdinal = curFileMetas.lastFileProperties().ordinal();
 
@@ -147,7 +165,7 @@ class GroupIndexMeta {
 
         // Merge consecutive index metas into a single meta block. If there's an overlap (e.g. due to log truncation), start a new block,
         // which will override the previous one during search.
-        if (curLastLogIndex == newFirstLogIndex) {
+        if (newFirstLogIndex >= curLastLogIndex) {
             curFileMetas.addIndexMeta(indexFileMeta);
         } else {
             fileMetaDeque.add(new IndexMetaArrayHolder(indexFileMeta));
@@ -159,7 +177,7 @@ class GroupIndexMeta {
      * is not found in any of the index files in this group.
      */
     @Nullable
-    IndexFileMeta indexMeta(long logIndex) {
+    IndexFileMeta indexMetaByLogIndex(long logIndex) {
         Iterator<IndexMetaArrayHolder> it = fileMetaDeque.descendingIterator();
 
         while (it.hasNext()) {
@@ -182,6 +200,57 @@ class GroupIndexMeta {
         }
 
         return null;
+    }
+
+    /**
+     * Computes an "effective" index meta of the given index file. Effective index meta represents has altered first and last log indices
+     * that reflect the up-to-date state of the group, rather than the indices actually present in the file. This is needed during
+     * compaction, when we need to identify which entries have been truncated from a file.
+     */
+    @Nullable
+    IndexFileMeta effectiveIndexMetaByFileOrdinal(int fileOrdinal) {
+        Iterator<IndexMetaArrayHolder> it = fileMetaDeque.iterator();
+
+        // Find the holder/meta pair containing the given file ordinal.
+        IndexMetaArrayHolder holder = null;
+
+        IndexFileMeta indexMeta = null;
+
+        while (it.hasNext() && indexMeta == null) {
+            holder = it.next();
+
+            indexMeta = holder.fileMetas.findByFileOrdinal(fileOrdinal);
+        }
+
+        if (indexMeta == null || indexMeta.isEmpty()) {
+            return null;
+        }
+
+        // Even if index meta exists, it may still be obsolete due to suffix truncations (during suffix truncations we do not trim
+        // the meta as during prefix truncations, but add a new meta block).
+        long globalFirstLogIndexInclusive = firstLogIndexInclusive();
+
+        // If there are newer blocks, they override from their firstLogIndexInclusive onwards. We need to find the minimum across the
+        // blocks that follow the current one.
+        long globalLastLogIndexExclusive = holder.lastLogIndexExclusive();
+
+        while (it.hasNext()) {
+            globalLastLogIndexExclusive = Math.min(globalLastLogIndexExclusive, it.next().firstLogIndexInclusive());
+        }
+
+        boolean isObsolete = indexMeta.firstLogIndexInclusive() >= globalLastLogIndexExclusive
+                || indexMeta.lastLogIndexExclusive() <= globalFirstLogIndexInclusive;
+
+        if (isObsolete) {
+            return null;
+        }
+
+        return new IndexFileMeta(
+                Math.max(globalFirstLogIndexInclusive, indexMeta.firstLogIndexInclusive()),
+                Math.min(globalLastLogIndexExclusive, indexMeta.lastLogIndexExclusive()),
+                indexMeta.indexFilePayloadOffset(),
+                indexMeta.indexFileProperties()
+        );
     }
 
     /**
@@ -226,6 +295,14 @@ class GroupIndexMeta {
     void onIndexCompacted(FileProperties oldProperties, IndexFileMeta newIndexMeta) {
         for (IndexMetaArrayHolder holder : fileMetaDeque) {
             if (holder.onIndexCompacted(oldProperties, newIndexMeta)) {
+                return;
+            }
+        }
+    }
+
+    void onIndexRemoved(FileProperties oldProperties) {
+        for (IndexMetaArrayHolder holder : fileMetaDeque) {
+            if (holder.onIndexRemoved(oldProperties)) {
                 return;
             }
         }

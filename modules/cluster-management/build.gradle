@@ -36,6 +36,7 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-network')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-raft')
     implementation project(':ignite-vault')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-storage-api')

@@ -42,6 +42,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.tx.TransactionException;
@@ -271,7 +272,13 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId) {
+    public CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
         return nullCompletedFuture();
     }
 
@@ -286,13 +293,18 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx) {
         return nullCompletedFuture();
     }
 
     @Override
     public int lockRetryCount() {
         return 0;
+    }
+
+    @Override
+    public RemotelyTriggeredResourceRegistry resourceRegistry() {
+        return null;
     }
 
     @Override

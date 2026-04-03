@@ -20,12 +20,16 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexVisitor;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -62,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -73,7 +78,17 @@ import org.jetbrains.annotations.Nullable;
 class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     private static final IgniteLogger LOG = Loggers.forClass(ModifyNodeVisitor.class);
 
-    private ModifyNodeVisitor() {
+    /**
+     * A placeholder used to designate that there is no value for a column. If PP metadata collection algorithm encounters this placeholder
+     * in a colocation column for a source, then there can be no PP metadata for this source. Since this is a marker to terminate 
+     * algorithm, the type chosen for this expression does not matter.
+     */
+    static final RexNode VALUE_NOT_ASSIGNED = new RexInputRef(99999, Commons.typeFactory().createSqlType(SqlTypeName.NULL));
+
+    private final PartitionPruningMetadataExtractor extractor;
+
+    private ModifyNodeVisitor(PartitionPruningMetadataExtractor extractor) {
+        this.extractor = extractor;
     }
 
     /**
@@ -82,14 +97,24 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
      * <p>Every element from outer list contributes a partition, so after pruning all partitions defined by these
      * expressions must be preserved in the plan.
      *
+     * @param extractor Metadata extractor to use.
      * @param tableModify A modify node to start traversal from.
      * @return A list of expressions. It's guaranteed that returned collection represents complete set of partitions. Returns {@code null}
      *         otherwise.
      */
-    static @Nullable List<List<RexNode>> go(IgniteTableModify tableModify) {
-        var modifyNodeShuttle = new ModifyNodeVisitor();
-
-        return modifyNodeShuttle.visit((IgniteRel) tableModify.getInput());
+    static @Nullable List<List<@Nullable RexNode>> go(
+            PartitionPruningMetadataExtractor extractor,
+            IgniteTableModify tableModify
+    ) {
+        switch (tableModify.getOperation()) {
+            case INSERT:
+            case UPDATE: 
+            case DELETE: 
+                ModifyNodeVisitor visitor = new ModifyNodeVisitor(extractor);
+                return visitor.visit((IgniteRel) tableModify.getInput());
+            default:
+                return null;
+        }
     }
 
     @Override
@@ -212,14 +237,22 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
     @Override
     public @Nullable List<List<RexNode>> visit(IgniteIndexScan rel) {
-        // processing of index scan is not supported at the moment
-        return null;
+        extractor.visit(rel);
+
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null : "No table";
+
+        return extractValuesFromScan(rel.sourceId(), table, rel.requiredColumns(), rel.projects());
     }
 
     @Override
     public @Nullable List<List<RexNode>> visit(IgniteTableScan rel) {
-        // processing of table scan is not supported at the moment
-        return null;
+        extractor.visit(rel);
+
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+        assert table != null : "No table";
+
+        return extractValuesFromScan(rel.sourceId(), table, rel.requiredColumns(), rel.projects());
     }
 
     @Override
@@ -331,5 +364,105 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         LOG.warn(messageTemplate, args);
 
         return null;
+    }
+
+    private List<List<RexNode>> extractValuesFromScan(
+            long sourceId,
+            IgniteTable table,
+            @Nullable ImmutableIntList requiredColumns,
+            @Nullable List<RexNode> projects
+    ) {
+        PartitionPruningColumns metadata = extractor.result.get(sourceId);
+        List<List<RexNode>> values = metadataToValues(table, metadata);
+
+        // Apply projection formed by requiredColumns if any.
+        if (requiredColumns != null) {
+            List<List<RexNode>> projectedValues = new ArrayList<>(values.size());
+
+            for (List<RexNode> row : values) {
+                List<RexNode> projectedRow = new ArrayList<>(requiredColumns.size());
+
+                for (int i = 0; i < requiredColumns.size(); i++) {
+                    projectedRow.add(row.get(requiredColumns.getInt(i)));
+                }
+
+                projectedValues.add(projectedRow);
+            }
+
+            values = projectedValues;
+        }
+
+        // Apply projection attached to a scan if any.
+        if (!nullOrEmpty(projects)) {
+            List<List<RexNode>> projectedValues = new ArrayList<>(values.size());
+
+            for (List<RexNode> inputRow : values) {
+                RexVisitor<RexNode> inputInliner = new RexShuttle() {
+                    @Override
+                    public RexNode visitLocalRef(RexLocalRef localRef) {
+                        return inputRow.get(localRef.getIndex());
+                    }
+                };
+                projectedValues.add(inputInliner.visitList(projects));
+            }
+
+            values = projectedValues;
+        }
+
+        return values;
+    }
+
+    private static List<List<RexNode>> metadataToValues(
+            IgniteTable table,
+            PartitionPruningColumns metadata
+    ) {
+        int numColumns = table.descriptor().columnsCount();
+
+        if (metadata == null) {
+            List<RexNode> row = createRowWithNoValues(numColumns);
+            return List.of(row);
+        }
+
+        // Creates a row for each PP metadata entry. Consider the following example
+        // of a scan predicate that includes colocation columns C1, C2, C3:
+        //
+        // c1 IN (10, ?0, 42) AND c2 = ?1 AND c3 = 99
+        //
+        // It's metadata is:
+        //  [c1=10, c2=?1, c3=99]
+        //  [c1=?0, c2=?1, c3=99]
+        //  [c1=42, c2=?1, c3=99]
+        //
+        // That metadata is equivalent to 3 rows:
+        //  [10, ?1, 99]
+        //  [?0, ?1, 99]
+        //  [42, ?1, 99]
+        //
+
+        List<List<RexNode>> projectionAsValues = new ArrayList<>(metadata.columns().size());
+
+        for (Int2ObjectMap<RexNode> columns : metadata.columns()) {
+            List<RexNode> row = createRowWithNoValues(numColumns);
+
+            // Then set colocation key columns. 
+            for (Int2ObjectMap.Entry<RexNode> entry : columns.int2ObjectEntrySet()) {
+                int col = entry.getIntKey();
+                row.set(col, entry.getValue());
+            }
+
+            projectionAsValues.add(row);
+        }
+
+        return projectionAsValues;
+    }
+
+    private static List<RexNode> createRowWithNoValues(int numColumns) {
+        List<RexNode> row = new ArrayList<>(numColumns);
+
+        for (int i = 0; i < numColumns; i++) {
+            row.add(VALUE_NOT_ASSIGNED);
+        }
+
+        return row;
     }
 }

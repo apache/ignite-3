@@ -40,7 +40,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +62,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -94,8 +92,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
 
-    private final TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
-
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
 
     private final IndexBuilder indexBuilder = new IndexBuilder(
@@ -117,8 +113,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
-
-        when(txRwOperationTracker.awaitCompleteTxRwOperations(anyInt())).thenReturn(nullCompletedFuture());
 
         when(safeTime.waitFor(any())).thenReturn(nullCompletedFuture());
     }
@@ -436,7 +430,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage,
                 mock(MvPartitionStorage.class),
-                txRwOperationTracker,
                 safeTime,
                 mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,

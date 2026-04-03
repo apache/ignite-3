@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
 import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
@@ -49,7 +50,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
@@ -92,6 +92,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     /** Topology service. */
     private final TopologyService topologyService;
+
+    private final InternalClusterNode localNode;
 
     private final StaleIdDetector staleIdDetector;
 
@@ -149,6 +151,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param nodeName Consistent ID (aka name) of the local node associated with the service to create.
      * @param factory Network messages factory.
      * @param topologyService Topology service.
+     * @param localNode Local cluster node.
      * @param staleIdDetector Used to detect stale node IDs.
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
@@ -161,6 +164,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             String nodeName,
             NetworkMessagesFactory factory,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             StaleIdDetector staleIdDetector,
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
@@ -172,6 +176,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.staleIdDetector = staleIdDetector;
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
@@ -307,8 +312,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        boolean shouldDropMessage;
+
+        try {
+            shouldDropMessage = shouldDropMessage(recipient, msg);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
         // TODO: IGNITE-18493 - remove/move this
-        if (shouldDropMessage(recipient, msg)) {
+        if (shouldDropMessage) {
             return nullCompletedFuture();
         }
 
@@ -324,9 +337,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return nullCompletedFuture();
         }
 
+        if (strictIdCheck && staleIdDetector.isIdStale(recipient.id())) {
+            return recipientIsStaleFuture(recipient);
+        }
+
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
         return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck);
+    }
+
+    private <U> CompletableFuture<U> recipientIsStaleFuture(InternalClusterNode recipient) {
+        metrics.incrementMessageRecipientNotFound();
+
+        return failedFuture(
+                new RecipientLeftException("Recipient is stale [name=" + recipient.name() + ", id=" + recipient.id() + "]")
+        );
     }
 
     private boolean shouldDropMessage(InternalClusterNode recipient, NetworkMessage msg) {
@@ -356,8 +381,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        boolean shouldDropMessage;
+
+        try {
+            shouldDropMessage = shouldDropMessage(recipient, msg);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
         // TODO: IGNITE-18493 - remove/move this
-        if (shouldDropMessage(recipient, msg)) {
+        if (shouldDropMessage) {
             return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
         }
 
@@ -373,6 +406,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
             sendToSelf(msg, correlationId);
 
             return responseFuture;
+        }
+
+        if (strictIdCheck && staleIdDetector.isIdStale(recipient.id())) {
+            return recipientIsStaleFuture(recipient);
         }
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
@@ -401,7 +438,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     ) {
         if (isInNetworkThread()) {
             return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message, strictIdCheck), outboundExecutor)
-                    .thenCompose(Function.identity());
+                    .thenCompose(identity());
         }
 
         List<ClassDescriptorMessage> descriptors;
@@ -412,6 +449,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
+        // TODO IGNITE-28225 Retry channel creation in case of network issues.
         OrderingFuture<NettySender> channelFuture = connectionManager.channel(nodeId, type, addr);
 
         channelFuture.whenComplete((sender, ex) -> maybeLogHandshakeError(ex, nodeId, type, addr));
@@ -476,7 +514,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             HandlerContext handlerContext = handlerContexts.get(i);
 
             // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            handlerContext.handler().onReceived(message, topologyService.localMember(), correlationId);
+            handlerContext.handler().onReceived(message, localNode, correlationId);
         }
     }
 

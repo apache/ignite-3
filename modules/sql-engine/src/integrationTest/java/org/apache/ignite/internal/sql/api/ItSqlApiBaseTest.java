@@ -52,6 +52,9 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
@@ -59,6 +62,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.CursorClosedException;
@@ -1282,19 +1286,30 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void cancelDdlScript() {
         IgniteSql sql = igniteSql();
 
+        String targetTable = "TEST2";
         String script =
                 "CREATE TABLE test1 (id INT PRIMARY KEY);"
-                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE %s (id INT PRIMARY KEY);"
                         + "CREATE TABLE test3 (id INT PRIMARY KEY);";
 
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+        EventListener<CreateTableEventParameters> listener = parameters -> {
+            if (targetTable.equalsIgnoreCase(parameters.tableDescriptor().name())) {
+                cancelHandle.cancelAsync();
+                return CompletableFutures.trueCompletedFuture();
+            }
 
-        waitUntilRunningQueriesCount(greaterThan(0));
+            return CompletableFutures.falseCompletedFuture();
+        };
 
-        cancelHandle.cancel();
+        CLUSTER.nodes().forEach(ignite -> unwrapIgniteImpl(ignite)
+                .catalogManager()
+                .listen(CatalogEvent.TABLE_CREATE, listener)
+        );
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, String.format(script, targetTable)));
 
         expectQueryCancelled(() -> await(scriptFut));
 
@@ -1335,9 +1350,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started),
-     * the query will either not be started or will be cancelled. That is, it is impossible for a remote cancellation request
-     * to be processed by the server before the query itself is started.
+     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started), the query will
+     * either not be started or will be cancelled. That is, it is impossible for a remote cancellation request to be processed by the server
+     * before the query itself is started.
      *
      * @throws Exception If failed.
      */

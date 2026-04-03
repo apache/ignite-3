@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -55,6 +57,8 @@ public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest
 
     protected void restartStorage() throws Exception {
         assertNotNull(storage);
+
+        assertThat(storage.flush(), willCompleteSuccessfully());
 
         storage.close();
 

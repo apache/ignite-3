@@ -26,4 +26,9 @@ internal static class ErrorExtensions
     /// Expected schema version for <see cref="ErrorGroups.Table.SchemaVersionMismatch"/> error.
     /// </summary>
     public const string ExpectedSchemaVersion = "expected-schema-ver";
+
+    /// <summary>
+    /// SQL update counters for <see cref="Ignite.Sql.SqlBatchException"/> (binary format - array of big-endian longs).
+    /// </summary>
+    public const string SqlUpdateCounters2 = "sql-update-counters-2";
 }

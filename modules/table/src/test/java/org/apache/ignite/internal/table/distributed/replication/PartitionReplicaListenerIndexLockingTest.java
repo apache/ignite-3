@@ -46,11 +46,12 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -145,6 +146,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final int PK_INDEX_ID = 1;
     private static final int HASH_INDEX_ID = 2;
     private static final int SORTED_INDEX_ID = 3;
+    private static final IndexLocker.PartitionIndexId PK_INDEX_CONTEXT_ID
+            = new IndexLocker.PartitionIndexId(PART_ID, PK_INDEX_ID);
+    private static final IndexLocker.PartitionIndexId HASH_INDEX_CONTEXT_ID
+            = new IndexLocker.PartitionIndexId(PART_ID, HASH_INDEX_ID);
+    private static final IndexLocker.PartitionIndexId SORTED_INDEX_CONTEXT_ID
+            = new IndexLocker.PartitionIndexId(PART_ID, SORTED_INDEX_ID);
     private static final int ZONE_ID = 4;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
@@ -196,8 +203,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
 
-        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, row2HashKeyConverter);
-        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
+        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, PART_ID, true, LOCK_MANAGER, row2HashKeyConverter);
+        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, PART_ID, false, LOCK_MANAGER, row2HashKeyConverter);
 
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
         BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
@@ -228,7 +235,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()))
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
@@ -259,15 +266,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 Runnable::run,
                 new ZonePartitionId(ZONE_ID, PART_ID),
                 TABLE_ID,
-                () -> Map.of(
-                        pkLocker.id(), pkLocker,
-                        hashIndexLocker.id(), hashIndexLocker,
-                        sortedIndexLocker.id(), sortedIndexLocker
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
+                        Int2ObjectMap.entry(hashIndexLocker.id(), hashIndexLocker),
+                        Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexLocker)
                 ),
                 pkStorage,
-                () -> Map.of(
-                        sortedIndexLocker.id(), sortedIndexStorage,
-                        hashIndexLocker.id(), hashIndexStorage
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexLocker.id(), hashIndexStorage)
                 ),
                 CLOCK_SERVICE,
                 safeTime,
@@ -405,18 +412,18 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 allOf(
                         hasItem(lockThat(
                                 arg.expectedLockOnUniqueHash + " on unique hash index",
-                                lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
+                                lock -> Objects.equals(PK_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                         && row2HashKeyConverter.extractColumns(testBinaryRow).byteBuffer().equals(lock.lockKey().key())
                                         && lock.lockMode() == arg.expectedLockOnUniqueHash
                         )),
                         hasItem(lockThat(
                                 arg.expectedLockOnNonUniqueHash + " on non unique hash index",
-                                lock -> Objects.equals(HASH_INDEX_ID, lock.lockKey().contextId())
+                                lock -> Objects.equals(HASH_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                         && lock.lockMode() == arg.expectedLockOnNonUniqueHash
                         )),
                         hasItem(lockThat(
                                 arg.expectedLockOnSort + " on sorted index",
-                                lock -> Objects.equals(SORTED_INDEX_ID, lock.lockKey().contextId())
+                                lock -> Objects.equals(SORTED_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                         && lock.lockMode() == arg.expectedLockOnSort
                         ))
                 )
@@ -499,19 +506,19 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                     allOf(
                             hasItem(lockThat(
                                     arg.expectedLockOnUniqueHash + " on unique hash index",
-                                    lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
+                                    lock -> Objects.equals(PK_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                             && row2HashKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnUniqueHash
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnNonUniqueHash + " on non unique hash index",
-                                    lock -> Objects.equals(HASH_INDEX_ID, lock.lockKey().contextId())
+                                    lock -> Objects.equals(HASH_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                             && row2HashKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnNonUniqueHash
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnSort + " on sorted index",
-                                    lock -> Objects.equals(SORTED_INDEX_ID, lock.lockKey().contextId())
+                                    lock -> Objects.equals(SORTED_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                             && row2SortKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnSort
                             ))

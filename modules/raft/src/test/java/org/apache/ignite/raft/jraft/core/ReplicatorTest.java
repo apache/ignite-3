@@ -119,7 +119,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
         Mockito.when(this.rpcService.connect(this.peerId)).thenReturn(true);
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(true));
+        Mockito.when(this.node.getJraftNodeMetrics()).thenReturn(new NodeMetrics(true));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         // mock send empty entries
         mockSendEmptyEntries();
@@ -184,10 +184,10 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         final Replicator r = getReplicator();
         assertNotNull(r);
         assertSame(r.getOpts(), this.opts);
-        Set<String> metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
+        Set<String> metrics = this.opts.getNode().getJraftNodeMetrics().getMetricRegistry().getNames();
         assertEquals(11, metrics.size());
         r.destroy();
-        metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
+        metrics = this.opts.getNode().getJraftNodeMetrics().getMetricRegistry().getNames();
         assertEquals(0, metrics.size());
     }
 

@@ -169,6 +169,15 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
 
     @Test
     @Override
+    public void testSqlBatchException() {
+        // Old clients don't support SQL_UPDATE_COUNTERS_2 extension,
+        // but they should still be able to receive and process SqlBatchException.
+        // The updateCounters() will return null for old clients.
+        delegate.testSqlBatchException();
+    }
+
+    @Test
+    @Override
     public void testRecordViewOperations() {
         delegate.testRecordViewOperations();
     }

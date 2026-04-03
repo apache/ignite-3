@@ -30,6 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.jetbrains.annotations.Nullable;
@@ -262,9 +263,17 @@ public interface TxManager extends IgniteComponent {
      * @param commitPartitionId Commit partition id.
      * @param node Target node.
      * @param txId Transaction id.
+     * @param commit Whether the transaction was committed.
+     * @param commitTimestamp Commit timestamp, if committed.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(ZonePartitionId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(
+            ZonePartitionId commitPartitionId,
+            String node,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    );
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
@@ -287,8 +296,9 @@ public interface TxManager extends IgniteComponent {
      *
      * @param groups Groups.
      * @param txId Transaction id.
+     * @param abortTx If {@code true}, the transaction will be aborted.
      */
-    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId);
+    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx);
 
     /**
      * Returns lock retry count.
@@ -296,6 +306,13 @@ public interface TxManager extends IgniteComponent {
      * @return The count.
      */
     int lockRetryCount();
+
+    /**
+     * Returns the resource registry.
+     *
+     * @return Resource registry.
+     */
+    RemotelyTriggeredResourceRegistry resourceRegistry();
 
     /**
      * Returns a number of finished transactions.

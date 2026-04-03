@@ -19,11 +19,17 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -69,5 +75,57 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
 
         safeTimeFuture.complete(null);
         assertThat(waitFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void waitRecorderIsCalledWithDurationOnCompletion() {
+        List<Long> recorded = new ArrayList<>();
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMs, recorded::add);
+
+        HybridTimestamp ts = clock.now();
+        var safeTimeFuture = new CompletableFuture<Void>();
+
+        when(schemaSafeTimeTracker.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()))).thenReturn(safeTimeFuture);
+
+        schemaSyncService.waitForMetadataCompleteness(ts);
+
+        assertThat(recorded, empty());
+
+        safeTimeFuture.complete(null);
+
+        assertThat(recorded, hasSize(1));
+        assertThat(recorded.get(0), greaterThanOrEqualTo(0L));
+    }
+
+    @Test
+    void waitRecorderIsCalledEvenWhenFutureCompletesExceptionally() {
+        List<Long> recorded = new ArrayList<>();
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMs, recorded::add);
+
+        HybridTimestamp ts = clock.now();
+        var safeTimeFuture = new CompletableFuture<Void>();
+
+        when(schemaSafeTimeTracker.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()))).thenReturn(safeTimeFuture);
+
+        schemaSyncService.waitForMetadataCompleteness(ts);
+
+        safeTimeFuture.completeExceptionally(new RuntimeException("test error"));
+
+        assertThat(recorded, hasSize(1));
+        assertThat(recorded.get(0), greaterThanOrEqualTo(0L));
+    }
+
+    @Test
+    void waitRecorderIsNotCalledWhenFutureIsAlreadyCompleted() {
+        List<Long> recorded = new ArrayList<>();
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMs, recorded::add);
+
+        HybridTimestamp ts = clock.now();
+
+        when(schemaSafeTimeTracker.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()))).thenReturn(nullCompletedFuture());
+
+        schemaSyncService.waitForMetadataCompleteness(ts);
+
+        assertThat(recorded, empty());
     }
 }

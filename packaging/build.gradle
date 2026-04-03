@@ -30,6 +30,7 @@ java {
 
 import com.github.jk1.license.filter.LicenseBundleNormalizer
 import com.github.jk1.license.render.InventoryHtmlReportRenderer
+import org.apache.tools.ant.filters.FixCrLfFilter
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
@@ -150,6 +151,7 @@ def replaceVars = tasks.register('replaceVars', Copy) {
     from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
+    filter(FixCrLfFilter, eol: FixCrLfFilter.CrLf.newInstance("lf"))
     into "$buildDir/docker"
 }
 

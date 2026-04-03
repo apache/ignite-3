@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
@@ -186,6 +187,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.tx.RetriableTransactionException;
@@ -472,6 +474,8 @@ public class ClientInboundMessageHandler
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker) {
+        var guard = new ResponseWriteGuard();
+
         try (unpacker) {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
@@ -495,13 +499,13 @@ public class ClientInboundMessageHandler
 
                     LOG.debug(msg);
 
-                    handshakeError(ctx, new IgniteException(PROTOCOL_ERR, msg));
+                    handshakeError(ctx, new IgniteException(PROTOCOL_ERR, msg), guard);
                 } else {
                     LOG.debug("Compute executor connected [connectionId=" + connectionId
                             + ", remoteAddress=" + ctx.channel().remoteAddress() + ", executorId=" + computeExecutorId + "]");
 
                     // Bypass authentication for compute executor connections.
-                    handshakeSuccess(ctx, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
+                    handshakeSuccess(ctx, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode, guard);
 
                     // Ready to handle compute requests now.
                     computeConnFut.complete(new ComputeConnection());
@@ -516,13 +520,18 @@ public class ClientInboundMessageHandler
                     .thenCompose(unused -> authenticationManager.authenticateAsync(authReq))
                     .whenCompleteAsync((user, err) -> {
                         if (err != null) {
-                            handshakeError(ctx, err);
+                            if (isAuthenticationException(err)) {
+                                LOG.warn("Client authentication failed [connectionId={}, remoteAddress={}, identity={}]: {}",
+                                        connectionId, ctx.channel().remoteAddress(), authReq.getIdentity(), err.getMessage());
+                            }
+
+                            handshakeError(ctx, err, guard);
                         } else {
-                            handshakeSuccess(ctx, user, clientFeatures, clientVer, clientCode);
+                            handshakeSuccess(ctx, user, clientFeatures, clientVer, clientCode, guard);
                         }
                     }, ctx.executor());
         } catch (Throwable t) {
-            handshakeError(ctx, t);
+            handshakeError(ctx, t, guard);
         }
     }
 
@@ -531,8 +540,9 @@ public class ClientInboundMessageHandler
             UserDetails user,
             BitSet clientFeatures,
             ProtocolVersion clientVer,
-            int clientCode) {
-        // Disable direct mapping if not all required features are supported alltogether.
+            int clientCode,
+            ResponseWriteGuard guard) {
+        // Disable direct mapping if not all required features are supported altogether.
         boolean supportsDirectMapping = features.get(TX_DIRECT_MAPPING.featureId()) && clientFeatures.get(TX_DIRECT_MAPPING.featureId())
                 && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
                 && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId())
@@ -558,12 +568,14 @@ public class ClientInboundMessageHandler
 
         logConnectionEstablished(ctx);
 
-        sendHandshakeResponse(ctx, actualFeatures);
+        sendHandshakeResponse(ctx, actualFeatures, guard);
     }
 
-    private void handshakeError(ChannelHandlerContext ctx, Throwable t) {
-        LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                + t.getMessage(), t);
+    private void handshakeError(ChannelHandlerContext ctx, Throwable t, ResponseWriteGuard guard) {
+        // Authentication failures are already logged by the caller with more details (e.g. username).
+        if (!isAuthenticationException(t)) {
+            LOG.warn("Handshake failed [connectionId={}, remoteAddress={}]", t, connectionId, ctx.channel().remoteAddress());
+        }
 
         var errPacker = getPacker(ctx.alloc());
 
@@ -572,7 +584,7 @@ public class ClientInboundMessageHandler
 
             writeErrorCore(t, errPacker);
 
-            writeAndFlushWithMagic(errPacker, ctx); // Releases packer.
+            writeAndFlushWithMagic(errPacker, ctx, guard); // Releases packer.
         } catch (Throwable t2) {
             LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
                     + t2.getMessage(), t2);
@@ -584,14 +596,14 @@ public class ClientInboundMessageHandler
         metrics.sessionsRejectedIncrement();
     }
 
-    private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+    private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures, ResponseWriteGuard guard) {
         state = STATE_HANDSHAKE_RESPONSE_SENT;
 
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
             writeHandshakeResponse(mutuallySupportedFeatures, packer);
-            writeAndFlushWithMagic(packer, ctx); // Releases packer.
+            writeAndFlushWithMagic(packer, ctx, guard); // Releases packer.
         } catch (Throwable t) {
             packer.close();
             throw t;
@@ -614,7 +626,7 @@ public class ClientInboundMessageHandler
 
         packer.packLong(configuration.idleTimeoutMillis());
 
-        InternalClusterNode localMember = clusterService.topologyService().localMember();
+        InternalClusterNode localMember = clusterService.staticLocalNode();
         packer.packUuid(localMember.id());
         packer.packString(localMember.name());
 
@@ -658,24 +670,33 @@ public class ClientInboundMessageHandler
         throw new UnsupportedAuthenticationTypeException("Unsupported authentication type: " + authnType);
     }
 
-    private void writeAndFlush(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private boolean writeAndFlush(ClientMessagePacker packer, ChannelHandlerContext ctx, ResponseWriteGuard guard) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
 
         try {
-            // writeAndFlush releases pooled buffer.
-            ctx.writeAndFlush(buf);
+            // write releases pooled buffer.
+            if (!guard.write(ctx, buf)) {
+                // Response for this request has already been sent.
+                // Example: exception after response write, catch block in processOperation tries to write an error
+                //          => duplicate response. Guard prevents this.
+                packer.close();
+                return false;
+            }
+
+            ctx.flush();
         } catch (Throwable t) {
             packer.close();
             throw t;
         }
 
         metrics.bytesSentAdd(bytes);
+        return true;
     }
 
-    private void writeAndFlushWithMagic(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private void writeAndFlushWithMagic(ClientMessagePacker packer, ChannelHandlerContext ctx, ResponseWriteGuard guard) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
-        writeAndFlush(packer, ctx);
+        writeAndFlush(packer, ctx, guard);
         metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
@@ -695,14 +716,20 @@ public class ClientInboundMessageHandler
         packer.packLong(Math.max(clockService.currentLong(), timestamp));
     }
 
-    private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
+    private void writeError(
+            long requestId,
+            int opCode,
+            Throwable err,
+            ChannelHandlerContext ctx,
+            boolean isNotification,
+            ResponseWriteGuard guard) {
         if (LOG.isDebugEnabled() && shouldLogError(err)) {
             if (isNotification) {
-                LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+                LOG.debug("Error processing client notification [connectionId={}, id={}, remoteAddress={}]",
+                        err, connectionId, requestId, ctx.channel().remoteAddress());
             } else {
-                LOG.debug("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+                LOG.debug("Error processing client request [connectionId={}, id={}, op={}, remoteAddress={}]",
+                        err, connectionId, requestId, opCode, ctx.channel().remoteAddress());
             }
         }
 
@@ -714,7 +741,10 @@ public class ClientInboundMessageHandler
             writeResponseHeader(packer, requestId, ctx, isNotification, true, NULL_HYBRID_TIMESTAMP);
             writeErrorCore(err, packer);
 
-            writeAndFlush(packer, ctx);
+            if (!writeAndFlush(packer, ctx, guard)) {
+                LOG.warn("Failed to write error [connectionId={}, id={}, op={}, remoteAddress={}]: response already sent",
+                        connectionId, requestId, opCode, ctx.channel().remoteAddress());
+            }
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
@@ -722,22 +752,10 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        int extCnt = 0;
-        boolean retriable = false;
-
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
         TransactionKilledException killedException = findException(err, TransactionKilledException.class);
-
-        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
-            extCnt = 1;
-        } else {
-            retriable = findException(err, RetriableTransactionException.class) != null;
-            if (retriable) {
-                extCnt++;
-            }
-        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -773,7 +791,18 @@ public class ClientInboundMessageHandler
         }
 
         // Extensions.
+        int extCnt = 0;
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
+            extCnt++;
+        }
+
+        var retriable = findException(err, RetriableTransactionException.class) != null;
+        if (retriable) {
+            extCnt++;
+        }
+
         if (extCnt > 0) {
+            // IMPORTANT: every extension must be a single msgpack value, so that the client can skip unknown values.
             packer.packInt(extCnt);
 
             if (retriable) {
@@ -785,9 +814,16 @@ public class ClientInboundMessageHandler
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
-                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
-                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
-                packer.packLongArray(sqlBatchException.updateCounters());
+                if (clientContext.hasFeature(SQL_UPDATE_COUNTERS_2)) {
+                    // New format: single binary value (protocol-compliant).
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS_2);
+                    packer.packLongArrayAsBinary(sqlBatchException.updateCounters());
+                } else {
+                    // Old format: array of longs (for backward compatibility with older clients).
+                    // IMPORTANT: This part must come last in the payload, it can't be skipped correctly.
+                    packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                    packer.packLongArray(sqlBatchException.updateCounters());
+                }
             } else if (delayedAckException != null) {
                 packer.packString(ErrorExtensions.DELAYED_ACK);
                 packer.packUuid(delayedAckException.txId());
@@ -825,6 +861,7 @@ public class ClientInboundMessageHandler
         long requestId = -1;
         int opCode = -1;
 
+        var guard = new ResponseWriteGuard();
         metrics.requestsActiveIncrement();
 
         try {
@@ -838,6 +875,7 @@ public class ClientInboundMessageHandler
 
             if (opCode == ClientOp.SERVER_OP_RESPONSE) {
                 processServerOpResponse(requestId, in);
+                metrics.requestsActiveDecrement();
                 return;
             }
 
@@ -847,24 +885,40 @@ public class ClientInboundMessageHandler
 
                 partitionOperationsExecutor.execute(() -> {
                     try {
-                        processOperationInternal(ctx, in, requestId0, opCode0);
+                        processOperationInternal(ctx, in, requestId0, opCode0, guard);
                     } catch (Throwable t) {
                         in.close();
 
-                        writeError(requestId0, opCode0, t, ctx, false);
+                        writeError(requestId0, opCode0, t, ctx, false, guard);
 
                         metrics.requestsFailedIncrement();
+                        metrics.requestsActiveDecrement();
                     }
                 });
             } else {
-                processOperationInternal(ctx, in, requestId, opCode);
+                processOperationInternal(ctx, in, requestId, opCode, guard);
             }
         } catch (Throwable t) {
             in.close();
 
-            writeError(requestId, opCode, t, ctx, false);
+            // If we failed to read the request ID, we cannot send a valid error response.
+            // Close the connection instead.
+            if (requestId == -1) {
+                LOG.warn("Failed to read client request, closing connection [connectionId={}, remoteAddress={}]",
+                        t, connectionId, ctx.channel().remoteAddress());
+
+                metrics.requestsFailedIncrement();
+                metrics.requestsActiveDecrement();
+
+                ctx.close();
+
+                return;
+            }
+
+            writeError(requestId, opCode, t, ctx, false, guard);
 
             metrics.requestsFailedIncrement();
+            metrics.requestsActiveDecrement();
         }
     }
 
@@ -1144,7 +1198,8 @@ public class ClientInboundMessageHandler
             ChannelHandlerContext ctx,
             ClientMessageUnpacker in,
             long requestId,
-            int opCode
+            int opCode,
+            ResponseWriteGuard guard
     ) {
         CompletableFuture<ResponseWriter> fut;
         HybridTimestampTracker tsTracker = HybridTimestampTracker.atomicTracker(null);
@@ -1161,7 +1216,7 @@ public class ClientInboundMessageHandler
             metrics.requestsActiveDecrement();
 
             if (err != null) {
-                writeError(requestId, opCode, (Throwable) err, ctx, false);
+                writeError(requestId, opCode, (Throwable) err, ctx, false, guard);
                 metrics.requestsFailedIncrement();
                 return;
             }
@@ -1179,7 +1234,7 @@ public class ClientInboundMessageHandler
 
                 out.setLong(observableTsIdx, tsTracker.getLong());
 
-                writeAndFlush(out, ctx);
+                writeAndFlush(out, ctx, guard);
 
                 metrics.requestsProcessedIncrement();
 
@@ -1189,7 +1244,7 @@ public class ClientInboundMessageHandler
                 }
             } catch (Throwable e) {
                 out.close();
-                writeError(requestId, opCode, e, ctx, false);
+                writeError(requestId, opCode, e, ctx, false, guard);
                 metrics.requestsFailedIncrement();
             }
         });
@@ -1263,9 +1318,15 @@ public class ClientInboundMessageHandler
         return null;
     }
 
-    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err, long timestamp) {
+    private void sendNotification(
+            long requestId,
+            @Nullable Consumer<ClientMessagePacker> writer,
+            @Nullable Throwable err,
+            long timestamp) {
+        var guard = new ResponseWriteGuard();
+
         if (err != null) {
-            writeError(requestId, -1, err, channelHandlerContext, true);
+            writeError(requestId, -1, err, channelHandlerContext, true, guard);
             return;
         }
 
@@ -1278,7 +1339,7 @@ public class ClientInboundMessageHandler
                 writer.accept(packer);
             }
 
-            writeAndFlush(packer, channelHandlerContext);
+            writeAndFlush(packer, channelHandlerContext, guard);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(channelHandlerContext, t);
@@ -1390,7 +1451,7 @@ public class ClientInboundMessageHandler
             var fut = new CompletableFuture<ClientMessageUnpacker>();
             serverToClientRequests.put(requestId, fut);
 
-            writeAndFlush(packer, channelHandlerContext);
+            writeAndFlush(packer, channelHandlerContext, new ResponseWriteGuard());
 
             return fut;
         } catch (Throwable t) {
@@ -1421,9 +1482,8 @@ public class ClientInboundMessageHandler
                 fut.completeExceptionally(err);
             }
         } catch (Throwable t) {
-            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id=" + requestId
-                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
-                    + ", message=" + t.getMessage() + ']', t);
+            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id={}, connectionId={}, remoteAddress={}]",
+                    t, requestId, connectionId, channelHandlerContext.channel().remoteAddress());
         }
     }
 
@@ -1499,6 +1559,11 @@ public class ClientInboundMessageHandler
                         ))
                         .build()
         );
+    }
+
+    private static boolean isAuthenticationException(Throwable t) {
+        Throwable cause = ExceptionUtils.unwrapCause(t);
+        return cause instanceof InvalidCredentialsException || cause instanceof UnsupportedAuthenticationTypeException;
     }
 
     private class ComputeConnection implements PlatformComputeConnection {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static org.apache.ignite.compute.JobTarget.anyNode;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -25,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -63,9 +63,10 @@ class ItInProcessRestartApiReferencesTest extends ClusterPerClassIntegrationTest
     }
 
     @Test
+
     void submitStaysLocalAfterRestart() {
         CompletableFuture<JobExecution<String>> executionFut = beforeRestart.compute.submitAsync(
-                anyNode(beforeRestart.clusterNodes),
+                JobTarget.anyNode(beforeRestart.clusterNodes),
                 JobDescriptor.builder(NoOpJob.class).build(),
                 null
         );

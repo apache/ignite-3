@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -83,7 +84,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void setup() {
-        this.readOnlyServiceImpl = new ReadOnlyServiceImpl();
+        this.readOnlyServiceImpl = new ReadOnlyServiceImpl(new TestMetricManager(), "test");
         RaftOptions raftOptions = new RaftOptions();
         this.msgFactory = raftOptions.getRaftMessagesFactory();
         final ReadOnlyServiceOptions opts = new ReadOnlyServiceOptions();
@@ -97,7 +98,8 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                 1,
                 false,
                 false,
-                null));
+                null
+        ));
         NodeOptions nodeOptions = new NodeOptions();
         ExecutorService executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         executors.add(executor);
@@ -108,7 +110,6 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
         Scheduler scheduler = JRaftUtils.createScheduler(nodeOptions);
         this.scheduler = scheduler;
         nodeOptions.setScheduler(scheduler);
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getGroupId()).thenReturn("test");
         Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost-8081", 0)));

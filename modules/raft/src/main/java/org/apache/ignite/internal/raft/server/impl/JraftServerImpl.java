@@ -59,6 +59,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -162,6 +163,8 @@ public class JraftServerImpl implements RaftServer {
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
+    private final MetricManager metricManager;
+
     /**
      * The constructor.
      *
@@ -178,11 +181,13 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
             GroupStoragesDestructionIntents groupStoragesDestructionIntents,
-            GroupStoragesContextResolver groupStoragesContextResolver
+            GroupStoragesContextResolver groupStoragesContextResolver,
+            MetricManager metricManager
     ) {
         this.service = service;
         this.groupStoragesContextResolver = groupStoragesContextResolver;
         this.groupStoragesDestructionIntents = groupStoragesDestructionIntents;
+        this.metricManager = metricManager;
 
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
@@ -194,7 +199,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            this.opts.setServerName(service.nodeName());
+            this.opts.setServerName(service.staticLocalNode().name());
         }
 
         /*
@@ -377,7 +382,7 @@ public class JraftServerImpl implements RaftServer {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
-                service.topologyService().localMember().name());
+                service.staticLocalNode().name());
 
         opts.getNodeManager().shutdown();
         rpcServer.shutdown();
@@ -467,7 +472,7 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             RaftGroupOptions groupOptions
     ) {
-        assert nodeId.peer().consistentId().equals(service.topologyService().localMember().name());
+        assert nodeId.peer().consistentId().equals(service.staticLocalNode().name());
 
         // fast track to check if node with the same ID is already created.
         if (nodes.containsKey(nodeId)) {
@@ -547,7 +552,8 @@ public class JraftServerImpl implements RaftServer {
                     nodeId.groupId().toString(),
                     PeerId.fromPeer(nodeId.peer()),
                     nodeOptions,
-                    rpcServer
+                    rpcServer,
+                    metricManager
             );
 
             server.start();
@@ -685,7 +691,7 @@ public class JraftServerImpl implements RaftServer {
         groupIdsForStorage.addAll(raftNodeMetaStorageIdsOnDisk());
 
         return groupIdsForStorage.stream()
-                .map(nodeIdStr -> RaftNodeId.fromNodeIdStringForStorage(nodeIdStr, service.nodeName()))
+                .map(nodeIdStr -> RaftNodeId.fromNodeIdStringForStorage(nodeIdStr, service.staticLocalNode().name()))
                 .collect(toUnmodifiableSet());
     }
 

@@ -30,7 +30,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -131,12 +130,8 @@ public class ClientComputeExecuteRequest {
             CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut,
             NotificationSender notificationSender
     ) {
-        return executionFut.handle((execution, throwable) -> {
-            if (throwable != null) {
-                notificationSender.sendNotification(null, throwable, NULL_HYBRID_TIMESTAMP);
-                return CompletableFuture.<ComputeJobDataHolder>failedFuture(throwable);
-            } else {
-                return execution.resultAsync().whenComplete((val, err) ->
+        return executionFut.thenCompose(execution ->
+                execution.resultAsync().whenComplete((val, err) ->
                         execution.stateAsync().whenComplete((state, errState) -> {
                             try {
                                 notificationSender.sendNotification(
@@ -150,9 +145,7 @@ public class ClientComputeExecuteRequest {
                             } catch (Throwable e) {
                                 LOG.error("Failed to send job result notification: " + e.getMessage(), e);
                             }
-                        }));
-            }
-        }).thenCompose(Function.identity());
+                        })));
     }
 
     static void packSubmitResult(ClientMessagePacker out, UUID jobId, ClusterNode node) {

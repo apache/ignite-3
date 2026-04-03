@@ -196,7 +196,7 @@ public class PlacementDriverManager implements IgniteComponent {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
-                        String thisNodeName = clusterService.topologyService().localMember().name();
+                        String thisNodeName = clusterService.staticLocalNode().name();
 
                         if (!placementDriverNodes.contains(thisNodeName)) {
                             return nullCompletedFuture();
@@ -284,11 +284,11 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private void onLeaderChange(InternalClusterNode leader, long term) {
         inBusyLock(busyLock, () -> {
-            String thisNodeName = clusterService.topologyService().localMember().name();
+            InternalClusterNode thisNode = clusterService.staticLocalNode();
 
-            LOG.info("Placement driver received leader changed event [leader={}, term={}, nodeName={}]", leader, term, thisNodeName);
+            LOG.info("Placement driver received leader changed event [leader={}, term={}, nodeName={}]", leader, term, thisNode.name());
 
-            if (leader.equals(clusterService.topologyService().localMember())) {
+            if (leader.id().equals(thisNode.id())) {
                 takeOverActiveActorBusy();
             } else {
                 stepDownActiveActorBusy();

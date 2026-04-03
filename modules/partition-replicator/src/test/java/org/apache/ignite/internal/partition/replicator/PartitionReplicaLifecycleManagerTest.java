@@ -89,8 +89,10 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
+import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -195,9 +197,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
-        when(topologyService.localMember())
-                .thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
+        InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0));
         when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(localNode);
         when(topologyAwareRaftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 
         lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(nullCompletedFuture());
@@ -234,7 +236,6 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         );
 
         replicaManager = spy(new ReplicaManager(
-                nodeName,
                 clusterService,
                 cmgManager,
                 groupId -> completedFuture(Assignments.EMPTY),
@@ -260,10 +261,12 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 txManager,
                 outgoingSnapshotsManager,
                 topologyService,
+                localNode,
                 catalogService,
                 failureManager,
                 executorService,
-                replicaManager
+                replicaManager,
+                mock(ClockService.class)
         ) {
             @Override
             protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
@@ -290,6 +293,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 distributionZoneManager,
                 metaStorageManager,
                 clusterService.topologyService(),
+                localNode,
                 lowWatermark,
                 failureManager,
                 executorService,
@@ -306,7 +310,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 zoneResourcesManager,
                 new NoOpMetricManager(),
                 clusterService.messagingService(),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(IndexMetasAccess.class)
         );
 
         var componentContext = new ComponentContext();

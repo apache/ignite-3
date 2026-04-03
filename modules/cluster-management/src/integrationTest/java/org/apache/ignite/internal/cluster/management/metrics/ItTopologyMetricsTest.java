@@ -46,8 +46,8 @@ public class ItTopologyMetricsTest extends ClusterPerTestIntegrationTest {
 
         assertThat(clusterTopologyMetricsSource, is(notNullValue()));
 
-        assertThat(clusterTopologyMetricsSource.localNodeName(), is(node.clusterService().nodeName()));
-        assertThat(clusterTopologyMetricsSource.localNodeId(), is(node.clusterService().topologyService().localMember().id()));
+        assertThat(clusterTopologyMetricsSource.localNodeName(), is(node.clusterService().staticLocalNode().name()));
+        assertThat(clusterTopologyMetricsSource.localNodeId(), is(node.clusterService().staticLocalNode().id()));
         assertThat(clusterTopologyMetricsSource.localNodeVersion(), is(IgniteProductVersion.CURRENT_VERSION.toString()));
     }
 

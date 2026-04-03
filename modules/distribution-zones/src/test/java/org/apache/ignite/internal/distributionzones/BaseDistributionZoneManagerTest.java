@@ -62,8 +62,10 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -133,8 +135,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(System.currentTimeMillis() - 600_000, 0));
 
         distributionZoneManager = new DistributionZoneManager(
-                nodeName,
-                () -> nodeId,
+                new ClusterNodeImpl(nodeId, nodeName, new NetworkAddress("127.0.0.1", 123)),
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,

@@ -119,7 +119,6 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 failureManager,
-                GroupInfoProvider.NO_OP,
                 raftConfiguration,
                 storageConfiguration
         );

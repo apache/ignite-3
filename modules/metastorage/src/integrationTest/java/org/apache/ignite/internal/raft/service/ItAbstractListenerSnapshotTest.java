@@ -30,8 +30,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -405,11 +403,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Returns local address.
      */
     private static String getLocalAddress() {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+        return "127.0.0.1";
     }
 
     /**
@@ -442,7 +436,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         ClusterService service = clusterService(testInfo, PORT + idx, addr);
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                service.nodeName(),
+                service.staticLocalNode().name(),
                 componentWorkDir.raftLogPath()
         );
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -456,7 +450,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         servers.add(server);
 
         server.startRaftNode(
-                new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
+                new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.staticLocalNode().name())),
                 initialMemberConf,
                 createListener(service, server, componentWorkDir.dbPath()),
                 defaults()

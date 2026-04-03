@@ -32,7 +32,6 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the {@link IgniteCompute#execute} API with different job priorities.
@@ -55,15 +54,13 @@ public class ComputeJobPriorityExample {
      */
     public static void main(String[] args) throws Exception {
 
-        DeployComputeUnit.processDeploymentUnit(args);
-
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("\nConnecting to server...");
+        System.out.println("Connecting to server...");
 
         try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
             //--------------------------------------------------------------------------------------
@@ -72,10 +69,10 @@ public class ComputeJobPriorityExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nConfiguring compute job...");
+            System.out.println("Configuring compute job...");
 
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
             JobDescriptor<Integer, String> lowPriorityJob = JobDescriptor.builder(LowPriorityJob.class)
                     .options(JobExecutionOptions.builder().priority(0).maxRetries(5).build())
@@ -98,7 +95,7 @@ public class ComputeJobPriorityExample {
                 //
                 //--------------------------------------------------------------------------------------
 
-                System.out.println("\nExecuting compute jobs for arg '" + i + "'...");
+                System.out.println("Executing compute jobs for arg '" + i + "'...");
 
                 CompletableFuture<Void> lowPriorityJobFuture = client.compute().executeAsync(jobTarget, lowPriorityJob, i)
                         .thenAccept(System.out::println);
@@ -132,7 +129,7 @@ public class ComputeJobPriorityExample {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
-            System.out.println("\nHighPriorityJob started for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("HighPriorityJob started for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             try {
                 Thread.sleep(2000);
@@ -142,7 +139,7 @@ public class ComputeJobPriorityExample {
 
             String result = "HighPriorityJob [arg=" + arg + ", res=" + arg * 100 + "]";
 
-            System.out.println("\nHighPriorityJob finished for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("HighPriorityJob finished for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(result);
         }
@@ -155,7 +152,7 @@ public class ComputeJobPriorityExample {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
-            System.out.println("\nLowPriorityJob started for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("LowPriorityJob started for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             try {
                 Thread.sleep(1000);
@@ -165,7 +162,7 @@ public class ComputeJobPriorityExample {
 
             String result = "LowPriorityJob [arg=" + arg + ", res=" + arg * 10 + "]";
 
-            System.out.println("\nLowPriorityJob finished for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
+            System.out.println("LowPriorityJob finished for arg '" + arg + "' at node '" + context.ignite().name() + "'.");
 
             return completedFuture(result);
         }

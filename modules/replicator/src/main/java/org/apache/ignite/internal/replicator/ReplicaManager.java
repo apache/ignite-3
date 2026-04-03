@@ -244,7 +244,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Constructor for a replica service.
      *
-     * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
      * @param stableAssignmentsSupplier Supplier of stable assignments.
@@ -266,7 +265,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
     public ReplicaManager(
-            String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
             Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier,
@@ -316,7 +314,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
-                IgniteThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
+                IgniteThreadFactory.create(clusterNetSvc.staticLocalNode().name(), "scheduled-idle-safe-time-sync-thread", LOG)
         );
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
@@ -639,7 +637,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            InternalClusterNode localNode = clusterNetSvc.topologyService().localMember();
+            InternalClusterNode localNode = clusterNetSvc.staticLocalNode();
 
             return startReplicaInternal(
                     replicaGrpId,
@@ -717,7 +715,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftClient -> {
                         var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
                                 replicaGrpId,
-                                clusterNetSvc.topologyService().localMember(),
+                                clusterNetSvc.staticLocalNode(),
                                 placementDriver,
                                 clockService,
                                 replicaStateManager::reserveReplica,
@@ -936,7 +934,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
-                        InternalClusterNode localMember = clusterNetSvc.topologyService().localMember();
+                        InternalClusterNode localMember = clusterNetSvc.staticLocalNode();
 
                         replicaFuture.completeExceptionally(new ReplicaStoppingException(grpId, localMember));
 
@@ -1007,9 +1005,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
         });
 
-        localNodeId = clusterNetSvc.topologyService().localMember().id();
+        localNodeId = clusterNetSvc.staticLocalNode().id();
 
-        localNodeConsistentId = clusterNetSvc.topologyService().localMember().name();
+        localNodeConsistentId = clusterNetSvc.staticLocalNode().name();
 
         replicaStateManager.start(localNodeId);
 
@@ -1088,7 +1086,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         )
                 );
             } else {
-                e = new ReplicaUnavailableException(groupId, clusterNetSvc.topologyService().localMember());
+                e = new ReplicaUnavailableException(groupId, clusterNetSvc.staticLocalNode());
             }
 
             NetworkMessage msg;

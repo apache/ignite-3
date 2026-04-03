@@ -28,6 +28,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.LogStorageAccessImpl;
@@ -63,6 +65,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
 
     private final TopologyService topologyService;
 
+    private final InternalClusterNode localNode;
+
     private final CatalogService catalogService;
 
     private final FailureProcessor failureProcessor;
@@ -70,6 +74,8 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     private final Executor partitionOperationsExecutor;
 
     private final ReplicaManager replicaManager;
+
+    private final ClockService clockService;
 
     private final RaftSnapshotsMetricsSource snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
 
@@ -83,19 +89,23 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             TxManager txManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
             Executor partitionOperationsExecutor,
-            ReplicaManager replicaManager
+            ReplicaManager replicaManager,
+            ClockService clockService
     ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
         this.txManager = txManager;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.catalogService = catalogService;
         this.failureProcessor = failureProcessor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicaManager = replicaManager;
+        this.clockService = clockService;
     }
 
     ZonePartitionResources allocateZonePartitionResources(
@@ -119,10 +129,12 @@ public class ZoneResourcesManager implements ManuallyCloseable {
                 safeTimeTracker,
                 storageIndexTracker,
                 outgoingSnapshotsManager,
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                clockService
         );
 
         var snapshotStorage = new PartitionSnapshotStorage(
+                localNode.name(),
                 new PartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,

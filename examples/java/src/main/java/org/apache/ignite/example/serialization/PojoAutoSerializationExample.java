@@ -33,7 +33,7 @@ public class PojoAutoSerializationExample {
      */
     static void runPojoAutoSerialization(IgniteClient client) {
 
-            System.out.println("\n[POJO auto] Running POJO job without custom marshallers...");
+            System.out.println("[POJO auto] Running POJO job without custom marshallers...");
 
             JobDescriptor<AutoSerializableArg, AutoSerializableResult> job = JobDescriptor.builder(PojoAutoSerializationJob.class)
                     .resultClass(AutoSerializableResult.class)   // REQUIRED

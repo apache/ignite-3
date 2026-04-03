@@ -20,6 +20,17 @@ pluginManagement {
         maven {
             url "https://plugins.gradle.org/m2/"
         }
+        mavenCentral()
+    }
+    resolutionStrategy {
+        eachPlugin {
+            // com.palantir.docker 0.37.0 is only available on Maven Central, not the Gradle Plugin Portal,
+            // so the plugin marker artifact is missing and Gradle cannot resolve it automatically.
+            // This mapping redirects the plugin ID to the actual Maven artifact.
+            if (requested.id.id == 'com.palantir.docker' || requested.id.id == 'com.palantir.docker-compose') {
+                useModule("com.palantir.gradle.docker:gradle-docker:${requested.version}")
+            }
+        }
     }
 }
 
@@ -69,6 +80,7 @@ include(':ignite-storage-rocksdb')
 include(':ignite-configuration-annotation-processor')
 include(':ignite-compute')
 include(':ignite-metrics')
+include(':ignite-metrics-api')
 include(':ignite-cluster-metrics')
 include(':ignite-metrics-exporter-otlp')
 include(':ignite-binary-tuple')
@@ -92,7 +104,6 @@ include(':ignite-security')
 include(':ignite-catalog')
 include(':ignite-catalog-compaction')
 include(":ignite-arch-test")
-include(":ignite-file-transfer")
 include(":ignite-system-view")
 include(":ignite-system-view-api")
 include(":ignite-error-code-annotation-processor")
@@ -155,6 +166,7 @@ project(":ignite-storage-rocksdb").projectDir = file('modules/storage-rocksdb')
 project(":ignite-configuration-annotation-processor").projectDir = file('modules/configuration-annotation-processor')
 project(":ignite-compute").projectDir = file('modules/compute')
 project(":ignite-metrics").projectDir = file('modules/metrics')
+project(":ignite-metrics-api").projectDir = file('modules/metrics-api')
 project(":ignite-cluster-metrics").projectDir = file('modules/cluster-metrics')
 project(":ignite-metrics-exporter-otlp").projectDir = file('modules/metrics-exporter-otlp')
 project(":ignite-binary-tuple").projectDir = file('modules/binary-tuple')
@@ -178,7 +190,6 @@ project(":ignite-security-api").projectDir = file('modules/security-api')
 project(":ignite-catalog").projectDir = file('modules/catalog')
 project(":ignite-catalog-compaction").projectDir = file('modules/catalog-compaction')
 project(":ignite-arch-test").projectDir = file('modules/arch-test')
-project(":ignite-file-transfer").projectDir = file('modules/file-transfer')
 project(":ignite-system-view").projectDir = file('modules/system-view')
 project(":ignite-system-view-api").projectDir = file('modules/system-view-api')
 project(":ignite-error-code-annotation-processor").projectDir = file('modules/error-code-annotation-processor')
@@ -236,6 +247,7 @@ dependencyResolutionManagement {
     repositories {
         maven { url 'https://plugins.gradle.org/m2/' }
         maven { url 'https://repo.maven.apache.org/maven2/' }
+        maven { url 'https://jitpack.io' }
     }
 
     versionCatalogs {

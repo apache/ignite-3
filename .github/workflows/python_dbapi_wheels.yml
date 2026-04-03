@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'modules/platforms/python/dbapi/**'
+      - 'modules/platforms/cpp/**'
       - '.github/workflows/python_dbapi_wheels.yml'
 
   workflow_dispatch:

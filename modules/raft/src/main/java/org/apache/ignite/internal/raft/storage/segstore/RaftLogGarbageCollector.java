@@ -20,28 +20,38 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.raft.storage.segstore.IndexFileManager.indexFileProperties;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.CRC_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.RESET_RECORD_MARKER;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_MARKER;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_SUFFIX_RECORD_MARKER;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayloadParser.endOfSegmentReached;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayloadParser.validateSegmentFileHeader;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.storage.segstore.GroupInfoProvider.GroupInfo;
 import org.apache.ignite.internal.raft.util.VarlenEncoder;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -49,8 +59,14 @@ import org.jetbrains.annotations.VisibleForTesting;
  * Garbage Collector for Raft log segment files.
  *
  * <p>The garbage collector performs compaction of segment files by removing truncated log entries and creating new generations
- * of segment files. This process reclaims disk space occupied by log entries that have been truncated via
- * {@link LogStorage#truncatePrefix} or {@link LogStorage#truncateSuffix} operations.
+ * of segment files. This process reclaims disk space occupied by log entries that have been truncated via {@link LogStorage#truncatePrefix}
+ * or {@link LogStorage#truncateSuffix} operations.
+ *
+ * <h2>Size tracking</h2>
+ * The GC tracks the total size of all log storage files (segment files and index files) via an {@link AtomicLong}. The counter is
+ * incremented via {@link #onLogStorageSizeIncreased(long)} before a new segment file is allocated or before an index file is written to
+ * disk, and decremented inside {@link #runCompaction} after files are deleted. The GC thread wakes up on each of these events and compacts
+ * files until the total size drops below the configured {@link #softLimitBytes soft limit}.
  *
  * <h2>Compaction Process</h2>
  * When a segment file is selected for compaction, the GC:
@@ -70,18 +86,66 @@ class RaftLogGarbageCollector {
 
     private final IndexFileManager indexFileManager;
 
-    private final GroupInfoProvider groupInfoProvider;
+    private final long softLimitBytes;
 
-    private final AtomicLong logSize = new AtomicLong();
+    private final SegmentFileCompactionStrategy strategy;
+
+    private final FailureProcessor failureProcessor;
+
+    private final AtomicLong logSizeBytes = new AtomicLong();
+
+    private final Thread gcThread;
 
     RaftLogGarbageCollector(
+            String nodeName,
             Path segmentFilesDir,
             IndexFileManager indexFileManager,
-            GroupInfoProvider groupInfoProvider
+            long softLimitBytes,
+            SegmentFileCompactionStrategy strategy,
+            FailureProcessor failureProcessor
     ) {
         this.segmentFilesDir = segmentFilesDir;
         this.indexFileManager = indexFileManager;
-        this.groupInfoProvider = groupInfoProvider;
+        this.softLimitBytes = softLimitBytes;
+        this.strategy = strategy;
+        this.failureProcessor = failureProcessor;
+
+        gcThread = new IgniteThread(nodeName, "segstore-gc", new GcTask());
+    }
+
+    void start() throws IOException {
+        initLogSizeFromDisk();
+
+        gcThread.start();
+    }
+
+    void stop() {
+        gcThread.interrupt();
+
+        try {
+            gcThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IgniteInternalException(INTERNAL_ERR, "Interrupted while waiting for the GC thread to finish.", e);
+        }
+    }
+
+    /**
+     * Notifies the GC that the log storage size is about to increase by {@code addedBytes} and wakes the GC thread if the soft limit is now
+     * exceeded. Must be called before the corresponding file is written to disk.
+     */
+    void onLogStorageSizeIncreased(long addedBytes) {
+        long logSize = logSizeBytes.addAndGet(addedBytes);
+
+        if (logSize >= softLimitBytes) {
+            LOG.info(
+                    "Log size is above the soft limit, waking up GC thread [current log size = {} bytes, soft limit = {} bytes].",
+                    logSize, softLimitBytes
+            );
+
+            LockSupport.unpark(gcThread);
+        }
     }
 
     void cleanupLeftoverFiles() throws IOException {
@@ -142,23 +206,77 @@ class RaftLogGarbageCollector {
         }
     }
 
-    // TODO: Optimize compaction of completely truncated files, see https://issues.apache.org/jira/browse/IGNITE-27964.
     @VisibleForTesting
-    void compactSegmentFile(SegmentFile segmentFile) throws IOException {
-        LOG.info("Compacting segment file [path = {}].", segmentFile.path());
+    long logSizeBytes() {
+        return logSizeBytes.get();
+    }
 
-        // Cache for avoiding excessive min/max log index computations.
-        var logStorageInfos = new Long2ObjectOpenHashMap<GroupInfo>();
+    @VisibleForTesting
+    void runCompaction(FileProperties segmentFileProperties) throws IOException {
+        Path segmentFilePath = segmentFilesDir.resolve(SegmentFile.fileName(segmentFileProperties));
 
+        LOG.info("Compacting segment file [path = {}].", segmentFilePath);
+
+        // TODO: Skip non-compactible files, see https://issues.apache.org/jira/browse/IGNITE-28417.
+        Long2ObjectMap<IndexFileMeta> segmentFileDescription
+                = indexFileManager.describeSegmentFile(segmentFileProperties.ordinal());
+
+        boolean canRemoveSegmentFile = segmentFileDescription.isEmpty();
+
+        Path indexFilePath = indexFileManager.indexFilePath(segmentFileProperties);
+
+        long logSizeDelta;
+
+        if (canRemoveSegmentFile) {
+            indexFileManager.onIndexFileRemoved(segmentFileProperties);
+
+            logSizeDelta = Files.size(segmentFilePath) + Files.size(indexFilePath);
+        } else {
+            SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
+
+            try {
+                logSizeDelta = compactSegmentFile(segmentFile, indexFilePath, segmentFileDescription);
+            } finally {
+                segmentFile.close();
+            }
+        }
+
+        // Remove the previous generation of the segment file and its index. This is safe to do, because we rely on the file system
+        // guarantees that other threads reading from the segment file will still be able to do that even if the file is deleted.
+        Files.delete(segmentFilePath);
+        Files.delete(indexFilePath);
+
+        long newLogSize = logSizeBytes.addAndGet(-logSizeDelta);
+
+        if (LOG.isInfoEnabled()) {
+            if (canRemoveSegmentFile) {
+                LOG.info(
+                        "Segment file removed (all entries are truncated) [path = {}, log size freed = {} bytes, new log size = {} bytes].",
+                        segmentFilePath, logSizeDelta, newLogSize
+                );
+            } else {
+                LOG.info(
+                        "Segment file compacted [path = {}, log size freed = {} bytes, new log size = {} bytes].",
+                        segmentFilePath, logSizeDelta, newLogSize
+                );
+            }
+        }
+    }
+
+    private long compactSegmentFile(
+            SegmentFile segmentFile,
+            Path indexFilePath,
+            Long2ObjectMap<IndexFileMeta> segmentFileDescription
+    ) throws IOException {
         ByteBuffer buffer = segmentFile.buffer();
 
         validateSegmentFileHeader(buffer, segmentFile.path());
 
-        TmpSegmentFile tmpSegmentFile = null;
+        try (var tmpSegmentFile = new TmpSegmentFile(segmentFile)) {
+            tmpSegmentFile.writeHeader();
 
-        WriteModeIndexMemTable tmpMemTable = null;
+            var tmpMemTable = new SingleThreadMemTable();
 
-        try {
             while (!endOfSegmentReached(buffer)) {
                 int originalStartOfRecordOffset = buffer.position();
 
@@ -167,11 +285,31 @@ class RaftLogGarbageCollector {
                 int payloadLength = buffer.getInt();
 
                 if (payloadLength <= 0) {
-                    // Skip special entries (such as truncation records). They can always be omitted.
-                    // To identify such entries we rely on the fact that they have nonpositive length field value.
-                    int endOfRecordOffset = buffer.position() + Long.BYTES + CRC_SIZE_BYTES;
+                    switch (payloadLength) {
+                        case TRUNCATE_SUFFIX_RECORD_MARKER:
+                            long lastLogIndexKept = buffer.getLong();
 
-                    buffer.position(endOfRecordOffset);
+                            tmpMemTable.truncateSuffix(groupId, lastLogIndexKept);
+
+                            break;
+                        case TRUNCATE_PREFIX_RECORD_MARKER:
+                            long firstLogIndexKept = buffer.getLong();
+
+                            tmpMemTable.truncatePrefix(groupId, firstLogIndexKept);
+
+                            break;
+
+                        case RESET_RECORD_MARKER:
+                            long nextLogIndex = buffer.getLong();
+
+                            tmpMemTable.reset(groupId, nextLogIndex);
+
+                            break;
+                        default:
+                            throw new IllegalStateException(String.format("Unknown record marker [payloadLength = %d].]", payloadLength));
+                    }
+
+                    buffer.position(buffer.position() + CRC_SIZE_BYTES);
 
                     continue;
                 }
@@ -180,21 +318,13 @@ class RaftLogGarbageCollector {
 
                 long index = VarlenEncoder.readLong(buffer);
 
-                GroupInfo info = logStorageInfos.computeIfAbsent(groupId, groupInfoProvider::groupInfo);
+                IndexFileMeta indexFileMeta = segmentFileDescription.get(groupId);
 
-                if (info == null || index < info.firstLogIndexInclusive() || index >= info.lastLogIndexExclusive()) {
+                if (indexFileMeta == null || !isLogIndexInRange(index, indexFileMeta)) {
                     // We found a truncated entry, it should be skipped.
                     buffer.position(endOfRecordOffset);
 
                     continue;
-                }
-
-                if (tmpSegmentFile == null) {
-                    tmpSegmentFile = new TmpSegmentFile(segmentFile);
-
-                    tmpSegmentFile.writeHeader();
-
-                    tmpMemTable = new SingleThreadMemTable();
                 }
 
                 int oldLimit = buffer.limit();
@@ -202,7 +332,6 @@ class RaftLogGarbageCollector {
                 // Set the buffer boundaries to only write the current record to the new file.
                 buffer.position(originalStartOfRecordOffset).limit(endOfRecordOffset);
 
-                @SuppressWarnings("resource")
                 long newStartOfRecordOffset = tmpSegmentFile.fileChannel().position();
 
                 writeFully(tmpSegmentFile.fileChannel(), buffer);
@@ -212,53 +341,22 @@ class RaftLogGarbageCollector {
                 tmpMemTable.appendSegmentFileOffset(groupId, index, toIntExact(newStartOfRecordOffset));
             }
 
-            Path indexFilePath = indexFileManager.indexFilePath(segmentFile.fileProperties());
+            assert tmpMemTable.numGroups() != 0
+                    : String.format("All entries have been truncated, this should not happen [path = %s].", segmentFile.path());
 
-            long logSizeDelta;
+            tmpSegmentFile.syncAndRename();
 
-            if (tmpSegmentFile != null) {
-                tmpSegmentFile.syncAndRename();
+            // Create a new index file and update the in-memory state to point to it.
+            Path newIndexFilePath = indexFileManager.onIndexFileCompacted(
+                    tmpMemTable.transitionToReadMode(),
+                    segmentFile.fileProperties(),
+                    tmpSegmentFile.fileProperties()
+            );
 
-                // Create a new index file and update the in-memory state to point to it.
-                Path newIndexFilePath = indexFileManager.onIndexFileCompacted(
-                        tmpMemTable.transitionToReadMode(),
-                        segmentFile.fileProperties(),
-                        tmpSegmentFile.fileProperties()
-                );
-
-                logSizeDelta = Files.size(segmentFile.path())
-                        + Files.size(indexFilePath)
-                        - tmpSegmentFile.size()
-                        - Files.size(newIndexFilePath);
-            } else {
-                // We got lucky and the whole file can be removed.
-                logSizeDelta = Files.size(segmentFile.path()) + Files.size(indexFilePath);
-            }
-
-            // Remove the previous generation of the segment file and its index. This is safe to do, because we rely on the file system
-            // guarantees that other threads reading from the segment file will still be able to do that even if the file is deleted.
-            Files.delete(segmentFile.path());
-            Files.delete(indexFilePath);
-
-            long newLogSize = logSize.addAndGet(-logSizeDelta);
-
-            if (LOG.isInfoEnabled()) {
-                if (tmpSegmentFile == null) {
-                    LOG.info(
-                            "Segment file removed (all entries are truncated) [path = {}, log size freed = {}, new log size = {}].",
-                            segmentFile.path(), logSizeDelta, newLogSize
-                    );
-                } else {
-                    LOG.info(
-                            "Segment file compacted [path = {}, log size freed = {}, new log size = {}].",
-                            segmentFile.path(), logSizeDelta, newLogSize
-                    );
-                }
-            }
-        } finally {
-            if (tmpSegmentFile != null) {
-                tmpSegmentFile.close();
-            }
+            return Files.size(segmentFile.path())
+                    + Files.size(indexFilePath)
+                    - tmpSegmentFile.size()
+                    - Files.size(newIndexFilePath);
         }
     }
 
@@ -268,7 +366,74 @@ class RaftLogGarbageCollector {
         }
     }
 
-    private class TmpSegmentFile implements ManuallyCloseable {
+    private static boolean isLogIndexInRange(long index, IndexFileMeta indexFileMeta) {
+        return index >= indexFileMeta.firstLogIndexInclusive() && index < indexFileMeta.lastLogIndexExclusive();
+    }
+
+    private void initLogSizeFromDisk() throws IOException {
+        Path indexFilesDir = indexFileManager.indexFilesDir();
+
+        try (Stream<Path> files = Stream.concat(Files.list(segmentFilesDir), Files.list(indexFilesDir))) {
+            long logSizeOnDisk = files
+                    .mapToLong(path -> {
+                        try {
+                            return Files.size(path);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .sum();
+
+            logSizeBytes.addAndGet(logSizeOnDisk);
+        }
+    }
+
+    private class GcTask implements Runnable {
+        @Override
+        public void run() {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    runGcCycle();
+                } catch (ClosedByInterruptException e) {
+                    return;
+                } catch (IOException e) {
+                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                }
+
+                LockSupport.park();
+            }
+        }
+
+        private void runGcCycle() throws IOException {
+            if (logSizeBytes.get() < softLimitBytes) {
+                return;
+            }
+
+            LOG.info("Starting Log Storage GC cycle.");
+
+            try (Stream<FileProperties> candidates = strategy.selectCandidates()) {
+                Iterator<FileProperties> it = candidates.iterator();
+
+                do {
+                    if (!it.hasNext()) {
+                        LOG.warn(
+                                "Log size is above the soft limit but there are no files to compact "
+                                        + "[currentLogSize = {} bytes, softLimit = {} bytes].",
+                                logSizeBytes.get(), softLimitBytes
+                        );
+
+                        return;
+                    }
+
+                    runCompaction(it.next());
+                } while (logSizeBytes.get() >= softLimitBytes);
+            }
+
+            LOG.info("Log Storage GC cycle complete.");
+        }
+    }
+
+    private class TmpSegmentFile implements AutoCloseable {
         private final String fileName;
 
         private final Path tmpFilePath;

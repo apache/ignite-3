@@ -53,7 +53,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void testShutdown(TestInfo testInfo) {
-        var addr = new NetworkAddress("localhost", 10000);
+        var addr = new NetworkAddress("127.0.0.1", 10000);
 
         ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
@@ -73,8 +73,8 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void testUpdateMetadata(TestInfo testInfo) throws Exception {
-        var addr1 = new NetworkAddress("localhost", 10000);
-        var addr2 = new NetworkAddress("localhost", 10001);
+        var addr1 = new NetworkAddress("127.0.0.1", 10000);
+        var addr2 = new NetworkAddress("127.0.0.1", 10001);
         ClusterService service1 = clusterService(testInfo, addr1.port(), new StaticNodeFinder(List.of(addr1, addr2)));
         ClusterService service2 = clusterService(testInfo, addr2.port(), new StaticNodeFinder(List.of(addr1, addr2)));
         assertThat(service1.startAsync(new ComponentContext()), willCompleteSuccessfully());

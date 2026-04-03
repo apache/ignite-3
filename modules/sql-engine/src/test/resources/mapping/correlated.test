@@ -280,12 +280,13 @@ Fragment#3
     Sender
         distribution: single
         targetFragmentId: 2
-        est: (rows=100008)
+        est: (rows=1)
       TableScan
           table: PUBLIC.T_N1
+          predicate: =(MOD(CAST(ID):BIGINT NOT NULL, 10), 0)
           fieldNames: [C1, ID0]
           projection: [C1, CAST(ID):BIGINT NOT NULL]
-          est: (rows=100008)
+          est: (rows=1)
 ---
 
 N0
