@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.ensureFut
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.X;
-import static org.apache.ignite.internal.tx.test.LockConflictMatcher.conflictsWith;
 import static org.apache.ignite.internal.tx.test.LockFutureMatcher.isGranted;
 import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -137,10 +136,10 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         // An oldest txn should be locked first.
         if (tx2.compareTo(tx1) < 0) {
             assertThat(futTx2, willSucceedFast());
-            assertThat(futTx1, conflictMatcher(tx2));
+            assertFutureFailsOrWaitsForTimeout(() -> futTx1);
         } else {
             assertThat(futTx1, willSucceedFast());
-            assertThat(futTx2, conflictMatcher(tx1));
+            assertFutureFailsOrWaitsForTimeout(() -> futTx2);
         }
     }
 

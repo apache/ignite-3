@@ -23,43 +23,19 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.tx.test.LockConflictMatcher.conflictsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.impl.ReversedWaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.hamcrest.Matcher;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for WOUND-WAIT deadlock prevention policy.
- * TODO delete
+ * Test for reversed WAIT_DIE deadlock prevention policy.
  */
-@Disabled
-public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
-    private long counter;
-
+public class ReversedWaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
     protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
         return conflictsWith(txId);
-    }
-
-    @BeforeEach
-    public void before() {
-        counter = 0;
-    }
-
-    @Override
-    protected UUID beginTx() {
-        return beginTx(TxPriority.NORMAL);
-    }
-
-    @Override
-    protected UUID beginTx(TxPriority priority) {
-        counter++;
-        return TransactionIds.transactionId(Long.MAX_VALUE - counter, 0, 1, priority);
     }
 
     @Override
@@ -67,7 +43,6 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
         return new ReversedWaitDieDeadlockPreventionPolicy();
     }
 
-    // TODO refactor to other tests
     @Test
     public void youngLowTxShouldWaitForOldNormalTx() {
         var oldNormalTx = beginTx(TxPriority.NORMAL);
@@ -94,5 +69,11 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
         assertThat(xlock(tx1, key1), willSucceedFast());
 
         assertThat(xlock(tx2, key1), willThrow(LockException.class));
+    }
+
+    @Override
+    @Test
+    public void testNonFair() {
+        super.testNonFair();
     }
 }

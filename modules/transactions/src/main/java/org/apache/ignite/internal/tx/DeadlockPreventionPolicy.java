@@ -56,7 +56,7 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Invoke fail action on the owner.
+     * Invokes fail action on the owner.
      *
      * @param owner The owner.
      */
@@ -65,19 +65,19 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Test if waiter is allowed to wait for owner.
+     * Tests if waiter is allowed to wait for owner.
      *
      * @param waiter The waiter.
      * @param owner The owner.
      *
-     * @return Waiter to fail or null if waiting is allowed.
+     * @return Waiter to fail or {@code null} if waiting is allowed.
      */
     default @Nullable Waiter allowWait(Waiter waiter, Waiter owner) {
         return null;
-    };
+    }
 
     /**
-     * Return the order, in which the first conflicting waiter is searched.
+     * Returns the order, in which the first conflicting waiter is searched.
      *
      * @return If {@code true}, searches for older first.
      */

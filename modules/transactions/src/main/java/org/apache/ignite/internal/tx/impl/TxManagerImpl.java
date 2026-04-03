@@ -1263,7 +1263,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
         transactionInflights.markReadOnlyTxFinished(txId);
     }
 
-    private void handleTxKillMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+    private void handleTxKillMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) { // NOPMD
         if (!(message instanceof TxKillMessage)) {
             return;
         }
@@ -1273,8 +1273,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
     }
 
     private void handleReplicaAsyncResponse(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-        // TODO second condition can be removed
-        if (!(message instanceof ReplicaResponse) || correlationId != null) {
+        if (!(message instanceof ReplicaResponse)) {
             return;
         }
 

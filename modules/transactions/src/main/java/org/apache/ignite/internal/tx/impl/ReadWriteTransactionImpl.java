@@ -25,8 +25,6 @@ import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -40,8 +38,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
@@ -56,8 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
-    private static final IgniteLogger LOG = Loggers.forClass(ReadWriteTransactionImpl.class);
-
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ZonePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ZonePartitionId.class, "commitPart");
@@ -252,8 +246,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean isComplete,
             @Nullable Throwable finishReason
     ) {
-        // LOG.info("DBG: finishInternal " + id() + ", commit=" + commit + ", killed=" + !isComplete);
-
         enlistPartitionLock.writeLock().lock();
 
         try {

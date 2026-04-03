@@ -17,18 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.tx.impl.WoundWaitDeadlockPreventionPolicy;
 import org.hamcrest.Matcher;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Test for {@link WoundWaitDeadlockPreventionPolicy} with no-op fail action.
@@ -47,38 +41,5 @@ public class WoundWaitDeadlockPreventionNoOpFailActionTest extends AbstractDeadl
                 // No-op action causes wound wait to wait on conflict.
             }
         };
-    }
-
-    @Test
-    @Disabled
-    public void testLockOrderAfterRelease2() {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-        var tx3 = beginTx();
-        var tx4 = beginTx();
-
-        var k = lockKey("test");
-
-        assertThat(xlock(tx1, k), willSucceedFast());
-
-        CompletableFuture<?> futTx2 = slock(tx2, k);
-        assertFalse(futTx2.isDone());
-
-        CompletableFuture<?> futTx3 = xlock(tx3, k);
-        assertFalse(futTx3.isDone());
-
-        CompletableFuture<?> futTx4 = slock(tx4, k);
-        assertFalse(futTx4.isDone());
-
-        commitTx(tx1);
-
-        assertThat(futTx2, willSucceedFast());
-        assertThat(futTx4, willSucceedFast());
-        assertFalse(futTx3.isDone());
-
-        commitTx(tx4);
-        commitTx(tx2);
-
-        assertThat(futTx3, willSucceedFast());
     }
 }

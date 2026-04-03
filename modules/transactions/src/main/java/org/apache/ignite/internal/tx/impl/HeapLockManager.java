@@ -919,7 +919,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             assert lockMode != null : "Lock mode is null";
 
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
-            List<Runnable> runnables; // Called after exiting the waiters monitor.
+            List<Runnable> notifications; // Called after exiting the waiters monitor.
 
             synchronized (waiters) {
                 if (!isUsed()) {
@@ -949,12 +949,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     }
                 }
 
-                runnables = tryAcquireInternal(waiter, prev == null, false);
+                notifications = tryAcquireInternal(waiter, prev == null, false);
             }
 
             // Callback outside the monitor.
-            for (Runnable runnable1 : runnables) {
-                runnable1.run();
+            for (Runnable r : notifications) {
+                r.run();
             }
 
             return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
@@ -962,9 +962,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         private void failWaiter(WaiterImpl waiter, List<Runnable> notifications, Exception exception) {
             if (!waiter.locked()) {
-                waiters.remove(waiter.txId()); // TODO causes concurrentmodificationexception.
+                waiters.remove(waiter.txId());
             } else if (waiter.hasLockIntent()) {
-                waiter.refuseIntent(); // Upgrade attempt has notifications, restore old lock.
+                waiter.refuseIntent(); // Reset lock intention.
             }
             waiter.fail(exception);
             notifications.add(waiter::notifyLocked);
@@ -988,7 +988,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (!notified[0]) {
                     // Notify once on first found conflict.
                     notified[0] = true;
-                    if (notifyListeners(waiter.txId(), owner.txId())) {
+                    if (notifyListeners(waiter.txId())) {
                         // If there is an abandoned owner, fail waiter. TODO ticket
                         failWaiter(waiter, notifications, createLockException(waiter, owner, true));
 
@@ -1183,7 +1183,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         /**
-         * Unlock compatible waiters. TODO split waiters and owners.
+         * Unlock compatible waiters.
          *
          * @return List of waiters to notify.
          */
@@ -1194,10 +1194,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             ArrayList<Runnable> toNotify = new ArrayList<>();
 
-            // TODO avoid copy.
+            // Current implementation involves copying and quadratic iteration complexity.
+            // Can try to avoid it by splitting waiters and owners in two separate collections.
+            // TODO IGNITE-23028
             Collection<WaiterImpl> values = new ArrayList<>(waiters.values());
-
-            // TODO quadratic complexity !!!
 
             // Try to lock anything that possible.
             for (WaiterImpl tmp : values) {
@@ -1221,10 +1221,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             // Re-test waiters to handle possible order violations. After previous step new owners can appear which allow waiting.
             for (WaiterImpl tmp : values) {
                 if (!tmp.hasLockIntent()) {
-                    continue; // Ignore waiters which become owners.
+                    continue; // Ignore waiters which become owners on previous iteration.
                 }
-                List<Runnable> runnables = tryAcquireInternal(tmp, false, true);
-                toNotify.addAll(runnables);
+                List<Runnable> notifications = tryAcquireInternal(tmp, false, true);
+                toNotify.addAll(notifications);
             }
 
             return toNotify;
@@ -1271,10 +1271,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * Notifies about the lock conflict found between transactions.
          *
          * @param waiter Transaction which tries to acquire the lock.
-         * @param owner TODO
          * @return True if the conflict connected with an abandoned transaction, false in the other case.
          */
-        private boolean notifyListeners(UUID waiter, UUID owner) {
+        private boolean notifyListeners(UUID waiter) {
             CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(waiter, allLockHolderTxs()));
             // No async handling is expected.
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153

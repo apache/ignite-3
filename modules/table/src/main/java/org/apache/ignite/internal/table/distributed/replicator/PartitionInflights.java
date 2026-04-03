@@ -92,8 +92,6 @@ public class PartitionInflights {
                 return null;
             }
 
-            // LOG.info("DBG: finishFuture " + txId + " " + ctx.inflights);
-
             if (ctx.finishFut == null) {
                 ctx.finishFut = ctx.inflights.get() == 0 ? nullCompletedFuture() : new CompletableFuture<>();
             }

@@ -136,7 +136,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             if (tmp == curOps) {
                 throw new AssertionError("Test doesn't make progress");
             }
-            log.info("Running... ops={} restarts={} fails={} readOps={} readFails={}", tmp, restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
+            log.info("Running... ops={} restarts={} fails={} readOps={} readFails={}",
+                    tmp, restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
             curOps = tmp;
 
             if (firstErr.get() != null) {

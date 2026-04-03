@@ -206,6 +206,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
@@ -347,11 +348,11 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     private final ReplicaRequestHandlers requestHandlers;
 
     /**
-     * This lock guards against concurrent pending lock release on await cleanup path and lock acquisition.
+     * Guards against concurrent pending lock release on await cleanup path and lock acquisition during transactional operation.
      * A situation is possible then a table operation acquires large number of locks and release attempt
-     * is done in the middle of it. Some locks are released in this situation.
+     * is done in the middle of it. Some locks are not released in this situation.
      */
-    private final Map<UUID, Void> releaseLocksGuard = new ConcurrentHashMap<>(CONCURRENCY);
+    private final Map<UUID, Void> releaseLocksGuard = new ConcurrentHashMap<>(Runtime.getRuntime().availableProcessors());
 
     /**
      * The constructor.
@@ -1538,12 +1539,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        //LOG.info("DBG: awaitCleanupReadyFutures " + request.txId() + " " + request.groupId().asReplicationGroupId().toString());
-
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
-                    // LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
-
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
                     }
@@ -2124,8 +2121,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 });
             }
             case RW_UPSERT_ALL: {
-                // LOG.info("DBG: RW_UPSERT_ALL 1 " + txId);
-
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
                 BinaryTuple[] pks = new BinaryTuple[searchRows.size()];
 
@@ -2192,8 +2187,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 int uniqueKeysCountFinal = uniqueKeysCount;
 
                 return allOf(rowIdFuts).thenCompose(ignore -> {
-                    // LOG.info("DBG: RW_UPSERT_ALL 2 " + txId);
-
                     Map<UUID, TimedBinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
                     List<RowId> rows = new ArrayList<>();
 
@@ -2233,8 +2226,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                                     )
                             )
                             .thenApply(res -> {
-                                // LOG.info("DBG: RW_UPSERT_ALL 3 " + txId);
-
                                 metrics.onWrite(uniqueKeysCountFinal);
 
                                 // Release short term locks.
