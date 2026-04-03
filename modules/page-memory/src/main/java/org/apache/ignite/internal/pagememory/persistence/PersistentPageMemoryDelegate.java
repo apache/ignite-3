@@ -70,9 +70,7 @@ class PersistentPageMemoryDelegate implements PartitionPageMemory {
 
     @Override
     public boolean freePage(int groupId, long pageId) {
-        assert false : "Free page should be never called directly when persistence is enabled.";
-
-        throw new UnsupportedOperationException("freePage");
+        throw new UnsupportedOperationException("Free page should be never called directly when persistence is enabled.");
     }
 
     @Override
