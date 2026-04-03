@@ -201,10 +201,6 @@ public class DirectTxUtils {
             HybridTimestampTracker observableTimestamp
     ) {
         ClientMessageUnpacker in = payloadChannel.in();
-
-        // System.out.println(in.hexDump());
-
-        // TODO: Likely a race condition, but it does not explain corrupt data?
         if (ctx.firstReqFut != null) {
             assert tx == null;
 
@@ -217,8 +213,7 @@ public class DirectTxUtils {
                     new ClientTransaction(payloadChannel.clientChannel(), ch, id, ctx.readOnly, txId, ctx.pm, coordId, observableTimestamp,
                             timeout);
 
-            boolean completed = ctx.firstReqFut.complete(startedTx);
-            assert completed : "Transaction future was already completed by another thread";
+            ctx.firstReqFut.complete(startedTx);
         } else if (ctx.enlistmentToken != null) { // Use enlistment meta only for remote transactions.
             assert tx != null;
             assert ctx.pm != null;

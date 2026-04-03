@@ -55,6 +55,7 @@ public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
 
         Object decoded = super.decode(ctx, in);
 
+        // Root cause: Netty calls discardSomeReadBytes sometimes and this messes up the buffers that other threads hold.
         in.discardReadBytes();
 
         return decoded;
