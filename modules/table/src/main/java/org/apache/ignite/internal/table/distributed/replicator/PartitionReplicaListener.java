@@ -1448,9 +1448,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return {@code true} if index row matches the binary row, {@code false} otherwise.
      */
     private static boolean indexRowMatches(IndexRow indexRow, BinaryRow binaryRow, TableSchemaAwareIndexStorage schemaAwareIndexStorage) {
-        BinaryTuple actualIndexRow = schemaAwareIndexStorage.indexRowResolver().extractColumns(binaryRow);
-
-        return indexRow.indexColumns().byteBuffer().equals(actualIndexRow.byteBuffer());
+        return schemaAwareIndexStorage.indexRowResolver().columnsMatch(binaryRow, indexRow.indexColumns());
     }
 
     private CompletableFuture<Void> continueIndexLookup(
