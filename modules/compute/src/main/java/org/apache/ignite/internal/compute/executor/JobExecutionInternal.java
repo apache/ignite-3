@@ -80,8 +80,9 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     /**
      * Cancel job execution.
      *
-     * <p>First, cancels operations registered on the job's cancellation token (e.g., SQL queries).
-     * Then, interrupts the worker thread as a fallback for jobs that don't use the token.
+     * <p>Initiates cancellation of operations registered on the job's cancellation token (e.g., SQL queries)
+     * and interrupts the worker thread as a fallback for jobs that don't use the token. Token cancellation
+     * is asynchronous and may complete after this method returns.
      *
      * @return {@code true} if job was successfully cancelled.
      */

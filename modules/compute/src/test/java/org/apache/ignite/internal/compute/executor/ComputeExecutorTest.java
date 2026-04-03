@@ -464,6 +464,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 execution::state,
                 jobStateWithStatusAndCreateTimeStartTime(COMPLETED, executingState.createTime(), executingState.startTime())
         );
+
+        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalResult(h, null, null)), willBe(42));
     }
 
     /** Async job that uses cancellationToken() to react to cancellation and complete the future. */
