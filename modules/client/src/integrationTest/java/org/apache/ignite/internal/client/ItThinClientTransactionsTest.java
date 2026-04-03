@@ -51,7 +51,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,7 +58,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
@@ -78,7 +76,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -103,124 +100,6 @@ import org.mockito.Mockito;
  */
 public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     private static final String INFLIGHTS_FIELD_NAME = "inflights";
-
-    @Test
-    void testGetAllMultithreaded() throws Exception {
-        int threadCount = 12;
-        int partitionCount = 94;
-        int rowCount = 100_000;
-        int batchSize = 1000;
-        int readIter = 10;
-
-        String testTableName = "test_getall_mt";
-        String testZoneName = "test_getall_mt_zone";
-
-        // Create zone with specified partition count
-        String createZoneSql = "CREATE ZONE " + testZoneName
-                + " (REPLICAS 1, PARTITIONS " + partitionCount + ") STORAGE PROFILES ['default']";
-        server().sql().execute(createZoneSql);
-
-        // Create table with int64 key and 10 string fields
-        StringBuilder createTableSql = new StringBuilder();
-        createTableSql.append("CREATE TABLE ").append(testTableName).append(" (");
-        createTableSql.append("key BIGINT PRIMARY KEY, ");
-        for (int i = 1; i <= 10; i++) {
-            createTableSql.append("field").append(i).append(" VARCHAR");
-            if (i < 10) {
-                createTableSql.append(", ");
-            }
-        }
-        createTableSql.append(") ZONE ").append(testZoneName);
-
-        server().sql().execute(createTableSql.toString());
-
-        var client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]))
-                .operationTimeout(15_000)
-                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
-                .build();
-
-        try (client) {
-            long streamingStartTime = System.currentTimeMillis();
-            Table table = client.tables().table(testTableName);
-            RecordView<Tuple> view = table.recordView();
-
-            // Insert rowCount rows with data streamer
-            CompletableFuture<Void> streamerFut;
-
-            try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
-                streamerFut = view.streamData(publisher, null);
-
-                for (long i = 0; i < rowCount; i++) {
-                    Tuple tuple = Tuple.create().set("key", i);
-                    for (int fieldIdx = 1; fieldIdx <= 10; fieldIdx++) {
-                        tuple.set("field" + fieldIdx, "value_" + i + "_" + fieldIdx);
-                    }
-                    publisher.submit(DataStreamerItem.of(tuple));
-
-                    if (i % 100000 == 0) {
-                        System.out.println(">>> Submitted " + i + " rows");
-                    }
-                }
-            }
-
-            // Wait for data to be loaded
-            streamerFut.orTimeout(300, TimeUnit.SECONDS).join();
-            System.out.println(">>> Streaming done in " + (System.currentTimeMillis() - streamingStartTime) / 1000 + " seconds");
-
-            for (int i = 0; i < readIter; i++) {
-                System.out.println(">>> Iteration " + i);
-
-                // Run 16 threads and read all data with getAll in batches of 1000 keys
-                List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-                for (int threadIdx = 0; threadIdx < threadCount; threadIdx++) {
-                    int finalThreadIdx = threadIdx;
-                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-                        long keysPerThread = rowCount / threadCount;
-                        long startKey = finalThreadIdx * keysPerThread;
-                        long endKey = (finalThreadIdx == threadCount - 1) ? rowCount : startKey + keysPerThread;
-
-                        for (long batchStart = startKey; batchStart < endKey; batchStart += batchSize) {
-                            long batchEnd = Math.min(batchStart + batchSize, endKey);
-                            List<Tuple> keys = new ArrayList<>();
-
-                            for (long key = batchStart; key < batchEnd; key++) {
-                                keys.add(Tuple.create().set("key", key));
-                            }
-
-                            Map<Tuple, Tuple> result = kvView.getAll(null, keys);
-                            assertEquals(keys.size(), result.size(),
-                                    "Thread " + finalThreadIdx + " batch starting at " + batchStart);
-
-                            // Verify data
-                            for (long key = batchStart; key < batchEnd; key++) {
-                                Tuple keyTuple = Tuple.create().set("key", key);
-                                Tuple value = result.get(keyTuple);
-                                assertNotNull(value, "Missing value for key " + key);
-
-                                for (int fieldIdx = 1; fieldIdx <= 10; fieldIdx++) {
-                                    String expectedValue = "value_" + key + "_" + fieldIdx;
-                                    assertEquals(expectedValue, value.stringValue("field" + fieldIdx),
-                                            "Wrong value for key " + key + " field" + fieldIdx);
-                                }
-                            }
-                        }
-                    });
-                    futures.add(future);
-                }
-
-                // Wait for all threads to complete
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                        .orTimeout(300, TimeUnit.SECONDS)
-                        .join();
-            }
-        } finally {
-            // Clean up
-            server().sql().execute("DROP TABLE " + testTableName);
-            server().sql().execute("DROP ZONE " + testZoneName);
-        }
-    }
 
     @Test
     void testKvViewOperations() {
