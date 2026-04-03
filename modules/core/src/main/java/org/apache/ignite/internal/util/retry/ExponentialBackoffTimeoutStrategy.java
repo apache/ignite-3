@@ -23,17 +23,19 @@ import java.util.concurrent.ThreadLocalRandom;
  * A {@link TimeoutStrategy} that increases retry timeouts exponentially on each attempt.
  *
  * <p>Each call to {@link #next(int)} multiplies the current timeout by {@code backoffCoefficient},
- * capping the result at {@link #maxTimeout()}. Optionally, random jitter can be applied to spread
+ * capping the result at {@link #maxTimeout}. Optionally, random jitter can be applied to spread
  * retry attempts across time and avoid thundering herd problems under high concurrency.
  *
  * <p>When jitter is enabled, the returned timeout is randomized within the range
- * {@code [raw / 2, raw * 1.5]}, then capped at {@link #maxTimeout()}.
+ * {@code [raw / 2, raw * 1.5]}, then capped at {@link #maxTimeout}.
  *
  * <p>This class is stateless and thread-safe. A single instance can be shared across
  * multiple retry contexts.
  */
 public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
-    /** Default backoff coefficient applied on each retry step. Doubles the timeout per attempt. */
+    /**
+     * Default backoff coefficient applied on each retry step. Doubles the timeout per attempt.
+     */
     private static final double DEFAULT_BACKOFF_COEFFICIENT = 2.0;
 
     /**
@@ -57,16 +59,17 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /**
      * Creates a strategy with default max timeout and backoff coefficient, and no jitter.
      *
-     * @see TimeoutStrategy#DEFAULT_TIMEOUT_MS_MAX
+     * @see TimeoutStrategy#DEFAULT_RETRY_TIMEOUT_MS_MAX
+     * @see #DEFAULT_BACKOFF_COEFFICIENT
      */
     public ExponentialBackoffTimeoutStrategy() {
-        this(DEFAULT_TIMEOUT_MS_MAX, DEFAULT_BACKOFF_COEFFICIENT);
+        this(DEFAULT_RETRY_TIMEOUT_MS_MAX, DEFAULT_BACKOFF_COEFFICIENT);
     }
 
     /**
      * Creates a strategy with the given max timeout and backoff coefficient, and no jitter.
      *
-     * @param maxTimeout         maximum timeout this strategy may produce, in milliseconds.
+     * @param maxTimeout maximum timeout this strategy may produce, in milliseconds.
      * @param backoffCoefficient multiplier applied to the current timeout on each step.
      *                           Must be greater than {@code 1.0}.
      */
@@ -80,10 +83,10 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /**
      * Creates a strategy with the given max timeout, backoff coefficient, and jitter setting.
      *
-     * @param maxTimeout         maximum timeout this strategy may produce, in milliseconds.
+     * @param maxTimeout maximum timeout this strategy may produce, in milliseconds.
      * @param backoffCoefficient multiplier applied to the current timeout on each step.
      *                           Must be greater than {@code 1.0}.
-     * @param jitter             if {@code true}, random jitter is applied to each computed timeout.
+     * @param jitter if {@code true}, random jitter is applied to each computed timeout.
      */
     public ExponentialBackoffTimeoutStrategy(
             int maxTimeout,
@@ -98,22 +101,16 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /**
      * Computes the next retry timeout by multiplying {@code currentTimeout} by
      * {@link #backoffCoefficient}, then capping at {@link #maxTimeout}.
-     * If jitter is enabled, the result is further randomized via {@link #applyJitter(int)}.
+     * If jitter is enabled, the result is further randomized.
      *
      * @param currentTimeout current retry timeout in milliseconds.
      * @return next retry timeout in milliseconds, capped at {@link #maxTimeout}.
      */
     @Override
     public int next(int currentTimeout) {
-        int raw = (int) Math.min((currentTimeout * backoffCoefficient), maxTimeout);
+        int jitteredTimeout = jitter ? applyJitter(currentTimeout) : currentTimeout;
 
-        return jitter ? applyJitter(raw) : raw;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int maxTimeout() {
-        return maxTimeout;
+        return (int) Math.min((jitteredTimeout * backoffCoefficient), maxTimeout);
     }
 
     /**

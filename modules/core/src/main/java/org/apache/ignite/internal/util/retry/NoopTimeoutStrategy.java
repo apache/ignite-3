@@ -37,12 +37,4 @@ public class NoopTimeoutStrategy implements TimeoutStrategy {
     public int next(int currentTimeout) {
         return currentTimeout;
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int maxTimeout() {
-        return DEFAULT_TIMEOUT_MS_MAX;
-    }
 }

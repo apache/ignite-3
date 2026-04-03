@@ -93,21 +93,37 @@ public class ExponentialBackoffTimeoutStrategyTest {
 
     /**
      * Verifies that when jitter is enabled, the returned timeout falls within the
-     * expected randomized range {@code [initialTimeout, initialTimeout * coefficient^2)}.
+     * expected randomized range {@code [raw / 2, raw * 1.5]}, capped at {@link #MAX_TIMEOUT}.
      *
      * <p>A separate strategy instance with jitter enabled is created for this test.
-     * The lower bound confirms the jitter does not produce values below the initial
-     * timeout; the upper bound confirms it does not jump more than two coefficient
-     * steps in a single call.
      */
     @Test
     void testJitterApplying() {
         timeoutStrategy = new ExponentialBackoffTimeoutStrategy(MAX_TIMEOUT, BACKOFF_COEFFICIENT, true);
 
-        int timeout = timeoutStrategy.next(INITIAL_TIMEOUT);
-        assertTrue(
-                INITIAL_TIMEOUT <= timeout && timeout < INITIAL_TIMEOUT * BACKOFF_COEFFICIENT * BACKOFF_COEFFICIENT,
-                "Timeout is out of range: " + timeout
-        );
+        for (int i = 0; i < 100; i++) {
+            int timeout = timeoutStrategy.next(INITIAL_TIMEOUT);
+            int raw = (int) (INITIAL_TIMEOUT * BACKOFF_COEFFICIENT);
+            int lo = raw / 2;
+            int hi = raw + lo;
+
+            assertTrue(
+                    lo <= timeout && timeout <= Math.min(hi, MAX_TIMEOUT),
+                    "Timeout is out of range: " + timeout + " (expected [" + lo + ", " + Math.min(hi, MAX_TIMEOUT) + "])"
+            );
+        }
+    }
+
+    /**
+     * Verifies that when jitter is enabled, the returned timeout does not exceed
+     * the maximum timeout set for the strategy.
+     */
+    @Test
+    void testJitterDoesntCauseMaxTimeoutExceeded() {
+        timeoutStrategy = new ExponentialBackoffTimeoutStrategy(MAX_TIMEOUT, BACKOFF_COEFFICIENT, true);
+
+        int timeout = MAX_TIMEOUT;
+        timeout = timeoutStrategy.next(timeout);
+        assertEquals(MAX_TIMEOUT, timeout);
     }
 }

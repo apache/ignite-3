@@ -19,6 +19,8 @@ package org.apache.ignite.internal.util.retry;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.retry.TimeoutStrategy.DEFAULT_RETRY_INITIAL_TIMEOUT_MS;
+import static org.apache.ignite.internal.util.retry.TimeoutStrategy.DEFAULT_RETRY_TIMEOUT_MS_MAX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -80,19 +82,19 @@ public class KeyBasedRetryContextTest {
     private KeyBasedRetryContext retryContext;
 
     /**
-     * Creates a fresh {@link KeyBasedRetryContext} with {@link #INITIAL_TIMEOUT} and
+     * Creates a fresh {@link KeyBasedRetryContext} with
      * a {@link TestProgressiveTimeoutStrategy} before each test.
      */
     @BeforeEach
     void setUp() {
-        retryContext = new KeyBasedRetryContext(INITIAL_TIMEOUT, new TestProgressiveTimeoutStrategy());
+        retryContext = new KeyBasedRetryContext(new TestProgressiveTimeoutStrategy());
     }
 
     /**
      * Verifies that {@link KeyBasedRetryContext#getState(String)} returns an empty
      * {@link java.util.Optional} for an untracked key, and that after the first call
      * to {@link KeyBasedRetryContext#updateAndGetState(String)}, the state is present
-     * with {@link #INITIAL_TIMEOUT} and attempt count {@code 1}.
+     * with {@link TimeoutStrategy#DEFAULT_RETRY_INITIAL_TIMEOUT_MS} and attempt count {@code 1}.
      */
     @Test
     void testGettingState() {
@@ -104,7 +106,7 @@ public class KeyBasedRetryContextTest {
 
         TimeoutState state = retryContext.getState(KEY).get();
 
-        assertEquals(INITIAL_TIMEOUT, state.getTimeout());
+        assertEquals(DEFAULT_RETRY_INITIAL_TIMEOUT_MS, state.getTimeout());
         assertEquals(1, state.getAttempt());
     }
 
@@ -114,7 +116,7 @@ public class KeyBasedRetryContextTest {
      * the timeout advances correctly after multiple calls for the same key.
      *
      * <p>After three updates, the expected timeout is
-     * {@code INITIAL_TIMEOUT * MULTIPLYING_COEFFICIENT^2} with attempt count {@code 3}.
+     * {@code DEFAULT_RETRY_INITIAL_TIMEOUT_MS * MULTIPLYING_COEFFICIENT^2} with attempt count {@code 3}.
      */
     @Test
     void testUpdatingAndGettingState() {
@@ -126,7 +128,7 @@ public class KeyBasedRetryContextTest {
 
         assertSame(returnedState, observedState);
 
-        checkRetryContextState(KEY, INITIAL_TIMEOUT * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
+        checkRetryContextState(KEY, DEFAULT_RETRY_INITIAL_TIMEOUT_MS * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
     }
 
     /**
@@ -144,8 +146,8 @@ public class KeyBasedRetryContextTest {
 
         retryContext.updateAndGetState(OTHER_KEY);
 
-        checkRetryContextState(KEY, INITIAL_TIMEOUT * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
-        checkRetryContextState(OTHER_KEY, INITIAL_TIMEOUT, 1);
+        checkRetryContextState(KEY, DEFAULT_RETRY_INITIAL_TIMEOUT_MS * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
+        checkRetryContextState(OTHER_KEY, DEFAULT_RETRY_INITIAL_TIMEOUT_MS, 1);
     }
 
     /**
@@ -181,13 +183,13 @@ public class KeyBasedRetryContextTest {
         retryContext.resetState(KEY);
 
         assertFalse(retryContext.getState(KEY).isPresent());
-        checkRetryContextState(OTHER_KEY, INITIAL_TIMEOUT, 1);
+        checkRetryContextState(OTHER_KEY, DEFAULT_RETRY_INITIAL_TIMEOUT_MS, 1);
     }
 
     /**
      * Verifies that when the registry is at capacity, a new key passed to
      * {@link KeyBasedRetryContext#updateAndGetState(String)} receives the fallback
-     * {@link TimeoutState} with {@link #MAX_TIMEOUT} and attempt {@code -1}.
+     * {@link TimeoutState} with {@link TimeoutStrategy#DEFAULT_RETRY_TIMEOUT_MS_MAX} and attempt {@code -1}.
      */
     @Test
     void testFallbackWhenRegistryIsFull() {
@@ -199,7 +201,7 @@ public class KeyBasedRetryContextTest {
         // New key should get fallback
         TimeoutState state = retryContext.updateAndGetState("new-key-beyond-limit");
 
-        assertEquals(MAX_TIMEOUT, state.getTimeout());
+        assertEquals(DEFAULT_RETRY_TIMEOUT_MS_MAX, state.getTimeout());
         assertEquals(-1, state.getAttempt());
     }
 
@@ -223,12 +225,12 @@ public class KeyBasedRetryContextTest {
         retryContext.updateAndGetState(KEY);
         retryContext.updateAndGetState(KEY);
 
-        checkRetryContextState(KEY, INITIAL_TIMEOUT * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
+        checkRetryContextState(KEY, DEFAULT_RETRY_INITIAL_TIMEOUT_MS * MULTIPLYING_COEFFICIENT * MULTIPLYING_COEFFICIENT, 3);
     }
 
     /**
      * Verifies that {@link KeyBasedRetryContext#getState(String)} returns the fallback
-     * {@link TimeoutState} (with {@link #MAX_TIMEOUT} and attempt {@code -1}) for a key
+     * {@link TimeoutState} (with {@link TimeoutStrategy#DEFAULT_RETRY_TIMEOUT_MS_MAX} and attempt {@code -1}) for a key
      * that is not tracked when the registry is full.
      */
     @Test
@@ -240,7 +242,7 @@ public class KeyBasedRetryContextTest {
         Optional<TimeoutState> state = retryContext.getState("new-key-beyond-limit");
 
         assertTrue(state.isPresent());
-        assertEquals(MAX_TIMEOUT, state.get().getTimeout());
+        assertEquals(DEFAULT_RETRY_TIMEOUT_MS_MAX, state.get().getTimeout());
         assertEquals(-1, state.get().getAttempt());
     }
 
@@ -286,7 +288,7 @@ public class KeyBasedRetryContextTest {
      * for different keys do not interfere with each other.
      *
      * <p>Each key is updated exactly once from a dedicated task. After all tasks complete,
-     * each key must hold {@link #INITIAL_TIMEOUT} and attempt count {@code 1}, confirming
+     * each key must hold {@link TimeoutStrategy#DEFAULT_RETRY_INITIAL_TIMEOUT_MS} and attempt count {@code 1}, confirming
      * no cross-key state contamination under concurrency.
      *
      * @throws Exception if the thread pool is interrupted during shutdown.
@@ -305,7 +307,7 @@ public class KeyBasedRetryContextTest {
         try {
             futures.forEach(KeyBasedRetryContextTest::getQuietly);
 
-            keys.forEach(key -> checkRetryContextState(key, INITIAL_TIMEOUT, 1));
+            keys.forEach(key -> checkRetryContextState(key, DEFAULT_RETRY_INITIAL_TIMEOUT_MS, 1));
         } finally {
             threadPool.shutdown();
             threadPool.awaitTermination(5, SECONDS);
@@ -324,8 +326,8 @@ public class KeyBasedRetryContextTest {
      */
     private void checkRetryContextState(String key, int expectedTimeout, int expectedAttempts) {
         retryContext.getState(key).ifPresentOrElse(state -> {
-            assertEquals(expectedTimeout, state.getTimeout());
-            assertEquals(expectedAttempts, state.getAttempt());
+            assertEquals(expectedTimeout, state.getTimeout(), "[DEBUG_LOG] Timeout mismatch for key: " + key);
+            assertEquals(expectedAttempts, state.getAttempt(), "[DEBUG_LOG] Attempt mismatch for key: " + key);
         }, () -> {
             throw new IllegalStateException(MISSING_STATE_MESSAGE);
         });
@@ -349,16 +351,6 @@ public class KeyBasedRetryContextTest {
         @Override
         public int next(int currentTimeout) {
             return Math.min(currentTimeout * MULTIPLYING_COEFFICIENT, MAX_TIMEOUT);
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * <p>Returns {@link #MAX_TIMEOUT}.
-         */
-        @Override
-        public int maxTimeout() {
-            return MAX_TIMEOUT;
         }
     }
 

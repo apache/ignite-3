@@ -37,7 +37,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
@@ -124,7 +123,7 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         tx.commitAsync();
 
-        await().timeout(5, TimeUnit.SECONDS)
+        await().timeout(5, SECONDS)
                 .until(() -> pendingWriteIntents(node) == 0);
 
         await().timeout(1, SECONDS).until(() -> cleanupAttempts.get() >= 1);
@@ -155,7 +154,7 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
         AtomicLong expectedSizeOfRetryContext = new AtomicLong(0);
 
         for (IgniteImpl n : runningNodesIter()) {
-            retryContexts.add(((TxManagerImpl) n.txManager()).retryContext());
+            retryContexts.add((KeyBasedRetryContext) ((TxManagerImpl) n.txManager()).retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof WriteIntentSwitchReplicaRequest) {
@@ -215,7 +214,7 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         for (IgniteImpl n : runningNodesIter()) {
             TxManagerImpl txManager = (TxManagerImpl) n.txManager();
-            retryContexts.add(txManager.retryContext());
+            retryContexts.add((KeyBasedRetryContext) txManager.retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof WriteIntentSwitchReplicaRequest) {
@@ -240,9 +239,9 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         tx.commitAsync();
 
-        await().timeout(5, TimeUnit.SECONDS).until(() -> failedCleanupAttempts.get() == 3);
+        await().timeout(5, SECONDS).until(() -> failedCleanupAttempts.get() == 3);
 
-        await().timeout(5, TimeUnit.SECONDS).until(() -> pendingWriteIntents(node) == 0);
+        await().timeout(5, SECONDS).until(() -> pendingWriteIntents(node) == 0);
 
         assertTrue(timeoutSamples.size() > 1, "Expected at least 2 timeout samples, got: " + timeoutSamples.size());
 
@@ -284,7 +283,7 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         for (IgniteImpl n : runningNodesIter()) {
             TxManagerImpl txManager = (TxManagerImpl) n.txManager();
-            retryContexts.add(txManager.retryContext());
+            retryContexts.add((KeyBasedRetryContext) txManager.retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof WriteIntentSwitchReplicaRequest) {
@@ -374,7 +373,7 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
 
         for (IgniteImpl n : runningNodesIter()) {
             TxManagerImpl txManager = (TxManagerImpl) n.txManager();
-            retryContexts.add(txManager.retryContext());
+            retryContexts.add((KeyBasedRetryContext) txManager.retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof WriteIntentSwitchReplicaRequest) {

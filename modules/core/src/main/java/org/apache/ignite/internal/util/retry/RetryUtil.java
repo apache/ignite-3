@@ -40,17 +40,13 @@ public class RetryUtil {
     /**
      * Schedules the provided operation to run once after the specified delay.
      *
-     * <p>No callbacks are invoked on completion. Equivalent to calling
-     * {@link #scheduleRetry(Callable, long, TimeUnit, ScheduledExecutorService, Optional, Optional)}
-     * with both optional callbacks empty.
-     *
      * @param <T>       result type of the operation.
      * @param operation the async operation to schedule. Must return a non-null {@link CompletableFuture}.
      * @param delay     delay before execution.
      * @param unit      time unit of {@code delay}.
      * @param executor  executor used to schedule the operation.
      * @return a {@link CompletableFuture} completed with the operation's result on success,
-     *         or completed exceptionally if the operation fails.
+     *     or completed exceptionally if the operation fails.
      */
     public static <T> CompletableFuture<T> scheduleRetry(
             Callable<CompletableFuture<T>> operation,
@@ -58,80 +54,53 @@ public class RetryUtil {
             TimeUnit unit,
             ScheduledExecutorService executor
     ) {
-        return scheduleRetry(operation, delay, unit, executor, empty(), empty());
-    }
-
-    /**
-     * Schedules the provided operation to run once after the specified delay,
-     * invoking a callback on successful completion.
-     *
-     * <p>The {@code onSuccessfulComplete} callback is invoked only if the operation
-     * completes without an exception. Equivalent to calling the full overload with
-     * an empty {@code onFailure}.
-     *
-     * @param <T>                  result type of the operation.
-     * @param operation            the async operation to schedule.
-     * @param delay                delay before execution.
-     * @param unit                 time unit of {@code delay}.
-     * @param executor             executor used to schedule the operation.
-     * @param onSuccessfulComplete optional callback invoked when the operation succeeds,
-     *                             for example to reset a retry context.
-     * @return a {@link CompletableFuture} completed with the operation's result on success,
-     *         or completed exceptionally if the operation fails.
-     */
-    public static <T> CompletableFuture<T> scheduleRetry(
-            Callable<CompletableFuture<T>> operation,
-            long delay,
-            TimeUnit unit,
-            ScheduledExecutorService executor,
-            Optional<Runnable> onSuccessfulComplete
-    ) {
-        return scheduleRetry(operation, delay, unit, executor, onSuccessfulComplete, empty());
+        return scheduleRetry(operation, delay, unit, executor, empty());
     }
 
     /**
      * Schedules the provided operation to run once after the specified delay,
      * invoking separate callbacks on success and failure.
      *
-     * <p>{@code onSuccessfulComplete} is called only if the operation's future completes
-     * without an exception. {@code onFailure} is called only if it completes exceptionally.
-     * Neither callback is invoked if the other fires.
+     * <p>The provided completion callback is invoked regardless of whether the
+     * operation succeeds or fails.
      *
-     * @param <T>                  result type of the operation.
-     * @param operation            the async operation to schedule. Must return a non-null
-     *                             {@link CompletableFuture}.
-     * @param delay                delay before execution.
-     * @param unit                 time unit of {@code delay}.
-     * @param executor             executor used to schedule the operation.
-     * @param onSuccessfulComplete optional callback invoked on success, for example to
-     *                             reset a retry context after a successful attempt.
-     * @param onFailure            optional callback invoked on failure, for example to
-     *                             record a failed attempt or trigger alerting.
+     * @param <T>        result type of the operation.
+     * @param operation  the async operation to schedule. Must return a non-null
+     *                   {@link CompletableFuture}.
+     * @param delay      delay before execution.
+     * @param unit       time unit of {@code delay}.
+     * @param executor   executor used to schedule the operation.
+     * @param onComplete optional callback invoked after the operation completes, whether
+     *                   successfully or exceptionally — for example, to reset a retry context.
      * @return a {@link CompletableFuture} completed with the operation's result on success,
-     *         or completed exceptionally if the operation fails.
+     *     or completed exceptionally if the operation fails.
      */
     public static <T> CompletableFuture<T> scheduleRetry(
             Callable<CompletableFuture<T>> operation,
             long delay,
             TimeUnit unit,
             ScheduledExecutorService executor,
-            Optional<Runnable> onSuccessfulComplete,
-            Optional<Runnable> onFailure
+            Optional<Runnable> onComplete
     ) {
         CompletableFuture<T> future = new CompletableFuture<>();
 
-        executor.schedule(() -> operation.call()
-                .whenComplete((res, e) -> {
-                    if (e == null) {
-                        future.complete(res);
+        executor.schedule(() -> {
+            try {
+                operation.call()
+                        .whenComplete((res, e) -> {
+                            if (e == null) {
+                                future.complete(res);
+                            } else {
+                                future.completeExceptionally(e);
+                            }
+                            onComplete.ifPresent(Runnable::run);
+                        });
+            } catch (Exception e) {
+                future.completeExceptionally(e);
 
-                        onSuccessfulComplete.ifPresent(Runnable::run);
-                    } else {
-                        future.completeExceptionally(e);
-
-                        onFailure.ifPresent(Runnable::run);
-                    }
-                }), delay, unit);
+                onComplete.ifPresent(Runnable::run);
+            }
+        }, delay, unit);
 
         return future;
     }

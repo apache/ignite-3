@@ -57,7 +57,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.RetryContext;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -85,7 +85,8 @@ public class TxCleanupRequestSender {
     /** Executor that is used to schedule retries of cleanup messages in case of retryable errors. */
     private final ScheduledExecutorService retryExecutor;
 
-    private final KeyBasedRetryContext retryContext;
+    /** The retry context for handling retries of cleanup messages. */
+    private final RetryContext retryContext;
 
     /**
      * The constructor.
@@ -103,7 +104,7 @@ public class TxCleanupRequestSender {
             VolatileTxStateMetaStorage txStateVolatileStorage,
             ExecutorService cleanupExecutor,
             ScheduledExecutorService commonScheduler,
-            KeyBasedRetryContext retryContext
+            RetryContext retryContext
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;

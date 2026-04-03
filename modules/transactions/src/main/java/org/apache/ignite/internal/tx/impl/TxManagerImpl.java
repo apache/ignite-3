@@ -123,6 +123,7 @@ import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.RetryContext;
 import org.apache.ignite.internal.util.retry.TimeoutStrategy;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
@@ -245,7 +246,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
-    private final KeyBasedRetryContext retryContext;
+    private final RetryContext retryContext;
 
     /**
      * Test-only constructor.
@@ -412,7 +413,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
 
-        retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
+        retryContext = new KeyBasedRetryContext(timeoutStrategy);
 
         txCleanupRequestSender = new TxCleanupRequestSender(
                 txMessageSender,
@@ -1365,7 +1366,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @TestOnly
-    public KeyBasedRetryContext retryContext() {
+    public RetryContext retryContext() {
         return retryContext;
     }
 }

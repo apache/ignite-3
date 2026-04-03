@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.util.retry;
 
+import static org.apache.ignite.internal.util.retry.TimeoutState.attempt;
+import static org.apache.ignite.internal.util.retry.TimeoutState.timeout;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +51,17 @@ public class TimeoutStateTest {
     }
 
     /**
+     * Verifies that newly constructed {@link TimeoutState} returns the default initial timeout
+     * and attempt count of {@code 0}.
+     */
+    @Test
+    void testDefaultInitialState() {
+        TimeoutState defaultState = new TimeoutState();
+        assertEquals(TimeoutStrategy.DEFAULT_RETRY_INITIAL_TIMEOUT_MS, defaultState.getTimeout());
+        assertEquals(0, defaultState.getAttempt());
+    }
+
+    /**
      * Verifies that a newly constructed {@link TimeoutState} returns the timeout and
      * attempt values it was initialized with.
      */
@@ -61,62 +72,46 @@ public class TimeoutStateTest {
     }
 
     /**
-     * Verifies that {@link TimeoutState#update(long, int, int)} succeeds when the
-     * provided snapshot matches the current internal state, and that both fields
-     * are updated atomically.
+     * Verifies that {@link TimeoutState#update(TimeoutStrategy)} correctly advances
+     * both timeout and attempt count.
      */
     @Test
     void testUpdate() {
-        int newTimeout = 40;
-        int newAttempt = 11;
+        int nextTimeout = 100;
+        TimeoutStrategy strategy = current -> nextTimeout;
 
-        long raw = state.getRawState();
-        boolean updated = state.update(raw, newTimeout, newAttempt);
+        state.update(strategy);
 
-        assertTrue(updated);
-        assertEquals(newTimeout, state.getTimeout());
-        assertEquals(newAttempt, state.getAttempt());
+        assertEquals(nextTimeout, state.getTimeout());
+        assertEquals(ATTEMPT + 1, state.getAttempt());
     }
 
     /**
-     * Verifies that {@link TimeoutState#update(long, int, int)} rejects an update
-     * when the snapshot is stale — i.e., the internal state has been modified by
-     * another call since the snapshot was taken.
-     *
-     * <p>After a successful update advances the state, a second update using the
-     * original snapshot must return {@code false} and leave the state unchanged
-     * at the first update's values.
+     * Verifies that {@link TimeoutState#update(TimeoutStrategy)} starting from attempt {@code 0}
+     * resets the timeout to {@link TimeoutStrategy#DEFAULT_RETRY_INITIAL_TIMEOUT_MS}
+     * and sets attempt count to {@code 1}.
      */
     @Test
-    void testUpdateFailsOnStaleSnapshot() {
-        long staleSnapshot = state.getRawState();
+    void testUpdateFromZeroAttempt() {
+        TimeoutState zeroState = new TimeoutState(1000, 0);
+        TimeoutStrategy strategy = current -> 2000; // Should be ignored
 
-        // advance state so staleSnapshot is no longer current
-        state.update(staleSnapshot, 40, 11);
+        zeroState.update(strategy);
 
-        // update with stale snapshot must fail
-        boolean updated = state.update(staleSnapshot, 80, 12);
-
-        assertFalse(updated);
-        // state must remain at the first update's values
-        assertEquals(40, state.getTimeout());
-        assertEquals(11, state.getAttempt());
+        assertEquals(TimeoutStrategy.DEFAULT_RETRY_INITIAL_TIMEOUT_MS, zeroState.getTimeout());
+        assertEquals(1, zeroState.getAttempt());
     }
 
     /**
      * Verifies that {@link TimeoutState#getTimeout()} and {@link TimeoutState#getAttempt()}
-     * are consistent with the raw packed value returned by {@link TimeoutState#getRawState()}.
-     *
-     * <p>This confirms that the pack/unpack bit manipulation is symmetric and that
-     * callers who take a raw snapshot and decompose it manually get the same result
-     * as callers who use the individual accessors.
+     * are consistent with the raw packed value.
      */
     @Test
-    void testGetTimeoutAndGetAttemptAreConsistentWithRawState() {
-        long raw = state.getRawState();
+    void testGetTimeoutAndGetAttemptAreConsistentWithPacked() {
+        long packed = TimeoutState.pack(TIMEOUT, ATTEMPT);
 
-        assertEquals(state.getTimeout(), TimeoutState.timeout(raw));
-        assertEquals(state.getAttempt(), TimeoutState.attempt(raw));
+        assertEquals(TIMEOUT, timeout(packed));
+        assertEquals(ATTEMPT, attempt(packed));
     }
 
     /**
@@ -131,7 +126,7 @@ public class TimeoutStateTest {
     void testPackUnpackRoundtrip() {
         long packed = TimeoutState.pack(TIMEOUT, ATTEMPT);
 
-        assertEquals(TIMEOUT, TimeoutState.timeout(packed));
-        assertEquals(ATTEMPT, TimeoutState.attempt(packed));
+        assertEquals(TIMEOUT, timeout(packed));
+        assertEquals(ATTEMPT, attempt(packed));
     }
 }

@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.util.retry;
 
+import static org.apache.ignite.internal.util.retry.TimeoutStrategy.DEFAULT_RETRY_INITIAL_TIMEOUT_MS;
+
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Mutable, thread-safe holder for retry timeout and attempt count.
+ * Mutable holder for retry timeout and attempt count.
  *
- * <p>Both fields are packed into a single {@link AtomicLong} to allow atomic
- * compare-and-set updates of the combined state. The high 32 bits store the
- * timeout in milliseconds; the low 32 bits store the attempt count.
+ * <p>Both fields are packed into a single {@link AtomicLong} to allow a consistent
+ * atomic read of the combined state via a single {@code get()}. The high 32 bits store
+ * the timeout in milliseconds; the low 32 bits store the attempt count.
  *
  * <p>This class intentionally does not override {@link Object#equals(Object)} or
  * {@link Object#hashCode()}. Because the state is mutable, value-based equality
@@ -43,34 +45,31 @@ public class TimeoutState {
     private final AtomicLong state = new AtomicLong();
 
     /**
-     * Creates a new {@code TimeoutState} with the given initial timeout and attempt count.
+     * Creates a new {@code TimeoutState} with the default initial timeout and attempt count of {@code 0}.
      *
-     * @param timeout        initial timeout in milliseconds.
-     * @param initialAttempt initial attempt count. Use {@code 0} as a sentinel to indicate
-     *                       "initialized but not yet advanced" when lazy initialization is needed.
+     * <p>Attempt count {@code 0} acts as a sentinel indicating the state has been initialized
+     * but not yet advanced. The first call to {@link #update(TimeoutStrategy)} will set the
+     * timeout to {@link TimeoutStrategy#DEFAULT_RETRY_INITIAL_TIMEOUT_MS} and increment the count to {@code 1}.
      */
-    public TimeoutState(int timeout, int initialAttempt) {
-        state.set(pack(timeout, initialAttempt));
+    public TimeoutState() {
+        this(DEFAULT_RETRY_INITIAL_TIMEOUT_MS, 0);
     }
 
     /**
-     * Returns the raw packed {@code long} representing the current state.
+     * Creates a new {@code TimeoutState} with the given initial timeout and attempt count.
      *
-     * <p>Callers that need both timeout and attempt count atomically should read this
-     * once and pass it to {@link #timeout(long)} and {@link #attempt(long)}, rather
-     * than calling {@link #getTimeout()} and {@link #getAttempt()} separately.
-     *
-     * @return raw packed state value.
+     * @param timeout initial timeout in milliseconds.
+     * @param attempt attempt count. Use {@code 0} as a sentinel to indicate
+     *                "initialized but not yet advanced" when lazy initialization is needed.
      */
-    public long getRawState() {
-        return state.get();
+    public TimeoutState(int timeout, int attempt) {
+        state.set(pack(timeout, attempt));
     }
 
     /**
      * Returns the current retry timeout in milliseconds.
      *
-     * <p>This is a single atomic read. If both timeout and attempt are needed
-     * consistently, use {@link #getRawState()} instead.
+     * <p>This is a single atomic read.
      *
      * @return current timeout in milliseconds.
      */
@@ -81,8 +80,7 @@ public class TimeoutState {
     /**
      * Returns the current attempt count.
      *
-     * <p>This is a single atomic read. If both timeout and attempt are needed
-     * consistently, use {@link #getRawState()} instead.
+     * <p>This is a single atomic read.
      *
      * @return current attempt count.
      */
@@ -91,20 +89,28 @@ public class TimeoutState {
     }
 
     /**
-     * Atomically updates this state if it still matches the expected raw snapshot.
+     * Advances the retry state using the given strategy.
      *
-     * <p>This is a standard CAS (compare-and-set) operation. If the internal state
-     * has changed since {@code currentState} was read, the update is rejected and
-     * the caller is expected to retry by reading a fresh snapshot via {@link #getRawState()}.
+     * <p>If the current attempt count is {@code 0} (the initial sentinel), the timeout is reset
+     * to {@link TimeoutStrategy#DEFAULT_RETRY_INITIAL_TIMEOUT_MS} and the attempt count is set to {@code 1}.
+     * On subsequent calls, the timeout is computed by {@link TimeoutStrategy#next(int)} and the
+     * attempt count is incremented.
      *
-     * @param currentState expected current raw state, obtained from a prior {@link #getRawState()} call.
-     * @param newTimeout   new timeout value in milliseconds.
-     * @param newAttempt   new attempt count.
-     * @return {@code true} if the update succeeded; {@code false} if the state was
-     *         concurrently modified and the update was rejected.
+     * <p>This method is package-private because callers are responsible for external synchronization.
+     * The only intended call site is inside {@link java.util.concurrent.ConcurrentHashMap#compute} in
+     * {@link KeyBasedRetryContext#updateAndGetState}, which holds an exclusive per-key lock for the
+     * duration of the lambda, so no concurrent access to the same instance is possible.
+     *
+     * @param timeoutStrategy strategy used to compute the next timeout value.
      */
-    public boolean update(long currentState, int newTimeout, int newAttempt) {
-        return state.compareAndSet(currentState, pack(newTimeout, newAttempt));
+    void update(TimeoutStrategy timeoutStrategy) {
+        long raw = state.get();
+
+        int nextTimeout = attempt(raw) == 0
+                ? DEFAULT_RETRY_INITIAL_TIMEOUT_MS
+                : timeoutStrategy.next(timeout(raw));
+
+        state.set(pack(nextTimeout, attempt(raw) + 1));
     }
 
     /**
@@ -122,7 +128,8 @@ public class TimeoutState {
     /**
      * Extracts the timeout from a packed raw state value.
      *
-     * @param packed raw state value obtained from {@link #getRawState()} or {@link #pack(int, int)}.
+     * @param packed raw state value produced by {@link #pack(int, int)} or read directly
+     *               from the underlying {@link AtomicLong}.
      * @return timeout in milliseconds.
      */
     static int timeout(long packed) {
@@ -132,7 +139,8 @@ public class TimeoutState {
     /**
      * Extracts the attempt count from a packed raw state value.
      *
-     * @param packed raw state value obtained from {@link #getRawState()} or {@link #pack(int, int)}.
+     * @param packed raw state value produced by {@link #pack(int, int)} or read directly
+     *               from the underlying {@link AtomicLong}.
      * @return attempt count.
      */
     static int attempt(long packed) {

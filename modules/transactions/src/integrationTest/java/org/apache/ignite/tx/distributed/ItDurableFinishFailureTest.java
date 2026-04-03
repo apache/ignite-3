@@ -153,7 +153,7 @@ public class ItDurableFinishFailureTest extends ClusterPerTestIntegrationTest {
         AtomicLong expectedSizeOfRetryContext = new AtomicLong(0);
 
         for (IgniteImpl n : runningNodesIter()) {
-            retryContexts.add(((TxManagerImpl) n.txManager()).retryContext());
+            retryContexts.add((KeyBasedRetryContext) ((TxManagerImpl) n.txManager()).retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof TxFinishReplicaRequest) {
@@ -210,7 +210,7 @@ public class ItDurableFinishFailureTest extends ClusterPerTestIntegrationTest {
 
         for (IgniteImpl n : runningNodesIter()) {
             TxManagerImpl txManager = (TxManagerImpl) n.txManager();
-            retryContexts.add(txManager.retryContext());
+            retryContexts.add((KeyBasedRetryContext) txManager.retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof TxFinishReplicaRequest) {
@@ -276,7 +276,7 @@ public class ItDurableFinishFailureTest extends ClusterPerTestIntegrationTest {
 
         for (IgniteImpl n : runningNodesIter()) {
             TxManagerImpl txManager = (TxManagerImpl) n.txManager();
-            retryContexts.add(txManager.retryContext());
+            retryContexts.add((KeyBasedRetryContext) txManager.retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof TxFinishReplicaRequest) {
@@ -358,7 +358,7 @@ public class ItDurableFinishFailureTest extends ClusterPerTestIntegrationTest {
 
         for (IgniteImpl n : runningNodesIter()) {
             TxManagerImpl txManager = (TxManagerImpl) n.txManager();
-            retryContexts.add(txManager.retryContext());
+            retryContexts.add((KeyBasedRetryContext) txManager.retryContext());
 
             n.dropMessages((dest, msg) -> {
                 if (msg instanceof TxFinishReplicaRequest) {

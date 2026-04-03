@@ -29,26 +29,19 @@ package org.apache.ignite.internal.util.retry;
  */
 public interface TimeoutStrategy {
     /** Default maximum timeout that a strategy may produce, in milliseconds. */
-    int DEFAULT_TIMEOUT_MS_MAX = 11_000;
+    int DEFAULT_RETRY_TIMEOUT_MS_MAX = 11_000;
+
+    /** Initial timeout used at the start of a retry sequence, before any backoff is applied, in milliseconds. */
+    int DEFAULT_RETRY_INITIAL_TIMEOUT_MS = 20;
 
     /**
      * Computes the next retry timeout based on the current one.
      *
-     * <p>Implementations must not produce a value exceeding {@link #maxTimeout()}.
+     * <p>Implementations must not produce a value exceeding {@link #DEFAULT_RETRY_TIMEOUT_MS_MAX}.
      * The returned value is used directly as the delay before the next retry attempt.
      *
      * @param currentTimeout current retry timeout in milliseconds.
-     * @return next retry timeout in milliseconds, capped at {@link #maxTimeout()}.
+     * @return next retry timeout in milliseconds, capped at {@link #DEFAULT_RETRY_TIMEOUT_MS_MAX}.
      */
     int next(int currentTimeout);
-
-    /**
-     * Returns the maximum timeout this strategy can produce, in milliseconds.
-     *
-     * <p>Once the timeout reaches this ceiling, further calls to {@link #next(int)}
-     * must continue to return this value rather than exceeding it.
-     *
-     * @return maximum timeout in milliseconds.
-     */
-    int maxTimeout();
 }
