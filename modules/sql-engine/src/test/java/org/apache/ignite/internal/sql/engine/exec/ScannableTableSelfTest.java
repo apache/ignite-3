@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.rel;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
@@ -38,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -53,7 +54,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.binarytuple.BinaryTuple;
@@ -62,12 +62,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
-import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
-import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl.IndexMeta;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -99,6 +94,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
+    private static final int INDEX_ID = 3;
 
     @Mock(lenient = true)
     private InternalTable internalTable;
@@ -179,7 +175,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         Object[] lowerValue = lower == Bound.NONE ? null : new Object[]{1};
         Object[] upperValue = upper == Bound.NONE ? null : new Object[]{10};
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
@@ -241,7 +237,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
 
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
@@ -283,7 +279,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
         condition.setLower(Bound.INCLUSIVE, new Object[]{0});
@@ -312,7 +308,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Bound columns != input columns.
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
@@ -342,7 +338,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
@@ -387,7 +383,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         Object[] key = {1};
 
         ArgumentCaptor<IndexScanCriteria.Lookup> criteriaCaptor = ArgumentCaptor.forClass(IndexScanCriteria.Lookup.class);
@@ -430,7 +426,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         Object[] key = {1};
 
         ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
@@ -466,7 +462,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         int partitionId = 1;
         long consistencyToken = 2;
-        int indexId = 3;
+        int indexId = INDEX_ID;
         Object[] key = {1};
 
         ResultCollector collector = tester.indexLookUp(partitionId, consistencyToken, tx, indexId, key);
@@ -500,7 +496,11 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester(TestInput input) {
             this.input = input;
             rowConverter = new RowCollectingTableRowConverter(input);
-            scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
+            scannableTable = new ScannableTableImpl(
+                    internalTable,
+                    Int2ObjectMaps.singleton(INDEX_ID, new IndexMeta(input.indexColumns.cardinality())),
+                    rf -> rowConverter
+            );
         }
 
         ResultCollector tableScan(int partitionId, long consistencyToken, NoOpTransaction tx) {
@@ -552,14 +552,12 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
-            List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(
                     ctx,
                     new PartitionWithConsistencyToken(partitionId, consistencyToken),
                     rowFactory,
                     indexId,
-                    indexColumns,
                     rangeCondition,
                     requiredFields
             );
@@ -584,14 +582,12 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(OperationContext.create(txContext)));
 
             RowFactory<Object[]> rowFactory = ArrayRowHandler.INSTANCE.create(input.rowSchema);
-            List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(
                     ctx,
                     new PartitionWithConsistencyToken(partitionId, consistencyToken),
                     rowFactory,
                     indexId,
-                    indexColumns,
                     key,
                     requiredFields
             );
@@ -659,17 +655,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         void sendError(Throwable t) {
             publisher.closeExceptionally(t);
-        }
-
-        private List<String> getIndexColumns() {
-            List<String> columns = new ArrayList<>();
-
-            indexColumns.stream().forEach(i -> {
-                RelDataTypeField field = rowType.getFieldList().get(i);
-                columns.add(field.getName());
-            });
-
-            return columns;
         }
     }
 
