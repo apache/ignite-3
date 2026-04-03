@@ -68,8 +68,17 @@ else()
         list(APPEND CPH_GENERATOR_ARGS -A "${CMAKE_GENERATOR_PLATFORM}")
     endif()
 
-    # Use add_custom_command so the check is skipped when ignite3-client has
-    # not been rebuilt since the last successful run (stamp file is up-to-date).
+    # Build the list of absolute source paths for all public headers so that
+    # the stamp is invalidated whenever any header file is edited, not only
+    # when the ignite3-client target is rebuilt (which may not recompile a
+    # header-only change in common/tuple that is not included by any TU).
+    set(CPH_HEADER_SOURCES)
+    foreach(H IN LISTS IGNITE3_ALL_PUBLIC_HEADERS)
+        list(APPEND CPH_HEADER_SOURCES "${CMAKE_SOURCE_DIR}/${H}")
+    endforeach()
+
+    # Use add_custom_command so the check is skipped when neither
+    # ignite3-client nor any public header has changed since the last run.
     add_custom_command(
         OUTPUT  "${CPH_STAMP}"
         # Install the already-built client to a temp prefix.
@@ -91,7 +100,7 @@ else()
                     "-B${CPH_SUB_BIN}"
         COMMAND ${CMAKE_COMMAND} --build "${CPH_SUB_BIN}"
         COMMAND ${CMAKE_COMMAND} -E touch "${CPH_STAMP}"
-        DEPENDS ignite3-client
+        DEPENDS ignite3-client ${CPH_HEADER_SOURCES}
         COMMENT "compile-public-headers: compiling each public header against installed package"
         VERBATIM
     )
