@@ -49,13 +49,18 @@ find_package(ignite REQUIRED COMPONENTS client)
 include("${IGNITE_HEADERS_LIST_FILE}")
 
 foreach(H IN LISTS IGNITE_PUBLIC_HEADERS)
-    # Derive a CMake-identifier-safe target name from the header path.
-    string(MAKE_C_IDENTIFIER "${H}" CPH_SAFE_NAME)
+    # Use a short MD5 hash of the header path as the target/file name.
+    # A full MAKE_C_IDENTIFIER name can exceed 260-char Windows path limits
+    # when combined with MSBuild's .tlog directory structure (VS 2017 does not
+    # honour the LongPathsEnabled registry key).
+    string(MD5 CPH_HASH "${H}")
+    string(SUBSTRING "${CPH_HASH}" 0 8 CPH_SHORT)
+    message(STATUS "HEADER MAP: ${H} -> ${CPH_HASH}")
 
-    set(CPH_CPP "${CMAKE_CURRENT_BINARY_DIR}/${CPH_SAFE_NAME}.cpp")
-    file(WRITE "${CPH_CPP}" "#include <ignite/client/${H}>\n")
+    set(CPH_CPP "${CMAKE_CURRENT_BINARY_DIR}/cph_${CPH_SHORT}.cpp")
+    file(WRITE "${CPH_CPP}" "#include <${H}>\n")
 
     # Compile the generated file as an object (no link step needed).
-    add_library(cph_${CPH_SAFE_NAME} OBJECT "${CPH_CPP}")
-    target_link_libraries(cph_${CPH_SAFE_NAME} PRIVATE ignite::client)
+    add_library(cph_${CPH_SHORT} OBJECT "${CPH_CPP}")
+    target_link_libraries(cph_${CPH_SHORT} PRIVATE ignite::client)
 endforeach()

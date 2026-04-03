@@ -115,8 +115,7 @@ set(PRIVATE_HEADERS
 
 ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
 
-# Expose the public header list to the parent scope for cmake/abi_check.cmake.
-set(IGNITE3_CLIENT_PUBLIC_HEADERS "${PUBLIC_HEADERS}" PARENT_SCOPE)
+ignite_collect_public_headers(client PUBLIC_HEADERS)
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
 target_include_directories(${TARGET}-obj PUBLIC ${IGNITE_CMAKE_TOP_DIR})
