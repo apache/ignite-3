@@ -2948,6 +2948,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 });
             }
             case RW_UPSERT: {
+                // TODO IGNITE-28450
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 
