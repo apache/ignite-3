@@ -55,7 +55,6 @@ foreach(H IN LISTS IGNITE_PUBLIC_HEADERS)
     # honour the LongPathsEnabled registry key).
     string(MD5 CPH_HASH "${H}")
     string(SUBSTRING "${CPH_HASH}" 0 8 CPH_SHORT)
-    message(STATUS "HEADER MAP: ${H} -> ${CPH_HASH}")
 
     set(CPH_CPP "${CMAKE_CURRENT_BINARY_DIR}/cph_${CPH_SHORT}.cpp")
     file(WRITE "${CPH_CPP}" "#include <${H}>\n")
