@@ -282,10 +282,7 @@ class RunInTransactionInternalImpl {
     }
 
     private static boolean isRetriable(Throwable e) {
-        return hasCause(e,
-                TimeoutException.class, // TODO remove from retry
-                RetriableTransactionException.class
-        );
+        return hasCause(e, RetriableTransactionException.class);
     }
 
     private static boolean hasCause(Throwable e, Class<?>... classes) {
