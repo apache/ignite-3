@@ -96,7 +96,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final int partitionId;
 
-    protected final AbstractPageMemoryTableStorage tableStorage;
+    protected final AbstractPageMemoryTableStorage<?> tableStorage;
 
     final PageMemoryIndexes indexes;
 
