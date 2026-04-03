@@ -562,13 +562,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         ));
 
         tableManager = new TableManager(
-                NODE_NAME,
+                node,
                 revisionUpdater,
                 gcConfig,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                node,
                 mock(LockManager.class),
                 null,
                 txManager,

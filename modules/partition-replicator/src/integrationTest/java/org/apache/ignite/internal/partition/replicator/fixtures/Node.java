@@ -769,13 +769,12 @@ public class Node {
         );
 
         tableManager = new TableManager(
-                name,
+                clusterService.staticLocalNode(),
                 registry,
                 gcConfiguration,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                clusterService.staticLocalNode(),
                 lockManager,
                 replicaSvc,
                 txManager,

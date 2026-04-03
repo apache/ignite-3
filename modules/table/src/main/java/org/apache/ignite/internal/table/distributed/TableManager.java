@@ -152,6 +152,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
+    private final InternalClusterNode localNode;
+
     private final TopologyService topologyService;
 
     /** Lock manager. */
@@ -246,8 +248,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final TransactionInflights transactionInflights;
 
-    private final String nodeName;
-
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     @Nullable
@@ -276,7 +276,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Creates a new table manager.
      *
-     * @param nodeName Node name.
+     * @param localNode Local node.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
      * @param replicationConfiguration Replication configuration.
@@ -301,13 +301,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param metricManager Metric manager.
      */
     public TableManager(
-            String nodeName,
+            InternalClusterNode localNode,
             RevisionListenerRegistry registry,
             GcConfiguration gcConfig,
             ReplicationConfiguration replicationConfiguration,
             MessagingService messagingService,
             TopologyService topologyService,
-            InternalClusterNode localNode,
             LockManager lockMgr,
             ReplicaService replicaSvc,
             TxManager txManager,
@@ -335,6 +334,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MetricManager metricManager,
             PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
+        this.localNode = localNode;
         this.topologyService = topologyService;
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;
@@ -350,7 +350,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.sql = sql;
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
-        this.nodeName = nodeName;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.metricManager = metricManager;
 
@@ -366,9 +365,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assignmentsUpdatedVv = new IncrementalVersionedValue<>("TableManager#assignmentsUpdated", dependingOn(localPartitionsVv));
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
-                IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
+                IgniteThreadFactory.create(localNode.name(), "scan-query-executor", LOG, STORAGE_READ));
 
-        MvGc mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
+        MvGc mvGc = new MvGc(localNode.name(), gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 messagingService,
@@ -1163,7 +1162,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             if (streamerFlushExecutor == null) {
                 streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-                        IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
+                        IgniteThreadFactory.create(localNode.name(), "streamer-flush-executor", LOG, STORAGE_WRITE));
             }
 
             return streamerFlushExecutor;

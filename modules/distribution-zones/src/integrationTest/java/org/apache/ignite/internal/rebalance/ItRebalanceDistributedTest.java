@@ -1564,13 +1564,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             tableManager = new TableManager(
-                    name,
+                    clusterService.staticLocalNode(),
                     registry,
                     gcConfig,
                     replicationConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
-                    clusterService.staticLocalNode(),
                     mock(LockManager.class),
                     replicaSvc,
                     txManager,
