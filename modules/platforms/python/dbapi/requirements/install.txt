@@ -1,0 +1,1 @@
+# these pip packages are necessary for the pyignite_dbapi to run

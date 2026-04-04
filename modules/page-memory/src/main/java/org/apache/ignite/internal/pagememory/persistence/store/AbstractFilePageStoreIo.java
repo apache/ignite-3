@@ -399,6 +399,33 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     }
 
     /**
+     * Opens or reopens the file IO, handling interrupt-caused channel closures.
+     *
+     * @return New file IO instance.
+     */
+    private FileIo reopenFileIo() throws IOException {
+        boolean interrupted = false;
+
+        while (true) {
+            try {
+                FileIo fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
+
+                fileExists = true;
+
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+
+                return fileIo;
+            } catch (ClosedByInterruptException e) {
+                interrupted = true;
+
+                Thread.interrupted();
+            }
+        }
+    }
+
+    /**
      * Reinit page store after file channel was closed by thread interruption.
      *
      * @param fileIo Old fileIo.
@@ -415,36 +442,18 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                 return;
             }
 
+            FileIo newFileIo = null;
+
             try {
-                boolean interrupted = false;
+                newFileIo = reopenFileIo();
 
-                while (true) {
-                    try {
-                        fileIo = null;
+                checkHeader(newFileIo);
 
-                        fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
-
-                        fileExists = true;
-
-                        checkHeader(fileIo);
-
-                        this.fileIo = fileIo;
-
-                        if (interrupted) {
-                            Thread.currentThread().interrupt();
-                        }
-
-                        break;
-                    } catch (ClosedByInterruptException e) {
-                        interrupted = true;
-
-                        Thread.interrupted();
-                    }
-                }
+                this.fileIo = newFileIo;
             } catch (IOException e) {
                 try {
-                    if (fileIo != null) {
-                        fileIo.close();
+                    if (newFileIo != null) {
+                        newFileIo.close();
                     }
                 } catch (IOException e0) {
                     e.addSuppressed(e0);
@@ -601,7 +610,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                 this.filePath = newFilePath;
 
-                reinit(fileIo);
+                this.fileIo = reopenFileIo();
 
                 initialized = true;
             }

@@ -164,7 +164,7 @@ public:
                 return res;
         }
 
-        return int(::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size), 0));
+        return int(detail::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size)));
     }
 
     /**
@@ -184,7 +184,7 @@ public:
                 return res;
         }
 
-        return int(::recv(m_socket_handle, reinterpret_cast<char *>(buffer), static_cast<int>(size), 0));
+        return int(detail::recv(m_socket_handle, reinterpret_cast<char *>(buffer), static_cast<int>(size)));
     }
 
     /**

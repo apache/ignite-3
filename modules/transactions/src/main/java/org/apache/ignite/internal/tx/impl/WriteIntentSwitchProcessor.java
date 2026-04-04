@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -44,8 +46,7 @@ public class WriteIntentSwitchProcessor {
 
     private final TxMessageSender txMessageSender;
 
-    /** Topology service. */
-    private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
 
     /** Volatile transaction state meta storage. */
     private final VolatileTxStateMetaStorage volatileTxStateMetaStorage;
@@ -55,18 +56,18 @@ public class WriteIntentSwitchProcessor {
      *
      * @param placementDriverHelper Placement driver helper.
      * @param txMessageSender Transaction message creator.
-     * @param topologyService Topology service.
+     * @param localNode Local cluster node.
      * @param volatileTxStateMetaStorage Volatile transaction state meta storage.
      */
     public WriteIntentSwitchProcessor(
             PlacementDriverHelper placementDriverHelper,
             TxMessageSender txMessageSender,
-            TopologyService topologyService,
+            InternalClusterNode localNode,
             VolatileTxStateMetaStorage volatileTxStateMetaStorage
     ) {
         this.placementDriverHelper = placementDriverHelper;
         this.txMessageSender = txMessageSender;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.volatileTxStateMetaStorage = volatileTxStateMetaStorage;
     }
 
@@ -79,7 +80,7 @@ public class WriteIntentSwitchProcessor {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        String localNodeName = topologyService.localMember().name();
+        String localNodeName = localNode.name();
 
         return txMessageSender.switchWriteIntents(localNodeName, partition, txId, commit, commitTimestamp);
     }
@@ -108,8 +109,10 @@ public class WriteIntentSwitchProcessor {
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
                         }
 
-                        LOG.info("Failed to switch write intents for txn {}.", ex,
-                                formatTxInfo(txId, volatileTxStateMetaStorage));
+                        if (!hasCause(ex, NodeStoppingException.class)) {
+                            LOG.info("Failed to switch write intents for txn {}.", ex,
+                                    formatTxInfo(txId, volatileTxStateMetaStorage));
+                        }
 
                         return CompletableFuture.<WriteIntentSwitchReplicatedInfo>failedFuture(ex);
                     }

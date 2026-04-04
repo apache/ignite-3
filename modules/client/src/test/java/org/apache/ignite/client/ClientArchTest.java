@@ -19,9 +19,7 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -57,10 +55,6 @@ public class ClientArchTest {
     FieldsShouldConjunction noStaticIgniteLogger = ArchRuleDefinition.noFields()
             .that().haveRawType(IgniteLogger.class)
             .should().haveModifier(JavaModifier.STATIC);
-
-    private static JavaClasses clientModuleClasses() {
-        return new ClassFileImporter().importPath(CLASS_PATH_DIR);
-    }
 
     @Nullable
     private static JarFile toJarFile(Path path) {

@@ -20,11 +20,12 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.PATCH;
 import static io.micronaut.http.HttpStatus.CONFLICT;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static io.micronaut.http.MediaType.TEXT_PLAIN;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -34,38 +35,37 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that before cluster is initialized, only a subset of endpoints are available. */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
-
-    private final ObjectMapper mapper = new ObjectMapper();
 
     @Inject
     @Client(NODE_URL + "/management/v1")
     HttpClient client;
 
-    private static Stream<Arguments> disabledEndpoints() {
+    static Stream<HttpRequest<String>> disabledEndpoints() {
         return Stream.of(
-                Arguments.of(GET("deployment/units")),
-                Arguments.of(GET("cluster/state")),
-                Arguments.of(GET("configuration/cluster")),
-                Arguments.of(PATCH("configuration/cluster", "any.key=any-value")),
-                Arguments.of(GET("cluster/topology/logical"))
+                GET("deployment/cluster/units"),
+                GET("cluster/state"),
+                GET("configuration/cluster"),
+                PATCH("configuration/cluster", "ignite.system.idleSafeTimeSyncIntervalMillis=2000").contentType(TEXT_PLAIN),
+                GET("cluster/topology/logical")
         );
     }
 
-    private static Stream<Arguments> enabledEndpoints() {
+    static Stream<HttpRequest<String>> enabledEndpoints() {
         return Stream.of(
-                Arguments.of("node/state"),
-                Arguments.of("configuration/node"),
-                Arguments.of("configuration/node/ignite.rest"),
-                Arguments.of("cluster/topology/physical")
+                GET("node/state"),
+                GET("configuration/node"),
+                GET("configuration/node/ignite.rest"),
+                PATCH("configuration/node", "ignite.deployment.location=deployment").contentType(TEXT_PLAIN),
+                GET("cluster/topology/physical")
         );
     }
 
@@ -99,10 +99,19 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
 
     @ParameterizedTest
     @MethodSource("enabledEndpoints")
-    void nodeConfigAndClusterInitAreEnabled(String path) {
+    void nodeConfigAndClusterInitAreEnabled(HttpRequest<String> request) {
         // But node config and cluster init endpoints are enabled
-        assertDoesNotThrow(
-                () -> client.toBlocking().retrieve(GET(path))
+        assertDoesNotThrow(() -> client.toBlocking().exchange(request));
+    }
+
+    @Test
+    void nonExistentUrlReturns404WhenNotInitialized() {
+        assertThrowsProblem(
+                () -> client.toBlocking().retrieve("nonExistentEndpoint"),
+                isProblem()
+                        .withStatus(NOT_FOUND)
+                        .withTitle("Not Found")
+                        .withDetail("Requested resource not found: /management/v1/nonExistentEndpoint")
         );
     }
 }

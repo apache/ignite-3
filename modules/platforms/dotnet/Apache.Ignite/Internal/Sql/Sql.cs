@@ -33,6 +33,7 @@ namespace Apache.Ignite.Internal.Sql
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Table;
     using Table.Serialization;
     using Transactions;
 
@@ -49,13 +50,23 @@ namespace Apache.Ignite.Internal.Sql
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
 
+        private readonly Tables _tables;
+
+        /** Partition awareness mapping cache, keyed by (schema, query). */
+        private readonly ConcurrentCache<(string? Schema, string Query), SqlPartitionMappingProvider>? _paMappingCache;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Sql"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
-        public Sql(ClientFailoverSocket socket)
+        /// <param name="tables">Tables.</param>
+        public Sql(ClientFailoverSocket socket, Tables tables)
         {
             _socket = socket;
+            _tables = tables;
+
+            var cacheSize = socket.Configuration.Configuration.SqlPartitionAwarenessMetadataCacheSize;
+            _paMappingCache = cacheSize > 0 ? new(capacity: cacheSize) : null;
         }
 
         /// <inheritdoc/>
@@ -274,20 +285,58 @@ namespace Apache.Ignite.Internal.Sql
             IgniteArgumentCheck.NotNull(statement);
 
             cancellationToken.ThrowIfCancellationRequested();
-            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, default).ConfigureAwait(false);
+
+            // Look up cached PA mapping to route the query to the preferred node.
+            var paKey = (statement.Schema, statement.Query);
+            PreferredNode preferredNode = default;
+            bool requestPaMeta = _paMappingCache != null;
+
+            if (_paMappingCache?.GetValueOrDefault(paKey) is { } mappingProvider)
+            {
+                requestPaMeta = false;
+                preferredNode = await mappingProvider.GetPreferredNode(args).ConfigureAwait(false);
+            }
+
+            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, preferredNode).ConfigureAwait(false);
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
-            WriteStatement(bufferWriter, statement, args, tx, writeTx: true);
+            var writerArg = (Sql: this, bufferWriter, statement, args, tx, requestPaMeta);
 
             PooledBuffer? buf = null;
 
             try
             {
-                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(
-                    ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
+                var response = await _socket.DoOutInOpAndGetSocketAsync(
+                    clientOp: ClientOp.SqlExec,
+                    tx: tx,
+                    arg: writerArg,
+                    requestWriter: static (socket, arg0) =>
+                    {
+                        var reqBuf = arg0.bufferWriter;
+                        reqBuf.Reset();
 
-                // ResultSet will dispose the pooled buffer.
-                return new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken);
+                        var enablePartitionAwareness = arg0.requestPaMeta &&
+                                       socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness);
+
+                        arg0.Sql.WriteStatement(reqBuf, arg0.statement, arg0.args, arg0.tx, writeTx: true, enablePartitionAwareness);
+
+                        return reqBuf;
+                    },
+                    preferredNode: preferredNode,
+                    cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                // ResultSet will dispose of the pooled buffer.
+                buf = response.Buffer;
+                var resultSet = new ResultSet<T>(response, rowReaderFactory, rowReaderArg, requestPaMeta, cancellationToken);
+
+                if (resultSet.PartitionAwarenessMetadata is { } paMeta)
+                {
+                    var table = _tables.GetOrCreateCachedTableInternal(paMeta.TableId, paMeta.TableName);
+                    _paMappingCache?.TryAdd(paKey, new SqlPartitionMappingProvider(paMeta, table));
+                }
+
+                return resultSet;
             }
             catch (SqlException e)
             {
@@ -422,7 +471,8 @@ namespace Apache.Ignite.Internal.Sql
             SqlStatement statement,
             ICollection<object?>? args,
             Transaction? tx = null,
-            bool writeTx = false)
+            bool writeTx = false,
+            bool enablePartitionAwareness = false)
         {
             var w = writer.MessageWriter;
 
@@ -430,6 +480,8 @@ namespace Apache.Ignite.Internal.Sql
 
             w.WriteObjectCollectionWithCountAsBinaryTuple(args);
             w.Write(_socket.ObservableTimestamp);
+
+            w.Write(enablePartitionAwareness);
         }
     }
 }

@@ -1290,3 +1290,36 @@ TEST(bignum, TestDoubleCast) {
     CheckDoubleCast(-0.00000000000001);
     CheckDoubleCast(-0.000000000000001);
 }
+
+struct big_decimal_rounding_tc {
+    big_decimal initial;
+    int16_t new_scale;
+    big_decimal expected;
+};
+
+class big_decimal_rounding_test : public ::testing::TestWithParam<big_decimal_rounding_tc> {};
+
+TEST_P(big_decimal_rounding_test, TestScaleWithRoundHalfUp) {
+    auto [initial, new_scale, expected] = GetParam();
+
+    big_decimal actual;
+    initial.set_scale(new_scale, actual, big_decimal::rounding_mode::HALF_UP);
+
+    ASSERT_EQ(expected, actual);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ScaleWithRoundHalfUp,
+    big_decimal_rounding_test,
+    ::testing::Values(
+        big_decimal_rounding_tc{big_decimal{0}, 0, big_decimal{0}},
+        big_decimal_rounding_tc{big_decimal{1}, 0, big_decimal{1}},
+        big_decimal_rounding_tc{big_decimal{-1}, 0, big_decimal{-1}},
+        big_decimal_rounding_tc{big_decimal{"1.5"}, 0, big_decimal{2}},
+        big_decimal_rounding_tc{big_decimal{"-1.5"}, 0, big_decimal{-2}},
+        big_decimal_rounding_tc{big_decimal{"3.64586"}, 2, big_decimal{"3.65"}},
+        big_decimal_rounding_tc{big_decimal{"3.64586"}, 1, big_decimal{"3.6"}},
+        big_decimal_rounding_tc{big_decimal{"-3.64586"}, 2, big_decimal{"-3.65"}},
+        big_decimal_rounding_tc{big_decimal{"-3.64586"}, 1, big_decimal{"-3.6"}}
+    )
+);

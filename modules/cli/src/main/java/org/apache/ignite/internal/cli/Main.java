@@ -31,13 +31,12 @@ import java.util.logging.LogManager;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
-import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
-import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProviderImpl;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport;
+import org.apache.ignite.internal.cli.core.style.ColorScheme;
 import org.fusesource.jansi.AnsiConsole;
-import org.jline.terminal.Terminal;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
 
@@ -60,11 +59,10 @@ public class Main {
         int exitCode = 0;
         ApplicationContextBuilder builder = ApplicationContext.builder(Environment.CLI).deduceEnvironment(false);
         try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
+            initColorScheme(micronautFactory);
             if (interactiveMode) {
                 // REPL mode: full initialization with Jansi ANSI console and JLine terminal.
                 AnsiConsole.systemInstall();
-                initReplExecutor(micronautFactory);
-                initQuestionAsker(micronautFactory);
                 enterRepl(micronautFactory);
             } else {
                 // Non-interactive mode: skip JLine terminal initialization for faster startup.
@@ -94,16 +92,15 @@ public class Main {
         return System.console() != null;
     }
 
-    /** Needed for immediate REPL mode and for running a command which will stay in REPL mode so we need to init it once. */
-    private static void initReplExecutor(MicronautFactory micronautFactory) throws Exception {
-        ReplExecutorProviderImpl replExecutorProvider = micronautFactory.create(ReplExecutorProviderImpl.class);
-        replExecutorProvider.injectFactory(micronautFactory);
-    }
-
-    /** Creates an instance of the terminal and sets the question asker factory. */
-    private static void initQuestionAsker(MicronautFactory micronautFactory) throws Exception {
-        Terminal terminal = micronautFactory.create(Terminal.class);
-        QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
+    /** Initializes the color scheme provider to read from configuration dynamically. */
+    private static void initColorScheme(MicronautFactory micronautFactory) throws Exception {
+        ConfigManagerProvider configProvider = micronautFactory.create(ConfigManagerProvider.class);
+        // Set a provider that reads from config each time, so changes take effect immediately
+        AnsiStringSupport.setColorSchemeProvider(() -> {
+            String schemeName = configProvider.get().getCurrentProperty("ignite.cli.color-scheme");
+            ColorScheme scheme = ColorScheme.fromString(schemeName);
+            return scheme != null ? scheme : ColorScheme.SOLARIZED_DARK;
+        });
     }
 
     private static void enterRepl(MicronautFactory micronautFactory) throws Exception {
@@ -112,7 +109,7 @@ public class Main {
 
         ReplManager replManager = micronautFactory.create(ReplManager.class);
         replManager.subscribe();
-        replManager.startReplMode();
+        replManager.startReplMode(micronautFactory);
     }
 
     private static int executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {

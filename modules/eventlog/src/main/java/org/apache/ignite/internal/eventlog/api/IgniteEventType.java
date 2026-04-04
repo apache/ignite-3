@@ -51,7 +51,12 @@ public enum IgniteEventType {
     COMPUTE_TASK_CANCELED,
 
     QUERY_STARTED,
-    QUERY_FINISHED;
+    QUERY_FINISHED,
+
+    REST_API_REQUEST_STARTED,
+    REST_API_REQUEST_FINISHED,
+
+    ;
 
     static {
         // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry

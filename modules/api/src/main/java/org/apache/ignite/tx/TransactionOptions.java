@@ -17,6 +17,8 @@
 
 package org.apache.ignite.tx;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Ignite transaction options.
  */
@@ -26,6 +28,10 @@ public class TransactionOptions {
 
     /** Read-only transaction. */
     private boolean readOnly = false;
+
+    /** Transaction label. Used for identification in logs and system views. */
+    @Nullable
+    private String label = null;
 
     /**
      * Returns transaction timeout, in milliseconds. 0 means 'use default timeout'.
@@ -77,6 +83,32 @@ public class TransactionOptions {
      */
     public TransactionOptions readOnly(boolean readOnly) {
         this.readOnly = readOnly;
+
+        return this;
+    }
+
+    /**
+     * Returns transaction label. The label is included in diagnostic and observability outputs, such as logs, system views, etc.
+     *
+     * @return Transaction label, or {@code null} if not set.
+     */
+    @Nullable
+    public String label() {
+        return label;
+    }
+
+    /**
+     * Sets the transaction label. The label is included in diagnostic and observability outputs,
+     * such as logs, system views, etc.
+     *
+     * <p>Use labels to help identify and track transactions for debugging and monitoring.
+     * Once set, the label remains unchanged for the lifetime of the transaction.
+     *
+     * @param label Transaction label. Can be {@code null} to clear the label.
+     * @return {@code this} for chaining.
+     */
+    public TransactionOptions label(@Nullable String label) {
+        this.label = label;
 
         return this;
     }

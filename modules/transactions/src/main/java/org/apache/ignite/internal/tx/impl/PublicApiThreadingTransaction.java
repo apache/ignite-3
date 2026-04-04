@@ -74,6 +74,11 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
         return transaction.isReadOnly();
     }
 
+    @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return transaction.rollbackWithExceptionAsync(throwable);
+    }
+
     private <T> CompletableFuture<T> preventThreadHijack(Supplier<CompletableFuture<T>> operation) {
         CompletableFuture<T> future = execUserAsyncOperation(operation);
         return PublicApiThreading.preventThreadHijack(future, asyncContinuationExecutor);
@@ -135,8 +140,13 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
-        return transaction.finish(commit, executionTimestamp, full, timeoutExceeded);
+    public CompletableFuture<Void> finish(
+            boolean commit,
+            HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    ) {
+        return transaction.finish(commit, executionTimestamp, full, finishReason);
     }
 
     @Override
@@ -157,11 +167,6 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     @Override
     public CompletableFuture<Void> kill() {
         return transaction.kill();
-    }
-
-    @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return transaction.rollbackTimeoutExceededAsync();
     }
 
     @Override

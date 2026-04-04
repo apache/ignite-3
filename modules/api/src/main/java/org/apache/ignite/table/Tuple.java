@@ -280,6 +280,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code byte} column value.
      *
+     * <p>Implicit conversions: column values of {@link Short}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code byte} type, if the value fits {@code byte} range, otherwise {@link ArithmeticException} is thrown.
+     *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
      *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
@@ -291,6 +294,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets {@code byte} column value.
      *
+     * <p>Implicit conversions: column values of {@link Short}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code byte} type, if the value fits {@code byte} range, otherwise {@link ArithmeticException} is thrown.
+     *
      * @param columnIndex Column index.
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
@@ -299,6 +305,9 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Gets a {@code short} column value.
+     *
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code short} type, if the value fits {@code short} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -311,6 +320,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code short} column value.
      *
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code short} type, if the value fits {@code short} range, otherwise {@link ArithmeticException} is thrown.
+     *
      * @param columnIndex Column index.
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
@@ -319,6 +331,9 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Gets a {@code int} column value.
+     *
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Long} type are converted to
+     * value of {@code int} type, if the value fits {@code int} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -331,6 +346,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code int} column value.
      *
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Long} type are converted to
+     * value of {@code int} type, if the value fits {@code int} range, otherwise {@link ArithmeticException} is thrown.
+     *
      * @param columnIndex Column index.
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
@@ -339,6 +357,9 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Gets a {@code long} column value.
+     *
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Integer} type are converted to
+     * value of {@code long} type.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -351,6 +372,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code long} column value.
      *
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Integer} type are converted to
+     * value of {@code long} type.
+     *
      * @param columnIndex Column index.
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
@@ -359,6 +383,9 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Gets a {@code float} column value.
+     *
+     * <p>Implicit conversions: column values of {@link Double} type are converted to value
+     * of {@code float} type, if the value fits {@code float} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -371,6 +398,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code float} column value.
      *
+     * <p>Implicit conversions: column values of {@link Double} type are converted to value
+     * of {@code float} type, if the value fits {@code float} range, otherwise {@link ArithmeticException} is thrown.
+     *
      * @param columnIndex Column index.
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
@@ -379,6 +409,8 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Gets a {@code double} column value.
+     *
+     * <p>Implicit conversions: column values of {@link Float} type are converted to value of {@code double} type.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -390,6 +422,8 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Gets a {@code double} column value.
+     *
+     * <p>Implicit conversions: column values of {@link Float} type are converted to value of {@code double} type.
      *
      * @param columnIndex Column index.
      * @return Column value.

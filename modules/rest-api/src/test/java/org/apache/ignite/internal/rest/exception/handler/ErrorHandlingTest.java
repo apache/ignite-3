@@ -65,6 +65,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @MicronautTest
 @Property(name = "micronaut.security.enabled", value = "false")
+@Property(name = "ignite.endpoints.rest-events", value = "false")
 @Property(name = "ignite.endpoints.filter-non-initialized", value = "false")
 public class ErrorHandlingTest {
     @Inject

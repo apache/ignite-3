@@ -17,6 +17,47 @@
 
 set(TARGET ${PROJECT_NAME}-odbc)
 
+set(PUBLIC_HEADERS)
+
+set(PRIVATE_HEADERS
+    app/application_data_buffer.h
+    app/parameter.h
+    app/parameter_set.h
+    common_types.h
+    config/config_tools.h
+    config/configuration.h
+    config/connection_info.h
+    config/value_with_default.h
+    diagnostic/diagnosable.h
+    diagnostic/diagnosable_adapter.h
+    diagnostic/diagnostic_record.h
+    diagnostic/diagnostic_record_storage.h
+    log.h
+    meta/primary_key_meta.h
+    meta/table_meta.h
+    odbc.h
+    odbc_error.h
+    query/column_metadata_query.h
+    query/cursor.h
+    query/data_query.h
+    query/foreign_keys_query.h
+    query/primary_keys_query.h
+    query/query.h
+    query/result_page.h
+    query/special_columns_query.h
+    query/table_metadata_query.h
+    query/type_info_query.h
+    sql_connection.h
+    sql_environment.h
+    sql_statement.h
+    ssl_mode.h
+    system/odbc_constants.h
+    type_traits.h
+    utility.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
 include(find_odbc)
 find_package(ODBC REQUIRED)
 
@@ -95,7 +136,7 @@ foreach(_target_lib IN LISTS _target_libs)
     target_include_directories(${_target_lib} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
     target_include_directories(${_target_lib}
         INTERFACE $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
-                  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/>
+                  $<INSTALL_INTERFACE:${IGNITE_INSTALL_INCLUDE_DIR}/>
     )
     target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
 endforeach()
@@ -106,10 +147,10 @@ add_library(ignite::odbc ALIAS ${TARGET})
 install(TARGETS ${TARGET}
     EXPORT ignite-odbc-targets
     COMPONENT odbc
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    ARCHIVE DESTINATION ${IGNITE_INSTALL_ARCHIVE_DIR}
+    LIBRARY DESTINATION ${IGNITE_INSTALL_LIBRARY_DIR}
+    RUNTIME DESTINATION ${IGNITE_INSTALL_RUNTIME_DIR}
+    INCLUDES DESTINATION ${IGNITE_INSTALL_INCLUDE_DIR}
 )
 
 export(
@@ -121,7 +162,7 @@ export(
 install(
     EXPORT ignite-odbc-targets
     NAMESPACE ignite::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+    DESTINATION "${IGNITE_INSTALL_LIBRARY_DIR}/cmake/ignite"
     COMPONENT odbc-local
     FILE "ignite-odbc-targets.cmake"
 )

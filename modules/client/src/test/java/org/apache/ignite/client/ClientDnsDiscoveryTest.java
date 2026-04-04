@@ -37,7 +37,9 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -234,10 +236,49 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void testMultipleEndpointsSameNodeLogsWarning() throws InterruptedException {
+        // Two distinct IPs that both resolve to the same node (server3).
+        AtomicReference<String[]> resolvedAddressesRef = new AtomicReference<>(new String[]{loopbackAddress, hostAddress});
+        TestLoggerFactory loggerFactory = new TestLoggerFactory("test-client");
+        String[] addresses = {"my-cluster:" + server3.port()};
+
+        var cfg = getClientConfiguration(addresses, 0L, resolvedAddressesRef, loggerFactory);
+
+        List<?> channelHolders;
+
+        try (var client = TcpIgniteClient.startAsync(cfg).join()) {
+            assertDoesNotThrow(() -> client.tables().tables());
+            loggerFactory.waitForLogMatches(".*Multiple distinct endpoints resolve to the same server node.*", 5000);
+
+            List<ClusterNode> connections = client.connections();
+            assertEquals(2, connections.size());
+            assertEquals("server3", connections.get(0).name());
+            assertEquals("server3", connections.get(1).name());
+
+            channelHolders = IgniteTestUtils.getFieldValue(((TcpIgniteClient) client).channel(), "channels");
+            assertEquals(2, channelHolders.size());
+        }
+
+        for (Object holder : channelHolders) {
+            boolean isClosed = IgniteTestUtils.getFieldValue(holder, "close");
+            assertTrue(isClosed, "Channel holder should be closed after client close");
+        }
+    }
+
     private static IgniteClientConfigurationImpl getClientConfiguration(
             String[] addresses,
             long backgroundReResolveAddressesInterval,
             AtomicReference<String[]> resolvedAddressesRef
+    ) {
+        return getClientConfiguration(addresses, backgroundReResolveAddressesInterval, resolvedAddressesRef, null);
+    }
+
+    private static IgniteClientConfigurationImpl getClientConfiguration(
+            String[] addresses,
+            long backgroundReResolveAddressesInterval,
+            AtomicReference<String[]> resolvedAddressesRef,
+            @Nullable LoggerFactory loggerFactory
     ) {
         InetAddressResolver addressResolver = (host, port) -> {
             if ("my-cluster".equals(host)) {
@@ -258,7 +299,7 @@ class ClientDnsDiscoveryTest extends BaseIgniteAbstractTest {
                 50,
                 50,
                 new RetryLimitPolicy(),
-                null,
+                loggerFactory,
                 null,
                 false,
                 null,

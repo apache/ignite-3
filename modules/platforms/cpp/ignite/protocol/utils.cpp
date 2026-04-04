@@ -223,8 +223,14 @@ ignite_error read_error(reader &reader) {
                 auto ver = reader.read_int32();
                 res.add_extra<std::int32_t>(std::move(key), ver);
             } else if (key == error_extensions::SQL_UPDATE_COUNTERS) {
+                // Deprecated format: array of int64 values. Keep for compatibility with older servers.
                 auto affected_rows = reader.read_int64_array();
                 res.add_extra<std::vector<std::int64_t>>(std::move(key), std::move(affected_rows));
+            } else if (key == error_extensions::SQL_UPDATE_COUNTERS_2) {
+                // New format: single binary value containing int64 array.
+                auto affected_rows = reader.read_int64_array_from_binary();
+                // Store under the old key for backward compatibility with existing code.
+                res.add_extra<std::vector<std::int64_t>>(error_extensions::SQL_UPDATE_COUNTERS, std::move(affected_rows));
             } else {
                 reader.skip();
             }

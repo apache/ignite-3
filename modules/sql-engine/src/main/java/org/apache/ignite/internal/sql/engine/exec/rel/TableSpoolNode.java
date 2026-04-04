@@ -77,6 +77,8 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     /** {@inheritDoc} */
     @Override
     public void rewind() {
+        onRewind();
+
         rewindInternal();
     }
 
@@ -141,6 +143,8 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
+
+        onRowReceived();
 
         waiting--;
 

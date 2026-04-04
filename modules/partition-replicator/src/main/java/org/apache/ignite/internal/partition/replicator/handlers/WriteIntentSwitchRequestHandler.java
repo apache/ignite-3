@@ -172,7 +172,7 @@ public class WriteIntentSwitchRequestHandler {
                 .build();
 
         // Using empty primacy because the request is not a PrimaryReplicaRequest.
-        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(tableSpecificRequest, ReplicaPrimacy.empty(), senderId)
+        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(tableSpecificRequest)
                 .thenCompose(ignored -> {
                     ReplicaTableProcessor replicaProcessor = replicaTableProcessor(tableId);
 

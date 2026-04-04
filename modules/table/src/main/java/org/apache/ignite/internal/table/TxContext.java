@@ -24,6 +24,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -34,7 +35,12 @@ import org.jetbrains.annotations.TestOnly;
 public abstract class TxContext {
     /** Creates operation context from RO transaction. */
     public static TxContext readOnly(UUID txId, UUID txCoordinatorId, HybridTimestamp readTimestamp) {
-        return new ReadOnly(txId, txCoordinatorId, readTimestamp);
+        return new ReadOnly(txId, txCoordinatorId, readTimestamp, null);
+    }
+
+    /** Creates operation context from RO transaction. */
+    public static TxContext readOnly(UUID txId, UUID txCoordinatorId, HybridTimestamp readTimestamp, @Nullable String label) {
+        return new ReadOnly(txId, txCoordinatorId, readTimestamp, label);
     }
 
     /** Creates operation context from RO transaction. For test purposes only. */
@@ -46,7 +52,7 @@ public abstract class TxContext {
 
         assert readTimestamp != null;
 
-        return new ReadOnly(tx.id(), tx.coordinatorId(), readTimestamp);
+        return new ReadOnly(tx.id(), tx.coordinatorId(), readTimestamp, null);
     }
 
     /** Creates operation context from RW transaction. */
@@ -56,7 +62,18 @@ public abstract class TxContext {
             ZonePartitionId commitPartition,
             long enlistmentConsistencyToken
     ) {
-        return new ReadWrite(txId, txCoordinatorId, commitPartition, enlistmentConsistencyToken);
+        return new ReadWrite(txId, txCoordinatorId, commitPartition, enlistmentConsistencyToken, null);
+    }
+
+    /** Creates operation context from RW transaction. */
+    public static TxContext readWrite(
+            UUID txId,
+            UUID txCoordinatorId,
+            ZonePartitionId commitPartition,
+            long enlistmentConsistencyToken,
+            @Nullable String label
+    ) {
+        return new ReadWrite(txId, txCoordinatorId, commitPartition, enlistmentConsistencyToken, label);
     }
 
     /** Creates operation context from RW transaction. For test purposes only. */
@@ -64,18 +81,21 @@ public abstract class TxContext {
     public static TxContext readWrite(InternalTransaction tx, long enlistmentConsistencyToken) {
         assert !tx.isReadOnly();
 
-        return new ReadWrite(tx.id(), tx.coordinatorId(), tx.commitPartition(), enlistmentConsistencyToken);
+        return new ReadWrite(tx.id(), tx.coordinatorId(), tx.commitPartition(), enlistmentConsistencyToken, null);
     }
 
     protected final UUID txId;
     protected final UUID coordinatorId;
+    @Nullable
+    protected final String label;
 
-    protected TxContext(UUID txId, UUID coordinatorId) {
+    protected TxContext(UUID txId, UUID coordinatorId, @Nullable String label) {
         Objects.requireNonNull(txId, "Transaction id is mandatory");
         Objects.requireNonNull(coordinatorId, "Transaction coordinator id is mandatory");
 
         this.txId = txId;
         this.coordinatorId = coordinatorId;
+        this.label = label;
     }
 
     /** Returns {@code true} for read only transaction, {@code false} otherwise. */
@@ -91,12 +111,18 @@ public abstract class TxContext {
         return coordinatorId;
     }
 
+    /** Returns transaction label. */
+    @Nullable
+    public String label() {
+        return label;
+    }
+
     /** Read-only transaction context. */
     public static class ReadOnly extends TxContext {
         private final HybridTimestamp readTimestamp;
 
-        private ReadOnly(UUID txId, UUID txCoordinatorId, HybridTimestamp readTimestamp) {
-            super(txId, txCoordinatorId);
+        private ReadOnly(UUID txId, UUID txCoordinatorId, HybridTimestamp readTimestamp, @Nullable String label) {
+            super(txId, txCoordinatorId, label);
 
             this.readTimestamp = readTimestamp;
         }
@@ -120,7 +146,8 @@ public abstract class TxContext {
             ReadOnly txCtx = (ReadOnly) o;
             return Objects.equals(txId, txCtx.txId)
                     && Objects.equals(coordinatorId, txCtx.coordinatorId)
-                    && Objects.equals(readTimestamp, txCtx.readTimestamp);
+                    && Objects.equals(readTimestamp, txCtx.readTimestamp)
+                    && Objects.equals(label, txCtx.label);
         }
 
         @Override
@@ -139,8 +166,9 @@ public abstract class TxContext {
         private final ZonePartitionId commitPartition;
         private final long enlistmentConsistencyToken;
 
-        private ReadWrite(UUID txId, UUID txCoordinatorId, ZonePartitionId commitPartition, long enlistmentConsistencyToken) {
-            super(txId, txCoordinatorId);
+        private ReadWrite(UUID txId, UUID txCoordinatorId, ZonePartitionId commitPartition, long enlistmentConsistencyToken,
+                @Nullable String label) {
+            super(txId, txCoordinatorId, label);
 
             Objects.requireNonNull(commitPartition, "Commit partition is mandatory for RW transaction");
 
@@ -166,7 +194,8 @@ public abstract class TxContext {
             return enlistmentConsistencyToken == opCtx.enlistmentConsistencyToken
                     && Objects.equals(txId, opCtx.txId)
                     && Objects.equals(coordinatorId, opCtx.coordinatorId)
-                    && Objects.equals(commitPartition, opCtx.commitPartition);
+                    && Objects.equals(commitPartition, opCtx.commitPartition)
+                    && Objects.equals(label, opCtx.label);
         }
 
         /** Returns transaction commit partition. */

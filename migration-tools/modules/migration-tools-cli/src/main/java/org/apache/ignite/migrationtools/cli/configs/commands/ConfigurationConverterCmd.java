@@ -48,13 +48,12 @@ public class ConfigurationConverterCmd extends BaseCommand implements Callable<I
     @CommandLine.Mixin
     private ClassloaderOption classloaderOption;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         var call = new ConfigurationConverterCall();
         return runPipeline(CallExecutionPipeline.builder(call)
                 .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
-                .inputProvider(() -> new ConfigurationConverterCall.Input(inputFile, locCfgFile, distCfgFile, includeDefaults,
+                .input(new ConfigurationConverterCall.Input(inputFile, locCfgFile, distCfgFile, includeDefaults,
                         classloaderOption.clientClassLoader()))
         );
     }

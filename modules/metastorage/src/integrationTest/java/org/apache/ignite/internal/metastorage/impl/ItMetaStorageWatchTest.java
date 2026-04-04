@@ -90,8 +90,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -158,12 +158,11 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(basePath.resolve("raft"));
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
-            );
+            String nodeName = clusterService.staticLocalNode().name();
 
-            components.add(partitionsLogStorageFactory);
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+
+            components.add(partitionsLogStorageManager);
 
             var raftManager = TestLozaFactory.create(
                     clusterService,
@@ -193,13 +192,12 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 
-            LogStorageFactory cmgLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+            LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
 
-            components.add(cmgLogStorageFactory);
+            components.add(cmgLogStorageManager);
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
 
             MetricManager metricManager = new NoOpMetricManager();
 
@@ -215,6 +213,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurer,
                     metricManager
@@ -233,15 +232,15 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(basePath.resolve("storage"));
 
-            LogStorageFactory msLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                    clusterService.nodeName(),
+            LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(
+                    nodeName,
                     metastorageWorkDir.raftLogPath()
             );
 
-            components.add(msLogStorageFactory);
+            components.add(msLogStorageManager);
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -254,7 +253,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
-                    clusterService,
+                    clusterService.staticLocalNode(),
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
@@ -279,7 +278,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         String name() {
-            return clusterService.nodeName();
+            return clusterService.staticLocalNode().name();
         }
 
         void stop() throws Exception {

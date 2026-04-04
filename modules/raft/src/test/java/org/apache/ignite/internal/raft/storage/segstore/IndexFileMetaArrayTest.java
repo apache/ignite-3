@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
     @Test
     void testAddGet() {
-        var initialMeta = new IndexFileMeta(1, 2, 0, 0);
+        var initialMeta = new IndexFileMeta(1, 2, 0, new FileProperties(0));
 
         var array = new IndexFileMetaArray(initialMeta);
 
@@ -37,7 +37,7 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
         assertThat(array.firstLogIndexInclusive(), is(1L));
         assertThat(array.lastLogIndexExclusive(), is(2L));
 
-        var meta2 = new IndexFileMeta(2, 3, 0, 1);
+        var meta2 = new IndexFileMeta(2, 3, 0, new FileProperties(1));
 
         array = array.add(meta2);
 
@@ -49,10 +49,10 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < INITIAL_CAPACITY; i++) {
             long logIndex = meta2.firstLogIndexInclusive() + i + 1;
 
-            array = array.add(new IndexFileMeta(logIndex, logIndex + 1, 0, i + 2));
+            array = array.add(new IndexFileMeta(logIndex, logIndex + 1, 0, new FileProperties(i + 2)));
         }
 
-        var meta3 = new IndexFileMeta(INITIAL_CAPACITY + 3, INITIAL_CAPACITY + 4, 0, INITIAL_CAPACITY + 3);
+        var meta3 = new IndexFileMeta(INITIAL_CAPACITY + 3, INITIAL_CAPACITY + 4, 0, new FileProperties(INITIAL_CAPACITY + 3));
 
         array = array.add(meta3);
 
@@ -64,9 +64,9 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
     @Test
     void testFindReturnsCorrectIndex() {
-        var meta1 = new IndexFileMeta(1, 10, 100, 0);
-        var meta2 = new IndexFileMeta(10, 20, 200, 1);
-        var meta3 = new IndexFileMeta(20, 30, 300, 2);
+        var meta1 = new IndexFileMeta(1, 10, 100, new FileProperties(0));
+        var meta2 = new IndexFileMeta(10, 20, 200, new FileProperties(1));
+        var meta3 = new IndexFileMeta(20, 30, 300, new FileProperties(2));
 
         IndexFileMetaArray array = new IndexFileMetaArray(meta1)
                 .add(meta2)
@@ -91,7 +91,7 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
     @Test
     void testFindReturnsNullForOutOfRange() {
-        var meta = new IndexFileMeta(100, 200, 1000, 0);
+        var meta = new IndexFileMeta(100, 200, 1000, new FileProperties(0));
         var array = new IndexFileMetaArray(meta);
 
         assertThat(array.find(99), is(nullValue()));
@@ -100,9 +100,9 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
     @Test
     void testFindWorksCorrectlyWithEmptyMetas() {
-        var meta1 = new IndexFileMeta(1, 10, 100, 0);
-        var meta2 = new IndexFileMeta(10, 10, 200, 1);
-        var meta3 = new IndexFileMeta(10, 20, 200, 2);
+        var meta1 = new IndexFileMeta(1, 10, 100, new FileProperties(0));
+        var meta2 = new IndexFileMeta(10, 10, 200, new FileProperties(1));
+        var meta3 = new IndexFileMeta(10, 20, 200, new FileProperties(2));
 
         IndexFileMetaArray array = new IndexFileMetaArray(meta1)
                 .add(meta2)
@@ -114,8 +114,8 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTruncateInsideMetaAdjustsPayloadOffset() {
-        var meta1 = new IndexFileMeta(1, 10, 100, 0);
-        var meta2 = new IndexFileMeta(10, 20, 200, 1);
+        var meta1 = new IndexFileMeta(1, 10, 100, new FileProperties(0));
+        var meta2 = new IndexFileMeta(10, 20, 200, new FileProperties(1));
 
         IndexFileMetaArray array = new IndexFileMetaArray(meta1).add(meta2);
 
@@ -134,8 +134,8 @@ class IndexFileMetaArrayTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTruncateToMetaBoundarySkipsPreviousMeta() {
-        var meta1 = new IndexFileMeta(1, 10, 100, 0);
-        var meta2 = new IndexFileMeta(10, 20, 200, 1);
+        var meta1 = new IndexFileMeta(1, 10, 100, new FileProperties(0));
+        var meta2 = new IndexFileMeta(10, 20, 200, new FileProperties(1));
 
         IndexFileMetaArray array = new IndexFileMetaArray(meta1).add(meta2);
 

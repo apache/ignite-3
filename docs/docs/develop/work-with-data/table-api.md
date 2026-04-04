@@ -596,3 +596,29 @@ The following operators are supported in criterion queries:
 | `not` | Negates the condition. | `not(columnValue("City", equalTo("New York")))` |
 | `and` | Used to evaluate multiple conditions at the same time. | `and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))` |
 | `or` | Used to evaluate for at least one matching condition. | `or(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))` |
+
+
+## Partition API
+
+To retrieve a partition `id`, you need to pass the corresponding `key` value and use the following [method](https://ignite.apache.org/releases/ignite3/3.2.0/javadoc/org/apache/ignite/table/partition/PartitionDistribution.html#partition(org.apache.ignite.table.Tuple)):
+
+```java
+Table table = client.tables().table("PUBLIC.Person");
+RecordView<Tuple> personTableView = table.recordView();
+
+personTableView.upsert(null, Tuple.create().set("id", 1).set("name", "John Doe"));
+
+PartitionDistribution partDistribution = table.partitionDistribution();
+Partition partition = table.partitionDistribution().partitionAsync(Tuple.create().set("id", 1)).join();
+
+long partitionId = partition.id();
+```
+
+As `PartitionManager` API is now deprecated and will be removed in upcoming releases, use `PartitionDistribution` [API](https://ignite.apache.org/releases/ignite3/3.2.0/javadoc/org/apache/ignite/table/partition/PartitionDistribution.html#partition(org.apache.ignite.table.Tuple)) instead.
+
+```java
+Table table = client.tables().table(YOUR_TABLE_NAME);
+PartitionDistribution partDistribution = table.partitionDistribution();
+```
+
+For more details on data partitioning, see the [data partitions article](/3.1.0/configure-and-operate/storage/data-partitioning).

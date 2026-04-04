@@ -57,7 +57,7 @@ import org.apache.ignite.internal.util.IgniteBusyLock;
  */
 public class ReplicaImpl implements Replica {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ReplicaImpl.class);
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;

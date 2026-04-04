@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_EXPORTER_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
@@ -29,8 +30,6 @@ import java.util.UUID;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
@@ -43,13 +42,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MetricManagerTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(MetricManagerTest.class);
-
     private static final String NODE_NAME = "test-node-name";
 
     private static final UUID NODE_ID = UUID.randomUUID();
 
-    @InjectConfiguration("mock.exporters = {" + JMX_EXPORTER_NAME + " = {exporterName = " + JMX_EXPORTER_NAME + "}}")
+    @InjectConfiguration(
+            value = "mock.exporters = {" + JMX_EXPORTER_NAME + " = {exporterName = " + JMX_EXPORTER_NAME + "}}",
+            type = DISTRIBUTED
+    )
     private MetricConfiguration jmxMetricConfiguration;
 
     @Test
@@ -97,9 +97,7 @@ public class MetricManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static MetricManager createAndStartManager(MetricConfiguration configuration) {
-        MetricManager metricManager = new MetricManagerImpl(LOG, null);
-
-        metricManager.configure(configuration, () -> NODE_ID, NODE_NAME);
+        MetricManager metricManager = new MetricManagerImpl(NODE_NAME, () -> NODE_ID, configuration);
 
         assertThat(metricManager.startAsync(new ComponentContext()), willSucceedFast());
 

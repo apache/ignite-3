@@ -276,6 +276,17 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
     }
 
     @Test
+    void testValueFieldWithNullDefaultValue() {
+        String packageName = "org.apache.ignite.internal.configuration.processor";
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "NullDefaultValueConfigurationSchema"),
+                "Field 'str' is marked with 'hasDefault = true' but the default value is null."
+        );
+    }
+
+    @Test
     void wrongSchemaPostfix() {
         String packageName = "org.apache.ignite.internal.configuration.processor";
 

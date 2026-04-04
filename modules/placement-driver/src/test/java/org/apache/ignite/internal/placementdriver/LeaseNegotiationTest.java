@@ -125,7 +125,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
-    @InjectConfiguration("mock.leaseAgreementAcceptanceTimeLimitMillis = 2000")
+    @InjectConfiguration(value = "mock.leaseAgreementAcceptanceTimeLimitMillis = 2000", validate = false)
     private ReplicationConfiguration replicationConfiguration;
 
     private static ZonePartitionId replicationGroupId(int objectId, int partId) {

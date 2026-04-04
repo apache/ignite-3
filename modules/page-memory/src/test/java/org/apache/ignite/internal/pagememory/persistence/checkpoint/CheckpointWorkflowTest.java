@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -309,7 +308,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         }, dataRegion);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
-                coarseCurrentTimeMillis(),
                 progressImpl,
                 tracker,
                 () -> {},
@@ -547,7 +545,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         workflow.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
-                coarseCurrentTimeMillis(),
                 mock(CheckpointProgressImpl.class),
                 mock(CheckpointMetricsTracker.class),
                 () -> {},
@@ -593,7 +590,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         workflow.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
-                coarseCurrentTimeMillis(),
                 mock(CheckpointProgressImpl.class),
                 mock(CheckpointMetricsTracker.class),
                 () -> {},
@@ -654,7 +650,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         Runnable updateHeartbeat = mock(Runnable.class);
 
         CompletableFuture<Checkpoint> markCheckpointBeginFuture = runAsync(() -> workflow.markCheckpointBegin(
-                coarseCurrentTimeMillis(),
                 mock(CheckpointProgressImpl.class),
                 mock(CheckpointMetricsTracker.class),
                 updateHeartbeat,

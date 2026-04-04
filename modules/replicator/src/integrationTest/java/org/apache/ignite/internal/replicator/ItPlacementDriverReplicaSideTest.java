@@ -94,9 +94,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
@@ -109,6 +109,7 @@ import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -184,7 +185,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
 
-        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
+        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).staticLocalNode();
 
         for (String nodeName : nodeNames) {
             ClusterService clusterService = clusterServices.get(nodeName);
@@ -193,13 +194,13 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                    clusterService.nodeName(),
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
+                    clusterService.staticLocalNode().name(),
                     partitionsWorkDir.raftLogPath()
             );
 
             RaftGroupOptionsConfigurer partitionsConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.metaPath());
 
             raftConfigurers.put(nodeName, partitionsConfigurer);
 
@@ -223,7 +224,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
 
             var replicaManager = new ReplicaManager(
-                    nodeName,
                     clusterService,
                     cmgManager,
                     groupId -> completedFuture(Assignments.EMPTY),
@@ -235,10 +235,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     mock(FailureProcessor.class),
                     // TODO: IGNITE-22222 can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop
                     null,
+                    new PermissiveSafeTimeValidator(),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
                     partitionsConfigurer,
-                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
+                    new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     Executors.newSingleThreadScheduledExecutor(),
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
@@ -247,7 +248,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             replicaManagers.put(nodeName, replicaManager);
 
             assertThat(
-                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager, replicaManager),
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageManager, raftManager, replicaManager),
                     willCompleteSuccessfully()
             );
 
@@ -259,7 +260,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                             clusterService::beforeNodeStop,
                             () -> assertThat(
                                     stopAsync(new ComponentContext(),
-                                            replicaManager, raftManager, partitionsLogStorageFactory, clusterService),
+                                            replicaManager, raftManager, partitionsLogStorageManager, clusterService),
                                     willCompleteSuccessfully()
                             )
                     );
@@ -296,7 +297,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
         var res = new HashMap<String, ClusterService>(nodeNames.size());
 
         var nodeFinder = new StaticNodeFinder(IntStream.range(BASE_PORT, BASE_PORT + 5)
-                .mapToObj(p -> new NetworkAddress("localhost", p))
+                .mapToObj(p -> new NetworkAddress("127.0.0.1", p))
                 .collect(Collectors.toList()));
 
         int port = BASE_PORT;
@@ -324,7 +325,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 return;
             }
 
-            var handlerNode = handlerService.topologyService().localMember();
+            var handlerNode = handlerService.staticLocalNode();
 
             log.info("Lease is denied [replica={}, actor={}, redirect={}]", sender, handlerNode.name(),
                     ((StopLeaseProlongationMessage) msg).redirectProposal());

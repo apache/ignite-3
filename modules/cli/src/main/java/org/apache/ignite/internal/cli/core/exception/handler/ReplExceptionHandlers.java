@@ -32,6 +32,7 @@ public class ReplExceptionHandlers extends ExceptionHandlers {
      */
     public ReplExceptionHandlers(Consumer<Boolean> stop) {
         addExceptionHandler(new EndOfFileExceptionHandler(stop));
+        addExceptionHandler(new IoErrorExceptionHandler(stop));
         addExceptionHandler(new UserInterruptExceptionHandler());
     }
 }

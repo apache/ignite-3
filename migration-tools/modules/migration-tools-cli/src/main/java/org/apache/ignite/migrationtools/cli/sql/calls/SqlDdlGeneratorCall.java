@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.migrationtools.cli.sql.commands.SqlDdlGeneratorCmd;
 import org.apache.ignite.migrationtools.config.Ignite2ConfigurationUtils;
 import org.apache.ignite.migrationtools.sql.SqlDdlGenerator;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryMapImpl;
@@ -45,7 +44,7 @@ import org.slf4j.LoggerFactory;
 
 /** Call for the SQL Generator command. */
 public class SqlDdlGeneratorCall implements Call<SqlDdlGeneratorCall.Input, String> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SqlDdlGeneratorCmd.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SqlDdlGeneratorCall.class);
 
     @Override
     public CallOutput<String> execute(Input i) {

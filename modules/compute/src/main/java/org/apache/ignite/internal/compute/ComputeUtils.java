@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ER
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMATCH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.compute.message.JobStatesResponse;
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.Tuple;
@@ -339,6 +341,25 @@ public class ComputeUtils {
         });
     }
 
+    /**
+     * Checks if the throwable indicates a cancellation. Recognizes {@link CancellationException}
+     * and domain-specific exceptions with cancellation error codes (SQL EXECUTION_CANCELLED_ERR, Compute COMPUTE_JOB_CANCELLED_ERR).
+     */
+    public static boolean isCancellationException(Throwable throwable) {
+        Throwable cause = unwrapCause(throwable);
+
+        if (cause instanceof CancellationException) {
+            return true;
+        }
+
+        if (cause instanceof TraceableException) {
+            int code = ((TraceableException) cause).code();
+            return code == EXECUTION_CANCELLED_ERR || code == COMPUTE_JOB_CANCELLED_ERR;
+        }
+
+        return false;
+    }
+
     private static Throwable mapToComputeException(Throwable origin) {
         if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
             return origin;
@@ -372,7 +393,7 @@ public class ComputeUtils {
         }
 
         if (input instanceof ComputeJobDataHolder) {
-            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType, classLoader);
+            return SharedComputeUtils.unmarshalArg((ComputeJobDataHolder) input, marshaller, pojoType, classLoader);
         }
 
         if (marshaller == null) {

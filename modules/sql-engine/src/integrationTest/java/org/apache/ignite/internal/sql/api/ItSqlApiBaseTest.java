@@ -52,6 +52,9 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
@@ -59,6 +62,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.CursorClosedException;
@@ -127,6 +131,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // ADD COLUMN
         checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN (VAL2 VARCHAR, VAL3 VARCHAR)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
@@ -140,6 +145,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL1 INT, VAL4 INT)");
 
         // CREATE INDEX
         checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -200,6 +207,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
@@ -382,7 +390,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML cannot be started by using read only transactions.",
                     () -> execute(outerTx, sql, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, sql, queryRw);
@@ -701,9 +709,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished due to an error");
     }
 
     @ParameterizedTest
@@ -727,9 +735,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished due to an error");
     }
 
     @Test
@@ -749,8 +757,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             tx.rollback();
 
             assertThrowsSqlException(
-                    Transactions.TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished",
+                    Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
+                    "Transaction is already finished due to an error",
                     () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
         }
@@ -790,7 +798,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
             try {
                 assertThrowsSqlException(
-                        Sql.RUNTIME_ERR,
+                        Sql.STMT_VALIDATION_ERR,
                         "DDL doesn't support transactions.",
                         () -> execute(tx, sql, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
@@ -804,7 +812,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, result.affectedRows());
 
             assertThrowsSqlException(
-                    Sql.RUNTIME_ERR,
+                    Sql.STMT_VALIDATION_ERR,
                     "DDL doesn't support transactions.",
                     () -> sql.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );
@@ -1278,19 +1286,30 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void cancelDdlScript() {
         IgniteSql sql = igniteSql();
 
+        String targetTable = "TEST2";
         String script =
                 "CREATE TABLE test1 (id INT PRIMARY KEY);"
-                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE %s (id INT PRIMARY KEY);"
                         + "CREATE TABLE test3 (id INT PRIMARY KEY);";
 
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+        EventListener<CreateTableEventParameters> listener = parameters -> {
+            if (targetTable.equalsIgnoreCase(parameters.tableDescriptor().name())) {
+                cancelHandle.cancelAsync();
+                return CompletableFutures.trueCompletedFuture();
+            }
 
-        waitUntilRunningQueriesCount(greaterThan(0));
+            return CompletableFutures.falseCompletedFuture();
+        };
 
-        cancelHandle.cancel();
+        CLUSTER.nodes().forEach(ignite -> unwrapIgniteImpl(ignite)
+                .catalogManager()
+                .listen(CatalogEvent.TABLE_CREATE, listener)
+        );
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, String.format(script, targetTable)));
 
         expectQueryCancelled(() -> await(scriptFut));
 
@@ -1331,9 +1350,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started),
-     * the query will either not be started or will be cancelled. That is, it is impossible for a remote cancellation request
-     * to be processed by the server before the query itself is started.
+     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started), the query will
+     * either not be started or will be cancelled. That is, it is impossible for a remote cancellation request to be processed by the server
+     * before the query itself is started.
      *
      * @throws Exception If failed.
      */

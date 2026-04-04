@@ -114,15 +114,17 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @Test
     void testRestartPartitionsWithCleanupPartitionsOutOfRange() {
-        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(DEFAULT_PARTITION_COUNT));
+        int partitionCount = partitionsCount(FIRST_ZONE);
+
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(partitionCount));
 
         assertThrowsProblem(
                 () -> client1.toBlocking().exchange(post),
                 isProblem().withStatus(BAD_REQUEST).withDetail(String.format(
                         "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                        DEFAULT_PARTITION_COUNT - 1,
+                        partitionCount - 1,
                         FIRST_ZONE,
-                        DEFAULT_PARTITION_COUNT
+                        partitionCount
                 ))
         );
     }

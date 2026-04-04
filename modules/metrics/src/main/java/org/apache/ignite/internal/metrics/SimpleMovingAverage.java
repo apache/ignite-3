@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.function.DoubleFunction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,10 +38,9 @@ public class SimpleMovingAverage extends AbstractMetric implements DoubleMetric 
      *
      * @param name Name.
      * @param desc Description.
-     * @param stringFormatter String formatter to get a readable value.
      */
-    public SimpleMovingAverage(String name, @Nullable String desc, @Nullable DoubleFunction<String> stringFormatter) {
-        this(name, desc, stringFormatter, DFLT_ITEMS);
+    public SimpleMovingAverage(String name, @Nullable String desc) {
+        this(name, desc, DFLT_ITEMS);
     }
 
     /**
@@ -50,10 +48,9 @@ public class SimpleMovingAverage extends AbstractMetric implements DoubleMetric 
      *
      * @param name Name.
      * @param desc Description.
-     * @param stringFormatter String formatter to get a readable value.
      * @param items Quantity items to calculate average value.
      */
-    public SimpleMovingAverage(String name, @Nullable String desc, DoubleFunction<String> stringFormatter, int items) {
+    public SimpleMovingAverage(String name, @Nullable String desc, int items) {
         super(name, desc);
 
         this.items = items;

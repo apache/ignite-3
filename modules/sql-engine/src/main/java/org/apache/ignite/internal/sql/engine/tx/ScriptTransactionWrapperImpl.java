@@ -200,7 +200,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                 break;
 
             case ROLLBACK:
-                managedTx.rollbackAsync().whenComplete(this::completeTxFuture);
+                managedTx.rollbackWithExceptionAsync(rollbackCause).whenComplete(this::completeTxFuture);
                 break;
 
             default:

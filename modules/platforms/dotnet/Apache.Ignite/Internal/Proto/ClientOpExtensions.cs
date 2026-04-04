@@ -73,6 +73,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.StreamerBatchSend => ClientOperationType.StreamerBatchSend,
                 ClientOp.PrimaryReplicasGet => ClientOperationType.PrimaryReplicasGet,
                 ClientOp.StreamerWithReceiverBatchSend => ClientOperationType.StreamerBatchSend,
+                ClientOp.TupleContainsAllKeys => ClientOperationType.TupleContainsAllKeys,
                 ClientOp.ServerOpResponse => null,
                 ClientOp.OperationCancel => null,
 
@@ -81,5 +82,16 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.None or _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
             };
         }
+
+        /// <summary>
+        /// Returns true for operations that can be cancelled via <see cref="ClientOp.OperationCancel"/>.
+        /// </summary>
+        /// <param name="op">Op.</param>
+        /// <returns>Whether the op is cancellable with <see cref="ClientOp.OperationCancel"/>.</returns>
+        public static bool IsCancellable(this ClientOp op) => op switch
+        {
+            ClientOp.SqlExec or ClientOp.SqlExecScript or ClientOp.SqlExecBatch => true,
+            _ => false
+        };
     }
 }

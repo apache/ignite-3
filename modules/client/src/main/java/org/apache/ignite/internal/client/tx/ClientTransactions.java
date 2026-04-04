@@ -90,7 +90,7 @@ public class ClientTransactions implements IgniteTransactions {
                     w.out().packLong(timeout);
                     w.out().packLong(observableTimestamp);
                 },
-                r -> readTx(r, readOnly, timeout),
+                r -> readTx(r, ch, readOnly, timeout),
                 channelResolver,
                 null,
                 false);
@@ -98,6 +98,7 @@ public class ClientTransactions implements IgniteTransactions {
 
     private static ClientTransaction readTx(
             PayloadInputChannel r,
+            ReliableChannel ch,
             boolean isReadOnly,
             long timeout
     ) {
@@ -105,6 +106,6 @@ public class ClientTransactions implements IgniteTransactions {
 
         long id = in.unpackLong();
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
+        return new ClientTransaction(r.clientChannel(), ch, id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
     }
 }

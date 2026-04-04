@@ -68,8 +68,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -115,11 +115,11 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
         private final Loza raftManager;
 
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageManager partitionsLogStorageManager;
 
-        private final LogStorageFactory cmgLogStorageFactory;
+        private final LogStorageManager cmgLogStorageManager;
 
-        private final LogStorageFactory msLogStorageFactory;
+        private final LogStorageManager msLogStorageManager;
 
         private final MetaStorageManager metaStorageManager;
 
@@ -134,7 +134,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          * Constructor that simply creates a subset of components of this node.
          */
         Node(TestInfo testInfo, Path workDir) {
-            var addr = new NetworkAddress("localhost", 10000);
+            var addr = new NetworkAddress("127.0.0.1", 10000);
 
             vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
 
@@ -150,10 +150,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
-            );
+            String nodeName = clusterService.staticLocalNode().name();
+
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -176,11 +175,10 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
-            cmgLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+            cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
 
             MetricManager metricManager = new NoOpMetricManager();
 
@@ -194,6 +192,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurer,
                     metricManager
@@ -210,16 +209,15 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-            msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    clusterService,
+                    clusterService.staticLocalNode(),
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
@@ -245,9 +243,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     startAsync(new ComponentContext(),
                             vaultManager,
                             clusterService,
-                            partitionsLogStorageFactory,
-                            cmgLogStorageFactory,
-                            msLogStorageFactory,
+                            partitionsLogStorageManager,
+                            cmgLogStorageManager,
+                            msLogStorageManager,
                             raftManager,
                             failureManager,
                             cmgManager
@@ -286,9 +284,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                             cmgManager,
                             failureManager,
                             raftManager,
-                            partitionsLogStorageFactory,
-                            cmgLogStorageFactory,
-                            msLogStorageFactory,
+                            partitionsLogStorageManager,
+                            cmgLogStorageManager,
+                            msLogStorageManager,
                             clusterService,
                             vaultManager
                     );
@@ -301,7 +299,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         }
 
         String name() {
-            return clusterService.nodeName();
+            return clusterService.staticLocalNode().name();
         }
     }
 

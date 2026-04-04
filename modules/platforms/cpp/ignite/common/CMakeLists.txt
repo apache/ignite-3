@@ -42,13 +42,30 @@ set(PUBLIC_HEADERS
     uuid.h
 )
 
+set(PRIVATE_HEADERS
+    detail/defer.h
+    detail/duration_min_max.h
+    detail/factory.h
+    detail/ignite_mbedtls_config.h
+    detail/server_version.h
+    detail/string_utils.h
+    detail/thread_timer.h
+    detail/utils.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
 set(SOURCES
     big_decimal.cpp
     big_integer.cpp
     detail/mpi.cpp
     detail/string_utils.cpp
+    detail/string_extensions.cpp
     detail/thread_timer.cpp
     uuid.cpp
+    detail/hash_calculator.cpp
+    detail/hash_utils.cpp
+        detail/murmur3_hash.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
@@ -60,9 +77,7 @@ target_include_directories(${TARGET} INTERFACE
     $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>)
 
-if (${INSTALL_IGNITE_FILES})
-    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common COMPONENT client)
-endif()
+ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common COMPONENT client)
 
 ignite_test(bits_test DISCOVER SOURCES detail/bits_test.cpp LIBS ${TARGET})
 ignite_test(bytes_test DISCOVER SOURCES detail/bytes_test.cpp LIBS ${TARGET})
@@ -71,3 +86,4 @@ ignite_test(thread_timer_test DISCOVER SOURCES detail/thread_timer_test.cpp LIBS
 ignite_test(uuid_test DISCOVER SOURCES uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test DISCOVER SOURCES bignum_test.cpp LIBS ${TARGET})
 ignite_test(primitive_test DISCOVER SOURCES primitive_test.cpp LIBS ${TARGET})
+ignite_test(hash_utils_test DISCOVER SOURCES detail/hash_utils_test.cpp LIBS ${TARGET})

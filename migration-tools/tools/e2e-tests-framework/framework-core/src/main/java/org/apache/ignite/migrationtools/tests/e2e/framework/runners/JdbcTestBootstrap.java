@@ -46,7 +46,7 @@ public class JdbcTestBootstrap {
 
     /** Constructor. */
     public JdbcTestBootstrap() {
-        // TODO: Log an warning if it goes to default?
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28174 Log an warning if it goes to default?
         this(Optional.ofNullable(System.getProperty("jdbcURL"))
                 .or(() -> Optional.ofNullable(System.getenv("JDBC_URL")))
                 .orElse("jdbc:ignite:thin://127.0.0.1:10800"));

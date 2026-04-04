@@ -31,6 +31,8 @@ import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
@@ -51,6 +53,9 @@ public class NodeUrlMixin {
 
     @Inject
     private ConfigManagerProvider configManagerProvider;
+
+    @Inject
+    private Session session;
 
     @Inject
     private NodeNameRegistry nodeNameRegistry;
@@ -101,6 +106,10 @@ public class NodeUrlMixin {
             ConfigManager configManager = configManagerProvider.get();
             return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName);
         }
-        return null;
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null) {
+            return sessionInfo.nodeUrl();
+        }
+        return configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
     }
 }

@@ -31,7 +31,7 @@ import org.apache.ignite3.internal.logger.IgniteLogger;
 
 /** Call for the Retrieable Migrate Cache Command. */
 public class RetriableMigrateCacheCall implements Call<RetriableMigrateCacheCall.Input, MigrateCacheCall.Ouput> {
-    private static final IgniteLogger LOGGER = CliLoggers.forClass(MigrateCacheCall.class);
+    private static final IgniteLogger LOGGER = CliLoggers.forClass(RetriableMigrateCacheCall.class);
 
     private final MigrateCacheCall migrateCacheCall;
 

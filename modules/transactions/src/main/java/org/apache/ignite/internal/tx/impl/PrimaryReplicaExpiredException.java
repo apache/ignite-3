@@ -23,11 +23,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /** Unchecked exception that is thrown when primary replica has expired. */
-public class PrimaryReplicaExpiredException extends IgniteInternalException implements RetriableTransactionException {
+public class PrimaryReplicaExpiredException extends IgniteInternalException implements RetriableTransactionException,
+        RetriableReplicaRequestException {
     /**
      * The constructor.
      *

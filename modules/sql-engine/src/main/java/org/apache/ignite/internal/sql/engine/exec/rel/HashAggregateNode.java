@@ -102,6 +102,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
+        onRequestReceived();
+
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -116,6 +118,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
+
+        onRowReceived();
 
         waiting--;
 
@@ -257,7 +261,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey grpKey = b.build();
 
             AggregateRow<RowT> aggRow = groups.computeIfAbsent(grpKey, k -> create());
-            aggRow.update(accs, grpFields, handler, row);
+            aggRow.update(accs, grpFields, row);
         }
 
         /**

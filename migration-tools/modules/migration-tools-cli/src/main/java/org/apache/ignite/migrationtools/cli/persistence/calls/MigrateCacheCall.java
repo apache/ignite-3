@@ -282,7 +282,7 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
             } else {
                 // Lets try to write progress.
                 @Nullable Path outputProgressFile;
-                // TODO: This logic is duplicated.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-28131 This logic is duplicated.
                 if (!i.migrateCacheParams().saveProgressFileDisabled()) {
                     // Let's just remove the last processor, since there is guarantee that it completed successfully.
                     if (!perPartitionColumnProcessors.isEmpty()) {

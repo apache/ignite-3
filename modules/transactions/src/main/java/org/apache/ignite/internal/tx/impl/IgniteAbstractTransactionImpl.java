@@ -18,19 +18,24 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,13 +68,13 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * The constructor.
      *
      * @param txManager The tx manager.
-     * @param id The id.
      * @param observableTsTracker Observation timestamp tracker.
+     * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout Transaction timeout in milliseconds.
      */
-    public IgniteAbstractTransactionImpl(
+    IgniteAbstractTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
@@ -163,5 +168,23 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public boolean isRolledBackWithTimeoutExceeded() {
         return timeoutExceeded;
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, null, false, throwable),
+                rollbackExceptionCode(throwable)
+        );
+    }
+
+    private static int rollbackExceptionCode(Throwable throwable) {
+        if (isFinishedDueToTimeout(throwable)) {
+            return TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+        }
+
+        Throwable unwrapped = unwrapCause(throwable);
+
+        return unwrapped instanceof IgniteException ? ((IgniteException) unwrapped).code() : INTERNAL_ERR;
     }
 }

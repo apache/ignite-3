@@ -616,6 +616,57 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+        {
+            var result = await TupleView.ContainsAllKeysAsync(null, []);
+
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+            await TupleView.UpsertAllAsync(null, records);
+
+            var result = await TupleView.ContainsAllKeysAsync(null, Enumerable.Range(1, 10).Select(x => GetTuple(x)));
+
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWithAllNonExistingKeysReturnsFalse()
+        {
+            var result = await TupleView.ContainsAllKeysAsync(null, [GetTuple(1), GetTuple(2)]);
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWithNonExistingKeysReturnsFalse()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+            await TupleView.UpsertAllAsync(null, records);
+
+            var result = await TupleView.ContainsAllKeysAsync(null, Enumerable.Range(5, 10).Select(x => GetTuple(x)));
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void TestContainsAllKeysThrowsArgumentExceptionOnNullCollectionElement()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await TupleView.ContainsAllKeysAsync(null, [GetTuple(1), null!]));
+
+            Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
+        }
+
+        [Test]
         [Category(TestUtils.CategoryIntensive)]
         public void TestUpsertAllBufferOverflow()
         {

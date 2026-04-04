@@ -49,7 +49,7 @@ public class RocksDbSharedLogStorageAdvancedTest extends BaseIgniteAbstractTest 
     @WorkDirectory
     private Path path;
 
-    private DefaultLogStorageFactory logStorageProvider;
+    private DefaultLogStorageManager logStorageProvider;
 
     private ConfigurationManager confManager;
 
@@ -59,7 +59,7 @@ public class RocksDbSharedLogStorageAdvancedTest extends BaseIgniteAbstractTest 
 
     @BeforeEach
     public void setUp() {
-        logStorageProvider = new DefaultLogStorageFactory(this.path);
+        logStorageProvider = new DefaultLogStorageManager(this.path);
         assertThat(logStorageProvider.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         this.confManager = new ConfigurationManager();

@@ -56,7 +56,10 @@ public class Dependencies {
                 .forProjectDirectory(projectRoot)
                 .connect()
         ) {
-            File file = constructArgFile(connection, dependencyNotation, true, transitive);
+            File file = argFileBuilder(connection, dependencyNotation)
+                    .classPathOnly(true)
+                    .transitive(transitive)
+                    .build();
             return Files.readAllLines(file.toPath()).stream()
                     .map(String::trim)
                     .collect(Collectors.joining(";"));
@@ -92,44 +95,64 @@ public class Dependencies {
         }
     }
 
-    static File constructArgFile(
-            ProjectConnection connection,
-            String dependencyNotation,
-            boolean classPathOnly
-    ) throws IOException {
-        return constructArgFile(connection, dependencyNotation, classPathOnly, true);
+    static ArgFileBuilder argFileBuilder(ProjectConnection connection, String dependencyNotation) {
+        return new ArgFileBuilder(connection, dependencyNotation);
     }
 
-    static File constructArgFile(
-            ProjectConnection connection,
-            String dependencyNotation,
-            boolean classPathOnly,
-            boolean transitive
-    ) throws IOException {
-        File argFilePath = File.createTempFile("argFilePath", "");
-        argFilePath.deleteOnExit();
+    static class ArgFileBuilder {
+        private final ProjectConnection connection;
+        private final String dependencyNotation;
+        private String libraryDependencies = "";
+        private boolean classPathOnly;
+        private boolean transitive;
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-        try {
-            connection.newBuild()
-                    .forTasks(":ignite-compatibility-tests:constructArgFile")
-                    .withArguments(
-                            "-PdependencyNotation=" + dependencyNotation,
-                            "-PargFilePath=" + argFilePath,
-                            "-PargFileTransitive=" + transitive,
-                            "-PargFileClassPathOnly=" + classPathOnly
-                    )
-                    .setStandardOutput(baos)
-                    .setStandardError(baos)
-                    .run();
-        } catch (GradleConnectionException | IllegalStateException e) {
-            LOG.error("Failed to run constructArgFile task", e);
-            LOG.error("Gradle task output:" + System.lineSeparator() + baos);
-            throw new RuntimeException(e);
+        ArgFileBuilder(ProjectConnection connection, String dependencyNotation) {
+            this.connection = connection;
+            this.dependencyNotation = dependencyNotation;
         }
 
-        return argFilePath;
+        ArgFileBuilder libraryDependencies(String libraryDependencies) {
+            this.libraryDependencies = libraryDependencies;
+            return this;
+        }
+
+        ArgFileBuilder classPathOnly(boolean classPathOnly) {
+            this.classPathOnly = classPathOnly;
+            return this;
+        }
+
+        ArgFileBuilder transitive(boolean transitive) {
+            this.transitive = transitive;
+            return this;
+        }
+
+        File build() throws IOException {
+            File argFilePath = File.createTempFile("argFilePath", "");
+            argFilePath.deleteOnExit();
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+            try {
+                connection.newBuild()
+                        .forTasks(":ignite-compatibility-tests:constructArgFile")
+                        .withArguments(
+                                "-PdependencyNotation=" + dependencyNotation,
+                                "-PlibDependencies=" + libraryDependencies,
+                                "-PargFilePath=" + argFilePath,
+                                "-PargFileTransitive=" + transitive,
+                                "-PargFileClassPathOnly=" + classPathOnly
+                        )
+                        .setStandardOutput(baos)
+                        .setStandardError(baos)
+                        .run();
+            } catch (GradleConnectionException | IllegalStateException e) {
+                LOG.error("Failed to run constructArgFile task", e);
+                LOG.error("Gradle task output:" + System.lineSeparator() + baos);
+                throw new RuntimeException(e);
+            }
+
+            return argFilePath;
+        }
     }
 
     static File getProjectRoot() {

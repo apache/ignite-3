@@ -97,6 +97,28 @@ public final class CollectionUtils {
     }
 
     /**
+     * Count values in iterator.
+     *
+     * @param iter The iterator.
+     *
+     * @return The count.
+     */
+    public static int count(@Nullable Iterator<?> iter) {
+        if (iter == null) {
+            return 0;
+        }
+
+        int cnt = 0;
+
+        while (iter.hasNext()) {
+            iter.next();
+            cnt++;
+        }
+
+        return cnt;
+    }
+
+    /**
      * Gets first element from given list or returns {@code null} if list is empty.
      *
      * @param list List to retrieve the first element.

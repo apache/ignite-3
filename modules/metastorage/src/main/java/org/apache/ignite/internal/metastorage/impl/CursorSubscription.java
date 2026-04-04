@@ -140,7 +140,7 @@ class CursorSubscription implements Subscription {
                     return;
                 }
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             onError(e);
         } finally {
             context.busyLock().leaveBusy();

@@ -51,8 +51,8 @@ import org.mockito.Mockito;
 
 /** SchemaColumnsProcessorTest. */
 public class SchemaColumnsProcessorTest {
-    // TODO: This test must be totally refactored its impossible to add new functionality easily
-    // TODO: Check if I can improve the AssertJ stuff
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28182 This test must be totally refactored its impossible to add new functionality
+    //  easily. Check if I can improve the AssertJ stuff
 
     private static void assertErrorThrownWithMissingColumn(MyTestSubscriber subscriber, String missingColName) {
         var err = subscriber.error;

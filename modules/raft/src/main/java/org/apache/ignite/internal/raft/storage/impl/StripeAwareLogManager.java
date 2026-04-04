@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -55,6 +56,10 @@ public class StripeAwareLogManager extends LogManagerImpl {
      * It requires special treatment in order to better optimize writes.
      */
     private boolean sharedLogStorage;
+
+    public StripeAwareLogManager(MetricManager metricManager, String groupId) {
+        super(metricManager, groupId);
+    }
 
     @Override
     public boolean init(LogManagerOptions opts) {
@@ -222,13 +227,13 @@ public class StripeAwareLogManager extends LogManagerImpl {
                 return;
             }
 
-            // At first, all log storages should prepare the data by adding it to the write batch in the log storage factory.
+            // At first, all log storages should prepare the data by adding it to the write batch in the log storage manager.
             for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
                 appendBatcher.appendToStorage();
             }
 
             // Calling "commitWriteBatch" on StripeAwareAppendBatcher is confusing and hacky, but it doesn't require explicit access
-            // to the log storage factory, which makes it far easier to use in current jraft code.
+            // to the log storage manager, which makes it far easier to use in current jraft code.
             // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
             // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
             try {

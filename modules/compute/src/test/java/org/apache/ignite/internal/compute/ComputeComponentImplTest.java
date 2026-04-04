@@ -94,7 +94,6 @@ import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -146,6 +145,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponentImpl computeComponent;
 
+    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), INSTANCE_NAME, new NetworkAddress("local-host", 1));
     private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
     private final InternalClusterNode remoteNode = new ClusterNodeImpl(
             randomUUID(),
@@ -158,7 +158,6 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
-        lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
         UnitsClassLoader classLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
         UnitsClassLoaderContext jobContext = new UnitsClassLoaderContext(classLoader, ignored -> {});
@@ -172,18 +171,25 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, INSTANCE_NAME);
         ComputeExecutor computeExecutor = new ComputeExecutorImpl(
-                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()), EventLog.NOOP);
+                ignite,
+                tracker -> ignite,
+                stateMachine,
+                computeConfiguration,
+                localNode,
+                new TestClockService(new HybridClockImpl()),
+                EventLog.NOOP
+        );
 
         computeComponent = new ComputeComponentImpl(
                 INSTANCE_NAME,
                 messagingService,
                 topologyService,
+                localNode,
                 logicalTopologyService,
                 unitsContextManager,
                 computeExecutor,
                 computeConfiguration,
-                EventLog.NOOP,
-                HybridTimestampTracker.emptyTracker()
+                EventLog.NOOP
         );
 
         assertThat(computeComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -249,7 +255,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // LongJob catches interruption and completes normally — cooperative cancellation honors the result.
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
         assertThatNoRequestsWereSent();
     }
@@ -427,7 +434,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteRequest capturedRequest = invokeAndCaptureRequest(ExecuteRequest.class);
 
         assertThat(capturedRequest.jobClassName(), is(jobClassName));
-        assertThat(SharedComputeUtils.unmarshalArgOrResult(capturedRequest.input(), null, null), is(equalTo(arg)));
+        assertThat(SharedComputeUtils.unmarshalArg(capturedRequest.input(), null, null), is(equalTo(arg)));
     }
 
     private void assertThatJobResultRequestWasSent(UUID jobId) {
@@ -495,7 +502,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .build();
         JobResultResponse jobResultResponse = sendRequestAndCaptureResponse(jobResultRequest, testNode, 456L);
 
-        assertThat(SharedComputeUtils.unmarshalArgOrResult(jobResultResponse.result(), null, null), is("jobResponse"));
+        assertThat(SharedComputeUtils.unmarshalResult(jobResultResponse.result(), null, null), is("jobResponse"));
         assertThat(jobResultResponse.throwable(), is(nullValue()));
     }
 
@@ -741,7 +748,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private static CompletableFuture<String> unwrapResult(JobExecution<ComputeJobDataHolder> execution) {
-        return execution.resultAsync().thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(r, null, null));
+        return execution.resultAsync().thenApply(r -> SharedComputeUtils.unmarshalResult(r, null, null));
     }
 
     private static class SimpleJob implements ComputeJob<String, String> {

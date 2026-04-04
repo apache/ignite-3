@@ -141,6 +141,8 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         try {
             assert waiting > 0;
 
+            onRowReceived();
+
             waiting--;
 
             inBuff.offer(row);

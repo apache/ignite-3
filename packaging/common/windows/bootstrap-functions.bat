@@ -18,13 +18,18 @@ set COMMON_JAVA_OPTS=@ADD_OPENS@ ^
 -Dio.netty.tryReflectionSetAccessible=true ^
 -Dfile.encoding=UTF-8 ^
 -XX:+HeapDumpOnOutOfMemoryError ^
--XX:+ExitOnOutOfMemoryError
+-XX:+ExitOnOutOfMemoryError ^
+-XX:+PerfDisableSharedMem
 
 set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="%CONF_DIR%\ignite.java.util.logging.properties" ^
 -XX:HeapDumpPath="%LOG_DIR%" ^
 -Xlog:gc=info:file="%LOG_DIR%\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
 
-set CLASSPATH=-classpath "%LIBS_DIR%\*" @MAIN_CLASS@
+if defined IGNITE3_EXTRA_CLASSPATH (
+    set CLASSPATH=-classpath "%LIBS_DIR%\*;%IGNITE3_EXTRA_CLASSPATH%" @MAIN_CLASS@
+) else (
+    set CLASSPATH=-classpath "%LIBS_DIR%\*" @MAIN_CLASS@
+)
 
 set JAVA_MEMORY_OPTIONS=-Xmx%JVM_MAX_MEM% -Xms%JVM_MIN_MEM%
 
@@ -38,4 +43,7 @@ set JAVA_CMD_WITH_ARGS="%JAVA_EXE%" ^
 %IGNITE3_EXTRA_JVM_ARGS% ^
 %CLASSPATH%
 
-set APPLICATION_ARGS=--config-path "%CONFIG_FILE%" --work-dir "%WORK_DIR%" --node-name %NODE_NAME%
+set APPLICATION_ARGS=--config-path "%CONFIG_FILE%" ^
+--work-dir "%WORK_DIR%" ^
+--node-name %NODE_NAME% ^
+--log-dir "%LOG_DIR%"

@@ -219,8 +219,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(localStateTableFuture, willCompleteSuccessfully());
         Map<ZonePartitionId, LocalPartitionStateByNode> localState = localStateTableFuture.get();
 
-        // A  custom zone, which was created in `BeforeEach` with 2 partitions due to this test's `ZoneParam` annotation's parameter.
-        assertThat(localState, aMapWithSize(2));
+        // A default zone and a custom zone, which was created in `BeforeEach` with 2 partitions due to this test's `ZoneParam` annotation's
+        // parameter. 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
+        assertThat(localState, aMapWithSize(27));
 
         int zoneId = zoneId(node);
 
@@ -253,8 +254,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(globalStatesFuture, willCompleteSuccessfully());
         Map<ZonePartitionId, GlobalPartitionState> globalState = globalStatesFuture.get();
 
-        // A  custom zone, which was created in `BeforeEach` with 2 partitions due to this test's `ZoneParam` annotation's parameter.
-        assertThat(globalState, aMapWithSize(2));
+        // A default zone and a custom zone, which was created in `BeforeEach` with 2 partitions due to this test's `ZoneParam` annotation's
+        // parameter. 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
+        assertThat(globalState, aMapWithSize(27));
 
         int zoneId = zoneId(node);
 

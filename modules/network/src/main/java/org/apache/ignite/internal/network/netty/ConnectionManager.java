@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +42,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -64,7 +62,6 @@ import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
-import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.DescriptorAcquiry;
 import org.apache.ignite.internal.network.recovery.RecoveryAcceptorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
@@ -95,7 +92,7 @@ public class ConnectionManager implements ChannelCreationListener {
     private static final int MAX_RETRIES_TO_OPEN_CHANNEL = 10;
 
     /** Client bootstrap. */
-    private final Bootstrap clientBootstrap;
+    private volatile Bootstrap clientBootstrap;
 
     /** Server. */
     private final NettyServer server;
@@ -112,14 +109,7 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Message listeners. */
     private final List<Consumer<InNetworkObject>> listeners = new CopyOnWriteArrayList<>();
 
-    /** Node ephemeral ID. */
-    private final UUID nodeId;
-
-    /**
-     * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
-     * till it's completed.
-     */
-    private final CompletableFuture<InternalClusterNode> localNodeFuture = new CompletableFuture<>();
+    private final InternalClusterNode localNode;
 
     protected final NettyBootstrapFactory bootstrapFactory;
 
@@ -144,7 +134,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private final ChannelTypeRegistry channelTypeRegistry;
 
-    protected final IgniteProductVersionSource productVersionSource;
+    private final IgniteProductVersionSource productVersionSource;
 
     /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
@@ -155,26 +145,12 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Failure processor. */
     protected final FailureProcessor failureProcessor;
 
-    /**
-     * Constructor.
-     *
-     * @param networkConfiguration Network configuration.
-     * @param serializationService Serialization service.
-     * @param nodeName Node name.
-     * @param nodeId ID of this node.
-     * @param bootstrapFactory Bootstrap factory.
-     * @param staleIdDetector Detects stale member IDs.
-     * @param clusterIdSupplier Supplier of cluster ID.
-     * @param channelTypeRegistry {@link ChannelType} registry.
-     * @param productVersionSource Source of product version.
-     * @param topologyService Cluster topology service.
-     * @param failureProcessor Failure processor.
-     */
+    /** Constructor. */
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            String nodeName,
-            UUID nodeId,
+            InetSocketAddress localBindAddress,
+            InternalClusterNode localNode,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
@@ -184,7 +160,7 @@ public class ConnectionManager implements ChannelCreationListener {
             FailureProcessor failureProcessor
     ) {
         this.serializationService = serializationService;
-        this.nodeId = nodeId;
+        this.localNode = localNode;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
@@ -198,15 +174,13 @@ public class ConnectionManager implements ChannelCreationListener {
         clientSslContext = ssl.enabled() ? SslContextProvider.createClientSslContext(ssl) : null;
 
         this.server = new NettyServer(
-                networkConfiguration,
-                this::createAcceptorHandshakeManager,
+                localBindAddress,
+                this::newRecoveryAcceptorHandshakeManager,
                 this::onMessage,
                 serializationService,
                 bootstrapFactory,
                 ssl.enabled() ? SslContextProvider.createServerSslContext(ssl) : null
         );
-
-        this.clientBootstrap = bootstrapFactory.createOutboundBootstrap();
 
         // We don't just use Executors#newSingleThreadExecutor() here because the maintenance thread will
         // be kept alive forever, and we only need it from time to time, so it seems a waste to keep the thread alive.
@@ -216,7 +190,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 1,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "connection-maintenance", LOG)
+                IgniteThreadFactory.create(localNode.name(), "connection-maintenance", LOG)
         );
         maintenanceExecutor.allowCoreThreadTimeOut(true);
 
@@ -239,6 +213,8 @@ public class ConnectionManager implements ChannelCreationListener {
             if (stopped.get()) {
                 throw new IgniteInternalException("Attempted to start an already stopped connection manager");
             }
+
+            clientBootstrap = bootstrapFactory.createOutboundBootstrap();
 
             server.start().get();
 
@@ -420,7 +396,7 @@ public class ConnectionManager implements ChannelCreationListener {
         var client = new NettyClient(
                 address,
                 serializationService,
-                createInitiatorHandshakeManager(channelType.id()),
+                newRecoveryInitiatorHandshakeManager(channelType.id(), localNode),
                 this::onMessage,
                 clientSslContext
         );
@@ -493,12 +469,6 @@ public class ConnectionManager implements ChannelCreationListener {
         return stopped.get();
     }
 
-    private HandshakeManager createInitiatorHandshakeManager(short connectionId) {
-        InternalClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
-
-        return newRecoveryInitiatorHandshakeManager(connectionId, localNode);
-    }
-
     /**
      * Factory method for overriding the handshake manager implementation in subclasses.
      */
@@ -521,14 +491,7 @@ public class ConnectionManager implements ChannelCreationListener {
         );
     }
 
-    private HandshakeManager createAcceptorHandshakeManager() {
-        // Do not just use localNodeFuture.join() to make sure the wait is time-limited.
-        InternalClusterNode localNode = waitForLocalNodeToBeSet();
-
-        return newRecoveryAcceptorHandshakeManager(localNode);
-    }
-
-    private RecoveryAcceptorHandshakeManager newRecoveryAcceptorHandshakeManager(InternalClusterNode localNode) {
+    private RecoveryAcceptorHandshakeManager newRecoveryAcceptorHandshakeManager() {
         return new RecoveryAcceptorHandshakeManager(
                 localNode,
                 FACTORY,
@@ -542,18 +505,6 @@ public class ConnectionManager implements ChannelCreationListener {
                 topologyService,
                 failureProcessor
         );
-    }
-
-    private InternalClusterNode waitForLocalNodeToBeSet() {
-        try {
-            return localNodeFuture.get(10, SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new RuntimeException("Interrupted while waiting for local node to be set", e);
-        } catch (ExecutionException | TimeoutException e) {
-            throw new RuntimeException("Could not finish awaiting for local node", e);
-        }
     }
 
     /**
@@ -577,7 +528,7 @@ public class ConnectionManager implements ChannelCreationListener {
      * @return This node's id.
      */
     public UUID nodeId() {
-        return nodeId;
+        return localNode.id();
     }
 
     /**
@@ -690,12 +641,5 @@ public class ConnectionManager implements ChannelCreationListener {
         descriptor.dispose(exceptionToFailSendFutures);
 
         return nullCompletedFuture();
-    }
-
-    /**
-     * Sets the local node. Only after this this manager becomes able to accept incoming connections.
-     */
-    public void setLocalNode(InternalClusterNode localNode) {
-        localNodeFuture.complete(localNode);
     }
 }

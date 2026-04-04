@@ -26,12 +26,12 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.table.IndexScanCriteria;

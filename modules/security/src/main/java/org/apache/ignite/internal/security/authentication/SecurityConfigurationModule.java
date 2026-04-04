@@ -38,11 +38,11 @@ import org.apache.ignite.internal.security.configuration.SecurityExtensionConfig
  */
 @AutoService(ConfigurationModule.class)
 public class SecurityConfigurationModule implements ConfigurationModule {
-    static final String DEFAULT_PROVIDER_NAME = "default";
+    public static final String DEFAULT_PROVIDER_NAME = "default";
 
-    static final String DEFAULT_USERNAME = "ignite";
+    public static final String DEFAULT_USERNAME = "ignite";
 
-    static final String DEFAULT_PASSWORD = "ignite";
+    public static final String DEFAULT_PASSWORD = "ignite";
 
     @Override
     public ConfigurationType type() {

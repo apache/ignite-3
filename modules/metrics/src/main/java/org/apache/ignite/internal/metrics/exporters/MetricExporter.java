@@ -19,7 +19,7 @@ package org.apache.ignite.internal.metrics.exporters;
 
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
@@ -70,8 +70,7 @@ public interface MetricExporter {
     void reconfigure(ExporterView newValue);
 
     /**
-     * {@link MetricManagerImpl} invokes this method,
-     * when new metric source was enabled.
+     * {@link MetricManager} invokes this method, when new metric source was enabled.
      *
      * @param metricSet Named metric set.
      */
@@ -80,8 +79,7 @@ public interface MetricExporter {
     }
 
     /**
-     * {@link MetricManagerImpl} invokes this method,
-     * when the metric source was disabled.
+     * {@link MetricManager} invokes this method, when the metric source was disabled.
      *
      * @param metricSet Named metric set to remove.
      */

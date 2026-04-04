@@ -123,7 +123,7 @@ public class PlacementDriverMessageProcessor {
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
 
-        raftClient.subscribeLeader(this::onLeaderElected);
+        raftClient.subscribeLeader((clusterNode, term) -> onLeaderElected(clusterNode));
     }
 
     /**
@@ -317,7 +317,7 @@ public class PlacementDriverMessageProcessor {
                 });
     }
 
-    private void onLeaderElected(InternalClusterNode clusterNode, long term) {
+    private void onLeaderElected(InternalClusterNode clusterNode) {
         leaderRef = clusterNode;
         leaderReadyFuture.complete(null);
     }

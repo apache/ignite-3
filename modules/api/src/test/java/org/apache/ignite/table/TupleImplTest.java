@@ -91,4 +91,10 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         // must be found by non normalized name, regular method does normalization
         assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
     }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27577 Remove this method
+    @Override
+    protected boolean enableClassCastMessageVerification() {
+        return false;
+    }
 }

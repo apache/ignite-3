@@ -77,6 +77,7 @@ public class StatisticAggregatorImpl implements
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         Map<TablePartitionIdentifier, CompletableFuture<Object>> completedRequests = requestsCompletion.get();
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.otlp;
 
 import static io.opentelemetry.api.common.AttributeType.STRING;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.configuration.MetricChange;
@@ -80,7 +80,10 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, periodMillis = 300, endpoint = \"http://localhost:4317\"}}")
+    @InjectConfiguration(
+            value = "mock.exporters = {otlp = {exporterName = otlp, periodMillis = 300, endpoint = \"http://localhost:4317\"}}",
+            type = DISTRIBUTED
+    )
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();
@@ -109,7 +112,7 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
                     )
             );
 
-    private MetricManager metricManager;
+    private MetricManagerImpl metricManager;
 
     private MetricExporter metricsExporter;
 
@@ -120,9 +123,8 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metricManager = new MetricManagerImpl();
+        metricManager = new MetricManagerImpl("nodeName", () -> CLUSTER_ID, metricConfiguration);
 
-        metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
         metricManager.registerSource(new TestMetricSource(SRC_NAME, metricSet));
 
         exporter = new OtlpPushMetricExporter();

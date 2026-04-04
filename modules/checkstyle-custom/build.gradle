@@ -1,0 +1,72 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// This module cannot apply java-core.gradle because java-core.gradle adds
+// `checkstyle project(':ignite-checkstyle-custom')` to every module's checkstyle classpath.
+// That would create a circular dependency: this module would depend on its own jar
+// to run checkstyle on itself. Instead, we configure checkstyle and PMD directly.
+apply plugin: 'java'
+apply plugin: 'checkstyle'
+apply plugin: 'pmd'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+description = 'ignite-checkstyle-custom'
+
+checkstyle {
+    ignoreFailures = false
+    showViolations = true
+    maxWarnings = 0
+    configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
+    configProperties = [
+            "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
+            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.xml")
+    ]
+}
+
+// Chicken-and-egg problem: checkstyle-rules.xml references LoggerClassMismatchCheck which lives
+// in this module. To run checkstyle on ourselves, we need our own compiled classes and resources
+// on the checkstyle classpath. Without this, checkstyle fails with "Unable to create Root Module"
+// because it cannot find the custom check class.
+dependencies {
+    checkstyle libs.checkstyle
+    checkstyle files(sourceSets.main.output.classesDirs)
+    checkstyle files(sourceSets.main.output.resourcesDir)
+}
+
+pmd {
+    ignoreFailures = false
+    consoleOutput = true
+    incrementalAnalysis = true
+    toolVersion = libs.versions.pmdTool.get()
+    ruleSets = ["$rootDir/check-rules/pmd-rules.xml"]
+}
+
+dependencies {
+    compileOnly libs.checkstyle
+
+    testImplementation libs.checkstyle
+    testImplementation libs.bundles.junit
+    testImplementation libs.bundles.hamcrest
+}
+
+test {
+    useJUnitPlatform()
+}

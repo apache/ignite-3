@@ -75,7 +75,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
@@ -143,15 +142,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final MinimumRequiredTimeCollectorService localMinTimeCollectorService;
 
-    private final String localNodeName;
+    private final InternalClusterNode localNode;
 
     private final ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider;
 
     private final ReplicaService replicaService;
 
     private final SchemaSyncService schemaSyncService;
-
-    private final TopologyService topologyService;
 
     private final LowWatermark lowWatermark;
 
@@ -168,13 +165,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private volatile HybridTimestamp lowWatermarkValue;
 
-    private volatile UUID localNodeId;
-
     /**
      * Constructs catalog compaction runner.
      */
     public CatalogCompactionRunner(
-            String localNodeName,
+            InternalClusterNode localNode,
             CatalogManagerImpl catalogManager,
             MessagingService messagingService,
             LogicalTopologyService logicalTopologyService,
@@ -182,26 +177,24 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
-            TopologyService topologyService,
             LowWatermark lowWatermark,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
             RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
     ) {
-        this.localNodeName = localNodeName;
+        this.localNode = localNode;
         this.messagingService = messagingService;
         this.logicalTopologyService = logicalTopologyService;
         this.catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
-        this.topologyService = topologyService;
         this.lowWatermark = lowWatermark;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
         this.localMinTimeCollectorService = minimumRequiredTimeCollectorService;
         this.rebalanceMinimumRequiredTimeProvider = rebalanceMinimumRequiredTimeProvider;
-        this.executor = createExecutor(localNodeName);
+        this.executor = createExecutor(localNode.name());
     }
 
     @Override
@@ -210,8 +203,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 params -> onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, new CatalogCompactionMessageHandler());
-
-        localNodeId = topologyService.localMember().id();
 
         return CompletableFutures.nullCompletedFuture();
     }
@@ -263,7 +254,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     /** Starts the catalog compaction routine. */
     void triggerCompaction(@Nullable HybridTimestamp lwm) {
-        if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName)) {
+        if (lwm == null || !localNode.name().equals(compactionCoordinatorNodeName)) {
             return;
         }
 
@@ -387,7 +378,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         List<CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>>> responseFutures = new ArrayList<>(nodes.size() - 1);
 
         for (InternalClusterNode node : nodes) {
-            if (localNodeName.equals(node.name())) {
+            if (localNode.name().equals(node.name())) {
                 continue;
             }
 
@@ -404,7 +395,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     long globalMinimumTxRequiredTime = activeLocalTxMinimumRequiredTimeProvider.minimumRequiredTime();
 
                     Map<String, Int2ObjectMap<BitSet>> allPartitions = new HashMap<>();
-                    allPartitions.put(localNodeName, localPartitions);
+                    allPartitions.put(localNode.name(), localPartitions);
 
                     for (CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>> fut : responseFutures) {
                         Pair<String, CatalogCompactionMinimumTimesResponse> p = fut.join();
@@ -451,7 +442,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     ObjectIterator<Entry> itr = idsWithPartitions.int2IntEntrySet().iterator();
 
-                    return invokeOnLocalReplicas(txBeginTime, localNodeId, itr);
+                    return invokeOnLocalReplicas(txBeginTime, localNode.id(), itr);
                 }, executor);
     }
 
@@ -685,7 +676,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 .timestamp(txBeginTime)
                                 .build();
 
-                        return replicaService.invoke(localNodeName, msg);
+                        return replicaService.invoke(localNode.name(), msg);
                     });
 
             partFutures.add(fut);

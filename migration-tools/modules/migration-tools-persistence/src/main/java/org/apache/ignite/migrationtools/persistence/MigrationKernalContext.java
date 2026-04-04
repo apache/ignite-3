@@ -221,7 +221,7 @@ public class MigrationKernalContext extends GridKernalContextImpl {
         if (cacheCfgs == null) {
             ret.setCacheConfiguration();
         } else {
-            // TODO: Add test
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28178 Add test
             // Make sure there are no null cache configurations.
             // This just happens in the migration tools context because we allow skipping errors while loading the beans.
             for (int i = 0; i < cacheCfgs.length; i++) {

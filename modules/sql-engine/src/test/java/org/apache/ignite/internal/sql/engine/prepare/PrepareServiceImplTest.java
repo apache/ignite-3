@@ -71,7 +71,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -902,7 +902,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
-                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
+                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManager.class),
                 new PredefinedSchemaManager(schemas), clockService::currentLong, commonExecutor, producer,
                 statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );
@@ -941,7 +941,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         AbstractEventProducer<StatisticChangedEvent, StatisticEventParameters> producer = new AbstractEventProducer<>() {};
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
-                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
+                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManager.class),
                 new VersionedSchemaManager(schemas, ver), clockService::currentLong, executor, producer,
                 statisticsConfiguration.autoRefresh().staleRowsCheckIntervalSeconds()
         );

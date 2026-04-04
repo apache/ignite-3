@@ -40,23 +40,24 @@ ignite.jdbc.trust-store.path=
 ignite.auth.basic.password=
 ```
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| ignite.jdbc.key-store.path |  | Path to the JDBC keystore file. |
-| ignite.cluster-endpoint-url | http://127.0.1.1:10300 |  |
-| ignite.jdbc.client-auth |  | If JDBC client authorization is enabled in CLI. |
-| ignite.rest.key-store.password |  |  |
-| ignite.jdbc.key-store.password |  |  |
-| ignite.cli.sql.multiline | true | Enables multiline input mode for SQL commands in the CLI. |
-| ignite.cli.syntax-highlighting | true | Enables syntax highlighting in CLI output. |
-| ignite.rest.trust-store.path |  |  |
-| ignite.jdbc.trust-store.password |  |  |
-| ignite.auth.basic.username |  |  |
+| Property | Default                           | Description |
+|----------|-----------------------------------|-------------|
+| ignite.jdbc.key-store.path |                                   | Path to the JDBC keystore file. |
+| ignite.cluster-endpoint-url | http://127.0.1.1:10300            |  |
+| ignite.jdbc.client-auth |                                   | If JDBC client authorization is enabled in CLI. |
+| ignite.rest.key-store.password |                                   |  |
+| ignite.jdbc.key-store.password |                                   |  |
+| ignite.cli.sql.multiline | true                              | Enables multiline input mode for SQL commands in the CLI. |
+|ignite.cli.sql.display-page-size| 1000 |The number of rows fetched and displayed per page when executing SQL queries in the REPL. |
+| ignite.cli.syntax-highlighting | true                              | Enables syntax highlighting in CLI output. |
+| ignite.rest.trust-store.path |                                   |  |
+| ignite.jdbc.trust-store.password |                                   |  |
+| ignite.auth.basic.username |                                   |  |
 | ignite.jdbc-url | jdbc:ignite:thin://127.0.0.1:10800 |  |
-| ignite.rest.key-store.path |  |  |
-| ignite.rest.trust-store.password |  |  |
-| ignite.jdbc.trust-store.path |  |  |
-| ignite.auth.basic.password |  |  |
+| ignite.rest.key-store.path |                                   |  |
+| ignite.rest.trust-store.password |                                   |  |
+| ignite.jdbc.trust-store.path |                                   |  |
+| ignite.auth.basic.password |                                   |  |
 
 ## Configuration Profiles
 

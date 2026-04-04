@@ -39,6 +39,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -512,5 +513,9 @@ public class WatchProcessor implements ManuallyCloseable {
                 entry.key(), 0, prefixLength,
                 IDEMPOTENT_COMMAND_PREFIX_BYTES, 0, prefixLength
         );
+    }
+
+    Executor watchExecutor() {
+        return watchExecutor;
     }
 }

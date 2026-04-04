@@ -8,6 +8,12 @@ sidebar_position: 4
 
 Apache Ignite 3 provides authentication and transport encryption to secure cluster access. Security is disabled by default and must be explicitly enabled in cluster configuration.
 
+## Security Model
+
+When it comes to Apache Ignite 3 security, it is very important to note that by having access to any cluster node it is possible to perform malicious actions on the cluster. There are no mechanisms that could provide protection for the cluster in such scenarios.
+
+Therefore, all network ports for Ignite 3 server nodes should only be available inside a protected subnetwork (the so-called demilitarized zone or DMZ). Should those ports be exposed outside of DMZ, it is advised to control access to them by using SSL certificates issued by a trusted Certification Authority (please see the [SSL/TLS configuration](/3.1.0/configure-and-operate/configuration/config-ssl-tls) documentation for more information).
+
 ## Security Components
 
 ```mermaid

@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -179,8 +180,34 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void changeClusterNameChangesClusterName() {
+        initCmg();
+        changeClusterName();
+
+        ClusterState updatedState = listener.storageManager().getClusterState();
+        assertNotNull(updatedState);
+
+        ClusterTag expectedTag = msgFactory.clusterTag()
+                .clusterName("cluster2")
+                .clusterId(state.clusterTag().clusterId())
+                .build();
+
+        ClusterState expectedState = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(state.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))
+                .version(state.version())
+                .clusterTag(expectedTag)
+                .initialClusterConfiguration(state.initialClusterConfiguration())
+                .formerClusterIds(state.formerClusterIds())
+                .build();
+
+        assertThat(updatedState, is(expectedState));
+    }
+
+    @Test
     void changeMetastorageInfoChangesMsInfo() {
-        initCmgAndChangeMgInfo();
+        initCmg();
+        changeMgInfo();
 
         ClusterState updatedState = listener.storageManager().getClusterState();
         assertThat(updatedState, is(notNullValue()));
@@ -195,14 +222,24 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         assertThat(listener.storageManager().getMetastorageRepairingConfigIndex(), is(123L));
     }
 
-    private void initCmgAndChangeMgInfo() {
+    private void initCmg() {
         listener.onWrite(iterator(
                 msgFactory.initCmgStateCommand()
                         .clusterState(state)
                         .node(node)
                         .build()
         ));
+    }
 
+    private void changeClusterName() {
+        listener.onWrite(iterator(
+                msgFactory.changeClusterNameCommand()
+                        .clusterName("cluster2")
+                        .build()
+        ));
+    }
+
+    private void changeMgInfo() {
         listener.onWrite(iterator(
                 msgFactory.changeMetaStorageInfoCommand()
                         .metaStorageNodes(Set.of("new-ms-1", "new-ms-2"))

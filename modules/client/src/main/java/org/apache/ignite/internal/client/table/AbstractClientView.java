@@ -87,6 +87,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
      * @param schema Schema.
      * @return Conversion function (if {@code null} conversions isn't required).
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected @Nullable Function<SqlRow, T> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
         return null;
     }

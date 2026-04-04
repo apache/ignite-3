@@ -71,8 +71,7 @@ public class HoconDecorator implements Decorator<JsonString, TerminalOutput> {
         } catch (ConfigException.WrongType e) {
             // This happens when input is a top-level list. Use fake root object to parse the input and print the value of that object.
             Config config = ConfigFactory.parseString(FAKE_ROOT + "=" + jsonString);
-            // Set json to true to workaround the issue when rendering list at root
-            return config.getValue(FAKE_ROOT).render(ConfigRenderOptions.concise().setFormatted(true).setJson(true));
+            return config.getValue(FAKE_ROOT).render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
         }
     }
 }

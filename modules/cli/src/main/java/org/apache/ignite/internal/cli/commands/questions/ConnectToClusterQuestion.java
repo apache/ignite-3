@@ -70,44 +70,6 @@ public class ConnectToClusterQuestion {
     private ConnectionChecker connectionChecker;
 
     /**
-     * Asks whether the user wants to connect to the default node when user hasn't passed a URL explicitly and we're not connected.
-     *
-     * @param clusterUrl cluster url.
-     * @return {@link FlowBuilder} instance which returns a URL.
-     */
-    public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
-        String url = clusterUrlOrSessionNode(clusterUrl);
-        if (url != null) {
-            return Flows.from(url);
-        }
-
-        String defaultUrl = configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
-
-        QuestionUiComponent questionUiComponent = fromYesNoQuestion(
-                "You are not connected to node. Do you want to connect to the default node %s?",
-                UiElements.url(defaultUrl)
-        );
-
-        return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent,
-                        // Don't check whether the cluster is initialized or not. This method is called from ordinary commands and they will
-                        // show an error if the cluster is not initialized, duplicating the message.
-                        () -> ConnectCallInput.builder().url(defaultUrl).checkClusterInit(false).build())
-                .then(Flows.fromCall(connectCall))
-                .print()
-                .map(ignored -> sessionNodeUrl());
-    }
-
-    @Nullable
-    private String clusterUrlOrSessionNode(String clusterUrl) {
-        return clusterUrl != null ? clusterUrl : sessionNodeUrl();
-    }
-
-    @Nullable
-    private String sessionNodeUrl() {
-        return session.info() != null ? session.info().nodeUrl() : null;
-    }
-
-    /**
      * Ask if the user really wants to connect if we are already connected and the URL or authentication parameters are different.
      *
      * @param input Node URL and authentication parameters.

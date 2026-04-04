@@ -341,8 +341,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", zonePartitionId,
                         REBALANCE_RETRY_THRESHOLD);
 
-                // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
-                // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-19087
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19087 currently we just retry intent to change peers according
+                //  to the rebalance infinitely, until new leader is elected, but rebalance cancel mechanism should be implemented.
                 scheduleChangePeersAndLearners(configuration, term, sequenceToken);
             }
         } finally {

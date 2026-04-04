@@ -22,7 +22,6 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -99,7 +98,7 @@ public class CheckpointPagesWriterFactory {
             CheckpointMetricsTracker tracker,
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions,
             CompletableFuture<?> doneWriteFut,
             Runnable updateHeartbeat,
             CheckpointProgressImpl checkpointProgress,

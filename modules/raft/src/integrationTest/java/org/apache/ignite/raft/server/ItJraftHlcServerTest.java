@@ -49,8 +49,8 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.network.NetworkAddress;
@@ -145,15 +145,15 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("node" + idx));
 
-        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                service.nodeName(),
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
+                service.staticLocalNode().name(),
                 workingDir.raftLogPath()
         );
 
-        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         RaftGroupOptionsConfigurer partitionsConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath());
 
         raftConfigurers.add(partitionsConfigurer);
 
@@ -178,7 +178,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         ThreadLocalOptimizedMarshaller commandsMarshaller = new ThreadLocalOptimizedMarshaller(defaultSerializationRegistry());
 
         startServer(0, raftServer -> {
-            String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+            String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
             Peer localNode = initialConf.peer(localNodeName);
 
@@ -194,7 +194,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         for (int j = 0; j < servers.size(); j++) {
             JraftServerImpl server = servers.get(j);
 
-            String localNodeName = server.clusterService().topologyService().localMember().name();
+            String localNodeName = server.clusterService().staticLocalNode().name();
 
             Peer localNode = initialConf.peer(localNodeName);
 

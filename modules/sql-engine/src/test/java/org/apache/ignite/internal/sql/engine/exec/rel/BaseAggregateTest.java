@@ -766,7 +766,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
     }
 
     protected static StructNativeType createOutputSchema(
-            ExecutionContext<Object[]> ctx,
             AggregateCall call,
             RelDataType inRowType,
             ImmutableBitSet grpSet

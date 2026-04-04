@@ -298,6 +298,7 @@ public class BinaryTupleSchema {
      *
      * @return Column index if the schema is based on a SchemaDescriptor, -1 otherwise.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // index is used by subclass overrides
     public int columnIndex(int index) {
         return -1;
     }

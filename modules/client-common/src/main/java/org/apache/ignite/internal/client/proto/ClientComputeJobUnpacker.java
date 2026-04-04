@@ -49,7 +49,7 @@ public final class ClientComputeJobUnpacker {
     ) {
         ComputeJobDataHolder holder = unpackJobArgumentWithoutMarshaller(unpacker, false);
 
-        return SharedComputeUtils.unmarshalArgOrResult(holder, marshaller, resultClass);
+        return SharedComputeUtils.unmarshalResult(holder, marshaller, resultClass);
     }
 
     /** Unpacks compute job argument without marshaller. */

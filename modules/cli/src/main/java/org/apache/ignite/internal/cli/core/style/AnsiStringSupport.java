@@ -17,20 +17,46 @@
 
 package org.apache.ignite.internal.cli.core.style;
 
+import java.util.concurrent.atomic.AtomicReference;
 import picocli.CommandLine.Help.Ansi;
 
 /**
  * Utility class with ANSI string support.
  */
 public final class AnsiStringSupport {
+    private static final AtomicReference<ColorSchemeProvider> SCHEME_PROVIDER =
+            new AtomicReference<>(() -> ColorScheme.SOLARIZED_DARK);
+
     private AnsiStringSupport() {}
+
+    /**
+     * Sets the color scheme provider for dynamic color scheme resolution.
+     *
+     * @param provider Color scheme provider.
+     */
+    public static void setColorSchemeProvider(ColorSchemeProvider provider) {
+        SCHEME_PROVIDER.set(provider != null ? provider : () -> ColorScheme.SOLARIZED_DARK);
+    }
+
+    /**
+     * Returns the current color scheme from the provider.
+     *
+     * @return Current color scheme.
+     */
+    public static ColorScheme getColorScheme() {
+        return SCHEME_PROVIDER.get().colorScheme();
+    }
 
     public static String ansi(String markupText) {
         return Ansi.AUTO.string(markupText);
     }
 
     public static Fg fg(Color color) {
-        return new Fg(color);
+        return new Fg(color, getColorScheme());
+    }
+
+    public static Fg fg(Color color, ColorScheme scheme) {
+        return new Fg(color, scheme);
     }
 
     /** Can mark the string as a ANSI string. */
@@ -43,11 +69,13 @@ public final class AnsiStringSupport {
      */
     public static class Fg implements Marker {
         private final Color color;
+        private final ColorScheme scheme;
 
         private Style style;
 
-        private Fg(Color color) {
+        private Fg(Color color, ColorScheme scheme) {
             this.color = color;
+            this.scheme = scheme;
         }
 
         public Fg with(Style style) {
@@ -58,10 +86,11 @@ public final class AnsiStringSupport {
         /** Marks given text with the configured before style. */
         @Override
         public String mark(String textToMark) {
+            int colorCode = color.getCode(scheme);
             if (style == Style.BOLD) {
-                return String.format("@|fg(%d),bold %s|@", color.code, textToMark);
+                return String.format("@|fg(%d),bold %s|@", colorCode, textToMark);
             }
-            return String.format("@|fg(%d) %s|@", color.code, textToMark);
+            return String.format("@|fg(%d) %s|@", colorCode, textToMark);
         }
     }
 
@@ -82,22 +111,54 @@ public final class AnsiStringSupport {
     }
 
     /**
-     * Represents ansi colors that are used in CLI.
+     * Represents semantic colors that are used in CLI.
+     * Actual ANSI color codes are resolved based on the current color scheme.
      */
     public enum Color {
-        RED(1),
-        GREEN(2),
-        YELLOW(3),
-        BLUE(31),
-        YELLOW_DARK(215),
-        GREEN_DARK(22),
-        GRAY(246),
-        WHITE(252);
+        /** Error color (red variants). */
+        RED,
+        /** Success color (green variants). */
+        GREEN,
+        /** Warning/option color (yellow variants). */
+        YELLOW,
+        /** Info color (blue variants). */
+        BLUE,
+        /** Keyword color for syntax highlighting. */
+        YELLOW_DARK,
+        /** String literal color for syntax highlighting. */
+        GREEN_DARK,
+        /** Secondary/muted text color. */
+        GRAY,
+        /** Primary text color. */
+        WHITE;
 
-        Color(int code) {
-            this.code = code;
+        /**
+         * Returns the ANSI color code for this semantic color in the given scheme.
+         *
+         * @param scheme Color scheme to use.
+         * @return ANSI color code.
+         */
+        public int getCode(ColorScheme scheme) {
+            switch (this) {
+                case RED:
+                    return scheme.errorColor();
+                case GREEN:
+                    return scheme.successColor();
+                case YELLOW:
+                    return scheme.warningColor();
+                case BLUE:
+                    return scheme.infoColor();
+                case YELLOW_DARK:
+                    return scheme.keywordColor();
+                case GREEN_DARK:
+                    return scheme.stringColor();
+                case GRAY:
+                    return scheme.mutedColor();
+                case WHITE:
+                    return scheme.primaryColor();
+                default:
+                    return scheme.primaryColor();
+            }
         }
-
-        private final int code;
     }
 }

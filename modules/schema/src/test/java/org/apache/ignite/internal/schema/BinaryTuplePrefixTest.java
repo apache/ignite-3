@@ -26,8 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.junit.jupiter.api.Test;
 

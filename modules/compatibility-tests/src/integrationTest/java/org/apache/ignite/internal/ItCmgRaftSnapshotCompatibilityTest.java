@@ -22,7 +22,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
@@ -35,7 +34,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Compatibility tests for CMG raft snapshot. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-@MicronautTest(rebuildContext = true)
 public class ItCmgRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected boolean restartWithCurrentEmbeddedVersion() {

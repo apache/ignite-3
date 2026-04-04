@@ -36,7 +36,7 @@ This guide walks you through the process of setting up and running an Apache Ign
 name: ignite3
 
 x-ignite-def: &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"
@@ -140,13 +140,13 @@ The output from this step should be similar to this:
      ####  ##         /___/ \__, //_/ /_//_/ \__/ \___/   /____/
        ##                  /____/
 
-                      Apache Ignite CLI version 3.0.0
+                      Apache Ignite CLI version 3.1.0
 
 
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y
 Connected to http://localhost:10300
 The cluster is not initialized. Run cluster init command to initialize it.
-[node1]> cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+[node1]> cluster init --name=ignite3
 Cluster was initialized successfully
 ```
 

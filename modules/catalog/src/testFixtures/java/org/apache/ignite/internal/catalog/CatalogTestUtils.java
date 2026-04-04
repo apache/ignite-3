@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.PartitionCountCalculator.staticPartitionCountCalculator;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -106,7 +108,14 @@ public class CatalogTestUtils {
 
         FailureProcessor failureProcessor = new NoOpFailureManager();
         UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor);
-        return new CatalogManagerImpl(updateLog, clockService, failureProcessor, delayDurationMsSupplier) {
+
+        return new CatalogManagerImpl(
+                updateLog,
+                clockService,
+                failureProcessor,
+                delayDurationMsSupplier,
+                defaultPartitionCountCalculator()
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
@@ -151,11 +160,13 @@ public class CatalogTestUtils {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
         FailureProcessor failureProcessor = mock(FailureProcessor.class);
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -195,11 +206,13 @@ public class CatalogTestUtils {
             HybridClock clock
     ) {
         var failureProcessor = new NoOpFailureManager();
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                defaultPartitionCountCalculator()
         );
     }
 
@@ -231,11 +244,13 @@ public class CatalogTestUtils {
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
         var failureProcessor = new NoOpFailureManager();
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -306,7 +321,8 @@ public class CatalogTestUtils {
                 updateLog,
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -353,7 +369,8 @@ public class CatalogTestUtils {
                 new TestUpdateLog(clock),
                 new TestClockService(clock, clockWaiter),
                 new NoOpFailureManager(),
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -486,6 +503,10 @@ public class CatalogTestUtils {
 
     public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {
         return AlterZoneCommand.builder().zoneName(zoneName);
+    }
+
+    public static PartitionCountCalculator defaultPartitionCountCalculator() {
+        return staticPartitionCountCalculator(DEFAULT_PARTITION_COUNT);
     }
 
     private static class TestUpdateLog implements UpdateLog {

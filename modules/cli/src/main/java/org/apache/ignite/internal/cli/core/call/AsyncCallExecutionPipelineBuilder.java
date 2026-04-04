@@ -21,7 +21,6 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.time.temporal.ChronoUnit;
-import java.util.function.Supplier;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -46,7 +45,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
 
     private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
-    private Supplier<I> inputProvider;
+    private I input;
 
     private PrintWriter output = wrapOutputStream(System.out);
 
@@ -69,8 +68,8 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
         return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
-        this.inputProvider = inputProvider;
+    public AsyncCallExecutionPipelineBuilder<I, T> input(I input) {
+        this.input = input;
         return this;
     }
 
@@ -136,7 +135,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
     @Override
     public CallExecutionPipeline<I, T> build() {
         return new AsyncCallExecutionPipeline<>(
-                callFactory, progressBarBuilder, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose
+                callFactory, progressBarBuilder, output, errOutput, exceptionHandlers, decorator, input, verbose
         );
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -81,7 +82,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({ConfigurationExtension.class})
 public class JmxExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration(value = "mock.exporters = {jmx = {exporterName = jmx}}")
+    @InjectConfiguration(value = "mock.exporters = {jmx = {exporterName = jmx}}", type = DISTRIBUTED)
     private MetricConfiguration metricConfiguration;
 
     private JmxExporterView jmxExporterConf;

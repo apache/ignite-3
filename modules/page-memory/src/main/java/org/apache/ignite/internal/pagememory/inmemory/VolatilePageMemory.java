@@ -286,7 +286,7 @@ public class VolatilePageMemory implements PageMemory {
                     + "  ^-- Enable eviction or expiration policies"
             );
 
-            // TODO Fail node with failure handler.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28125 Fail node with failure handler.
 
             throw oom;
         }

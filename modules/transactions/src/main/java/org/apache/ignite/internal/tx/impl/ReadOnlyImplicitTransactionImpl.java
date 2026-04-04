@@ -142,8 +142,8 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     }
 
     @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return nullCompletedFuture();
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return rollbackAsync();
     }
 
     @Override
@@ -151,7 +151,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
             boolean commitIntent,
             HybridTimestamp executionTimestamp,
             boolean full,
-            boolean timeoutExceeded
+            @Nullable Throwable finishReason
     ) {
         observableTsTracker.update(executionTimestamp);
 

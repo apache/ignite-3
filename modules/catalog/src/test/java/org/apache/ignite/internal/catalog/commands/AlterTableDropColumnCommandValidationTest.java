@@ -176,6 +176,26 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
     }
 
     @Test
+    void exceptionDoesNotThrownIfColumnWithGivenNameNotExistsWithIfColumnExists() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name(columnName).type(INT32).build()))
+                .primaryKey(primaryKey(columnName))
+        );
+
+        AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(Set.of(columnName + "_UNK"))
+                .ifColumnExists(true);
+
+        assertDoesNotThrow(() -> builder.build().get(new UpdateContext(catalog)));
+    }
+
+    @Test
     void exceptionIsThrownIfColumnBelongsToPrimaryKey() {
         String tableName = "TEST";
         String columnName1 = "C1";

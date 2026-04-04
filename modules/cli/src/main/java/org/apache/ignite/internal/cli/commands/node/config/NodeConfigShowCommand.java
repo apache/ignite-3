@@ -48,11 +48,10 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
     @Mixin
     private FormatMixin format;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
+                .input(buildCallInput())
                 .decorator(format.decorator())
         );
     }

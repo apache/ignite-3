@@ -427,6 +427,11 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         public void dumpState(IgniteStringBuilder writer, String indent) {
             writer.app(indent).app("class=").app(getClass().getSimpleName()).nl();
         }
+
+        @Override
+        public void dumpNodeMetrics(IgniteStringBuilder writer, String indent) {
+            writer.app(indent).app(getClass().getSimpleName()).nl();
+        }
     }
 
     @Override

@@ -35,7 +35,7 @@ import org.jetbrains.annotations.TestOnly;
  * Transaction metric source, that contains a set of transaction metrics.
  **/
 public class TransactionMetricsSource extends AbstractMetricSource<TransactionMetricsSource.Holder> {
-    /** Metric name for unresolved (uncommitted) write intents. */
+    /** Metric name for unresolved write intents. */
     public static final String METRIC_PENDING_WRITE_INTENTS = "PendingWriteIntents";
 
     /** Histogram buckets for duration metrics in milliseconds. */
@@ -216,7 +216,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<TransactionMe
         private Holder(LongSupplier pendingWriteIntentsSupplier) {
             pendingWriteIntents = new LongGauge(
                     METRIC_PENDING_WRITE_INTENTS,
-                    "Total number of unresolved (uncommitted) write intents across all local partitions on this node.",
+                    "Total number of unresolved write intents across all local partitions on this node.",
                     pendingWriteIntentsSupplier
             );
 

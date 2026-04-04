@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,14 +45,19 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param commitPartitionId Commit partition id.
      * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      * @param txLabel Transaction label.
+     * @param lastException The last exception occurred in tx.
+     * @param lastExceptionErrorCode Error code of the last exception.
      */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable String txLabel
+            @Nullable String txLabel,
+            @Nullable Throwable lastException,
+            @Nullable Integer lastExceptionErrorCode
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, null, null, isFinishingDueToTimeout, txLabel);
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
+                null, null, isFinishingDueToTimeout, txLabel, lastException, lastExceptionErrorCode);
     }
 
     /**
@@ -107,6 +114,22 @@ public class TxStateMetaFinishing extends TxStateMeta {
     }
 
     /**
+     * Casts given meta to {@link TxStateMetaFinishing} if it's instance of it, throws {@link AssertionError} otherwise.
+     *
+     * @param txId Transaction id.
+     * @param txMeta Meta to cast.
+     * @return Given meta cast to {@link TxStateMetaFinishing}.
+     */
+    public static TxStateMetaFinishing castToFinishing(UUID txId, TransactionMeta txMeta) {
+        if (txMeta instanceof TxStateMetaFinishing) {
+            return (TxStateMetaFinishing) txMeta;
+        } else {
+            throw new AssertionError(format("Unexpected tx meta type for FINISHING state [txId={}, type={}, txMeta={}] ",
+                    txId, txMeta.getClass().getName(), txMeta));
+        }
+    }
+
+    /**
      * Builder for {@link TxStateMetaAbandoned} instances.
      */
     public static class TxStateMetaFinishingBuilder extends TxStateMetaBuilder {
@@ -117,7 +140,14 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+                return new TxStateMetaFinishing(
+                        txCoordinatorId,
+                        commitPartitionId,
+                        isFinishedDueToTimeout,
+                        txLabel,
+                        lastException,
+                        lastExceptionErrorCode
+                );
             } else {
                 return super.build();
             }

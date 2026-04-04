@@ -104,3 +104,120 @@ For instructions on configuring metrics, see [Metrics Configuration](/3.1.0/conf
 ## Code Migration
 
 Code written for Apache Ignite 2 cannot be directly reused, however as most concepts remain similar, code migration should not take too much time.
+
+### Collocated Compute and Partition-Local Queries
+
+In Apache Ignite 2, you could pin a compute job to a specific partition using `ComputeTask` with `setPartition` on the job context. Ignite 3 provides two approaches to achieve the same result, both based on running a job on the node that owns a partition and then querying only that partition's rows using the `__PARTITION_ID` virtual SQL column.
+
+#### Option 1: Broadcast to Table Partitions (Recommended)
+
+Use `BroadcastJobTarget.table()` with `JobExecutionContext.partition()`. This is the preferred approach because Ignite routes each job instance to the node currently holding its partition, and `context.partition()` is always non-null, so execution is guaranteed to be local.
+
+```java
+JobDescriptor<Void, Long> job = JobDescriptor.builder(PartitionQueryJob.class)
+        .units(deploymentUnit)
+        .build();
+
+Collection<Long> partitionCounts = client.compute()
+        .execute(BroadcastJobTarget.table("Person"), job, null);
+
+long total = partitionCounts.stream().mapToLong(Long::longValue).sum();
+```
+
+Inside the job, read `context.partition()` to get the partition assigned to this instance, then filter rows with `__PARTITION_ID`:
+
+```java
+public class PartitionQueryJob implements ComputeJob<Void, Long> {
+    @Override
+    public CompletableFuture<Long> executeAsync(JobExecutionContext context, Void arg) {
+        Partition partition = context.partition(); // non-null with BroadcastJobTarget.table()
+
+        long count = 0;
+        try (ResultSet<SqlRow> rs = context.ignite().sql().execute(
+                null,
+                "SELECT COUNT(*) FROM Person WHERE __PARTITION_ID = ?",
+                partition.id()
+        )) {
+            if (rs.hasNext()) {
+                count = rs.next().longValue(0);
+            }
+        }
+        return CompletableFuture.completedFuture(count);
+    }
+}
+```
+
+See `ComputeBroadcastExample` in the examples module for a complete runnable version.
+
+#### Option 2: MapReduce over Partition Distribution
+
+Use `PartitionDistribution` to enumerate partitions in the split phase of a `MapReduceTask`, then dispatch one job per partition to its primary replica node:
+
+```java
+public class PersonCountByPartitionTask implements MapReduceTask<Void, Long, Long, Long> {
+    @Override
+    public CompletableFuture<List<MapReduceJob<Long, Long>>> splitAsync(
+            TaskExecutionContext context, Void input) {
+        JobDescriptor<Long, Long> jobDescriptor = JobDescriptor.builder(PartitionPersonCountJob.class)
+                .build();
+
+        Map<Partition, ClusterNode> primaryReplicas = context.ignite().tables()
+                .table("Person")
+                .partitionDistribution()
+                .primaryReplicas();
+
+        List<MapReduceJob<Long, Long>> jobs = new ArrayList<>();
+        for (Map.Entry<Partition, ClusterNode> entry : primaryReplicas.entrySet()) {
+            jobs.add(MapReduceJob.<Long, Long>builder()
+                    .jobDescriptor(jobDescriptor)
+                    .nodes(Set.of(entry.getValue()))
+                    .args(entry.getKey().id())
+                    .build());
+        }
+        return CompletableFuture.completedFuture(jobs);
+    }
+
+    @Override
+    public CompletableFuture<Long> reduceAsync(TaskExecutionContext context, Map<UUID, Long> results) {
+        return CompletableFuture.completedFuture(
+                results.values().stream().mapToLong(Long::longValue).sum());
+    }
+}
+```
+
+Each job receives the partition ID as its argument and queries only that partition:
+
+```java
+public class PartitionPersonCountJob implements ComputeJob<Long, Long> {
+    @Override
+    public CompletableFuture<Long> executeAsync(JobExecutionContext context, Long partitionId) {
+        long count = 0;
+        try (ResultSet<SqlRow> rs = context.ignite().sql().execute(
+                null,
+                "SELECT COUNT(*) FROM Person WHERE __PARTITION_ID = ?",
+                partitionId
+        )) {
+            if (rs.hasNext()) {
+                count = rs.next().longValue(0);
+            }
+        }
+        return CompletableFuture.completedFuture(count);
+    }
+}
+```
+
+See `ComputePartitionQueryMapReduceExample` in the examples module for a complete runnable version.
+
+:::note
+`PartitionDistribution.primaryReplicas()` captures partition locations at a point in time. If a partition is reassigned between the split phase and job execution, the job may run on a non-primary node and the SQL query will not be local. Use `BroadcastJobTarget.table()` (Option 1) when local execution must be guaranteed.
+:::
+
+#### How to Run a Local Query
+
+Both approaches use the `__PARTITION_ID` virtual column (type `BIGINT`) to restrict a query to a single partition's rows. This is how you achieve the equivalent of Ignite 2's collocated queries without cross-node data movement:
+
+```sql
+SELECT * FROM Person WHERE __PARTITION_ID = ?
+```
+
+Pass the partition ID returned by `partition.id()` (Option 1) or the `long` ID passed as the job argument (Option 2) as the query parameter.

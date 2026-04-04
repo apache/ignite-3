@@ -70,10 +70,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbSharedLogStorage.class);
 
-    static {
-        RocksDB.loadLibrary();
-    }
-
     /**
      * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it was a {@code long[]}
      * array.
@@ -90,8 +86,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      */
     private static final byte[] FIRST_LOG_IDX_KEY = Utils.getBytes("meta/firstLogIndex");
 
-    /** Log factory instance, that created current log storage. */
-    private final DefaultLogStorageFactory logStorageFactory;
+    /** Log manager instance, that created current log storage. */
+    private final DefaultLogStorageManager logStorageManager;
 
     /** Shared db instance. */
     private final RocksDB db;
@@ -150,7 +146,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
     /** Constructor. */
     RocksDbSharedLogStorage(
-            DefaultLogStorageFactory logStorageFactory,
+            DefaultLogStorageManager logStorageManager,
             RocksDB db,
             ColumnFamilyHandle metaHandle,
             ColumnFamilyHandle confHandle,
@@ -173,7 +169,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 "Raft node storage id " + raftNodeStorageId + " must not contain char(1)"
         );
 
-        this.logStorageFactory = logStorageFactory;
+        this.logStorageManager = logStorageManager;
         this.db = db;
         this.metaHandle = metaHandle;
         this.confHandle = confHandle;
@@ -188,7 +184,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     }
 
     static byte[] storageCreatedKey(String raftNodeStorageId) {
-        return concat(DefaultLogStorageFactory.STORAGE_CREATED_META_PREFIX, raftNodeStorageId.getBytes(UTF_8));
+        return concat(DefaultLogStorageManager.STORAGE_CREATED_META_PREFIX, raftNodeStorageId.getBytes(UTF_8));
     }
 
     /** {@inheritDoc} */
@@ -490,7 +486,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     }
 
     /**
-     * Appends log entries to the batch, received from {@link DefaultLogStorageFactory#getOrCreateThreadLocalWriteBatch()}. This batch is
+     * Appends log entries to the batch, received from {@link DefaultLogStorageManager#getOrCreateThreadLocalWriteBatch()}. This batch is
      * shared between all instances of log, that belong to the given factory.
      */
     boolean appendEntriesToBatch(List<LogEntry> entries) {
@@ -501,7 +497,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         useLock.lock();
 
         try {
-            WriteBatch writeBatch = logStorageFactory.getOrCreateThreadLocalWriteBatch();
+            WriteBatch writeBatch = logStorageManager.getOrCreateThreadLocalWriteBatch();
 
             for (LogEntry entry : entries) {
                 if (entry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
@@ -523,10 +519,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
     /**
      * Writes batch, previously filled by {@link #appendEntriesToBatch(List)} calls, into a rocksdb storage and clears the batch by calling
-     * {@link DefaultLogStorageFactory#clearThreadLocalWriteBatch}.
+     * {@link DefaultLogStorageManager#clearThreadLocalWriteBatch}.
      */
     void commitWriteBatch() {
-        WriteBatch writeBatch = logStorageFactory.getThreadLocalWriteBatch();
+        WriteBatch writeBatch = logStorageManager.getThreadLocalWriteBatch();
 
         if (writeBatch == null) {
             return;
@@ -539,7 +535,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } catch (RocksDBException e) {
             LOG.error("Execute batch failed with rocksdb exception.", e);
         } finally {
-            logStorageFactory.clearThreadLocalWriteBatch(writeBatch);
+            logStorageManager.clearThreadLocalWriteBatch(writeBatch);
         }
     }
 

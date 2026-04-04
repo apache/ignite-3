@@ -101,7 +101,6 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -321,11 +320,23 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         mailboxes.clear();
 
-        executionServices.forEach(executer -> {
+        executionServices.forEach(executionService -> {
             try {
-                executer.stop();
+                executionService.stop();
             } catch (Exception e) {
-                log.error("Unable to stop executor", e);
+                log.error("Unable to stop execution service", e);
+            }
+        });
+
+        executers.forEach(threadPool -> {
+            try {
+                if (threadPool instanceof QueryTaskExecutorImpl) {
+                    Awaitility.await().until(() -> ((QueryTaskExecutorImpl) threadPool).queueSize(), is(0));
+                }
+
+                threadPool.stop();
+            } catch (Exception e) {
+                log.error("Unable to stop thread pool", e);
             }
         });
 
@@ -1366,10 +1377,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             firstNode = clusterNode;
         }
 
-        var topologyService = mock(TopologyService.class);
-
-        when(topologyService.localMember()).thenReturn(clusterNode);
-
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
@@ -1379,7 +1386,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
-                topologyService,
+                clusterNode,
                 mappingService,
                 new PredefinedSchemaManager(schema),
                 mock(DdlCommandHandler.class),
@@ -1529,7 +1536,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
                         TestNode node = nodes.get(nodeName);
 
-                        return runAsync(() -> {}).thenCompose(none -> node.onReceive(TestNode.this.node, msg));
+                        return runAsync(() -> await(node.onReceive(TestNode.this.node, msg)));
                     }
 
                     /** {@inheritDoc} */

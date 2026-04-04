@@ -23,4 +23,8 @@ import org.apache.ignite.internal.sql.engine.BaseSqlMultiStatementTest;
  * Base class for SQL system views integration tests.
  */
 public class AbstractSystemViewTest extends BaseSqlMultiStatementTest {
+    @Override
+    protected boolean shouldCreateDefaultZone() {
+        return false;
+    }
 }

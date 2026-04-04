@@ -281,6 +281,7 @@ public class IgniteMath {
      * Decimal division. Precision is only used by type inferenc, its value is ignored at runtime.
      * See {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static @Nullable BigDecimal decimalDivide(@Nullable BigDecimal x, @Nullable BigDecimal y, int p, int s) {
         if (x == null || y == null) {
             return null;

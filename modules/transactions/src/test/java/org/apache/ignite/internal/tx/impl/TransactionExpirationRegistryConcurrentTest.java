@@ -235,7 +235,10 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
 
         @Override
         public CompletableFuture<Void> finish(
-                boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+                boolean commit,
+                @Nullable HybridTimestamp executionTimestamp,
+                boolean full,
+                @Nullable Throwable finishReason
         ) {
             return nullCompletedFuture();
         }
@@ -253,14 +256,6 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         @Override
         public CompletableFuture<Void> kill() {
             return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-            // Count the number of calls.
-            rollbackCount.incrementAndGet();
-
-            return nullCompletedFuture();
         }
 
         @Override
@@ -287,6 +282,11 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         public CompletableFuture<Void> rollbackAsync() {
             this.rollbackCount.incrementAndGet();
             return nullCompletedFuture();
+        }
+
+        @Override
+        public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+            return rollbackAsync();
         }
 
         @Override

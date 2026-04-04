@@ -44,13 +44,14 @@ import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.internal.cli.commands.connect.ConnectOptions;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterMixin;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.states.PartitionStatesMixin;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
@@ -64,6 +65,9 @@ class MixinTest {
     @Inject
     private ApplicationContext context;
 
+    @Inject
+    private Session session;
+
     @Test
     void doubleInvocationNodeName() {
         NodeReplCommand command = new NodeReplCommand();
@@ -74,8 +78,9 @@ class MixinTest {
         commandLine.parseArgs(NODE_NAME_OPTION, nodeName);
         assertThat(command.nodeUrl.getNodeUrl(), is("http://" + nodeName));
 
+        // Default value is taken from the config.
         commandLine.parseArgs();
-        assertThat(command.nodeUrl.getNodeUrl(), is(nullValue()));
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10300"));
     }
 
     @Test
@@ -88,13 +93,14 @@ class MixinTest {
         commandLine.parseArgs(NODE_URL_OPTION, nodeUrl);
         assertThat(command.nodeUrl.getNodeUrl(), is(nodeUrl));
 
+        // Default value is taken from the config.
         commandLine.parseArgs();
-        assertThat(command.nodeUrl.getNodeUrl(), is(nullValue()));
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10300"));
     }
 
     @Test
     void doubleInvocationClusterUrl() {
-        ClusterReplCommand command = new ClusterReplCommand();
+        ClusterCommand command = new ClusterCommand();
         CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
 
         String clusterUrl = "http://test";
@@ -102,8 +108,9 @@ class MixinTest {
         commandLine.parseArgs(CLUSTER_URL_OPTION, clusterUrl);
         assertThat(command.clusterUrl.getClusterUrl(), is(clusterUrl));
 
+        // Default value is taken from the config.
         commandLine.parseArgs();
-        assertThat(command.clusterUrl.getClusterUrl(), is(nullValue()));
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10300"));
     }
 
     @Test
@@ -114,28 +121,6 @@ class MixinTest {
         // Default value is taken from the config
         commandLine.parseArgs();
         assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10300"));
-
-        // Value is taken from the option
-        commandLine.parseArgs("--url=http://test");
-        assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
-
-        // Value is taken from the profile
-        commandLine.parseArgs("--profile=test");
-        assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10301"));
-
-        // Option overrides profiles
-        commandLine.parseArgs("--url=http://test", "--profile=test");
-        assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
-    }
-
-    @Test
-    void clusterUrlDefaultValueRepl() {
-        ClusterReplCommand command = new ClusterReplCommand();
-        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
-
-        // Default value is null
-        commandLine.parseArgs();
-        assertThat(command.clusterUrl.getClusterUrl(), is(nullValue()));
 
         // Value is taken from the option
         commandLine.parseArgs("--url=http://test");
@@ -177,9 +162,9 @@ class MixinTest {
         NodeReplCommand command = new NodeReplCommand();
         CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
 
-        // Default value is null
+        // Default value is taken from the config
         commandLine.parseArgs();
-        assertThat(command.nodeUrl.getNodeUrl(), is(nullValue()));
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10300"));
 
         // Value is taken from the option
         commandLine.parseArgs("--url=http://test");
@@ -192,6 +177,56 @@ class MixinTest {
         // Option overrides profiles
         commandLine.parseArgs("--url=http://test", "--profile=test");
         assertThat(command.nodeUrl.getNodeUrl(), is("http://test"));
+    }
+
+    @Test
+    void clusterUrlFromSessionRepl() {
+        String sessionUrl = "http://session-node:10300";
+        session.onConnect(SessionInfo.builder().nodeUrl(sessionUrl).build());
+
+        try {
+            ClusterCommand command = new ClusterCommand();
+            CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+            // Session URL is used when no explicit URL or profile is provided
+            commandLine.parseArgs();
+            assertThat(command.clusterUrl.getClusterUrl(), is(sessionUrl));
+
+            // Explicit URL overrides session
+            commandLine.parseArgs("--url=http://test");
+            assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
+
+            // Profile overrides session
+            commandLine.parseArgs("--profile=test");
+            assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10301"));
+        } finally {
+            session.onDisconnect();
+        }
+    }
+
+    @Test
+    void nodeUrlFromSessionRepl() {
+        String sessionUrl = "http://session-node:10300";
+        session.onConnect(SessionInfo.builder().nodeUrl(sessionUrl).build());
+
+        try {
+            NodeReplCommand command = new NodeReplCommand();
+            CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+            // Session URL is used when no explicit URL or profile is provided
+            commandLine.parseArgs();
+            assertThat(command.nodeUrl.getNodeUrl(), is(sessionUrl));
+
+            // Explicit URL overrides session
+            commandLine.parseArgs("--url=http://test");
+            assertThat(command.nodeUrl.getNodeUrl(), is("http://test"));
+
+            // Profile overrides session
+            commandLine.parseArgs("--profile=test");
+            assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10301"));
+        } finally {
+            session.onDisconnect();
+        }
     }
 
     @Test
@@ -285,12 +320,6 @@ class MixinTest {
 
     @Command
     private static class ClusterCommand {
-        @Mixin
-        private ClusterUrlProfileMixin clusterUrl;
-    }
-
-    @Command
-    private static class ClusterReplCommand {
         @Mixin
         private ClusterUrlMixin clusterUrl;
     }

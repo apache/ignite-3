@@ -35,17 +35,16 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
@@ -128,7 +127,6 @@ class IndexBuilder implements ManuallyCloseable {
      * @param indexId Index ID.
      * @param indexStorage Index storage to build.
      * @param partitionStorage Multi-versioned partition storage.
-     * @param partitionTxRwOperationTracker Partition transaction read-write operations tracker.
      * @param partitionSafeTime Partition safe time tracker.
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
@@ -141,7 +139,6 @@ class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
-            TableTxRwOperationTracker partitionTxRwOperationTracker,
             PendingComparableValuesTracker<HybridTimestamp, Void> partitionSafeTime,
             InternalClusterNode node,
             long enlistmentConsistencyToken,
@@ -165,7 +162,6 @@ class IndexBuilder implements ManuallyCloseable {
                     indexStorage,
                     partitionStorage,
                     replicaService,
-                    partitionTxRwOperationTracker,
                     partitionSafeTime,
                     failureProcessor,
                     finalTransactionStateResolver,
@@ -204,7 +200,6 @@ class IndexBuilder implements ManuallyCloseable {
      * @param indexId Index ID.
      * @param indexStorage Index storage to build.
      * @param partitionStorage Multi-versioned partition storage.
-     * @param partitionTxRwOperationTracker Partition transaction read-write operations tracker.
      * @param partitionSafeTime Partition safe time tracker.
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the
@@ -217,7 +212,6 @@ class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
-            TableTxRwOperationTracker partitionTxRwOperationTracker,
             PendingComparableValuesTracker<HybridTimestamp, Void> partitionSafeTime,
             InternalClusterNode node,
             long enlistmentConsistencyToken,
@@ -237,7 +231,6 @@ class IndexBuilder implements ManuallyCloseable {
                     indexStorage,
                     partitionStorage,
                     replicaService,
-                    partitionTxRwOperationTracker,
                     partitionSafeTime,
                     failureProcessor,
                     finalTransactionStateResolver,

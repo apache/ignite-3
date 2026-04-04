@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import static java.util.Collections.unmodifiableSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.time.Instant;
@@ -44,9 +45,6 @@ import org.jetbrains.annotations.Nullable;
  * calls.
  */
 class RetryContext {
-    /** Indicates that default response timeout should be used. */
-    static final long USE_DEFAULT_RESPONSE_TIMEOUT = -1;
-
     private static final int MAX_RETRY_REASONS = 25;
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =
@@ -165,7 +163,7 @@ class RetryContext {
     }
 
     Set<Peer> unavailablePeers() {
-        return unavailablePeers;
+        return unmodifiableSet(unavailablePeers);
     }
 
     UUID errorTraceId() {
@@ -189,7 +187,7 @@ class RetryContext {
     }
 
     Set<Peer> noLeaderPeers() {
-        return noLeaderPeers;
+        return unmodifiableSet(noLeaderPeers);
     }
 
     /**

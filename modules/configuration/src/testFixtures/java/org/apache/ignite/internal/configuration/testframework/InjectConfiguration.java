@@ -34,13 +34,13 @@ import org.intellij.lang.annotations.Language;
 
 /**
  * Annotation for injecting configuration instances into tests.
- * <p/>
- * This annotation should be used on either fields or method parameters of the {@code *Configuration} type.
- * <p/>
- * Injected instance is initialized with values passed in {@link #value()}, with schema defaults where explicit initial values are not
+ *
+ * <p>This annotation should be used on either fields or method parameters of the {@code *Configuration} type.
+ *
+ * <p>Injected instance is initialized with values passed in {@link #value()}, with schema defaults where explicit initial values are not
  * found.
- * <p/>
- * Although configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger} underneath. Main
+ *
+ * <p>Although configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger} underneath. Main
  * point of the extension is to provide mocks.
  *
  * @see ConfigurationExtension
@@ -48,21 +48,23 @@ import org.intellij.lang.annotations.Language;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 public @interface InjectConfiguration {
+    String MOCK_ROOT_NAME = "mock";
+
     /**
-     * Configuration values to initialize the instance. Has HOCON syntax. Must have a root value {@code mock}.
-     * <p/>
-     * Examples:
+     * Configuration values to initialize the instance. Has HOCON syntax. Must have a root value {@link #MOCK_ROOT_NAME}.
+     *
+     * <p>Examples:
      * <ul>
      *     <li>{@code mock.timeout=1000}</li>
      *     <li>{@code mock{cfg1=50, cfg2=90}}</li>
      * </ul>
-     * <p/>
-     * Uses only default values by default.
+     *
+     * <p>Uses only default values by default.
      *
      * @return Initial configuration values in HOCON format.
      */
     @Language("HOCON")
-    String value() default "mock : {}";
+    String value() default "";
 
     /**
      * Name value to imitate named list elements. Default empty string value is treated like the absence of the name.
@@ -96,4 +98,12 @@ public @interface InjectConfiguration {
      * @return Array of configuration schema extensions.
      */
     Class<?>[] polymorphicExtensions() default {};
+
+    /**
+     * Flag indicating whether the provided configuration should be validated.
+     *
+     * <p>It may be useful to disable validation in tests if the developer needs to break the configuration contract on purpose,
+     * for example to set a smaller value than allowed by the corresponding schema.
+     */
+    boolean validate() default true;
 }

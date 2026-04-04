@@ -24,6 +24,7 @@ public class StoragePartitionMetaIoVersions {
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
             new StoragePartitionMetaIo(),
-            new StoragePartitionMetaIoV2()
+            new StoragePartitionMetaIoV2(),
+            new StoragePartitionMetaIoV3()
     );
 }

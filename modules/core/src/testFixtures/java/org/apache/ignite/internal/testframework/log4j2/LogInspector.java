@@ -87,6 +87,12 @@ import org.apache.logging.log4j.core.config.Property;
  * </p>
  */
 public class LogInspector {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28236 - instead of a magic constant, pass null or use specific static factories.
+    /**
+     * Magic 'logger name' that makes the inspector catch events from all loggers when passed as a logger name.
+     */
+    public static final String ALL_LOGGERS = "all-loggers";
+
     /** Logger name. */
     private final String loggerName;
 
@@ -391,7 +397,7 @@ public class LogInspector {
 
         @Override
         public void append(LogEvent event) {
-            if (!loggerName.equals(event.getLoggerName())) {
+            if (!ALL_LOGGERS.equals(loggerName) && !loggerName.equals(event.getLoggerName())) {
                 return;
             }
 

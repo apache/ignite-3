@@ -32,7 +32,7 @@ import org.junit.platform.testkit.engine.EventType;
  *
  * @see <a href="https://junit.org/junit5/docs/current/user-guide/#testkit">JUnit Platform Test Kit</a>
  */
-class JunitExtensionTestUtils {
+public class JunitExtensionTestUtils {
     /**
      * Executes the given test class on the Jupiter test engine.
      */
@@ -45,7 +45,7 @@ class JunitExtensionTestUtils {
     /**
      * Executes the given test class and checks that it has run all its tests successfully.
      */
-    static void assertExecutesSuccessfully(Class<?> testClass) {
+    public static void assertExecutesSuccessfully(Class<?> testClass) {
         execute(testClass)
                 .allEvents()
                 .assertThatEvents()
@@ -58,7 +58,7 @@ class JunitExtensionTestUtils {
      * Executes the given test class and checks that it fails with matching error conditions.
      */
     @SafeVarargs
-    static void assertExecutesWithFailure(Class<?> testClass, Condition<Throwable>... conditions) {
+    public static void assertExecutesWithFailure(Class<?> testClass, Condition<Throwable>... conditions) {
         execute(testClass)
                 .allEvents()
                 .assertThatEvents()

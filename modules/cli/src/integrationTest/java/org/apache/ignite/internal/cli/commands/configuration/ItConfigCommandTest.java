@@ -438,9 +438,9 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs("[\n"
-                        + "    \"localhost:3344\",\n"
-                        + "    \"localhost:3345\",\n"
-                        + "    \"localhost:3346\"\n"
+                        + "    \"127.0.0.1:3344\",\n"
+                        + "    \"127.0.0.1:3345\",\n"
+                        + "    \"127.0.0.1:3346\"\n"
                         + "]" + System.lineSeparator()
                 )
         );

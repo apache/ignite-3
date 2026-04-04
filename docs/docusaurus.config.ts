@@ -133,6 +133,11 @@ const config: Config = {
           position: 'right',
         },
         {
+          href: 'https://ignite.apache.org/docs/ignite2/latest/',
+          label: 'Ignite 2',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/apache/ignite-3',
           label: 'GitHub',
           position: 'right',

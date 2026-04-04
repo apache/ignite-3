@@ -18,17 +18,20 @@
 package org.apache.ignite.client.handler.requests.tx;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.startExplicitTx;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 
 /**
@@ -42,6 +45,7 @@ public class ClientTransactionBeginRequest {
      * @param txManager Transactions.
      * @param resources Resources.
      * @param metrics Metrics.
+     * @param notificationSender The sender.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -49,7 +53,8 @@ public class ClientTransactionBeginRequest {
             TxManager txManager,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            NotificationSender notificationSender
     ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
         long timeoutMillis = in.unpackLong();
@@ -63,6 +68,12 @@ public class ClientTransactionBeginRequest {
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
                 .readTimestamp(observableTs)
+                .killClosure(notificationSender == null ? tx -> {} : tx -> {
+                    // Exception will be ignored if a client doesn't support it.
+                    TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
+
+                    notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
+                })
                 .build();
 
         var tx = startExplicitTx(tsTracker, txManager, observableTs, readOnly, txOptions);
@@ -76,9 +87,7 @@ public class ClientTransactionBeginRequest {
             long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
             metrics.transactionsActiveIncrement();
 
-            return CompletableFuture.completedFuture(out -> {
-                out.packLong(resourceId);
-            });
+            return CompletableFuture.completedFuture(out -> out.packLong(resourceId));
         } catch (IgniteInternalCheckedException e) {
             tx.rollback();
             throw e;

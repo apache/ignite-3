@@ -55,6 +55,10 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGABRT, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGSEGV, signal_handler);
+
+#ifndef _WIN32
+    signal(SIGPIPE, signal_handler);
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -74,7 +78,11 @@ int main(int argc, char **argv) {
 
     if (!check_test_node_connectable(std::chrono::seconds(5))) {
         runner.start();
-        ensure_node_connectable(std::chrono::seconds(60));
+        auto timeout = std::chrono::minutes(5);
+        if (!check_test_node_connectable(timeout)) {
+            std::cerr << "Failed to start node within timeout: " << timeout.count() << "min"  << std::endl;
+            return 3;
+        }
     }
 
     try {

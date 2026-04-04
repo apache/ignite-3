@@ -88,6 +88,8 @@ public class ComputeMessaging {
 
     private final TopologyService topologyService;
 
+    private final InternalClusterNode localNode;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
@@ -96,11 +98,18 @@ public class ComputeMessaging {
      * @param executionManager Execution manager.
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
+     * @param localNode Local cluster node.
      */
-    public ComputeMessaging(ExecutionManager executionManager, MessagingService messagingService, TopologyService topologyService) {
+    public ComputeMessaging(
+            ExecutionManager executionManager,
+            MessagingService messagingService,
+            TopologyService topologyService,
+            InternalClusterNode localNode
+    ) {
         this.executionManager = executionManager;
         this.messagingService = messagingService;
         this.topologyService = topologyService;
+        this.localNode = localNode;
     }
 
     /**
@@ -150,7 +159,7 @@ public class ComputeMessaging {
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, sender, correlationId);
         } else if (message instanceof JobStatesRequest) {
-            processJobStatesRequest((JobStatesRequest) message, sender, correlationId);
+            processJobStatesRequest(sender, correlationId);
         } else if (message instanceof JobStateRequest) {
             processJobStateRequest((JobStateRequest) message, sender, correlationId);
         } else if (message instanceof JobCancelRequest) {
@@ -261,7 +270,7 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> statesFromJobStatesResponse((JobStatesResponse) networkMessage));
     }
 
-    private void processJobStatesRequest(JobStatesRequest message, InternalClusterNode sender, long correlationId) {
+    private void processJobStatesRequest(InternalClusterNode sender, long correlationId) {
         executionManager.localStatesAsync()
                 .whenComplete((states, throwable) -> sendJobStatesResponse(states, throwable, sender, correlationId));
     }
@@ -472,10 +481,9 @@ public class ComputeMessaging {
     ) {
         CompletableFuture<@Nullable R> result = new CompletableFuture<>();
 
-        InternalClusterNode localMember = topologyService.localMember();
         CompletableFuture<?>[] futures = topologyService.allMembers()
                 .stream()
-                .filter(node -> !node.name().equals(localMember.name()))
+                .filter(node -> !node.name().equals(localNode.name()))
                 .map(node -> request.apply(node)
                         .thenAccept(response -> {
                             if (response != null) {

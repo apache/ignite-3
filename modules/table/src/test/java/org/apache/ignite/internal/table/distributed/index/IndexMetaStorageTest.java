@@ -18,6 +18,12 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.BUILDING;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.READ_ONLY;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REGISTERED;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.REMOVED;
+import static org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus.STOPPING;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
@@ -28,12 +34,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable
 import static org.apache.ignite.internal.table.TableTestUtils.removeIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.renameSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
-import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.STOPPING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,6 +49,9 @@ import java.util.Map;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;

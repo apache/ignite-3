@@ -95,16 +95,20 @@ The metrics for Ignite Java Virtual Machine resource use.
 
 ## raft
 
-| Metric name | Description |
-|-------------|-------------|
-| raft.fsmcaller.disruptor.Stripes | The histogram of distribution data by stripes in the state machine for partitions. |
-| raft.fsmcaller.disruptor.Batch | The histogram of the batch size to handle in the state machine for partitions. |
-| raft.logmanager.disruptor.Batch | The histogram of the batch size to handle in the log for partitions. |
-| raft.logmanager.disruptor.Stripes | The histogram of distribution data by stripes in the log for partitions. |
-| raft.nodeimpl.disruptor.Batch | The histogram of the batch size to handle node operations for partitions. |
-| raft.nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions. |
-| raft.readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions. |
-| raft.readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions. |
+| Metric name                                | Description                                                                            |
+|--------------------------------------------|----------------------------------------------------------------------------------------|
+| raft.fsmcaller.disruptor.Stripes           | The histogram of distribution data by stripes in the state machine for partitions.     |
+| raft.fsmcaller.disruptor.Batch             | The histogram of the batch size to handle in the state machine for partitions.         |
+| raft.logmanager.disruptor.Batch            | The histogram of the batch size to handle in the log for partitions.                   |
+| raft.logmanager.disruptor.Stripes          | The histogram of distribution data by stripes in the log for partitions.               |
+| raft.log.storage.TotalLogStorageSize       | Number of bytes occupied on disk by logs of all replication groups.                    |
+| raft.log.storage.CmgLogStorageSize         | Number of bytes occupied on disk by the CMG log.                                       |
+| raft.log.storage.MetastorageLogStorageSize | Number of bytes occupied on disk by the Metastorage group log.                         |
+| raft.log.storage.PartitionsLogStorageSize  | Number of bytes occupied on disk by the partitions groups logs.                        |
+| raft.nodeimpl.disruptor.Batch              | The histogram of the batch size to handle node operations for partitions.              |
+| raft.nodeimpl.disruptor.Stripes            | The histogram of distribution data by stripes for node operations for partitions.      |
+| raft.readonlyservice.disruptor.Stripes     | The histogram of distribution data by stripes for read-only operations for partitions. |
+| raft.readonlyservice.disruptor.Batch       | The histogram of the batch size to handle read-only operations for partitions.         |
 
 ## resource.vacuum
 
@@ -114,6 +118,23 @@ The metrics for Ignite Java Virtual Machine resource use.
 | SkippedForFurtherProcessingUnfinishedTransactionCount | The current number of unfinished transactions that are skipped by the vacuumizer for further processing. |
 | VacuumizedPersistentTransactionMetaCount | The count of persistent transaction metas that have been vacuumized. |
 | VacuumizedVolatileTxnMetaCount | The count of volatile transaction metas that have been vacuumized. |
+
+## storage.aipersist.io
+
+| Metric name       | Description                                         |
+|-------------------|-----------------------------------------------------|
+| TotalBytesRead    | Cumulative bytes read from disk since startup.      |
+| TotalBytesWritten | Cumulative bytes written to disk since startup.     |
+| ReadsTime         | Time spent in disk read operation in microseconds.  |
+| WritesTime        | Time spent in disk write operation in microseconds. |
+
+## storage.aipersist.consistency
+
+| Metric name             | Description                                            |
+|-------------------------|--------------------------------------------------------|
+| RunConsistentlyDuration | Time spent in runConsistently closures in nanoseconds. |
+| RunConsistentlyStarted  | Total number of runConsistently invocations started.   |
+| RunConsistentlyActiveCount | Current number of active runConsistently calls. |
 
 ## storage.aipersist.`{profile}`
 

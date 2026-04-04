@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -36,12 +37,17 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
@@ -63,7 +69,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
             }
         };
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
+        ClientTransaction tx = new ClientTransaction(clientChannel, null, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -78,9 +84,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         CompletableFuture<Void> rollbackFut = tx.rollbackAsync();
 
         assertNotSame(firstCommitFut, secondCommitFut);
-        assertSame(secondCommitFut, rollbackFut);
         assertSame(secondCommitFut, tx.commitAsync());
-        assertSame(rollbackFut, tx.rollbackAsync());
 
         assertFalse(firstCommitFut.isDone());
         assertFalse(secondCommitFut.isDone());
@@ -109,7 +113,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
             }
         };
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
+        ClientTransaction tx = new ClientTransaction(clientChannel, null, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -124,9 +128,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         CompletableFuture<Void> secondRollbackFut = tx.rollbackAsync();
 
         assertNotSame(firstRollbackFut, secondRollbackFut);
-        assertSame(secondRollbackFut, commitFut);
         assertSame(commitFut, tx.commitAsync());
-        assertSame(secondRollbackFut, tx.rollbackAsync());
 
         assertFalse(firstRollbackFut.isDone());
         assertFalse(secondRollbackFut.isDone());
@@ -151,7 +153,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         when(clientChannel.protocolContext()).thenReturn(ctx);
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
+        ClientTransaction tx = new ClientTransaction(clientChannel, null, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -182,7 +184,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         when(clientChannel.protocolContext()).thenReturn(ctx);
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
+        ClientTransaction tx = new ClientTransaction(clientChannel, null, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -217,7 +219,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         PartitionMapping pm = new PartitionMapping(1, "test", 1);
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), pm, randomUUID(), EMPTY_TS_PROVIDER, 0);
+        ClientTransaction tx = new ClientTransaction(clientChannel, ch, 1, false, randomUUID(), pm, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         tx.commit();
 
@@ -225,7 +227,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, true);
+            tx.enlistFuture(ch, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {
@@ -233,8 +235,17 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
     }
 
-    @Test
-    public void testEnlistFailAfterRollback() {
+    private static Stream<Arguments> rollbackClosureFactory() {
+        return Stream.of(
+                argumentSet("rollback", (Consumer<ClientTransaction>) ClientTransaction::rollback),
+                argumentSet("discard",
+                        (Consumer<ClientTransaction>) clientTransaction -> clientTransaction.rollbackAndDiscardDirectMappings(false))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("rollbackClosureFactory")
+    public void testEnlistFailAfterRollback(Consumer<ClientTransaction> rollbackClo) {
         ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
 
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
@@ -248,15 +259,15 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         PartitionMapping pm = new PartitionMapping(1, "test", 1);
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), pm, randomUUID(), EMPTY_TS_PROVIDER, 0);
+        ClientTransaction tx = new ClientTransaction(clientChannel, ch, 1, false, randomUUID(), pm, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
-        tx.rollback();
+        rollbackClo.accept(tx);
 
         WriteContext wc = new WriteContext(emptyTracker(), ClientOp.TUPLE_UPSERT);
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, true);
+            tx.enlistFuture(ch, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {

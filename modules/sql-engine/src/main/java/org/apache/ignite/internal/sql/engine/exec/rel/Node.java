@@ -28,7 +28,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
  * <b>Note</b>: except several cases (like consumer node and mailboxes), {@link Node#request(int)}, {@link Node#close()},
  * {@link Downstream#push(Object)} and {@link Downstream#end()} methods should be used from one single thread.
  */
-public interface Node<RowT> extends AutoCloseable, Debuggable {
+public interface Node<RowT> extends AutoCloseable, Debuggable, MetricsAwareNode {
     /**
      * Returns runtime context allowing access to the tables in a database.
      *

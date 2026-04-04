@@ -49,6 +49,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-catalog'))
     testImplementation testFixtures(project(':ignite-low-watermark'))

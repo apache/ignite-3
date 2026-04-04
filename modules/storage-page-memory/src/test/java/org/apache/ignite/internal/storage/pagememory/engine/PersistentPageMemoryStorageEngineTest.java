@@ -17,27 +17,33 @@
 
 package org.apache.ignite.internal.storage.pagememory.engine;
 
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.StreamSupport.stream;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema.DEFAULT_PAGE_SIZE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractPersistentStorageEngineTest;
@@ -46,6 +52,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource.Holder;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -133,26 +140,69 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
         storageEngine.addTableMetrics(tableDescriptor, metricSource);
 
         metricSource.enable();
-        Iterator<Metric> metrics = metricSource.holder().metrics().iterator();
-        assertTrue(metrics.hasNext());
 
-        Metric metric = metrics.next();
-        assertThat(metric.name(), is("TotalAllocatedSize"));
-        assertThat(metric, is(instanceOf(LongMetric.class)));
+        Holder holder = metricSource.holder();
 
-        assertFalse(metrics.hasNext());
+        assertThat(holder, is(notNullValue()));
 
-        LongMetric totalAllocatedSize = (LongMetric) metric;
-        assertEquals(0, totalAllocatedSize.value());
+        Map<String, Metric> metricByName = stream(holder.metrics().spliterator(), false)
+                .collect(toMap(Metric::name, Function.identity()));
+
+        LongMetric totalAllocatedSize = (LongMetric) metricByName.get("TotalAllocatedSize");
+        LongMetric totalUsedSize = (LongMetric) metricByName.get("TotalUsedSize");
+        LongMetric totalEmptySize = (LongMetric) metricByName.get("TotalEmptySize");
+        LongMetric totalDataSize = (LongMetric) metricByName.get("TotalDataSize");
+        DoubleMetric pagesFillFactor = (DoubleMetric) metricByName.get("PagesFillFactor");
+
+        assertThat(totalAllocatedSize.value(), is(0L));
+        assertThat(totalUsedSize.value(), is(0L));
+        assertThat(totalEmptySize.value(), is(0L));
+        assertThat(totalDataSize.value(), is(0L));
+        assertThat(pagesFillFactor.value(), is(0.0));
 
         var otherTableDescriptor = new StorageTableDescriptor(20, 1, CatalogService.DEFAULT_STORAGE_PROFILE);
         MvTableStorage otherTable = engine.createMvTable(otherTableDescriptor, indexId -> null);
 
-        otherTable.createMvPartition(0);
-        assertEquals(0, totalAllocatedSize.value());
+        assertThat(otherTable.createMvPartition(0), willCompleteSuccessfully());
 
-        table.createMvPartition(0);
+        assertThat(totalAllocatedSize.value(), is(0L));
+        assertThat(totalUsedSize.value(), is(0L));
+        assertThat(totalEmptySize.value(), is(0L));
+        assertThat(totalDataSize.value(), is(0L));
+        assertThat(pagesFillFactor.value(), is(0.0));
+
+        assertThat(table.createMvPartition(0), willCompleteSuccessfully());
+
         assertThat(totalAllocatedSize.value(), is(greaterThan(0L)));
-        assertEquals(0, totalAllocatedSize.value() % DEFAULT_PAGE_SIZE);
+        assertThat(totalAllocatedSize.value() % DEFAULT_PAGE_SIZE, is(0L));
+        assertThat(totalUsedSize.value(), is(totalAllocatedSize.value()));
+        assertThat(totalEmptySize.value(), is(0L));
+        assertThat(totalDataSize.value(), is(totalAllocatedSize.value()));
+        assertThat(pagesFillFactor.value(), is(1.0));
+
+        long totalAllocatedSizeBeforeData = totalAllocatedSize.value();
+
+        MvPartitionStorage partitionStorage = table.getMvPartition(0);
+
+        assertThat(partitionStorage, is(notNullValue()));
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = RowId.lowestRowId(0);
+
+            locker.lock(rowId);
+
+            var row = binaryRow(new TestKey(0, "foo"), new TestValue(1, "bar"));
+
+            partitionStorage.addWriteCommitted(rowId, row, clock.now());
+
+            return null;
+        });
+
+        assertThat(totalAllocatedSize.value(), is(greaterThan(totalAllocatedSizeBeforeData)));
+        assertThat(totalAllocatedSize.value() % DEFAULT_PAGE_SIZE, is(0L));
+        assertThat(totalUsedSize.value(), is(totalAllocatedSize.value()));
+        assertThat(totalEmptySize.value(), is(0L));
+        assertThat(totalDataSize.value(), is(lessThan(totalAllocatedSize.value())));
+        assertThat(pagesFillFactor.value(), is(allOf(greaterThan(0.0), lessThan(1.0))));
     }
 }

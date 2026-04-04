@@ -677,7 +677,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
                 executor.schedule(
-                        () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
+                        () -> future.completeExceptionally(new GroupOverloadedException(groupId)),
                         100,
                         TimeUnit.MILLISECONDS
                 );
@@ -769,7 +769,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
                                     retryContext.request(),
                                     resp,
-                                    cluster.topologyService().localMember().address(),
+                                    cluster.staticLocalNode().address(),
                                     retryContext.targetPeer().consistentId(),
                                     err == null ? null : err.getMessage());
                         }

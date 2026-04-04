@@ -71,6 +71,11 @@ public class TestClockService implements ClockService {
     }
 
     @Override
+    public HybridTimestamp updateClock(HybridTimestamp requestTime, boolean checkClockSkew) {
+        return clock.update(requestTime);
+    }
+
+    @Override
     public CompletableFuture<Void> waitFor(HybridTimestamp targetTimestamp) {
         if (clockWaiter == null) {
             throw new IllegalStateException("No clockWaiter provided; please use a constructor that accepts it");

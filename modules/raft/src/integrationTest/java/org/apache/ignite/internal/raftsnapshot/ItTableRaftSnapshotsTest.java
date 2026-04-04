@@ -19,9 +19,8 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.DEFAULT_PROFILES;
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
@@ -81,7 +81,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
@@ -137,21 +136,10 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * <p>installSnapshotTimeoutMillis is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
-    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
+    private static final String NODE_BOOTSTRAP_CFG = renderConfigTemplate(
+            DEFAULT_PROFILES
             + "  raft.installSnapshotTimeoutMillis: 10000,\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
+    );
 
     /**
      * Marker that instructs to create a table with the default storage engine. Used in tests that are indifferent

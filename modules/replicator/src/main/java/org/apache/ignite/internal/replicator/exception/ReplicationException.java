@@ -22,12 +22,14 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * The exception is thrown when some issue happened during a replication.
  */
-public class ReplicationException extends IgniteInternalException implements RetriableTransactionException {
+public class ReplicationException extends IgniteInternalException implements RetriableTransactionException,
+        RetriableReplicaRequestException {
     /**
      * Constructor.
      *

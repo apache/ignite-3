@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.any;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -260,6 +261,44 @@ public class IgniteExceptionTest {
         assertEquals("CMN", ex.groupName());
 
         assertTrue(ex.toString().contains("IGN-CMN-65535"), ex.toString());
+    }
+
+    @Test
+    public void testUnknownErrorCode() {
+        int unknownCode = (999 << 16) | 1;
+        UUID traceId = UUID.randomUUID();
+        String message = "Error from unknown group";
+
+        IgniteException ex = new IgniteException(traceId, unknownCode, message);
+
+        assertEquals(unknownCode, ex.code());
+        assertEquals((short) 999, ex.groupCode());
+        assertEquals((short) 1, ex.errorCode());
+        assertEquals(traceId, ex.traceId());
+        assertEquals(message, ex.getMessage());
+        assertEquals("UNKNOWN-UNKNOWN999-1", ex.codeAsString());
+        assertEquals("UNKNOWN999", ex.groupName());
+
+        assertThat(ex.toString(), containsString(message));
+        assertThat(ex.toString(), containsString("UNKNOWN-UNKNOWN999-1"));
+    }
+
+    @Test
+    public void testUnknownErrorCodeWithCause() {
+        int unknownCode = (888 << 16) | 42;
+        UUID traceId = UUID.randomUUID();
+        String message = "Another error from unknown group";
+        Throwable cause = new RuntimeException("Root cause");
+
+        IgniteException ex = new IgniteException(traceId, unknownCode, message, cause);
+
+        assertEquals(unknownCode, ex.code());
+        assertEquals(traceId, ex.traceId());
+        assertEquals(message, ex.getMessage());
+        assertEquals(cause, ex.getCause());
+        assertEquals("UNKNOWN-UNKNOWN888-42", ex.codeAsString());
+        assertEquals("UNKNOWN888", ex.groupName());
+        assertEquals(888, ex.groupCode());
     }
 
     /**

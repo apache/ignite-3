@@ -34,6 +34,13 @@ namespace ignite {
  */
 class big_decimal {
 public:
+
+    enum class rounding_mode {
+        // TODO IGNITE-28198 support other rounding modes
+        DOWN,
+        HALF_UP
+    };
+
     // Default
     big_decimal() = default;
 
@@ -212,7 +219,17 @@ public:
      * @param scale Scale to set.
      * @param res Result is placed here. Can be *this.
      */
-    void set_scale(std::int16_t new_scale, big_decimal &res) const;
+    void set_scale(std::int16_t new_scale, big_decimal &res) const {
+        set_scale(new_scale, res, rounding_mode::DOWN);
+    }
+
+    /**
+     * Set scale.
+     *
+     * @param scale Scale to set.
+     * @param res Result is placed here. Can be *this.
+     */
+    void set_scale(std::int16_t new_scale, big_decimal &res, rounding_mode r_mode) const;
 
     /**
      * Get precision of the Decimal.

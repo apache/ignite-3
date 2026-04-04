@@ -40,6 +40,9 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private boolean inLoop;
 
+    // Metrics
+    private long filteredRows;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -59,6 +62,8 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
+        onRequestReceived();
+
         requested = rowsCnt;
 
         if (!inLoop) {
@@ -72,10 +77,14 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
         assert waiting > 0;
 
+        onRowReceived();
+
         waiting--;
 
         if (pred.test(row)) {
             inBuf.add(row);
+        } else {
+            onRowFiltered();
         }
 
         filter();
@@ -146,5 +155,15 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         buf.app("class=").app(getClass().getSimpleName())
                 .app(", requested=").app(requested)
                 .app(", waiting=").app(waiting);
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        super.dumpMetrics0(writer);
+        writer.app(", filteredRows=").app(filteredRows);
+    }
+
+    private void onRowFiltered() {
+        filteredRows++;
     }
 }

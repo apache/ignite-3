@@ -27,7 +27,6 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,6 +36,8 @@ public class RaftMetricSource implements MetricSource {
     public static final String SOURCE_NAME = "raft";
 
     public static final String RAFT_GROUP_LEADERS = "groups.localLeadersCount";
+
+    public static final String SAVE_META_DURATION = "SaveMetaDuration";
 
     private static final VarHandle ENABLED;
 
@@ -59,7 +60,16 @@ public class RaftMetricSource implements MetricSource {
     /** Metric set. */
     private final Map<String, Metric> metrics;
 
-    private final AtomicIntMetric leadersCount = new AtomicIntMetric(RAFT_GROUP_LEADERS, "");
+    private static final long[] HISTOGRAM_BUCKETS =
+            {1, 5, 10, 25, 50, 100, 250, 500, 1000};
+
+    private final AtomicIntMetric leadersCount = new AtomicIntMetric(RAFT_GROUP_LEADERS, "Number of raft leaders on this node");
+
+    private final DistributionMetric saveMetaDuration = new DistributionMetric(
+            SAVE_META_DURATION,
+            "Duration of saving raft meta in milliseconds",
+            HISTOGRAM_BUCKETS
+    );
 
     /**
      * Constructor.
@@ -74,11 +84,11 @@ public class RaftMetricSource implements MetricSource {
         this.metrics = createMetrics();
     }
 
-    public void onLeaderStart(RaftNodeId raftNodeId) {
+    public void onLeaderStart() {
         leadersCount.increment();
     }
 
-    public void onLeaderStop(RaftNodeId raftNodeId) {
+    public void onLeaderStop() {
         leadersCount.decrement();
     }
 
@@ -159,6 +169,7 @@ public class RaftMetricSource implements MetricSource {
                 ));
 
         metrics.put(RAFT_GROUP_LEADERS, leadersCount);
+        metrics.put(SAVE_META_DURATION, saveMetaDuration);
 
         return metrics;
     }
@@ -178,12 +189,16 @@ public class RaftMetricSource implements MetricSource {
 
     @Override
     public void disable() {
-        ENABLED.compareAndSet(this, false, true);
+        ENABLED.compareAndSet(this, true, false);
     }
 
     @Override
     public boolean enabled() {
         return enabled;
+    }
+
+    public void onSaveMeta(long duration) {
+        saveMetaDuration.add(duration);
     }
 
     /**

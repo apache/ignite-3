@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -41,7 +42,7 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
     private static final String TEST_SINK = "testSink";
 
-    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class)
+    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class, type = DISTRIBUTED)
     private EventLogConfiguration cfg;
 
     private InMemoryCollectionSink inMemoryCollectionSink;

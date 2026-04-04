@@ -28,11 +28,9 @@ import org.apache.ignite3.configuration.ConfigurationModule;
 import org.apache.ignite3.configuration.RootKey;
 import org.apache.ignite3.configuration.annotation.ConfigurationType;
 import org.apache.ignite3.configuration.validation.Validator;
-import org.apache.ignite3.internal.configuration.ConfigurationManager;
-import org.apache.ignite3.internal.configuration.ConfigurationModules;
+import org.apache.ignite3.internal.configuration.CompoundModule;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite3.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite3.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidatorImpl;
@@ -43,8 +41,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for loading Ignite 3 Configuration Modules.
- * TODO: This class was heavily adapted from the Ignite Runner.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-28136 This class was heavily adapted from the Ignite Runner.
 public class Ignite3ConfigurationUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(Ignite3ConfigurationUtils.class);
 
@@ -56,8 +54,10 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static CombinedConfigRegistry loadCombinedRegistry(Path nodeCfgPath, Path clusterCfgPath, boolean includeDefaults) {
-        var locReg = loadNodeConfiguration(nodeCfgPath, includeDefaults);
-        var distReg = loadClusterConfiguration(clusterCfgPath, includeDefaults);
+        List<ConfigurationModule> allModules = CompoundModule.loadAllConfigurationModules(null);
+
+        var locReg = loadNodeConfiguration(nodeCfgPath, allModules, includeDefaults);
+        var distReg = loadClusterConfiguration(clusterCfgPath, allModules, includeDefaults);
         return new CombinedConfigRegistry(locReg, distReg);
     }
 
@@ -65,22 +65,33 @@ public class Ignite3ConfigurationUtils {
      * Loads a Configuration Registry with only Node modules.
      *
      * @param cfgPath Configuration path.
+     * @param allModules All modules.
      * @param includeDefaults Include defaults.
      */
-    public static ConfigurationRegistry loadNodeConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadConfigurations(cfgPath, loadConfigurationModules().local(), includeDefaults);
+    public static ConfigurationRegistry loadNodeConfiguration(
+            Path cfgPath,
+            List<ConfigurationModule> allModules,
+            boolean includeDefaults
+    ) {
+        return loadConfigurations(cfgPath, CompoundModule.local(allModules), includeDefaults);
     }
 
     /**
      * Loads a Configuration Registry with only Cluster modules.
      *
      * @param cfgPath Config path.
+     * @param allModules All modules.
      * @param includeDefaults Include defaults.
      */
-    public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
+    public static ConfigurationRegistry loadClusterConfiguration(
+            Path cfgPath,
+            List<ConfigurationModule> allModules,
+            boolean includeDefaults
+    ) {
         // Hack so that it passes the validation
-        // TODO: This is another hack that needs to be cleaned. We don't really need the ConfigurationRegistry.
-        var distributedModule = loadConfigurationModules().distributed();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28137 This is another hack that needs to be cleaned.
+        //  We don't really need the ConfigurationRegistry.
+        var distributedModule = CompoundModule.distributed(allModules);
         for (RootKey<?, ?, ?> key : distributedModule.rootKeys()) {
             try {
                 FieldUtils.writeDeclaredField(key, "storageType", ConfigurationType.LOCAL, true);
@@ -108,7 +119,7 @@ public class Ignite3ConfigurationUtils {
                 : new NoDefaultsStorageConfiguration(cfgPath, localConfigurationGenerator, module);
 
         // Remove the authentication validator because I cannot get the module.patchConfigurationWithDynamicDefaults(change); to work.
-        // TODO: Check if this will create an error on the service.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28138 Check if this will create an error on the service.
         Set<? extends Validator<?, ?>> myValidators = module.validators()
                 .stream()
                 .filter(v -> !(v instanceof AuthenticationProvidersValidatorImpl))
@@ -117,26 +128,10 @@ public class Ignite3ConfigurationUtils {
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, myValidators);
 
-        var nodeCfgMgr = new ConfigurationManager(module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
+        var nodeConfigRegistry = new ConfigurationRegistry(module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
                 localConfigurationValidator, c -> {}, s -> false);
 
-        nodeCfgMgr.startAsync(new ComponentContext()).join();
-        return nodeCfgMgr.configurationRegistry();
-    }
-
-    /**
-     * Loads all the configuration modules in the main classloader.
-     */
-    private static ConfigurationModules loadConfigurationModules() {
-        // TODO: Copied
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(null);
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        return new ConfigurationModules(modules);
+        nodeConfigRegistry.startAsync(new ComponentContext()).join();
+        return nodeConfigRegistry;
     }
 }

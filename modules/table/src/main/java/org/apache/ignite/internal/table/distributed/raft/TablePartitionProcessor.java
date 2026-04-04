@@ -33,7 +33,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -66,8 +65,6 @@ import org.apache.ignite.internal.table.distributed.raft.handlers.MinimumActiveT
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -116,7 +113,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
-            Executor partitionOperationsExecutor,
             LeasePlacementDriver placementDriver,
             ClockService clockService,
             ZonePartitionId realReplicationGroupId
@@ -204,6 +200,14 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
         }
 
+        assert storage.lastAppliedIndex() >= commandIndex : String.format(
+                "Last applied index after command application is less than the command index "
+                        + "[lastAppliedIndex=%d, commandIndex=%d, command=%s]",
+                storage.lastAppliedIndex(),
+                commandIndex,
+                command.toStringForLightLogging()
+        );
+
         return result;
     }
 
@@ -275,6 +279,10 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long leaseStartTime = cmd.leaseStartTime();
 
             if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                // We MUST bump information about last updated index+term.
+                // See a comment in TablePartitionProcessor#processCommand() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+
                 var updateCommandResult = new UpdateCommandResult(
                         false,
                         storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
@@ -305,13 +313,13 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             );
         } else {
             // We MUST bump information about last updated index+term.
-            // See a comment in #onWrite() for explanation.
+            // See a comment in TablePartitionProcessor#processCommand() for explanation.
             // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
             // to update information about index and term.
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -347,6 +355,10 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long leaseStartTime = cmd.leaseStartTime();
 
             if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
+                // We MUST bump information about last updated index+term.
+                // See a comment in TablePartitionProcessor#processCommand() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+
                 var updateCommandResult = new UpdateCommandResult(
                         false,
                         storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
@@ -372,13 +384,13 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             );
         } else {
             // We MUST bump information about last updated index+term.
-            // See a comment in #onWrite() for explanation.
+            // See a comment in TablePartitionProcessor#processCommand() for explanation.
             // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
             // to update information about index and term.
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -534,18 +546,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         return EMPTY_APPLIED_RESULT;
     }
 
-    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T, Void> tracker,
-            T newValue
-    ) {
-        try {
-            tracker.update(newValue, null);
-        } catch (TrackerClosedException ignored) {
-            // No-op.
-        }
-    }
-
-    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, boolean full) {
         // Saving state is not needed for full transactions.
         if (!full) {
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)

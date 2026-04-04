@@ -22,13 +22,15 @@ import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableReplicaRequestException;
 import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * The exception is thrown when a primary replica await process has failed. Please pay attention that there is a specific
  * {@link PrimaryReplicaAwaitTimeoutException} for the primary replica await timeout.
  */
-public class PrimaryReplicaAwaitException extends IgniteInternalException implements RetriableTransactionException {
+public class PrimaryReplicaAwaitException extends IgniteInternalException implements RetriableTransactionException,
+        RetriableReplicaRequestException {
     private static final long serialVersionUID = 1029917546884926160L;
 
     /**

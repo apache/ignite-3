@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine;
 
 class ItConnectNonReplCommandTest extends ItConnectCommandTest {
     @Inject
@@ -39,7 +40,7 @@ class ItConnectNonReplCommandTest extends ItConnectCommandTest {
             }
 
             @Override
-            public void startReplMode() {
+            public void startReplMode(CommandLine.IFactory factory) {
                 // Emulate repl start by asking a question.
                 question.askQuestionOnReplStart();
             }

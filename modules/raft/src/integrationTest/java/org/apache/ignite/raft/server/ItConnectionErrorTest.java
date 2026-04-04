@@ -21,6 +21,7 @@ import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
@@ -109,13 +109,13 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
             int finalI = i;
             startServer(i, raftServer -> {
-                String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+                String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
                 RaftGroupOptions groupOptions = groupOptions(raftServer);
 
-                groupOptions.setLogStorageFactory(logStorageFactories.get(finalI));
+                groupOptions.setLogStorageManager(logStorageFactories.get(finalI));
                 groupOptions.serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(
@@ -199,26 +199,22 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
     }
 
     private void stopServer(int index) {
-        JraftServerImpl server = servers.get(index);
-
-        servers.set(index, null);
+        JraftServerImpl server = servers.set(index, null);
 
         for (RaftNodeId nodeId : server.localNodes()) {
             server.stopRaftNode(nodeId);
         }
 
-        server.beforeNodeStop();
-
-        assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-
-        assertThat(IgniteUtils.stopAsync(new ComponentContext(), serverServices.get(index)), willCompleteSuccessfully());
-        serverServices.set(index, null);
-
-        assertThat(IgniteUtils.stopAsync(new ComponentContext(), logStorageFactories.get(index)), willCompleteSuccessfully());
-        logStorageFactories.set(index, null);
-
-        assertThat(IgniteUtils.stopAsync(new ComponentContext(), vaultManagers.get(index)), willCompleteSuccessfully());
-        vaultManagers.set(index, null);
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        server,
+                        logStorageFactories.set(index, null),
+                        serverServices.set(index, null),
+                        vaultManagers.set(index, null)
+                ),
+                willCompleteSuccessfully()
+        );
     }
 
     private int leaderIndex() {
@@ -232,12 +228,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
         leaderWithTerm.leader().consistentId();
 
-        String leaderName = servers.get(0).clusterService().topologyService().localMember().name();
+        String leaderName = servers.get(0).clusterService().staticLocalNode().name();
 
         AtomicInteger leaderIndex = new AtomicInteger();
 
         forEachIndexed(servers, (srv, index) -> {
-            if (srv.clusterService().topologyService().localMember().name().equals(leaderName)) {
+            if (srv.clusterService().staticLocalNode().name().equals(leaderName)) {
                 leaderIndex.set(index);
             }
         });

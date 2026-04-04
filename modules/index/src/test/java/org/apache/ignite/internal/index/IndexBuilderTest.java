@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -31,17 +32,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -49,21 +50,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
@@ -89,13 +92,9 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
 
-    private final MvPartitionStorage mvPartitionStorage = mock(MvPartitionStorage.class);
-
-    private final TableTxRwOperationTracker txRwOperationTracker = mock(TableTxRwOperationTracker.class);
+    private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
-
-    private final TestMetricManager metricManager = new TestMetricManager();
 
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
@@ -103,14 +102,12 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
             new NoOpFailureManager(),
             new CommittedFinalTransactionStateResolver(),
             indexMetaStorage,
-            metricManager
+            new NoOpMetricManager()
     );
 
     @BeforeEach
     void configureMocks() {
         IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
-
-        when(txRwOperationTracker.awaitCompleteTxRwOperations(anyInt())).thenReturn(nullCompletedFuture());
 
         when(safeTime.waitFor(any())).thenReturn(nullCompletedFuture());
     }
@@ -144,8 +141,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
-        InOrder inOrder = inOrder(txRwOperationTracker, safeTime, mvPartitionStorage);
-        inOrder.verify(txRwOperationTracker, timeout(SECONDS.toMillis(10))).awaitCompleteTxRwOperations(registerredStateCatalogVersion);
+        InOrder inOrder = inOrder(safeTime, mvPartitionStorage);
         inOrder.verify(safeTime, timeout(SECONDS.toMillis(10))).waitFor(hybridTimestamp(buildingStateActivationTs));
         inOrder.verify(mvPartitionStorage, timeout(SECONDS.toMillis(10))).highestRowId();
     }
@@ -182,7 +178,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testIndexBuildCompletionListenerTwoBatches() {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        List<RowId> nextRowIdsToBuild = IntStream.range(0, 2 * IndexBuilder.BATCH_SIZE)
+        List<RowId> rowIds = IntStream.range(0, 2 * IndexBuilder.BATCH_SIZE)
                 .mapToObj(i -> rowId(PARTITION_ID))
                 .collect(toList());
 
@@ -190,7 +186,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> awaitSecondInvokeForReplicaService = awaitSecondInvokeForReplicaService(secondInvokeReplicaServiceFuture);
 
-        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, nextRowIdsToBuild);
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, rowIds);
 
         assertThat(awaitSecondInvokeForReplicaService, willCompleteSuccessfully());
 
@@ -235,15 +231,16 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         assertThat(listenCompletionIndexBuildingAfterDisasterRecoveryFuture, willCompleteSuccessfully());
     }
 
-    private void scheduleBuildIndex(int indexId, int zoneId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
+    private void scheduleBuildIndex(int indexId, int zoneId, int tableId, int partitionId, Collection<RowId> rowIds) {
+        insertRowsIntoMvPartitionStorage(rowIds);
+
         indexBuilder.scheduleBuildIndex(
                 zoneId,
                 tableId,
                 partitionId,
                 indexId,
-                indexStorage(nextRowIdsToBuild),
+                indexStorage(),
                 mvPartitionStorage,
-                txRwOperationTracker,
                 safeTime,
                 mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
@@ -256,21 +253,36 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
             int zoneId,
             int tableId,
             int partitionId,
-            Collection<RowId> nextRowIdsToBuild
+            Collection<RowId> rowIds
     ) {
+        insertRowsIntoMvPartitionStorage(rowIds);
+
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
                 zoneId,
                 tableId,
                 partitionId,
                 indexId,
-                indexStorage(nextRowIdsToBuild),
+                indexStorage(),
                 mvPartitionStorage,
-                txRwOperationTracker,
                 safeTime,
                 mock(InternalClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
                 mock(HybridTimestamp.class)
         );
+    }
+
+    private void insertRowsIntoMvPartitionStorage(Collection<RowId> rowIds) {
+        BinaryRow binaryRow = new BinaryRowImpl(1, ByteBuffer.allocate(1));
+
+        mvPartitionStorage.runConsistently(locker -> {
+            for (RowId rowId : rowIds) {
+                locker.lock(rowId);
+
+                mvPartitionStorage.addWriteCommitted(rowId, binaryRow, MAX_VALUE);
+            }
+
+            return null;
+        });
     }
 
     private CompletableFuture<Void> listenCompletionIndexBuilding(int indexId, int tableId, int partitionId) {
@@ -327,12 +339,10 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         return future;
     }
 
-    private static IndexStorage indexStorage(Collection<RowId> nextRowIdsToBuild) {
-        Iterator<RowId> it = nextRowIdsToBuild.iterator();
-
+    private static IndexStorage indexStorage() {
         IndexStorage indexStorage = mock(IndexStorage.class);
 
-        when(indexStorage.getNextRowIdToBuild()).then(invocation -> it.hasNext() ? it.next() : null);
+        when(indexStorage.getNextRowIdToBuild()).thenReturn(RowId.lowestRowId(PARTITION_ID));
 
         return indexStorage;
     }

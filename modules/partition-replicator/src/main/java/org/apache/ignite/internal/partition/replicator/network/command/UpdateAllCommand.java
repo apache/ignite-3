@@ -20,14 +20,10 @@ package org.apache.ignite.internal.partition.replicator.network.command;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command for updating a batch of entries.
@@ -35,16 +31,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>This command is replaced with {@link UpdateAllCommandV2} and only exists in the source code for backward compatibility.</p>
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.UPDATE_ALL_V1)
-public interface UpdateAllCommand extends PartitionCommand {
-    @PropertyName("tablePartitionId")
-    ReplicationGroupIdMessage commitPartitionId();
-
+public interface UpdateAllCommand extends UpdateCommandBase {
     Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
-
-    UUID txCoordinatorId();
-
-    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
-    @Nullable Long leaseStartTime();
 
     /**
      * Returns the timestamps of the last committed entries for each row.

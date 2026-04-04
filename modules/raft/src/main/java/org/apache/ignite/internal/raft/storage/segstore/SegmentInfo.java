@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
- * Information about a segment file for single Raft Group stored in a {@link IndexMemTable}.
+ * Information about a segment file for single Raft Group stored in a {@link AbstractMemTable}.
  *
  * <p>It consists of a base log index and an array of segment file offsets which stores in log entry offsets which indices lie in the
  * {@code [logIndexBase, logIndexBase + segmentFileOffsets.size)} range.

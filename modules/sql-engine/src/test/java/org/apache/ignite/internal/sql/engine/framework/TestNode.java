@@ -44,8 +44,8 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -145,7 +145,7 @@ public class TestNode implements LifecycleAware {
         this.prepareService = prepareService;
         this.clusterService = clusterService;
 
-        TopologyService topologyService = clusterService.topologyService();
+        InternalClusterNode localNode = clusterService.staticLocalNode();
         MessagingService messagingService = clusterService.messagingService();
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
         RowFactoryFactory<Object[]> rowFactoryFactory = ArrayRowHandler.INSTANCE;
@@ -167,7 +167,7 @@ public class TestNode implements LifecycleAware {
         holdLock = new IgniteSpinBusyLock();
 
         messageService = registerService(new MessageServiceImpl(
-                topologyService.localMember(), messagingService, taskExecutor, holdLock, clockService
+                localNode, messagingService, taskExecutor, holdLock, clockService
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService, clockService
@@ -189,7 +189,7 @@ public class TestNode implements LifecycleAware {
         }
 
         ExecutionService executionService = registerService(ExecutionServiceImpl.create(
-                topologyService,
+                localNode,
                 messageService,
                 schemaManager,
                 ddlCommandHandler,

@@ -222,7 +222,8 @@ public class BeanWrapperSpy implements BeanWrapper {
         // This is some crazy stuff.
         // Since we allow nulls on beans that we cannot create, we might end up with nulls in primitive collections.
         // The solution is to strip them from the source collection.
-        // TODO: This should not have been here. But I didn't want to create yet another decorator.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28139 This should not have been here.
+        //  But I didn't want to create yet another decorator.
         Object newValue = value;
         if (requiredType.isArray() && requiredType.getComponentType().isPrimitive()) {
             if (value instanceof Collection) {

@@ -21,6 +21,9 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -45,6 +48,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -172,6 +176,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
+            + "    \"listenAddresses\": [\"127.0.0.1\"],\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
             + "      \"netClusterNodes\": [ {} ]\n"
@@ -382,6 +387,14 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
             enableMetrics(ignite, enabledMetrics);
         }
+
+        createDefaultZone();
+    }
+
+    private static void createDefaultZone() {
+        assertThat(CLUSTER_NODES, is(not(empty())));
+
+        DistributionZonesTestUtil.createDefaultZone(unwrapIgniteImpl(CLUSTER_NODES.get(0)).catalogManager());
     }
 
     /** Disables all metrics except provided ones. */

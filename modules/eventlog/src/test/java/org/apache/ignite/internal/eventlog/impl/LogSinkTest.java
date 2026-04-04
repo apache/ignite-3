@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class LogSinkTest extends BaseIgniteAbstractTest {
 
-    @InjectConfiguration
+    @InjectConfiguration(type = DISTRIBUTED)
     private EventLogConfiguration cfg;
 
     private static Path eventlogPath;

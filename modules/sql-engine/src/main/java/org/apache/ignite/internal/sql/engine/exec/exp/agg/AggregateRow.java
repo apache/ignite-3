@@ -61,7 +61,7 @@ public class AggregateRow<RowT> {
     }
 
     /** Updates this row by using data of the given row. */
-    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet grpFields, RowHandler<RowT> handler, RowT row) {
+    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet grpFields, RowT row) {
         for (int i = 0; i < accs.size(); i++) {
             AccumulatorWrapper<RowT> acc = accs.get(i);
 
@@ -94,6 +94,7 @@ public class AggregateRow<RowT> {
     }
 
     /** Writes aggregate state of the given row to given array. */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public void writeTo(
             AggregateType type,
             List<AccumulatorWrapper<RowT>> accs,

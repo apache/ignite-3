@@ -94,6 +94,7 @@ public class PartitionModificationCounterFactory {
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter") // Signature required by NetworkMessageHandler interface
     private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof GetEstimatedSizeWithLastModifiedTsRequest) {
             handleRequestCounter(sender);

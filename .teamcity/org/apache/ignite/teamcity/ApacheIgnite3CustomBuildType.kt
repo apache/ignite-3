@@ -17,19 +17,10 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
         fun ignite3VCS() = apply {
             buildType.params {
                 hiddenText("VCSROOT__IGNITE3", "ignite-3")
-                hiddenText("env.JAVA_HOME", "%env.JDK_ORA_11%")
+                hiddenText("env.JAVA_HOME", "%env.JDK_ORA_17%")
             }
             buildType.vcs {
                 root(AbsoluteId("GitHubApacheIgnite3"), "+:. => %VCSROOT__IGNITE3%")
-            }
-        }
-        
-        /** 
-         * Set JAVA_HOME to JDK 17
-         */
-        fun ignite3Java17() = apply {
-            buildType.params {
-                hiddenText("env.JAVA_HOME", "%env.JDK_ORA_17%")
             }
         }
 

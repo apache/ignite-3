@@ -107,7 +107,7 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
 
             table.put(null, tableName, record);
         } catch (JsonProcessingException e) {
-            // TODO: Figure out what to do next.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-28140 Figure out what to do next.
             throw new RuntimeException(e);
         }
     }

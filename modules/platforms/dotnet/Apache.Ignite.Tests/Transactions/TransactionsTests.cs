@@ -415,6 +415,19 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.IsFalse(hasVal);
         }
 
+        [Test]
+        public async Task TestRollBackOnClosedConnectionDoesNotThrow()
+        {
+            using var client = await IgniteClient.StartAsync(GetConfig());
+            await using var tx = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx, client);
+
+            // ReSharper disable once DisposeOnUsingVariable
+            client.Dispose();
+
+            Assert.DoesNotThrowAsync(() => tx.RollbackAsync());
+        }
+
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;

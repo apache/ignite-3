@@ -46,8 +46,9 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
         stream.setBuffer(buffer);
         // We need fixed values here to know the offset for binary patcher.
-        // See org.apache.ignite.internal.raft.Marshaller.patch.
+        // See org.apache.ignite.internal.raft.Marshaller.patch()
         stream.writeFixedInt(requiredCatalogVersion);
+        // Allocates space for safe timestamp.
         stream.writeFixedLong(0);
     }
 
@@ -64,7 +65,6 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
             ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
         }
 
-        // Apply patched value.
         if (res instanceof SafeTimePropagatingCommand && safeTs != 0) {
             ((SafeTimePropagatingCommand) res).safeTime(HybridTimestamp.hybridTimestamp(safeTs));
         }
@@ -72,6 +72,12 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
         return res;
     }
 
+    /**
+     * Reads required catalog version from the provided buffer.
+     *
+     * @param raw Buffer to read from.
+     * @return Catalog version.
+     */
     @Override
     public int readRequiredCatalogVersion(ByteBuffer raw) {
         return raw.getInt();

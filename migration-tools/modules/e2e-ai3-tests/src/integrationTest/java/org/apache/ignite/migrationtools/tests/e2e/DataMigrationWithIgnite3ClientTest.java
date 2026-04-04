@@ -53,8 +53,8 @@ import org.junit.jupiter.api.function.Executable;
  * The tests are executed against a AI3 cluster with the native client and the JDBC client.
  */
 public class DataMigrationWithIgnite3ClientTest extends MigrationTestBase {
-    // TODO: Check if it is possible to rename the tests
-    // TODO: Some of these properties are duplicated with other tests.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28172 Check if it is possible to rename the tests
+    //  Some of these properties are duplicated with other tests.
 
     private static final List<ExampleBasedCacheTest> TEST_CLASS_INSTANCES = DiscoveryUtils.discoverClasses();
 
@@ -79,7 +79,7 @@ public class DataMigrationWithIgnite3ClientTest extends MigrationTestBase {
 
     @BeforeAll
     static void enableInfoLogsUnconditionally() {
-        // TODO: Check if this is a good idea. It was quick
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28172 Check if this is a good idea. It was quick
         Configurator.setLevel(LogManager.getLogger(MigrationTestBase.class), Level.INFO);
     }
 

@@ -108,7 +108,12 @@ internal sealed class LazyTransaction : ITransaction
     /// <inheritdoc/>
     public async Task RollbackAsync()
     {
-        if (TrySetState(StateRolledBack))
+        if (!TrySetState(StateRolledBack))
+        {
+            return;
+        }
+
+        try
         {
             var tx = await DoOpAsync(_tx, ClientOp.TxRollback).ConfigureAwait(false);
 
@@ -116,6 +121,10 @@ internal sealed class LazyTransaction : ITransaction
             {
                 _logger.LogTxRollbackTrace(tx.Id);
             }
+        }
+        catch (IgniteClientConnectionException)
+        {
+            // Connection exception: tx rolled back on server. Ignore.
         }
     }
 

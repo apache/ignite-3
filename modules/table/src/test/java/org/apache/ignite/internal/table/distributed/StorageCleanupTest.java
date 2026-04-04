@@ -31,6 +31,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -163,10 +164,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-        Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
-                pkIndexId, pkStorage,
-                sortedIndexId, sortedIndexStorage,
-                hashIndexId, hashIndexStorage
+        Int2ObjectMap<TableSchemaAwareIndexStorage> indexes = Int2ObjectMap.ofEntries(
+                Int2ObjectMap.entry(pkIndexId, pkStorage),
+                Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                Int2ObjectMap.entry(hashIndexId, hashIndexStorage)
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);

@@ -28,6 +28,120 @@ cd .. # now SCRIPT_DIR points at parent dir for bin
 if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
 . @CONF_DIR@/@VARS_FILE_NAME@
+
+# Save base values before any overrides
+BASE_NODE_NAME="${NODE_NAME}"
+BASE_WORK_DIR="${WORK_DIR}"
+BASE_LOG_DIR="${LOG_DIR}"
+BASE_CONFIG_FILE="${CONFIG_FILE}"
+
+# Parses command line arguments into CLI_* variables.
+parse_args() {
+    CLI_NODE_NAME=""
+    CLI_WORK_DIR=""
+    CLI_LOG_DIR=""
+    CLI_CONFIG_FILE=""
+    CLI_EXTRA_CLASSPATH=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --help|-h)
+                echo "Usage: ignite3db [OPTIONS]"
+                echo ""
+                echo "Options:"
+                echo "  --node-name <name>       Set the node name"
+                echo "  --work-dir <path>        Set the work directory"
+                echo "  --log-dir <path>         Set the log directory"
+                echo "  --config <path>          Set the configuration file"
+                echo "  --extra-classpath <path>  Add extra entries to the classpath"
+                echo "  --help, -h               Show this help message"
+                exit 0
+                ;;
+            --node-name)
+                shift
+                if [ $# -eq 0 ]; then echo "Error: --node-name requires a value" >&2; exit 1; fi
+                CLI_NODE_NAME="$1"
+                ;;
+            --work-dir)
+                shift
+                if [ $# -eq 0 ]; then echo "Error: --work-dir requires a value" >&2; exit 1; fi
+                CLI_WORK_DIR="$1"
+                ;;
+            --log-dir)
+                shift
+                if [ $# -eq 0 ]; then echo "Error: --log-dir requires a value" >&2; exit 1; fi
+                CLI_LOG_DIR="$1"
+                ;;
+            --config)
+                shift
+                if [ $# -eq 0 ]; then echo "Error: --config requires a value" >&2; exit 1; fi
+                CLI_CONFIG_FILE="$1"
+                ;;
+            --extra-classpath)
+                shift
+                if [ $# -eq 0 ]; then echo "Error: --extra-classpath requires a value" >&2; exit 1; fi
+                CLI_EXTRA_CLASSPATH="$1"
+                ;;
+            --*)
+                echo "Error: unknown option '$1'" >&2
+                echo "Use --help to see available options." >&2
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
+
+# Applies overrides in priority order: CLI args > IGNITE3_* env vars > defaults.
+# When node name is overridden, work/log dirs become subdirectories and config file
+# gets a node name suffix. Explicit path overrides take precedence over derived values.
+apply_overrides() {
+    # Resolve node name: CLI > env var > default
+    if [ -n "${CLI_NODE_NAME}" ]; then
+        NODE_NAME="${CLI_NODE_NAME}"
+    elif [ "${IGNITE3_NODE_NAME+set}" = "set" ]; then
+        NODE_NAME="${IGNITE3_NODE_NAME}"
+    fi
+
+    # If node name differs from default, derive subdirectory paths
+    if [ "${NODE_NAME}" != "${BASE_NODE_NAME}" ]; then
+        WORK_DIR="${BASE_WORK_DIR}/${NODE_NAME}"
+        LOG_DIR="${BASE_LOG_DIR}/${NODE_NAME}"
+        CONFIG_FILE="${BASE_CONFIG_FILE%.conf}-${NODE_NAME}.conf"
+    fi
+
+    # Explicit path overrides take precedence over node-name derived values
+    if [ -n "${CLI_WORK_DIR}" ]; then
+        WORK_DIR="${CLI_WORK_DIR}"
+    elif [ "${IGNITE3_WORK_DIR+set}" = "set" ]; then
+        WORK_DIR="${IGNITE3_WORK_DIR}"
+    fi
+
+    if [ -n "${CLI_LOG_DIR}" ]; then
+        LOG_DIR="${CLI_LOG_DIR}"
+    elif [ "${IGNITE3_LOG_DIR+set}" = "set" ]; then
+        LOG_DIR="${IGNITE3_LOG_DIR}"
+    fi
+
+    if [ -n "${CLI_CONFIG_FILE}" ]; then
+        CONFIG_FILE="${CLI_CONFIG_FILE}"
+    elif [ "${IGNITE3_CONFIG_FILE+set}" = "set" ]; then
+        CONFIG_FILE="${IGNITE3_CONFIG_FILE}"
+    fi
+
+    # Extra classpath: CLI > env var
+    if [ -n "${CLI_EXTRA_CLASSPATH}" ]; then
+        IGNITE3_EXTRA_CLASSPATH="${CLI_EXTRA_CLASSPATH}"
+    fi
+}
+
+parse_args "$@"
+apply_overrides
+
+# Create work and log directories if they do not exist
+mkdir -p "${WORK_DIR}"
+mkdir -p "${LOG_DIR}"
+
 . ${LIBS_DIR}/@BOOTSTRAP_FILE_NAME@
 
 cd ${IGNITE_HOME} || exit

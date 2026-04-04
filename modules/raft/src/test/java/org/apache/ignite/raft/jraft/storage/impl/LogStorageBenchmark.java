@@ -26,8 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -153,15 +153,15 @@ public class LogStorageBenchmark {
         int logSize = 16 * 1024;
         int totalLogs = 100 * 1024;
 
-//        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
-        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), testPath);
-        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+//        LogStorageManager logStorageManager = new DefaultLogStorageManager(testPath);
+        LogStorageManager logStorageManager = new LogitLogStorageManager("test", new StoreOptions(), testPath);
+        assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             RaftOptions raftOptions = new RaftOptions();
             raftOptions.setSync(false);
 
-            LogStorage logStorage = logStorageFactory.createLogStorage("test", raftOptions);
+            LogStorage logStorage = logStorageManager.createLogStorage("test", raftOptions);
 
             LogStorageOptions opts = new LogStorageOptions();
             opts.setConfigurationManager(new ConfigurationManager());
@@ -172,7 +172,7 @@ public class LogStorageBenchmark {
                 new LogStorageBenchmark(logStorage, logSize, totalLogs, batchSize).doTest();
             }
         } finally {
-            assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(logStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 }

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -32,10 +33,11 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -133,12 +135,14 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
@@ -310,8 +314,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
 
@@ -438,12 +440,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 row2Tuple
         ));
 
-        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(indexId, PART_ID, true, this.txManager.lockManager(), row2Tuple);
 
         safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
-        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
+        TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(
+                Int2ObjectMaps.singleton(pkStorage.get().id(), pkStorage.get()));
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
 
@@ -473,6 +476,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(ZONE_ID, PART_ID);
 
+        var validationSchemasSource = new DummyValidationSchemasSource(schemaManager);
+        var schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
         var tableReplicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 svc,
@@ -481,16 +487,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Runnable::run,
                 zonePartitionId,
                 tableId,
-                () -> Map.of(pkLocker.id(), pkLocker),
+                () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                 pkStorage,
-                Map::of,
+                Int2ObjectMaps::emptyMap,
                 CLOCK_SERVICE,
                 safeTime,
                 transactionStateResolver,
                 storageUpdateHandler,
-                new DummyValidationSchemasSource(schemaManager),
+                validationSchemasSource,
                 LOCAL_NODE,
-                new AlwaysSyncedSchemaSyncService(),
+                schemaSyncService,
                 catalogService,
                 placementDriver,
                 mock(ClusterNodeResolver.class),
@@ -508,21 +514,28 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK_SERVICE
         );
 
+        var txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                mock(ClusterNodeResolver.class)
+        );
+
         ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage.getOrCreatePartitionStorage(PART_ID),
                 CLOCK_SERVICE,
                 this.txManager,
-                new DummyValidationSchemasSource(schemaManager),
-                new AlwaysSyncedSchemaSyncService(),
+                validationSchemasSource,
+                schemaSyncService,
                 catalogService,
                 placementDriver,
+                new PlacementDriverHelper(placementDriver, CLOCK_SERVICE),
                 mock(ClusterNodeResolver.class),
                 svc,
                 mock(FailureProcessor.class),
                 LOCAL_NODE,
                 zonePartitionId,
                 transactionStateResolver,
-                txMessageSender
+                txMessageSender,
+                txRecoveryEngine
         );
 
         zoneReplicaListener.addTableReplicaProcessor(tableId, (raftClient, txStateResolver) -> tableReplicaListener);
@@ -532,6 +545,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.updateClock(any(), anyBoolean())).thenAnswer(invocation -> {
+            HybridTimestamp requestTime = invocation.getArgument(0);
+            return clock.update(requestTime);
+        });
 
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
         var tablePartitionListener = new TablePartitionProcessor(
@@ -543,7 +560,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class),
                 placementDriver,
                 clockService,
                 zonePartitionId
@@ -556,7 +572,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 storageIndexTracker,
                 new NoOpPartitionsSnapshots(),
-                mock(Executor.class)
+                mock(Executor.class),
+                clockService
         );
 
         zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
@@ -675,12 +692,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(LOCAL_NODE);
 
         ClusterService clusterService = mock(ClusterService.class);
 
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(LOCAL_NODE);
 
         VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
 
@@ -727,7 +744,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Int2ObjectMap<TableSchemaAwareIndexStorage> indexes) {
         return () -> indexes;
     }
 

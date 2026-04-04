@@ -21,13 +21,13 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.bi
 import static org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo.ITEM_SIZE_WITHOUT_COLUMNS;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;

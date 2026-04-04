@@ -24,9 +24,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 
 class IndexMetaStorageMocks {
     static void configureMocksForBuildingPhase(IndexMetaStorage indexMetaStorage) {

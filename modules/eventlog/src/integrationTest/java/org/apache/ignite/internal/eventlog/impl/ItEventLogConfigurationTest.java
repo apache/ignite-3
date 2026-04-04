@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.eventlog.impl.TestEventTypes.TEST_EVENT_TYPE_1;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,7 +45,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
     private static final String IN_MEMORY_SINK_TYPE = "inMemory";
     private static final String TEST_SINK_NAME = "testSink";
 
-    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class)
+    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class, type = DISTRIBUTED)
     private EventLogConfiguration eventLogConfiguration;
 
     private EventLogImpl eventLog;

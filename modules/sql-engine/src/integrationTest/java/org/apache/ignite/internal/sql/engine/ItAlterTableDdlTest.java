@@ -241,6 +241,28 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void cannotAddNonNullableColumnWithoutDefault() {
+        sql("CREATE TABLE t (id VARCHAR PRIMARY KEY)");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Non-nullable column 'VAL' must have the default value",
+                () -> sql("ALTER TABLE t ADD COLUMN val VARCHAR NOT NULL")
+        );
+
+        // Should not throw an exception since default value is provided.
+        sql("ALTER TABLE t ADD COLUMN val VARCHAR NOT NULL DEFAULT 'a'");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Non-nullable column 'VAL2' must have the default value",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR NOT NULL DEFAULT NULL")
+        );
+
+        sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT NULL");
+    }
+
+    @Test
     public void uuidDefault() {
         UUID defaultUuid = UUID.randomUUID();
         sql("CREATE TABLE test(id INT PRIMARY KEY)");

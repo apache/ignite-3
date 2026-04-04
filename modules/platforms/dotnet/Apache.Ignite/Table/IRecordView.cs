@@ -55,6 +55,17 @@ namespace Apache.Ignite.Table
         Task<bool> ContainsKeyAsync(ITransaction? transaction, T key);
 
         /// <summary>
+        /// Determines if the table contains entries for all specified keys.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="keys">Collection of records with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result is <c>true</c> if values exist for all specified keys, and <c>false</c> otherwise.
+        /// </returns>
+        Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<T> keys);
+
+        /// <summary>
         /// Gets multiple records by keys.
         /// </summary>
         /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>

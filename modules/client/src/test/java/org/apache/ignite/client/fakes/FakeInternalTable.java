@@ -41,6 +41,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -51,7 +52,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IndexScanCriteria;
@@ -284,7 +284,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        return booleanCompletedFuture(replaceImpl(key, row, tx) != null);
+        return booleanCompletedFuture(replaceImpl(key, row) != null);
     }
 
     @Override
@@ -304,7 +304,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         return trueCompletedFuture();
     }
 
-    private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row, @Nullable InternalTransaction tx) {
+    private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row) {
         BinaryRow old = getImpl(key.byteBuffer(), row);
 
         if (old == null) {
@@ -324,7 +324,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        BinaryRow replace = replaceImpl(key, row, tx);
+        BinaryRow replace = replaceImpl(key, row);
 
         onDataAccess("getAndReplace", row);
 

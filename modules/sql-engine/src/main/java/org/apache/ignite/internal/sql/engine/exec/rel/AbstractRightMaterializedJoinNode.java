@@ -34,6 +34,10 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
     final Deque<RowT> leftInBuf = new ArrayDeque<>(inBufSize);
     protected @Nullable RowT left;
 
+    // Metrics
+    private long receivedRowsFromLeft = 0L;
+    private long receiveRowsFromRight = 0L;
+
     AbstractRightMaterializedJoinNode(ExecutionContext<RowT> ctx) {
         super(ctx);
     }
@@ -43,6 +47,8 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
+
+        onRequestReceived();
 
         requested = rowsCnt;
 
@@ -70,6 +76,8 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
+                    onRowReceivedFromLeft();
+
                     pushLeft(row);
                 }
 
@@ -90,6 +98,8 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
+                    onRowReceivedFromRight();
+
                     pushRight(row);
                 }
 
@@ -158,4 +168,22 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
     protected abstract void join() throws Exception;
 
     protected abstract void pushRight(RowT row) throws Exception;
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        // Calculate aggregated statistics.
+        onRowsReceived(receivedRowsFromLeft + receiveRowsFromRight);
+
+        super.dumpMetrics0(writer);
+        writer.app(", leftRows=").app(receivedRowsFromLeft)
+                .app(", rightRows=").app(receiveRowsFromRight);
+    }
+
+    private void onRowReceivedFromLeft() {
+        receivedRowsFromLeft++;
+    }
+
+    private void onRowReceivedFromRight() {
+        receiveRowsFromRight++;
+    }
 }

@@ -38,9 +38,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -73,6 +75,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
             @Mock TxManager txManager,
             @Mock OutgoingSnapshotsManager outgoingSnapshotsManager,
             @Mock TopologyService topologyService,
+            @Mock InternalClusterNode localNode,
             @Mock CatalogService catalogService,
             @Mock ReplicaManager replicaManager,
             @InjectExecutorService ScheduledExecutorService scheduler,
@@ -93,10 +96,12 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 txManager,
                 outgoingSnapshotsManager,
                 topologyService,
+                localNode,
                 catalogService,
                 mock(FailureProcessor.class),
                 executor,
-                replicaManager
+                replicaManager,
+                mock(ClockService.class)
         );
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }

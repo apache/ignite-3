@@ -63,7 +63,7 @@ public class MigrateCacheCmd extends BaseCommand implements Callable<Integer> {
                         .exceptionHandler(new IgniteClientConnectionExceptionHandler())
                         .exceptionHandler(new DataStreamerExceptionHandler())
                         .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
-                        .inputProvider(() -> new RetriableMigrateCacheCall.Input(
+                        .input(new RetriableMigrateCacheCall.Input(
                                 parent.params(),
                                 migrateCacheParams,
                                 retryParams,

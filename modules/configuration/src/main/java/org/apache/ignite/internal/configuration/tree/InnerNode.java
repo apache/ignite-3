@@ -259,6 +259,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /**
      * Sets the value of a field with {@link InjectedName}.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public void setInjectedNameFieldValue(String value) {
         assertMutability();
     }

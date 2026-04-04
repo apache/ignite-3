@@ -32,11 +32,10 @@ public class DisconnectCommand extends BaseCommand implements Runnable {
     @Inject
     private DisconnectCall call;
 
-    /** {@inheritDoc} */
     @Override
     public void run() {
         runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(EmptyCallInput::new)
+                .input(new EmptyCallInput())
         );
     }
 }

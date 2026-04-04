@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema;
 import org.jetbrains.annotations.Nullable;
@@ -47,11 +48,16 @@ public class InternalTxOptions {
     @Nullable
     private final HybridTimestamp readTimestamp;
 
-    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel) {
+    /** Transaction kill closure. Defines context specific action on tx kill. */
+    private final @Nullable Consumer<InternalTransaction> killClosure;
+
+    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel,
+            @Nullable Consumer<InternalTransaction> killClosure) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;
         this.txLabel = txLabel;
+        this.killClosure = killClosure;
     }
 
     public static Builder builder() {
@@ -82,6 +88,10 @@ public class InternalTxOptions {
         return txLabel;
     }
 
+    public @Nullable Consumer<InternalTransaction> killClosure() {
+        return killClosure;
+    }
+
     /** Builder for InternalTxOptions. */
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
@@ -97,6 +107,8 @@ public class InternalTxOptions {
 
         @Nullable
         private String txLabel = null;
+
+        private Consumer<InternalTransaction> killClosure;
 
         public Builder priority(TxPriority priority) {
             this.priority = priority;
@@ -118,8 +130,13 @@ public class InternalTxOptions {
             return this;
         }
 
+        public Builder killClosure(Consumer<InternalTransaction> r) {
+            this.killClosure = r;
+            return this;
+        }
+
         public InternalTxOptions build() {
-            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, txLabel);
+            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, txLabel, killClosure);
         }
     }
 }

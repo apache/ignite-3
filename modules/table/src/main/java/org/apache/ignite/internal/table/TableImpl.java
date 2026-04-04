@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -252,7 +253,7 @@ public class TableImpl implements TableViewInternal {
         return () -> {
             var factories = new ArrayList<>(indexWrapperById.values());
 
-            var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
+            Int2ObjectMap<TableSchemaAwareIndexStorage> adapters = new Int2ObjectArrayMap<>(factories.size());
 
             for (IndexWrapper factory : factories) {
                 TableSchemaAwareIndexStorage storage = factory.getStorage(partitionId);
@@ -267,11 +268,11 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId) {
+    public Supplier<Int2ObjectMap<IndexLocker>> indexesLockers(int partId) {
         return () -> {
             List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
-            Map<Integer, IndexLocker> lockers = new HashMap<>(factories.size());
+            Int2ObjectMap<IndexLocker> lockers = new Int2ObjectArrayMap<>(factories.size());
 
             for (IndexWrapper factory : factories) {
                 IndexLocker locker = factory.getLocker(partId);

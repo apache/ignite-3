@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,14 +63,10 @@ public class TableAwareReplicaRequestPreProcessor {
      * awaiting.
      *
      * @param request Request to be processed.
-     * @param replicaPrimacy Replica primacy information.
-     * @param senderId Node sender id.
      * @return Future with the result of the request.
      */
     public CompletableFuture<Void> preProcessTableAwareRequest(
-            ReplicaRequest request,
-            ReplicaPrimacy replicaPrimacy,
-            UUID senderId
+            ReplicaRequest request
     ) {
         assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 
@@ -90,6 +86,7 @@ public class TableAwareReplicaRequestPreProcessor {
         assert txTs == null
                 ? request instanceof GetEstimatedSizeRequest || request instanceof ScanCloseReplicaRequest
                 || request instanceof BuildIndexReplicaRequest || request instanceof TableWriteIntentSwitchReplicaRequest
+                || request instanceof TxStatePrimaryReplicaRequest
                 : opTs.compareTo(txTs) >= 0 :
                 "Invalid request timestamps [request=" + request + ']';
 

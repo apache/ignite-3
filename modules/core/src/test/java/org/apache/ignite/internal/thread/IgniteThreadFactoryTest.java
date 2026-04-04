@@ -31,7 +31,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.Test;
 
 class IgniteThreadFactoryTest {
-    private static final IgniteLogger LOG = Loggers.forClass(IgniteThreadFactory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteThreadFactoryTest.class);
 
     @Test
     void producesCorrectThreadNames() throws Exception {

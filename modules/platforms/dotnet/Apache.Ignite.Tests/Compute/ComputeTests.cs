@@ -157,7 +157,7 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Custom job error", ex!.Message);
 
             StringAssert.StartsWith(
-                "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
+                "org.apache.ignite.internal.runner.app.Jobs$CustomException",
                 ex.InnerException!.Message);
 
             Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
@@ -191,7 +191,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestAllSupportedArgTypes()
+        public async Task TestAllSupportedArgTypes([Values(true, false)] bool colocated)
         {
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
@@ -224,7 +224,22 @@ namespace Apache.Ignite.Tests.Compute
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
             await Test(Guid.NewGuid());
 
+            await Test(new IgniteTuple { ["foo"] = "bar", ["baz"] = 42 }, "TupleImpl [FOO=bar, BAZ=42]");
+
             async Task Test(object val, string? expectedStr = null)
+            {
+                if (colocated)
+                {
+                    await Test0(val, expectedStr, JobTarget.Colocated(TableName, 1L));
+                }
+                else
+                {
+                    await Test0(val, expectedStr, JobTarget.AnyNode(await Client.GetClusterNodesAsync()));
+                }
+            }
+
+            async Task Test0<TTarget>(object val, string? expectedStr, IJobTarget<TTarget> target)
+                where TTarget : notnull
             {
                 var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
@@ -669,7 +684,8 @@ namespace Apache.Ignite.Tests.Compute
 
             await cts.CancelAsync();
 
-            await AssertWaitJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+            // SleepJob throws RuntimeException on interrupt, not CancellationException.
+            await AssertWaitJobStatus(jobExecution, JobStatus.Failed, beforeStart);
 
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
 
@@ -696,7 +712,8 @@ namespace Apache.Ignite.Tests.Compute
 
             foreach (var jobExec in jobExecution.JobExecutions)
             {
-                await AssertWaitJobStatus(jobExec, JobStatus.Canceled, beforeStart);
+                // SleepJob throws RuntimeException on interrupt, not CancellationException.
+                await AssertWaitJobStatus(jobExec, JobStatus.Failed, beforeStart);
 
                 var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
 
@@ -713,6 +730,14 @@ namespace Apache.Ignite.Tests.Compute
 
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 10_000, cts.Token);
 
+            // Wait until all jobs are executing to avoid timing-dependent status.
+            await TestUtils.WaitForConditionAsync(
+                async () =>
+                {
+                    var states = await taskExec.GetJobStatesAsync();
+                    return states.All(s => s?.Status == JobStatus.Executing);
+                });
+
             await cts.CancelAsync();
 
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
@@ -722,12 +747,13 @@ namespace Apache.Ignite.Tests.Compute
 
             foreach (var jobState in jobStates)
             {
-                Assert.AreEqual(JobStatus.Canceled, jobState?.Status);
+                // SleepJob throws RuntimeException, not CancellationException.
+                Assert.AreEqual(JobStatus.Failed, jobState?.Status);
             }
 
             TaskState? state = await taskExec.GetStateAsync();
 
-            Assert.AreEqual(TaskStatus.Canceled, state?.Status);
+            Assert.AreEqual(TaskStatus.Canceled, state?.Status); // Task was explicitly cancelled.
         }
 
         [Test]
@@ -936,7 +962,7 @@ namespace Apache.Ignite.Tests.Compute
 
             // Result - exception.
             Assert.AreEqual("Custom job error", ex.Message);
-            StringAssert.Contains("ItThinClientComputeTest$CustomException", ex.InnerException!.Message);
+            StringAssert.Contains("Jobs$CustomException", ex.InnerException!.Message);
             Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
 
             // Failed task state.
@@ -994,7 +1020,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCustomMarshaller()
+        public async Task TestCustomMarshaller([Values(true, false)] bool colocated)
         {
             var job = new JobDescriptor<Nested, Nested>(PlatformTestNodeRunner + "$ToStringMarshallerJob")
             {
@@ -1004,16 +1030,22 @@ namespace Apache.Ignite.Tests.Compute
 
             var arg = new Nested(Guid.NewGuid(), 1.234m);
 
-            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
-            Nested res = await exec.GetResultAsync();
-
-            var nullExec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null!);
-            Nested nullRes = await nullExec.GetResultAsync();
+            Nested res = await ExecJob(arg);
+            Nested nullRes = await ExecJob(null);
 
             Assert.AreEqual(arg.Id, res.Id);
             Assert.AreEqual(arg.Price + 1, res.Price);
 
             Assert.IsNull(nullRes);
+
+            async Task<Nested> ExecJob(Nested? arg0)
+            {
+                var jobExec = colocated
+                    ? await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, 1L), job, arg0!)
+                    : await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg0!);
+
+                return await jobExec.GetResultAsync();
+            }
         }
 
         [Test]

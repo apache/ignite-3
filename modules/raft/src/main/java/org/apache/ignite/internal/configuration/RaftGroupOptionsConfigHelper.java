@@ -20,7 +20,7 @@ package org.apache.ignite.internal.configuration;
 import java.nio.file.Path;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 
 /**
  * A helper that creates an instance of {@link RaftGroupOptionsConfigurer}.
@@ -30,16 +30,16 @@ public interface RaftGroupOptionsConfigHelper {
     /**
      * Creates an instance of {@link RaftGroupOptionsConfigurer} that can be used to configure Raft options.
      *
-     * @param logStorageFactory Log storage factory.
+     * @param logStorageManager Log storage manager.
      * @param serverDataPath Server data path.
      * @return Raft options configurer.
      */
-    static RaftGroupOptionsConfigurer configureProperties(LogStorageFactory logStorageFactory, Path serverDataPath) {
+    static RaftGroupOptionsConfigurer configureProperties(LogStorageManager logStorageManager, Path serverDataPath) {
         return options -> {
             RaftGroupOptions groupOptions = (RaftGroupOptions) options;
 
-            if (groupOptions.getLogStorageFactory() == null) {
-                groupOptions.setLogStorageFactory(logStorageFactory);
+            if (groupOptions.getLogStorageManager() == null) {
+                groupOptions.setLogStorageManager(logStorageManager);
             }
             if (groupOptions.serverDataPath() == null) {
                 groupOptions.serverDataPath(serverDataPath);

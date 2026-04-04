@@ -22,10 +22,14 @@ limitations under the License.
 
 Apache Ignite is shipped with JDBC driver that allows processing of distributed data using standard SQL statements like `SELECT`, `INSERT`, `UPDATE`, or `DELETE` directly from the JDBC side. The name of the driver's class is `org.apache.ignite.jdbc.IgniteJdbcDriver`.
 
-This implementation of JDBC driver does not support:
+[NOTE]
+====
+The JDBC driver was completely reworked in Apache Ignite 3.2 and now supports multiple endpoints and link:developers-guide/clients/overview#partition-awareness[partition awareness].
 
-* Multiple endpoints
-* JDBC connection pools
+The new driver is not compatible with Apache Ignite 3.1 and 3.0. To connect to Ignite 3.1 (and 3.0), use the previous version of the driver that was shipped with Apache Ignite 3.1.
+
+The server part remains compatible with previous versions of the driver, so driver for Ignite 3.1 can successfully connect to the 3.2 cluster.
+====
 
 See also:
 
@@ -100,11 +104,12 @@ Here is how you can commit a transaction:
 // Open the JDBC connection.
 Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
 
+// Disable auto-commit mode.
+conn.setAutoCommit(false);
+
 // Commit a transaction
 conn.commit();
 ```
-
-You can also configure Apache Ignite to automatically commit transactions by using the `setAutoCommit()` method.
 
 Here is how you can rollback a transaction:
 

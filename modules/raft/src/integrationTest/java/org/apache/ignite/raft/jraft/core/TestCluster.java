@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
@@ -216,7 +218,6 @@ public class TestCluster {
             nodeOptions.setServerName(peer.getPeerId().toString());
 
             nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
-            nodeOptions.setEnableMetrics(enableMetrics);
             nodeOptions.setSnapshotThrottle(snapshotThrottle);
             nodeOptions.setSnapshotIntervalSecs(snapshotIntervalSecs);
             nodeOptions.setServiceFactory(this.raftServiceFactories.apply(peer.getPeerId()));
@@ -249,18 +250,16 @@ public class TestCluster {
 
             nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
 
-            List<NetworkAddress> addressList = List.of();
-
             if (!emptyPeers) {
-                addressList = Stream.concat(peers.stream(), learners.stream())
-                        .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
-                        .collect(toList());
-
                 nodeOptions.setInitialConf(new Configuration(
                         peers.stream().map(TestPeer::getPeerId).collect(toList()),
                         getLearners()
                 ));
             }
+
+            List<NetworkAddress> addressList = Stream.concat(peers.stream(), learners.stream())
+                    .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
+                    .collect(toList());
 
             ClusterService clusterService = clusterService(testInfo, peer.getPort(), new StaticNodeFinder(addressList));
             NodeManager nodeManager = new NodeManager(clusterService);
@@ -286,7 +285,7 @@ public class TestCluster {
                 optsClo.accept(peer.getPeerId(), nodeOptions);
 
             RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
-                nodeOptions, rpcServer) {
+                nodeOptions, rpcServer, new TestMetricManager()) {
                 @Override public synchronized void shutdown() {
                     nodeManager.shutdown();
                     // This stop order is consistent with JRaftServerImpl
@@ -298,7 +297,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                    assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
                 }
             };
 

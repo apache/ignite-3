@@ -30,6 +30,7 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +40,7 @@ import org.junit.jupiter.api.Test;
 public class CheckpointMetricsTest extends BaseIgniteAbstractTest {
     private final MetricManager metricManager = new TestMetricManager();
 
-    private final CheckpointMetricSource metricSource = new CheckpointMetricSource("test");
+    private final CollectionMetricSource metricSource = new CollectionMetricSource("test", "storage", null);
 
     private final CheckpointMetrics metrics = new CheckpointMetrics(metricSource);
 

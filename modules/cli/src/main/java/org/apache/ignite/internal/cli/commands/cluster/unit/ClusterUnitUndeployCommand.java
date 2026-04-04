@@ -25,9 +25,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -38,7 +37,7 @@ import picocli.CommandLine.Parameters;
 public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     /** Unit id. */
     @Parameters(index = "0", description = "Unit id")
@@ -54,12 +53,12 @@ public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<
     @Override
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> UndeployUnitCallInput.builder()
+                .input(UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
                         .clusterUrl(clusterUrl.getClusterUrl())
                         .build())
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot undeploy unit"))
+                .exceptionHandler(createHandler("Cannot undeploy unit"))
         );
     }
 }

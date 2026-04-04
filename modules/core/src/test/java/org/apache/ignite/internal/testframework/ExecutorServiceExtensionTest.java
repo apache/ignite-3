@@ -169,6 +169,7 @@ public class ExecutorServiceExtensionTest {
         private String instanceWrongType;
 
         @Test
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         public void test(
                 @InjectExecutorService
                 Boolean parameterWrongType

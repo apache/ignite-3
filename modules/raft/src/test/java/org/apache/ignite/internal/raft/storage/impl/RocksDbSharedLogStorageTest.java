@@ -34,13 +34,13 @@ import org.junit.jupiter.api.Test;
 /** Shared log storage test. */
 public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     /** Log storage provider. */
-    private DefaultLogStorageFactory logStorageProvider;
+    private DefaultLogStorageManager logStorageProvider;
 
     /** {@inheritDoc} */
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageProvider = new DefaultLogStorageFactory(this.path);
+        logStorageProvider = new DefaultLogStorageManager(this.path);
         assertThat(logStorageProvider.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.setup();

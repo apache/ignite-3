@@ -12,9 +12,12 @@ object RunPlatformTests : BuildType({
 
     dependencies {
         snapshot(PlatformCppTestsLinux) {}
-//        snapshot(PlatformCppTestsWindows) {}  // Always falling, under investigation
+        snapshot(PlatformCppOdbcTestsDebLinux) {}
+        snapshot(PlatformCppOdbcTestsRpmLinux) {}
+        snapshot(PlatformCppOdbcTestsTgzLinux) {}
+        snapshot(PlatformCppTestsWindows) {}
         snapshot(PlatformDotnetTestsWindows) {}
         snapshot(PlatformDotnetTestsLinux) {}
-        snapshot(PlatformPythonTestsLinux) {}
+        snapshot(RunPythonTests) {}
     }
 })

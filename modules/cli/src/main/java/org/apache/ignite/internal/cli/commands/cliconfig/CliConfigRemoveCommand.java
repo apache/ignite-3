@@ -43,9 +43,11 @@ public class CliConfigRemoveCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(CliConfigRemoveCallInput.builder()
+                .input(CliConfigRemoveCallInput.builder()
                         .key(key)
-                        .profileName(profileName.getProfileName())::build)
+                        .profileName(profileName.getProfileName())
+                        .build()
+                )
         );
     }
 }

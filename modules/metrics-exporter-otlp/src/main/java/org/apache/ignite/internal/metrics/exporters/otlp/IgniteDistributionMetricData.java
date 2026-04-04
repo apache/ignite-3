@@ -22,7 +22,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
-import io.opentelemetry.sdk.internal.PrimitiveLongList;
 import io.opentelemetry.sdk.metrics.data.AggregationTemporality;
 import io.opentelemetry.sdk.metrics.data.Data;
 import io.opentelemetry.sdk.metrics.data.DoubleExemplarData;
@@ -30,6 +29,7 @@ import io.opentelemetry.sdk.metrics.data.HistogramData;
 import io.opentelemetry.sdk.metrics.data.HistogramPointData;
 import io.opentelemetry.sdk.metrics.data.MetricDataType;
 import io.opentelemetry.sdk.resources.Resource;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -130,7 +130,7 @@ class IgniteDistributionMetricData extends IgniteMetricData<DistributionMetric> 
 
         @Override
         public List<Long> getCounts() {
-            return PrimitiveLongList.wrap(metric.value());
+            return LongArrayList.wrap(metric.value());
         }
 
         @Override

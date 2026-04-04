@@ -55,13 +55,10 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask to connect to the default cluster url")
-    void connectToDefaultUrl() throws IOException {
+    @DisplayName("Should not ask to connect to the default cluster url")
+    void connectToDefaultUrl() {
         // Given prompt before connect
         assertPromptIs("[disconnected]> ");
-
-        // And answer to the first question is "y"
-        bindAnswers("y");
 
         // When asked the question
         execute("cluster", "status");
@@ -70,10 +67,9 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300"),
-                () -> assertTerminalOutputIs("You are not connected to node. "
-                        + "Do you want to connect to the default node http://localhost:10300? [Y/n] "),
-                () -> assertPromptIs("[" + nodeName() + "]> ")
+                () -> assertOutputContains("name: cluster, nodes: 3, status: active"),
+                this::assertTerminalOutputIsEmpty,
+                () -> assertPromptIs("[disconnected]> ")
         );
     }
 

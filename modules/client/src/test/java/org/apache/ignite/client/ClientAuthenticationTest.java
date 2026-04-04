@@ -18,14 +18,17 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_PASSWORD;
+import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_USERNAME;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -85,9 +88,9 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testAuthnOnClientAuthnOnServer() {
-        server = startServer(false);
+        server = startServer(true);
 
-        client = startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
+        client = startClient(BasicAuthenticator.builder().username(DEFAULT_USERNAME).password(DEFAULT_PASSWORD).build());
     }
 
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {
@@ -111,15 +114,7 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
                 null);
 
         if (basicAuthn) {
-            securityConfiguration.change(securityChange -> {
-                securityChange.changeEnabled(true);
-                securityChange.changeAuthentication().changeProviders().create("basic", change ->
-                        change.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users -> users.create("usr", user ->
-                                        user.changePassword("pwd"))
-                                )
-                );
-            }).join();
+            assertThat(securityConfiguration.change(securityChange -> securityChange.changeEnabled(true)), willCompleteSuccessfully());
         }
 
         return server;

@@ -443,15 +443,24 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @SuppressWarnings("ThrowableNotThrown")
     public void testAutoCommitFalseTxControlStatementsNotSupported() throws Exception {
         String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled.";
+        String txFinishedWithErrMsg = "Transaction is already finished due to an error";
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; COMMIT;"));
 
-        boolean res = stmt.execute("SELECT 1;COMMIT");
-        assertTrue(res);
-        assertNotNull(stmt.getResultSet());
-        assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+        SQLException commitErr = assertThrowsSqlException(SQLException.class, () -> stmt.execute("COMMIT"));
+        assertTrue(commitErr.getMessage().contains(txErrMsg) || commitErr.getMessage().contains(txFinishedWithErrMsg));
+
+        SQLException startCommitErr = assertThrowsSqlException(SQLException.class, () -> stmt.execute("START TRANSACTION; COMMIT;"));
+        assertTrue(startCommitErr.getMessage().contains(txErrMsg) || startCommitErr.getMessage().contains(txFinishedWithErrMsg));
+
+        try {
+            boolean res = stmt.execute("SELECT 1;COMMIT");
+            assertTrue(res);
+            assertNotNull(stmt.getResultSet());
+            assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+        } catch (SQLException ex) {
+            assertThat(ex.getMessage(), containsString(txFinishedWithErrMsg));
+        }
 
         // Even though TX control statements don't affect a JDBC managed transaction directly,
         // exceptions during execution of previous statements may cause the transaction to rollback.

@@ -89,6 +89,9 @@ public class CliLoggers {
      * Stops redirecting output previously started by {@link CliLoggers#startOutputRedirect(PrintWriter, boolean[])}.
      */
     public static void stopOutputRedirect() {
+        if (output != null) {
+            output.flush();
+        }
         output = null;
         isVerbose = false;
         verbose = new boolean[0];
@@ -102,6 +105,28 @@ public class CliLoggers {
      */
     public static boolean isVerbose() {
         return isVerbose;
+    }
+
+    /**
+     * Returns the current verbose level (0 = not verbose, 1 = -v, 2 = -vv, 3 = -vvv).
+     *
+     * @return verbosity level.
+     */
+    public static int getVerboseLevel() {
+        return verbose == null ? 0 : verbose.length;
+    }
+
+    /**
+     * Writes a verbose message if the current verbose level is at least {@code minLevel}.
+     *
+     * @param minLevel Minimum verbosity level required for this message.
+     * @param message Message to print.
+     */
+    public static void verboseLog(int minLevel, String message) {
+        if (isVerbose && verbose.length >= minLevel) {
+            output.println(message);
+            output.flush();
+        }
     }
 
     private static class CliLogger implements Logger {

@@ -21,16 +21,20 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * FinalTransactionStateResolver implementation using retries. Makes sense when the coordinator of the transaction is known
@@ -48,18 +52,32 @@ public class RetryingFinalTransactionStateResolver implements FinalTransactionSt
     }
 
     @Override
-    public CompletableFuture<TxState> resolveFinalTxState(UUID transactionId, ZonePartitionId commitGroupId) {
-        return stateResolver.resolveTxState(transactionId, commitGroupId, null, Long.MAX_VALUE, SECONDS, null, null)
+    public CompletableFuture<TxState> resolveFinalTxState(
+            UUID transactionId,
+            ZonePartitionId commitGroupId,
+            ZonePartitionId senderGroupId,
+            RowId rowId,
+            @Nullable HybridTimestamp newestCommitTimestamp
+    ) {
+        return stateResolver.resolveTxState(
+                    txStateResolutionParameters()
+                            .txId(transactionId)
+                            .commitGroupId(commitGroupId)
+                            .senderGroupId(senderGroupId)
+                            .awaitCommitPartitionAvailabilityTimeout(Long.MAX_VALUE, SECONDS)
+                            .rowIdAndNewestCommitTimestamp(rowId, newestCommitTimestamp)
+                            .build()
+                )
                 .thenCompose(txMeta -> {
                     if (txMeta != null && TxState.isFinalState(txMeta.txState())) {
                         return completedFuture(txMeta.txState());
                     }
 
-                    return retryResolve(transactionId, commitGroupId);
+                    return retryResolve(transactionId, commitGroupId, senderGroupId, rowId, newestCommitTimestamp);
                 })
                 .handle((res, ex) -> {
                     if (ex instanceof PrimaryReplicaAwaitTimeoutException) {
-                        return retryResolve(transactionId, commitGroupId);
+                        return retryResolve(transactionId, commitGroupId, senderGroupId, rowId, newestCommitTimestamp);
                     }
 
                     return CompletableFutures.completedOrFailedFuture(res, ex);
@@ -67,8 +85,17 @@ public class RetryingFinalTransactionStateResolver implements FinalTransactionSt
                 .thenCompose(identity());
     }
 
-    private CompletableFuture<TxState> retryResolve(UUID transactionId, ZonePartitionId commitGroupId) {
-        return supplyAsync(() -> resolveFinalTxState(transactionId, commitGroupId), delayedExecutor)
+    private CompletableFuture<TxState> retryResolve(
+            UUID transactionId,
+            ZonePartitionId commitGroupId,
+            ZonePartitionId senderGroupId,
+            RowId rowId,
+            @Nullable HybridTimestamp newestCommitTimestamp
+    ) {
+        return supplyAsync(
+                        () -> resolveFinalTxState(transactionId, commitGroupId, senderGroupId, rowId, newestCommitTimestamp),
+                        delayedExecutor
+                )
                 .thenCompose(identity());
     }
 }

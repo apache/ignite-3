@@ -83,8 +83,8 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -183,7 +183,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                 return;
             }
 
-            var handlerNode = handlerService.topologyService().localMember();
+            var handlerNode = handlerService.staticLocalNode();
 
             log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, handlerNode.name(),
                     ((LeaseGrantedMessage) msg).force());
@@ -213,7 +213,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         var res = new HashMap<String, ClusterService>(nodeNames.size());
 
         var nodeFinder = new StaticNodeFinder(IntStream.range(BASE_PORT, BASE_PORT + 5)
-                .mapToObj(p -> new NetworkAddress("localhost", p))
+                .mapToObj(p -> new NetworkAddress("127.0.0.1", p))
                 .collect(Collectors.toList()));
 
         int port = BASE_PORT;
@@ -273,8 +273,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                    clusterService.nodeName(),
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
+                    clusterService.staticLocalNode().name(),
                     workingDir.raftLogPath()
             );
 
@@ -294,14 +294,14 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_metastorage"));
 
-            LogStorageFactory msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            LogStorageManager msLogStorageManager =
+                    SharedLogStorageManagerUtils.create(clusterService.staticLocalNode().name(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var metaStorageManager = new MetaStorageManagerImpl(
-                    clusterService,
+                    clusterService.staticLocalNode(),
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
@@ -339,8 +339,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeName,
                     clusterService,
                     raftManager,
-                    partitionsLogStorageFactory,
-                    msLogStorageFactory,
+                    partitionsLogStorageManager,
+                    msLogStorageManager,
                     metaStorageManager,
                     placementDriverManager
             ));
@@ -495,7 +495,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         String proposedLeaseholder = nodeNames.stream().filter(n -> !n.equals(fLease.getLeaseholder())).findAny().orElseThrow();
 
         service.messagingService().send(
-                clusterServices.get(activeActorRef.get()).topologyService().localMember(),
+                clusterServices.get(activeActorRef.get()).staticLocalNode(),
                 PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                         .groupId(grpPart)
                         .redirectProposal(proposedLeaseholder)

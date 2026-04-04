@@ -314,6 +314,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
             Utils.MAX_COLLECTOR_SIZE_PER_SERVER
     );
 
+    private SafeTimeValidator safeTimeValidator = new PermissiveSafeTimeValidator();
+
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
     }
@@ -441,10 +443,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setSnapshotThrottle(final SnapshotThrottle snapshotThrottle) {
         this.snapshotThrottle = snapshotThrottle;
-    }
-
-    public void setEnableMetrics(final boolean enableMetrics) {
-        this.enableMetrics = enableMetrics;
     }
 
     /**
@@ -764,7 +762,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setCliRpcThreadPoolSize(this.cliRpcThreadPoolSize);
         nodeOptions.setRaftRpcThreadPoolSize(this.raftRpcThreadPoolSize);
         nodeOptions.setCommonThreadPollSize(this.commonThreadPollSize);
-        nodeOptions.setEnableMetrics(this.enableMetrics);
         nodeOptions.setRaftOptions(this.raftOptions.copy());
         nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
         nodeOptions.setCommonExecutor(this.getCommonExecutor());
@@ -794,6 +791,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setNodeManager(this.getNodeManager());
         nodeOptions.setAppendEntriesByteBufferCollectorPool(appendEntriesByteBufferCollectorPool);
         nodeOptions.setRaftMetrics(raftMetrics);
+        nodeOptions.setSafeTimeValidator(this.getSafeTimeValidator());
 
         return nodeOptions;
     }
@@ -859,5 +857,15 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** Sets shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
     public void setAppendEntriesByteBufferCollectorPool(ByteBufferCollectorPool appendEntriesByteBufferCollectorPool) {
         this.appendEntriesByteBufferCollectorPool = appendEntriesByteBufferCollectorPool;
+    }
+
+    /** Gets {@link SafeTimeValidator} to be used by the node. */
+    public SafeTimeValidator getSafeTimeValidator() {
+        return safeTimeValidator;
+    }
+
+    /** Sets {@link SafeTimeValidator} to be used by the node. */
+    public void setSafeTimeValidator(SafeTimeValidator safeTimeValidator) {
+        this.safeTimeValidator = safeTimeValidator;
     }
 }

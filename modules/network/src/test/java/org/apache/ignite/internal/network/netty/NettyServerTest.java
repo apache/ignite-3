@@ -48,8 +48,10 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ConnectException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -59,6 +61,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
@@ -69,6 +72,8 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
@@ -159,6 +164,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests that bootstrap tries to bind to address specified in configuration.
      */
+    @DisabledOnOs(value = OS.MAC, disabledReason = "On MAC the target address is not a loopback address.")
     @Test
     public void testBindWithAddress() {
         String host = "127.0.0.7";
@@ -227,7 +233,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         server = new NettyServer(
-                serverCfg.value(),
+                localBindAddress(serverCfg.value()),
                 () -> handshakeManager,
                 (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
@@ -324,7 +330,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 
         var server = new NettyServer(
-                serverCfg.value(),
+                localBindAddress(serverCfg.value()),
                 this::mockHandshakeManager,
                 (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
@@ -341,6 +347,17 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         }
 
         return server;
+    }
+
+    private static InetSocketAddress localBindAddress(NetworkView configView) {
+        int port = configView.port();
+
+        String[] addresses = configView.listenAddresses();
+
+        // TODO: IGNITE-22369 - support more than one listen address.
+        assert addresses.length <= 1 : "Only one listen address is allowed for now, but got " + Arrays.toString(addresses);
+
+        return addresses.length == 0 ? new InetSocketAddress(port) : new InetSocketAddress(addresses[0], port);
     }
 
     /** Server channel on top of the {@link EmbeddedChannel}. */

@@ -96,7 +96,7 @@ class CmgMessageHandlerTest extends BaseIgniteAbstractTest {
     void handlerBuffersMessages() {
         MessagingService messagingService = clusterService.messagingService();
 
-        String nodeName = clusterService.nodeName();
+        String nodeName = clusterService.staticLocalNode().name();
 
         CmgInitMessage message1 = cmgMessagesFactory.cmgInitMessage()
                 .clusterName("foo")

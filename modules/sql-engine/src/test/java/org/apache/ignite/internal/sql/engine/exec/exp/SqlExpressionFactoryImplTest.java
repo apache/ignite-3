@@ -726,6 +726,7 @@ public class SqlExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("numericLiterals")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // dataType: already embedded in RexLiteral.
     public void testConvertNumericExact(RexLiteral lit, RelDataType dataType, @Nullable Object expected, boolean err) {
         if (!err) {
             Object[] rowValues = expFactory.rowSource(List.of(lit)).get(ctx);

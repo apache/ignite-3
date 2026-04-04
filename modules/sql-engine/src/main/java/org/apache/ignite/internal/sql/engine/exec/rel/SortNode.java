@@ -126,6 +126,8 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
+        onRequestReceived();
+
         if (fetch == 0) {
             downstream().end();
 
@@ -147,6 +149,8 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
         assert reversed == null || reversed.isEmpty();
+
+        onRowReceived();
 
         waiting--;
 

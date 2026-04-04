@@ -20,13 +20,16 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -102,8 +105,11 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 clockService,
                 clusterNodeResolver,
                 messagingService,
-                placementDriver,
-                txMessageSender
+                new PlacementDriverHelper(placementDriver, clockService),
+                txMessageSender,
+                new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
+                mock(InternalClusterNode.class),
+                Runnable::run
         );
 
         // Setup default mock for PlacementDriver to avoid timeouts.
@@ -134,31 +140,28 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 .build();
 
         when(txMessageSender.resolveTxStateFromCoordinator(
-                    any(InternalClusterNode.class),
-                    eq(txId),
-                    any(HybridTimestamp.class),
-                    any(Long.class),
-                    any(ZonePartitionId.class)
+                    argThat(p -> txId.equals(p.txId())),
+                    any(InternalClusterNode.class)
                 ))
                 .thenReturn(completedFuture(response));
 
         // Mock the commit partition resolution to complete the future.
         when(txMessageSender.resolveTxStateFromCommitPartition(
+                    any(TxStateResolutionParameters.class),
                     any(String.class),
-                    eq(txId),
-                    eq(commitPartitionId),
-                    any(Long.class),
-                    any(Long.class),
-                    any(ZonePartitionId.class))
+                    any(Long.class))
                 )
                 .thenReturn(completedFuture(pendingMeta));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
-                txId,
-                commitPartitionId,
-                timestamp,
-                timestamp.longValue(),
-                commitPartitionId
+                txStateResolutionParameters()
+                        .txId(txId)
+                        .tableId(1)
+                        .commitGroupId(commitPartitionId)
+                        .readTimestamp(timestamp)
+                        .senderGroupId(commitPartitionId)
+                        .senderCurrentConsistencyToken(timestamp.longValue())
+                        .build()
         );
 
         assertThat(result, willCompleteSuccessfully());
@@ -166,22 +169,16 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         // Verify that coordinator was called with InternalClusterNode.
         ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
         verify(txMessageSender).resolveTxStateFromCoordinator(
-                nodeCaptor.capture(),
-                eq(txId),
-                any(HybridTimestamp.class),
-                any(Long.class),
-                any()
+                argThat(p -> txId.equals(p.txId())),
+                nodeCaptor.capture()
         );
         assertEquals(COORDINATOR_NODE, nodeCaptor.getValue());
 
         // Verify fallback to commit partition was called.
         verify(txMessageSender).resolveTxStateFromCommitPartition(
+                argThat(p -> txId.equals(p.txId()) && commitPartitionId.equals(p.commitGroupId())),
                 any(String.class),
-                eq(txId),
-                eq(commitPartitionId),
-                any(Long.class),
-                any(Long.class),
-                any()
+                any(Long.class)
         );
     }
 
@@ -200,31 +197,28 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         CompletableFuture<TxStateResponse> failedFuture = CompletableFuture.failedFuture(new RecipientLeftException());
 
         when(txMessageSender.resolveTxStateFromCoordinator(
-                    any(InternalClusterNode.class),
-                    eq(txId),
-                    any(HybridTimestamp.class),
-                    any(Long.class),
-                    any(ZonePartitionId.class))
+                    argThat(p -> txId.equals(p.txId())),
+                    any(InternalClusterNode.class))
                 )
                 .thenReturn(failedFuture);
         // Mock the commit partition resolution to complete the future.
         TxStateMeta abandonedMeta = new TxStateMeta(TxState.ABANDONED, coordinatorId, commitPartitionId, null, null, null);
         when(txMessageSender.resolveTxStateFromCommitPartition(
+                    argThat(p -> txId.equals(p.txId()) && commitPartitionId.equals(p.commitGroupId())),
                     any(String.class),
-                    eq(txId),
-                    eq(commitPartitionId),
-                    any(Long.class),
-                    any(Long.class),
-                    any(ZonePartitionId.class)
+                    any(Long.class)
                 ))
                 .thenReturn(completedFuture(abandonedMeta));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
-                txId,
-                commitPartitionId,
-                timestamp,
-                timestamp.longValue(),
-                commitPartitionId
+                txStateResolutionParameters()
+                        .txId(txId)
+                        .tableId(1)
+                        .commitGroupId(commitPartitionId)
+                        .readTimestamp(timestamp)
+                        .senderGroupId(commitPartitionId)
+                        .senderCurrentConsistencyToken(timestamp.longValue())
+                        .build()
         );
 
         assertThat(result, willCompleteSuccessfully());
@@ -236,12 +230,9 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         assertEquals(TxState.ABANDONED, afterUpdateState.txState());
         // Verify fallback to commit partition was called.
         verify(txMessageSender).resolveTxStateFromCommitPartition(
+                argThat(p -> txId.equals(p.txId()) && commitPartitionId.equals(p.commitGroupId())),
                 any(String.class),
-                eq(txId),
-                eq(commitPartitionId),
-                any(Long.class),
-                any(Long.class),
-                any()
+                any(Long.class)
         );
     }
 
@@ -270,20 +261,20 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 .build();
 
         when(txMessageSender.resolveTxStateFromCoordinator(
-                    any(InternalClusterNode.class),
-                    eq(txId),
-                    any(HybridTimestamp.class),
-                    any(Long.class),
-                    any(ZonePartitionId.class)
+                    argThat(p -> txId.equals(p.txId())),
+                    any(InternalClusterNode.class)
                 ))
                 .thenReturn(completedFuture(response));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
-                txId,
-                commitPartitionId,
-                timestamp,
-                timestamp.longValue(),
-                commitPartitionId
+                txStateResolutionParameters()
+                        .txId(txId)
+                        .tableId(1)
+                        .commitGroupId(commitPartitionId)
+                        .readTimestamp(timestamp)
+                        .senderGroupId(commitPartitionId)
+                        .senderCurrentConsistencyToken(timestamp.longValue())
+                        .build()
         );
 
         assertThat(result, willCompleteSuccessfully());
@@ -291,23 +282,17 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         // Verify that coordinator was called with InternalClusterNode.
         ArgumentCaptor<InternalClusterNode> nodeCaptor = ArgumentCaptor.forClass(InternalClusterNode.class);
         verify(txMessageSender).resolveTxStateFromCoordinator(
-                nodeCaptor.capture(),
-                eq(txId),
-                any(HybridTimestamp.class),
-                any(Long.class),
-                any()
+                argThat(p -> txId.equals(p.txId())),
+                nodeCaptor.capture()
         );
         assertEquals(COORDINATOR_NODE, nodeCaptor.getValue());
 
         // Verify that commit partition fallback was NOT called.
         verify(txMessageSender, never())
                 .resolveTxStateFromCommitPartition(
+                        argThat(p -> txId.equals(p.txId()) && commitPartitionId.equals(p.commitGroupId())),
                         any(String.class),
-                        eq(txId),
-                        eq(commitPartitionId),
-                        any(Long.class),
-                        any(Long.class),
-                        any()
+                        any(Long.class)
                 );
 
         // Verify that the transaction meta was updated.

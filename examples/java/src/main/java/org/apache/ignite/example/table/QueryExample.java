@@ -63,12 +63,14 @@ public class QueryExample {
 
     /**
      * Demonstrates querying with an implicit transaction.
+     *
+     * @param table  Table instance to query.
      */
     public static void performQueryWithoutTransaction(Table table) {
         System.out.println("[ Example 1 ] Performing query without transaction");
 
         try (Cursor<Entry<Tuple, Tuple>> cursor = table.keyValueView().query(
-                null, // Implicit transaction
+                (Transaction) null, // Implicit transaction
                 // Query criteria
                 and(
                         columnValue("name", equalTo("John Doe")),
@@ -85,6 +87,9 @@ public class QueryExample {
 
     /**
      * Demonstrates querying with an explicit transaction.
+     *
+     * @param client Ignite client used to start the transaction.
+     * @param table  Table instance to query.
      */
     public static void performQueryWithTransaction(IgniteClient client, Table table) {
         System.out.println("[ Example 2 ] Performing query with transaction");
@@ -117,8 +122,7 @@ public class QueryExample {
     public static void performQueryAsync(Table table) {
         System.out.println("[ Example 3 ] Performing asynchronous query");
 
-        AsyncCursor<Entry<Tuple, Tuple>> result = table.keyValueView().queryAsync(
-                        null, // Implicit transaction
+        AsyncCursor<Entry<Tuple, Tuple>> result = table.keyValueView().queryAsync(null, // Implicit transaction
                         and(
                                 columnValue("name", equalTo("John Doe")),
                                 columnValue("age", greaterThan(20))

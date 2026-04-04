@@ -58,13 +58,14 @@ import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,8 +124,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
 
-        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
-
         catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager, () -> DELAY_DURATION_MS, () -> null);
         components.add(catalogManager);
 
@@ -136,9 +135,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(System.currentTimeMillis() - 600_000, 0));
 
         distributionZoneManager = new DistributionZoneManager(
-                nodeName,
-                () -> nodeId,
-                revisionUpdater,
+                new ClusterNodeImpl(nodeId, nodeName, new NetworkAddress("127.0.0.1", 123)),
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,

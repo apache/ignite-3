@@ -34,6 +34,7 @@ import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
  */
 @MicronautTest
 @Property(name = "ignite.endpoints.filter-non-initialized", value = "false")
+@Property(name = "ignite.endpoints.rest-events", value = "false")
 @Property(name = "micronaut.security.enabled", value = "false")
 class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest {
     @Inject
@@ -55,3 +56,4 @@ class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest
         return new HoconPresentation(configurationRegistry);
     }
 }
+

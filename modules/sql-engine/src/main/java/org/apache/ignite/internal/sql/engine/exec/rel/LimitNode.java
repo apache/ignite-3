@@ -43,6 +43,9 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** Upper requested rows. */
     private int requested;
 
+    // Metrics
+    private long filteredRows;
+
     /**
      * Constructor.
      *
@@ -65,6 +68,8 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
+
+        onRequestReceived();
 
         if (!hasMoreData()) {
             end();
@@ -91,18 +96,21 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
+        onRowReceived();
+
         if (waiting == NOT_WAITING) {
+            onRowFiltered();
             return;
         }
 
         --waiting;
 
-        if (rowsProcessed >= offset) {
-            if (hasMoreData()) {
-                // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
-                --requested;
-                downstream().push(row);
-            }
+        if (rowsProcessed >= offset && hasMoreData()) {
+            // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
+            --requested;
+            downstream().push(row);
+        } else {
+            onRowFiltered();
         }
 
         ++rowsProcessed;
@@ -118,6 +126,10 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         if (waiting == 0 && requested > 0) {
             source().request(waiting = requested);
         }
+    }
+
+    private long onRowFiltered() {
+        return filteredRows++;
     }
 
     /** {@inheritDoc} */
@@ -160,6 +172,12 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
                 .app(", fetch=").app(fetch)
                 .app(", offset=").app(offset)
                 .app(", rowsProcessed=").app(rowsProcessed);
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        super.dumpMetrics0(writer);
+        writer.app(", filteredRows=").app(filteredRows);
     }
 
     /** {@code True} if fetch is undefined, or current rows processed is less than required. */

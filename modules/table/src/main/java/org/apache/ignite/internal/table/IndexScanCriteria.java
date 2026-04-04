@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -55,7 +55,6 @@ pmdTest {
 }
 
 checkstyle {
-    toolVersion = libs.versions.checkstyleTool.get()
     ignoreFailures = false
     showViolations = true
     maxWarnings = 0
@@ -64,6 +63,15 @@ checkstyle {
             "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
             "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.xml")
     ]
+}
+
+// Checkstyle tool and custom checks are declared explicitly because Gradle's checkstyle plugin
+// uses defaultDependencies (based on toolVersion) which only applies when no user-defined
+// dependencies exist. Since we need ignite-checkstyle-custom on the classpath, we must also
+// declare the checkstyle tool itself — otherwise Gradle skips it entirely.
+dependencies {
+    checkstyle libs.checkstyle
+    checkstyle project(':ignite-checkstyle-custom')
 }
 
 tasks.withType(Checkstyle).configureEach {

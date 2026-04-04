@@ -58,7 +58,7 @@ public class SqlDdlGeneratorCmd extends BaseCommand implements Callable<Integer>
         var call = new SqlDdlGeneratorCall();
         return runPipeline(CallExecutionPipeline.builder(call)
                 .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
-                .inputProvider(() -> new SqlDdlGeneratorCall.Input(
+                .input(new SqlDdlGeneratorCall.Input(
                         inputFile,
                         targetFile,
                         stopOnError,

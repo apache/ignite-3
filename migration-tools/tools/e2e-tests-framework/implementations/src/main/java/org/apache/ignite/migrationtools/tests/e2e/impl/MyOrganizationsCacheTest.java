@@ -76,7 +76,7 @@ public class MyOrganizationsCacheTest extends VeryBasicAbstractCacheTest<Long, O
 
     @Override
     protected Mapper<Organization> valMapper() {
-        // TODO: Add the other fields if this is supported in the future
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28176 Add the other fields if this is supported in the future
         return Mapper.builder(Organization.class)
                 .map("id", "ID")
                 .map("name", "NAME")

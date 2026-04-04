@@ -167,6 +167,11 @@ namespace Apache.Ignite
         StreamerWithReceiverBatchSend,
 
         /// <summary>
+        /// Contains all keys (<see cref="IKeyValueView{TK,TV}.ContainsAllKeysAsync"/>).
+        /// </summary>
+        TupleContainsAllKeys,
+
+        /// <summary>
         /// SQL batch (<see cref="ISql.ExecuteBatchAsync"/>).
         /// </summary>
         SqlExecuteBatch

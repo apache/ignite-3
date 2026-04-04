@@ -56,6 +56,8 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
         assert !nullOrEmpty(sources());
         assert rowsCnt > 0 && waiting == 0;
 
+        onRequestReceived();
+
         source().request(waiting = rowsCnt);
     }
 
@@ -64,6 +66,8 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
+
+        onRowReceived();
 
         waiting--;
 

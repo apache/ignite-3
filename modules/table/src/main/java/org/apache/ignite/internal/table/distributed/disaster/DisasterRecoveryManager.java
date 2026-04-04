@@ -98,7 +98,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -189,8 +188,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Raft manager. */
     final Loza raftManager;
 
-    /** Cluster physical topology service.  */
-    private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
 
     private final LogicalTopologyService logicalTopology;
 
@@ -231,7 +229,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             CatalogManager catalogManager,
             DistributionZoneManager dzManager,
             Loza raftManager,
-            TopologyService topologyService,
+            InternalClusterNode localNode,
             LogicalTopologyService logicalTopology,
             TableManager tableManager,
             MetricManager metricManager,
@@ -245,7 +243,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.catalogManager = catalogManager;
         this.dzManager = dzManager;
         this.raftManager = raftManager;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.logicalTopology = logicalTopology;
         this.tableManager = tableManager;
         this.metricManager = metricManager;
@@ -329,7 +327,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return busyLock;
     }
 
-    private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(ReplicationGroupId partitionId, long revision) {
+    private Set<Assignment> stableAssignmentsWithOnlyAliveAndVotingNodes(ReplicationGroupId partitionId, long revision) {
         Set<Assignment> stableAssignments;
 
         stableAssignments = ZoneRebalanceUtil.zoneStableAssignmentsGetLocally(
@@ -342,7 +340,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .stream().map(NodeWithAttributes::nodeName).collect(Collectors.toUnmodifiableSet());
 
         return stableAssignments
-                .stream().filter(a -> logicalTopology.contains(a.consistentId())).collect(Collectors.toUnmodifiableSet());
+                .stream().filter(a -> logicalTopology.contains(a.consistentId()) && a.isPeer()).collect(Collectors.toUnmodifiableSet());
     }
 
     private CompletableFuture<Boolean> onHaZonePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
@@ -359,7 +357,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 ZonePartitionId partitionId = new ZonePartitionId(zoneId, partId);
 
-                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < calculateQuorum(zoneDescriptor.replicas())) {
+                if (stableAssignmentsWithOnlyAliveAndVotingNodes(partitionId, revision).size() < zoneDescriptor.quorumSize()) {
                     partitionsToReset.add(partId);
                 }
             }
@@ -757,7 +755,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         .findFirst()
                         .orElseThrow();
 
-                String localNodeName = topologyService.localMember().name();
+                String localNodeName = localNode.name();
 
                 // If this is not the target node, forward the request and return its response.
                 if (!firstNode.equals(localNodeName)) {
@@ -1298,7 +1296,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
         int replicas = zoneDescriptor.replicas();
-        int quorum = calculateQuorum(replicas);
+        int quorum = zoneDescriptor.quorumSize();
 
         Map<LocalPartitionStateEnum, List<LocalPartitionState>> groupedStates = map.values().stream()
                 .collect(groupingBy(localPartitionState -> localPartitionState.state));
@@ -1327,10 +1325,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private static int calculateQuorum(int replicas) {
-        return replicas / 2 + 1;
-    }
-
     private Catalog catalogLatestVersion() {
         return catalogManager.latestCatalog();
     }
@@ -1345,12 +1339,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptor;
     }
 
-    private static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
+    static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
         return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + zoneId);
     }
 
     InternalClusterNode localNode() {
-        return topologyService.localMember();
+        return localNode;
     }
 
     private void onTableCreate(CreateTableEventParameters parameters) {

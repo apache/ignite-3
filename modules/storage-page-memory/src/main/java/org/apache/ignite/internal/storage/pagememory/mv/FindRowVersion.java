@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.read
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.jetbrains.annotations.Nullable;
 

@@ -31,8 +31,4 @@ class ItDeploymentUnitReplTest extends ItDeploymentUnitTest {
         return TopLevelCliReplCommand.class;
     }
 
-    @Override
-    protected int errorExitCode() {
-        return 0;
-    }
 }

@@ -65,20 +65,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
-import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -114,8 +111,8 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -199,9 +196,7 @@ public class DistributionZoneManager extends
      */
     @TestOnly
     public DistributionZoneManager(
-            String nodeName,
-            Supplier<UUID> nodeIdSupplier,
-            RevisionListenerRegistry registry,
+            InternalClusterNode localNode,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
@@ -211,9 +206,7 @@ public class DistributionZoneManager extends
             LowWatermark lowWatermark
     ) {
         this(
-                nodeName,
-                nodeIdSupplier,
-                registry,
+                localNode,
                 metaStorageManager,
                 logicalTopologyService,
                 new FailureManager(new NoOpFailureHandler()),
@@ -228,9 +221,7 @@ public class DistributionZoneManager extends
     /**
      * Creates a new distribution zone manager.
      *
-     * @param nodeName Node name.
-     * @param nodeIdSupplier Node id supplier.
-     * @param registry Registry for versioned values.
+     * @param localNode Local node.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param failureProcessor Failure processor.
@@ -241,9 +232,7 @@ public class DistributionZoneManager extends
      * @param lowWatermark Low watermark manager.
      */
     public DistributionZoneManager(
-            String nodeName,
-            Supplier<UUID> nodeIdSupplier,
-            RevisionListenerRegistry registry,
+            InternalClusterNode localNode,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             FailureProcessor failureProcessor,
@@ -257,7 +246,7 @@ public class DistributionZoneManager extends
         this.logicalTopologyService = logicalTopologyService;
         this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
-        this.localNodeName = nodeName;
+        this.localNodeName = localNode.name();
         this.clockService = clockService;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
@@ -281,8 +270,7 @@ public class DistributionZoneManager extends
         );
 
         dataNodesManager = new DataNodesManager(
-                nodeName,
-                nodeIdSupplier,
+                localNode,
                 busyLock,
                 metaStorageManager,
                 catalogManager,
@@ -343,6 +331,10 @@ public class DistributionZoneManager extends
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         return nullCompletedFuture();
+    }
+
+    public int estimatedDataNodesCount(String dataNodeFilter, List<String> storageProfiles) {
+        return filterDataNodes(dataNodesManager.topologyNodes(), dataNodeFilter, storageProfiles).size();
     }
 
     /**
@@ -742,24 +734,6 @@ public class DistributionZoneManager extends
                         LOG.debug("Failed to update recoverable states for distribution zone manager [revision = {}]", revision);
                     }
                 }).thenCompose((ignored) -> nullCompletedFuture());
-    }
-
-    /**
-     * Returns metastore long view of {@link HybridTimestamp} by revision.
-     *
-     * @param revision Metastore revision.
-     * @return Appropriate metastore timestamp or -1 if revision is already compacted.
-     */
-    private long timestampByRevision(long revision) {
-        try {
-            return metaStorageManager.timestampByRevisionLocally(revision).longValue();
-        } catch (CompactedException e) {
-            if (revision > 1) {
-                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", revision);
-            }
-
-            return -1;
-        }
     }
 
     @TestOnly

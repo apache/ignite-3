@@ -193,7 +193,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
-        when(clusterService.topologyService().localMember()).thenReturn(clusterNode);
+        when(clusterService.staticLocalNode()).thenReturn(clusterNode);
 
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
@@ -231,7 +231,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     ZonePartitionId commitPartition,
                     boolean commitIntent,
-                    boolean timeoutExceeded,
+                    @Nullable Throwable finishReason,
                     boolean recovery,
                     boolean noRemoteWrites,
                     Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
@@ -367,8 +367,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 transactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple("TEST"))
         );
     }

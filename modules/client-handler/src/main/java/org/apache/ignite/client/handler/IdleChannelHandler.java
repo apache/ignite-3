@@ -34,7 +34,7 @@ class IdleChannelHandler extends ChannelDuplexHandler {
 
     private final ClientHandlerMetricSource metrics;
 
-    IdleChannelHandler(long idleTimeout, ClientHandlerMetricSource metrics, long connectionId) {
+    IdleChannelHandler(long idleTimeout, ClientHandlerMetricSource metrics) {
         this.idleTimeout = idleTimeout;
         this.metrics = metrics;
     }

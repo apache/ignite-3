@@ -60,6 +60,7 @@ ext {
     defaultJvmArgs = addOpens + [
             "-Dio.netty.tryReflectionSetAccessible=true",
             "-XX:+HeapDumpOnOutOfMemoryError",
+            "-XX:+PerfDisableSharedMem",
             "-ea",
             "-Xmx1g"
     ]
@@ -177,6 +178,10 @@ subprojects {
             mavenContent {
                 releasesOnly()
             }
+        }
+
+        maven {
+            url = uri('https://jitpack.io')
         }
 
         mavenLocal()

@@ -39,7 +39,6 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -52,7 +51,6 @@ public class ClientComputeExecutePartitionedRequest {
      * @param in Unpacker.
      * @param compute Compute.
      * @param tables Tables.
-     * @param cluster Cluster service
      * @param notificationSender Notification sender.
      * @param clientContext Client context.
      * @return Future.
@@ -61,7 +59,6 @@ public class ClientComputeExecutePartitionedRequest {
             ClientMessageUnpacker in,
             IgniteComputeInternal compute,
             IgniteTables tables,
-            ClusterService cluster,
             NotificationSender notificationSender,
             ClientContext clientContext
     ) {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl.terminal;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -41,8 +42,9 @@ public class PagerSupport {
     /** Number of lines to reserve for prompt and status. */
     private static final int TERMINAL_MARGIN = 2;
 
-    private final boolean pagerEnabled;
-    private final String pagerCommand;
+    private final ConfigManagerProvider configManagerProvider;
+    private final Boolean pagerEnabledOverride;
+    private final String pagerCommandOverride;
     private final Terminal terminal;
 
     /**
@@ -53,8 +55,9 @@ public class PagerSupport {
      */
     public PagerSupport(Terminal terminal, ConfigManagerProvider configManagerProvider) {
         this.terminal = terminal;
-        this.pagerEnabled = readPagerEnabled(configManagerProvider);
-        this.pagerCommand = readPagerCommand(configManagerProvider);
+        this.configManagerProvider = configManagerProvider;
+        this.pagerEnabledOverride = null;
+        this.pagerCommandOverride = null;
     }
 
     /**
@@ -66,8 +69,99 @@ public class PagerSupport {
      */
     PagerSupport(Terminal terminal, boolean pagerEnabled, String pagerCommand) {
         this.terminal = terminal;
-        this.pagerEnabled = pagerEnabled;
-        this.pagerCommand = resolveCommand(pagerCommand);
+        this.configManagerProvider = null;
+        this.pagerEnabledOverride = pagerEnabled;
+        this.pagerCommandOverride = resolveCommand(pagerCommand);
+    }
+
+    /**
+     * Opens a streaming pager that allows incremental writes to the pager subprocess.
+     *
+     * <p>The caller must close the returned {@link StreamingPager} when done.
+     * If the pager process cannot be started, the returned pager falls back to writing directly to the terminal.
+     *
+     * @return a new streaming pager instance
+     */
+    public StreamingPager openStreaming() {
+        String command = getPagerCommand();
+        try {
+            if (terminal != null) {
+                terminal.pause();
+            }
+            ProcessBuilder pb = createPagerProcess(command);
+            Process process = pb.start();
+            return new StreamingPager(process);
+        } catch (IOException e) {
+            // Resume terminal immediately since we failed to start the pager
+            if (terminal != null) {
+                try {
+                    terminal.resume();
+                } catch (Exception ignored) {
+                    // Ignore resume errors
+                }
+            }
+            return new StreamingPager(null);
+        }
+    }
+
+    /**
+     * A streaming pager that allows incremental writes to a pager subprocess.
+     *
+     * <p>When the pager process is available, chunks are written directly to its stdin.
+     * When the process is unavailable (fallback mode), chunks are written to the terminal.
+     */
+    public class StreamingPager implements Closeable {
+        private final Process process;
+        private final OutputStream outputStream;
+
+        StreamingPager(Process process) {
+            this.process = process;
+            this.outputStream = process != null ? process.getOutputStream() : null;
+        }
+
+        /**
+         * Writes a chunk of text to the pager.
+         *
+         * @param chunk the text to write
+         */
+        public void write(String chunk) {
+            if (outputStream != null) {
+                try {
+                    outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
+                    outputStream.flush();
+                } catch (IOException e) {
+                    // Pager process died (e.g. user pressed 'q'), ignore
+                }
+            } else if (terminal != null) {
+                terminal.writer().print(chunk);
+                terminal.writer().flush();
+            }
+        }
+
+        @Override
+        public void close() {
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException ignored) {
+                    // Ignore close errors
+                }
+            }
+            if (process != null) {
+                try {
+                    process.waitFor();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            if (terminal != null) {
+                try {
+                    terminal.resume();
+                } catch (Exception ignored) {
+                    // Ignore resume errors
+                }
+            }
+        }
     }
 
     /**
@@ -94,7 +188,7 @@ public class PagerSupport {
      * @return true if the output exceeds terminal height and pager is enabled
      */
     boolean shouldUsePager(String output) {
-        if (!pagerEnabled || terminal == null) {
+        if (!isPagerEnabled() || terminal == null) {
             return false;
         }
         int lineCount = countLines(output);
@@ -146,21 +240,28 @@ public class PagerSupport {
     }
 
     /**
-     * Returns the pager command to use.
+     * Returns the pager command to use. Reads dynamically from config on each call.
      *
      * @return the pager command
      */
     public String getPagerCommand() {
-        return pagerCommand;
+        if (pagerCommandOverride != null) {
+            return pagerCommandOverride;
+        }
+        return readPagerCommand(configManagerProvider);
     }
 
     /**
-     * Returns whether the pager is enabled.
+     * Returns whether the pager is enabled. Reads dynamically from config on each call
+     * so that runtime config changes via {@code cli config set} take effect immediately.
      *
      * @return true if pager is enabled
      */
     public boolean isPagerEnabled() {
-        return pagerEnabled;
+        if (pagerEnabledOverride != null) {
+            return pagerEnabledOverride;
+        }
+        return readPagerEnabled(configManagerProvider);
     }
 
     /**

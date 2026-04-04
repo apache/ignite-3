@@ -74,9 +74,8 @@ public class DeploymentUnitFailover {
      * Register {@link NodeEventCallback} as topology change callback.
      *
      * @param nodeEventCallback Node status callback.
-     * @param clusterEventCallback Cluster status callback.
      */
-    public void registerTopologyChangeCallback(NodeEventCallback nodeEventCallback, ClusterEventCallback clusterEventCallback) {
+    public void registerTopologyChangeCallback(NodeEventCallback nodeEventCallback) {
         logicalTopology.addEventListener(new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {

@@ -1,0 +1,705 @@
+= Migrating from Apache Ignite 3.0 to 3.1
+
+== Overview
+
+This guide provides step-by-step instructions for migrating Apache Ignite clusters from version 3.0 to version 3.1. Due to architectural changes in 3.1, including the introduction of zone-based replication, migration requires creating a new 3.1 cluster and migrating data using the export/import process.
+
+[IMPORTANT]
+====
+This migration requires cluster downtime.
+====
+
+== Zone-Based Replication
+
+Apache Ignite 3.1 introduces zone-based replication, replacing the table-based replication model from version 3.0. Table-based replication is still supported, however it will be dropped in a later release.
+
+=== Table-Based vs Zone-Based Replication
+
+[cols="1,2,2"]
+|===
+|Aspect |3.0 Table-Based |3.1 Zone-Based
+
+|RAFT Groups
+|Each table creates separate RAFT groups
+|Tables in same zone share RAFT groups
+
+|Example (100 tables)
+|100 separate RAFT group sets
+|1 shared RAFT group set
+
+|Memory Footprint
+|Higher with more tables
+|Significantly reduced
+
+|Thread Overhead
+|Higher (more RAFT groups)
+|Lower (fewer RAFT groups)
+|===
+
+=== Benefits of Zone-Based Replication
+
+* *Reduced Memory Footprint:* Fewer RAFT groups means lower memory consumption for clusters with many tables
+* *Lower Thread Overhead:* Decreased number of RAFT groups reduces thread management complexity
+* *Improved Performance:* Better resource utilization for multi-table workloads
+* *Transparent Migration:* No changes to user-facing APIs or query behavior
+
+[NOTE]
+====
+Zone-based replication is an internal cluster optimization. Your applications will continue to work without code changes.
+====
+
+== Phase 1: Document Current Environment
+
+=== Step 1.1: Connect to 3.0 Cluster
+
+Connect to your Apache Ignite 3.0 cluster using the CLI tool:
+
+[source,bash]
+----
+cd ignite3-cli-3.0.0/bin
+./ignite3
+----
+
+Once connected, enter sql execution mode:
+
+[source,bash]
+----
+sql
+----
+
+=== Step 1.2: Document All Schemas
+
+List all schemas in your cluster:
+
+[source,sql]
+----
+-- List all schemas
+SELECT * FROM SYSTEM.SCHEMAS;
+----
+
+Save the output to a file for reference during schema recreation.
+
+=== Step 1.3: Document All Tables
+
+List all tables across all schemas:
+
+[source,sql]
+----
+-- List all tables
+SELECT SCHEMA_NAME, TABLE_NAME 
+FROM SYSTEM.TABLES
+WHERE TABLE_TYPE = 'TABLE'
+ORDER BY SCHEMA_NAME, TABLE_NAME;
+----
+
+Save the output to a file for reference during table recreation.
+
+=== Step 1.4: Document Table Schemas
+
+For each table, capture its complete schema definition:
+
+[source,sql]
+----
+-- Get detailed schema for each table
+SELECT
+  SCHEMA_NAME,
+  TABLE_NAME,
+  COLUMN_NAME,
+  TYPE,
+  NULLABLE,
+  COLUMN_DEFAULT
+FROM SYSTEM.TABLE_COLUMNS
+WHERE SCHEMA_NAME = 'YOUR_SCHEMA'
+ORDER BY TABLE_NAME, ORDINAL_POSITION;
+----
+
+Save the output to a file for reference during schema recreation.
+
+[IMPORTANT]
+====
+Document the exact CREATE TABLE statements for all tables. You'll need these to recreate the schema in 3.1.
+====
+
+=== Step 1.5: Document Distribution Zones
+
+Capture current distribution zone configuration:
+
+[source,sql]
+----
+-- Document distribution zones
+SELECT * FROM SYSTEM.ZONES;
+----
+
+Save the output to a file for reference during schema recreation.
+
+=== Step 1.6: Calculate Data Volume
+
+Estimate the size of data to be migrated:
+
+[source,sql]
+----
+-- Get row count for each table
+SELECT
+  TABLE_NAME,
+  COUNT(*) as ROW_COUNT
+FROM your_table
+GROUP BY TABLE_NAME;
+----
+
+Save row counts for each table. You'll use these to verify data integrity after migration.
+
+=== Step 1.7: Create Schema Recreation Script
+
+Create a SQL script file named `schema-recreation.sql` containing all CREATE TABLE statements:
+
+[source,sql]
+----
+-- Example for a table:
+CREATE TABLE analytics.events (
+  id INT PRIMARY KEY,
+  event_time TIMESTAMP NOT NULL,
+  user_id VARCHAR(100),
+  event_type VARCHAR(50),
+  payload VARCHAR(4000)
+) WITH (
+  -- Document any table options here
+);
+
+-- Repeat for all tables
+----
+
+Save the output to a file for reference during schema recreation.
+
+[WARNING]
+====
+Ensure your CREATE TABLE statements include all constraints, indexes, and table options. Missing configuration can lead to performance or data integrity issues.
+====
+
+== Phase 2: Export Data from 3.0 Cluster
+
+=== Step 2.1: Create Export Directory
+
+Create a directory for export files on accessible storage:
+
+[source,bash]
+----
+mkdir -p /backup/ignite-3.0-export
+chmod 755 /backup/ignite-3.0-export
+----
+
+[NOTE]
+====
+If using shared network storage, ensure all nodes have write access to this location.
+====
+
+=== Step 2.2: Choose Export Format
+
+Apache Ignite supports two export formats:
+
+[cols="1,2,2"]
+|===
+|Format |Advantages |Best For
+
+|*CSV*
+|Human-readable, easy to debug, compatible with many tools
+|Small to medium datasets, troubleshooting
+
+|*Parquet*
+|Compressed, faster I/O, efficient for large datasets
+|Large datasets, production migrations
+|===
+
+=== Step 2.3: Export Table Data
+
+Export each table using the `COPY INTO` command.
+
+==== CSV Export
+
+[source,sql]
+----
+-- Export with headers for easier import
+COPY FROM (SELECT * FROM analytics.events)
+INTO '/backup/ignite-3.0-export/analytics_events.csv'
+FORMAT CSV
+WITH 'header'='true';
+----
+
+For large tables, export in chunks:
+
+[source,sql]
+----
+-- Export in chunks by partition
+COPY FROM (SELECT * FROM analytics.events WHERE id BETWEEN 0 AND 1000000)
+INTO '/backup/ignite-3.0-export/analytics_events_part1.csv'
+FORMAT CSV
+WITH 'header'='true';
+----
+
+==== Parquet Export (Recommended)
+
+[source,sql]
+----
+COPY FROM analytics.events (id, event_time, user_id, event_type, payload)
+INTO '/backup/ignite-3.0-export/analytics_events.parquet'
+FORMAT PARQUET;
+----
+
+=== Step 2.4: Automate Exports with Script
+
+Create a shell script to export all tables automatically:
+
+[source,bash]
+----
+#!/bin/bash
+# export-all-tables.sh
+
+BACKUP_DIR="/backup/ignite-3.0-export"
+
+# Array of tables to export (schema.table format)
+TABLES=(
+  "analytics.events"
+  "analytics.users"
+  "sales.orders"
+  "sales.products"
+)
+
+for table in "${TABLES[@]}"; do
+  schema=$(echo $table | cut -d'.' -f1)
+  tbl=$(echo $table | cut -d'.' -f2)
+
+  echo "Exporting ${table}..."
+
+  ignite sql "COPY FROM (SELECT * FROM ${table}) \
+    INTO '${BACKUP_DIR}/${schema}_${tbl}.parquet' \
+    FORMAT PARQUET"
+
+  if [ $? -eq 0 ]; then
+    echo "✓ ${table} exported successfully"
+
+    # Get row count for verification
+    ignite sql "SELECT COUNT(*) as row_count FROM ${table}" > "${BACKUP_DIR}/${schema}_${tbl}.count"
+  else
+    echo "✗ Failed to export ${table}"
+    exit 1
+  fi
+done
+
+echo "Export complete. Files in ${BACKUP_DIR}"
+----
+
+Make the script executable and run it:
+
+[source,bash]
+----
+chmod +x export-all-tables.sh
+./export-all-tables.sh
+----
+
+=== Step 2.5: Verify Exports
+
+Check that all export files were created successfully:
+
+[source,bash]
+----
+# List all export files
+ls -lh /backup/ignite-3.0-export/
+
+# Verify file sizes are reasonable (not 0 bytes)
+find /backup/ignite-3.0-export/ -size 0
+----
+
+[CAUTION]
+====
+Do not proceed to the next phase until all exports are verified. Missing or corrupted export files will result in data loss.
+====
+
+=== Step 2.6: Stop 3.0 Cluster
+
+Once all exports are verified, gracefully stop all cluster nodes:
+
+[source,bash]
+----
+# Stop all nodes gracefully
+ignite node stop --node node1
+ignite node stop --node node2
+...
+----
+
+[WARNING]
+====
+After stopping the 3.0 cluster, do not delete any data until the migration is completely verified in the 3.1 cluster.
+====
+
+== Phase 3: Set Up 3.1 Cluster
+
+=== Step 3.1: Download Apache Ignite 3.1
+
+Download the Apache Ignite 3.1 distribution from the link:https://ignite.apache.org/download.cgi[official website].
+
+=== Step 3.2: Configure Cluster Nodes
+
+Update your configuration files from 3.0 to 3.1 format:
+
+==== Configuration Changes in 3.1
+
+[cols="1,1,2"]
+|===
+|Change Type |3.0 Format |3.1 Format
+
+|Timeout Properties
+|`timeout=5000`
+|`timeoutMillis=5000`
+
+|Zone Creation
+|`CREATE ZONE myZone WITH STORAGE_PROFILES='default', REPLICAS=3;`
+|`CREATE ZONE myZone (REPLICAS 3) STORAGE PROFILES['default'];`
+|===
+
+[TIP]
+====
+Review the Apache Ignite 3.1 documentation for a complete list of configuration changes.
+====
+
+=== Step 3.3: Start Cluster Nodes
+
+Start each node in your cluster:
+
+[source,bash]
+----
+# Start each node (repeat for all nodes)
+./bin/ignite3 node start --config ignite-config.conf
+----
+
+[NOTE]
+====
+By default, nodes load the configuration from `etc/ignite-config.conf`. You can specify a different configuration file with the `--config` parameter.
+====
+
+=== Step 3.4: Initialize the Cluster
+
+Once all nodes are started, initialize the cluster from any node:
+
+[source,bash]
+----
+ignite cluster init --name=ignite-cluster
+----
+
+=== Step 3.5: Verify Cluster Topology
+
+Confirm all nodes are part of the cluster:
+
+[source,bash]
+----
+ignite cluster topology
+----
+
+Expected output should show all nodes in ACTIVE state:
+
+----
+[name=node1, address=192.168.1.10:10800, state=ACTIVE]
+[name=node2, address=192.168.1.11:10800, state=ACTIVE]
+...
+----
+
+=== Step 3.6: Recreate Schemas
+
+Connect to the cluster and recreate all schemas:
+
+[source,sql]
+----
+-- Create schemas
+CREATE SCHEMA analytics;
+CREATE SCHEMA sales;
+----
+
+=== Step 3.7: Recreate Distribution Zones
+
+If you have custom distribution zones, recreate them:
+
+[source,sql]
+----
+-- Create distribution zones (if customized)
+CREATE ZONE analytics_zone (REPLICAS 3) STORAGE PROFILES['default'];
+----
+
+=== Step 3.8: Recreate Tables
+
+Execute your saved schema recreation script:
+
+[source,sql]
+----
+CREATE TABLE analytics.events (
+  id INT PRIMARY KEY,
+  event_time TIMESTAMP NOT NULL,
+  user_id VARCHAR(100),
+  event_type VARCHAR(50),
+  payload VARCHAR(4000)
+);
+
+-- Repeat for all tables
+----
+
+Verify each table was created correctly:
+
+[source,sql]
+----
+-- Verify table creation
+SELECT * FROM SYSTEM.TABLES WHERE TABLE_NAME = 'EVENTS';
+----
+
+[IMPORTANT]
+====
+Ensure table schemas in 3.1 exactly match the schemas from 3.0. Mismatches will cause import failures.
+====
+
+== Phase 4: Import Data into 3.1 Cluster
+
+=== Step 4.1: Import Individual Tables
+
+Import data for each table using the `COPY FROM` command.
+
+==== CSV Import
+
+[source,sql]
+----
+COPY FROM '/backup/ignite-3.0-export/analytics_events.csv'
+INTO analytics.events (id, event_time, user_id, event_type, payload)
+FORMAT CSV
+WITH 'header'='true', 'batchSize'='2048';
+----
+
+==== Parquet Import (Recommended)
+
+[source,sql]
+----
+COPY FROM '/backup/ignite-3.0-export/analytics_events.parquet'
+INTO analytics.events (id, event_time, user_id, event_type, payload)
+FORMAT PARQUET
+WITH 'batchSize'='2048';
+----
+
+=== Step 4.2: Automate Imports with Script
+
+Create a shell script to import all tables:
+
+[source,bash]
+----
+#!/bin/bash
+# import-all-tables.sh
+
+BACKUP_DIR="/backup/ignite-3.0-export"
+
+# Array of tables to import
+TABLES=(
+  "analytics.events:id,event_time,user_id,event_type,payload"
+  "analytics.users:user_id,username,email,created_at"
+  "sales.orders:order_id,customer_id,order_date,total"
+  "sales.products:product_id,name,price,stock"
+)
+
+for entry in "${TABLES[@]}"; do
+  table=$(echo $entry | cut -d':' -f1)
+  columns=$(echo $entry | cut -d':' -f2)
+  schema=$(echo $table | cut -d'.' -f1)
+  tbl=$(echo $table | cut -d'.' -f2)
+
+  echo "Importing ${table}..."
+
+  ignite sql "COPY FROM '${BACKUP_DIR}/${schema}_${tbl}.parquet' \
+    INTO ${table} (${columns}) \
+    FORMAT PARQUET \
+    WITH 'batchSize'='2048'"
+
+  if [ $? -eq 0 ]; then
+    echo "✓ ${table} imported successfully"
+
+    # Verify row count
+    actual_count=$(ignite sql "SELECT COUNT(*) FROM ${table}" | grep -oE '[0-9]+')
+    expected_count=$(cat "${BACKUP_DIR}/${schema}_${tbl}.count" | grep -oE '[0-9]+')
+
+    if [ "$actual_count" == "$expected_count" ]; then
+      echo "✓ Row count verified: ${actual_count}"
+    else
+      echo "✗ Row count mismatch: expected ${expected_count}, got ${actual_count}"
+      exit 1
+    fi
+  else
+    echo "✗ Failed to import ${table}"
+    exit 1
+  fi
+done
+
+echo "Import complete."
+----
+
+Make the script executable and run it:
+
+[source,bash]
+----
+chmod +x import-all-tables.sh
+./import-all-tables.sh
+----
+
+=== Step 4.3: Verify Data Integrity
+
+After imports complete, perform thorough verification:
+
+==== Row Count Verification
+
+[source,sql]
+----
+-- Compare row counts
+SELECT COUNT(*) FROM analytics.events;
+----
+
+Compare with the saved row counts from your 3.0 cluster.
+
+==== Data Sampling
+
+[source,sql]
+----
+-- Spot check data
+SELECT * FROM analytics.events LIMIT 10;
+
+-- Verify no NULL values in NOT NULL columns
+SELECT COUNT(*) FROM analytics.events
+WHERE event_time IS NULL;
+
+-- Check date ranges are preserved
+SELECT MIN(event_time), MAX(event_time)
+FROM analytics.events;
+----
+
+==== Create Verification Script
+
+Automate verification across all tables:
+
+[source,bash]
+----
+#!/bin/bash
+# verify-migration.sh
+
+echo "=== Migration Verification Report ==="
+echo
+
+TABLES=(
+  "analytics.events"
+  "analytics.users"
+  "sales.orders"
+  "sales.products"
+)
+
+BACKUP_DIR="/backup/ignite-3.0-export"
+
+for table in "${TABLES[@]}"; do
+  schema=$(echo $table | cut -d'.' -f1)
+  tbl=$(echo $table | cut -d'.' -f2)
+
+  echo "Table: ${table}"
+
+  # Get current count
+  current=$(ignite sql "SELECT COUNT(*) FROM ${table}" | grep -oE '[0-9]+')
+  echo "  Current row count: ${current}"
+
+  # Get expected count
+  expected=$(cat "${BACKUP_DIR}/${schema}_${tbl}.count" | grep -oE '[0-9]+')
+  echo "  Expected row count: ${expected}"
+
+  if [ "$current" == "$expected" ]; then
+    echo "  Status: ✓ PASS"
+  else
+    echo "  Status: ✗ FAIL"
+  fi
+  echo
+done
+----
+
+[CAUTION]
+====
+Do not proceed with application cutover until all verification checks pass successfully.
+====
+
+== Phase 5: Update Client Applications
+
+=== Step 5.1: Update Connection Configuration
+
+Update application configuration to point to the 3.1 cluster:
+
+[source,properties]
+----
+# Old 3.0 connection
+ignite.endpoints=old-node1:10800,old-node2:10800,old-node3:10800
+
+# New 3.1 connection
+ignite.endpoints=new-node1:10800,new-node2:10800,new-node3:10800
+----
+
+=== Step 5.2: Review API Changes
+
+Check for deprecated APIs in your client code:
+
+==== Java API Changes
+
+[source,java]
+----
+// Deprecated in 3.1
+ignite.clusterNodes()
+
+// Replace with
+ignite.cluster().nodes()
+----
+
+[TIP]
+====
+Refer to the Apache Ignite 3.1 release notes for a complete list of API changes: https://ignite.apache.org/releases/3.1.0/release_notes.html
+====
+
+=== Step 5.3: Test Client Connectivity
+
+Before switching production traffic, test connectivity:
+
+[source,java]
+----
+// Connection test
+try (IgniteClient client = IgniteClient.builder()
+    .addresses("new-node1:10800", "new-node2:10800", "new-node3:10800")
+    .build()) {
+
+    // Verify connectivity
+    Collection<ClusterNode> nodes = client.cluster().nodes();
+    System.out.println("Connected to " + nodes.size() + " nodes");
+
+    // Test data access
+    Table table = client.tables().table("analytics.events");
+    RecordView<Tuple> view = table.recordView();
+
+    Tuple record = view.get(null, Tuple.create().set("id", 1));
+    System.out.println("Sample record retrieved: " + record);
+}
+----
+
+Once the connection is confirmed, gradually migrate traffic.
+
+== Phase 6: Post-Migration Verification
+
+=== Step 6.1: Verify Zone-Based Replication
+
+Confirm zone-based replication is active by checking cluster startup logs:
+
+[source,bash]
+----
+# Check node logs for confirmation
+grep "Zone based replication" /path/to/node/logs/*.log
+----
+
+Expected output:
+----
+Zone based replication: true
+----
+
+Verify zones are properly configured:
+
+[source,sql]
+----
+SELECT * FROM SYSTEM.ZONES;
+----

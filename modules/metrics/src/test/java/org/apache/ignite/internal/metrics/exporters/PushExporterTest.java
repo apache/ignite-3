@@ -23,14 +23,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
@@ -52,23 +50,17 @@ public class PushExporterTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(polymorphicExtensions = TestPushExporterConfigurationSchema.class)
     private MetricConfiguration metricConfiguration;
 
-    private MetricManager metricManager;
+    private MetricManagerImpl metricManager;
 
     private TestPushExporter exporter;
 
     @BeforeEach
     public void setUp() {
-        metricManager = new MetricManagerImpl();
+        metricManager = new MetricManagerImpl("test-node", UUID::randomUUID, metricConfiguration);
 
-        Map<String, MetricExporter> availableExporters = new HashMap<>();
+        exporter = new TestPushExporter();
 
-        exporter  = new TestPushExporter();
-
-        availableExporters.put(TEST_EXPORTER_NAME, exporter);
-
-        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
-
-        metricManager.start(availableExporters);
+        metricManager.start(Map.of(TEST_EXPORTER_NAME, exporter));
     }
 
     @AfterEach

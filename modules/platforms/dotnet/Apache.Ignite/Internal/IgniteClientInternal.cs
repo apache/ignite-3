@@ -43,8 +43,10 @@ namespace Apache.Ignite.Internal
         {
             Socket = socket;
 
-            var sql = new Sql.Sql(socket);
-            var tables = new Tables(socket, sql);
+            // TODO IGNITE-27846 Extract TableCache and avoid circular dependency.
+            var tables = new Tables(socket);
+            var sql = new Sql.Sql(socket, tables);
+            tables.Sql = sql;
 
             Tables = tables;
             Transactions = new Transactions.Transactions(socket);

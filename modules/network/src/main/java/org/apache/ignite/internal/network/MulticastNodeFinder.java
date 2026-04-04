@@ -131,7 +131,7 @@ public class MulticastNodeFinder implements NodeFinder {
     public Collection<NetworkAddress> findNodes() {
         Set<NetworkAddress> result = new HashSet<>();
 
-        // Creates multicast sockets for all eligible interfaces and an unbound socket. Will throw an exception if no sockets were created.
+        // Create sockets for sending discovery requests.
         List<MulticastSocket> sockets = createSockets(0, resultWaitMillis, false);
 
         ExecutorService executor = Executors.newFixedThreadPool(
@@ -140,12 +140,10 @@ public class MulticastNodeFinder implements NodeFinder {
         );
 
         try {
-            // Will contain nodes, found on all eligible interfaces and an unbound socket.
             List<CompletableFuture<Collection<NetworkAddress>>> futures = sockets.stream()
                     .map(socket -> supplyAsync(() -> findOnSocket(socket), executor))
                     .collect(toList());
 
-            // Collect results.
             for (CompletableFuture<Collection<NetworkAddress>> future : futures) {
                 try {
                     result.addAll(future.get(resultWaitMillis * REQ_ATTEMPTS * 2L, TimeUnit.MILLISECONDS));
@@ -226,12 +224,25 @@ public class MulticastNodeFinder implements NodeFinder {
 
                             return false;
                         }
-                    }).collect(toSet());
+                    })
+                    .filter(itf -> !isReservedMacOsInterface(itf))
+                    .collect(toSet());
         } catch (SocketException e) {
             LOG.error("Error getting network interfaces for multicast node finder", e);
 
             return Set.of();
         }
+    }
+
+    /**
+     * Returns {@code true} if the given network interface is a macOS-specfic interface.
+     *
+     * <p>These interfaces may support multicast but third-party applications may not be able to bind to them.
+     */
+    public static boolean isReservedMacOsInterface(NetworkInterface networkInterface) {
+        String name = networkInterface.getName();
+
+        return name.startsWith("llw") || name.startsWith("awdl") || name.startsWith("utun");
     }
 
     @Override
@@ -243,14 +254,10 @@ public class MulticastNodeFinder implements NodeFinder {
 
     @Override
     public void start() {
-        // Create multicast sockets for all eligible interfaces and an unbound socket. Will throw an exception if no sockets were created.
+        // Create sockets for listening to multicast requests.
         List<MulticastSocket> sockets = createSockets(multicastPort, POLLING_TIMEOUT_MILLIS, true);
 
-        if (sockets.isEmpty()) {
-            throw new IgniteInternalException(INTERNAL_ERR, "No sockets for multicast listener were created.");
-        }
-
-        listenerThreadPool.submit(() -> {
+        listenerThreadPool.execute(() -> {
             byte[] responseData = NetworkAddressesSerializer.serialize(addressesToAdvertise);
             byte[] requestBuffer = new byte[REQUEST_MESSAGE.length];
 
@@ -267,7 +274,7 @@ public class MulticastNodeFinder implements NodeFinder {
                         byte[] received = receiveDatagramData(socket, requestPacket);
 
                         if (!Arrays.equals(received, REQUEST_MESSAGE)) {
-                            LOG.error("Received unexpected request on multicast socket");
+                            LOG.error("Received unexpected request on multicast socket {}", socket.getLocalSocketAddress());
                             continue;
                         }
 
@@ -306,27 +313,29 @@ public class MulticastNodeFinder implements NodeFinder {
         List<MulticastSocket> sockets = new ArrayList<>();
 
         for (NetworkInterface networkInterface : getEligibleNetworkInterfaces()) {
-            addSocket(sockets, port, networkInterface, soTimeout, joinGroup);
+            MulticastSocket socket = createSocket(port, networkInterface, soTimeout, joinGroup);
 
-            if (joinGroup) {
-                LOG.info("Multicast listener socket created for interface: {}", networkInterface.getDisplayName());
-            } else {
-                LOG.info("Multicast node finder socket created for interface: {}", networkInterface.getDisplayName());
+            if (socket != null) {
+                sockets.add(socket);
             }
         }
 
-        addSocket(sockets, multicastPort, null, soTimeout, joinGroup);
-
+        // Use the unbound socket as a fallback.
         if (sockets.isEmpty()) {
-            throw new IgniteInternalException(INTERNAL_ERR, "No multicast sockets were created.");
+            MulticastSocket unboundSocket = createSocket(port, null, soTimeout, joinGroup);
+
+            if (unboundSocket == null) {
+                throw new IgniteInternalException(INTERNAL_ERR, "No multicast sockets were created.");
+            }
+
+            sockets.add(unboundSocket);
         }
 
         return sockets;
     }
 
-    /** Create socket, configure it with given parameters and add it to the given collection. */
-    private void addSocket(
-            Collection<MulticastSocket> sockets,
+    /** Creates a multicast socket and configures it with the given parameters. Returns {@code null} if a socket could not be created. */
+    private @Nullable MulticastSocket createSocket(
             int port,
             @Nullable NetworkInterface networkInterface,
             int soTimeout,
@@ -357,13 +366,19 @@ public class MulticastNodeFinder implements NodeFinder {
                 socket.joinGroup(multicastSocketAddress, networkInterface);
             }
 
-            sockets.add(socket);
-        } catch (IOException e) {
-            if (networkInterface != null) {
-                LOG.error("Failed to create multicast socket for interface {}", e, networkInterface.getName());
-            } else {
-                LOG.error("Failed to create multicast socket for an unbound interface", e);
+            if (LOG.isInfoEnabled()) {
+                if (joinGroup) {
+                    LOG.info("Multicast listener socket created: {}/{}", displayName(networkInterface), port);
+                } else {
+                    LOG.info("Multicast node finder socket created: {}", displayName(networkInterface));
+                }
             }
+
+            return socket;
+        } catch (IOException e) {
+            LOG.error("Failed to create multicast socket: {}/{}", e, displayName(networkInterface), port);
+
+            return null;
         }
     }
 
@@ -383,5 +398,9 @@ public class MulticastNodeFinder implements NodeFinder {
         } catch (Exception e) {
             LOG.error("Could not close multicast listeners", e);
         }
+    }
+
+    private static String displayName(@Nullable NetworkInterface networkInterface) {
+        return networkInterface != null ? networkInterface.getDisplayName() : "unbound";
     }
 }

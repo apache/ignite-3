@@ -36,7 +36,12 @@ registerJarTask(sourceSets.unit2, 'ignite-unit-test-job2')
 
 processIntegrationTestResources {
     into('units') {
-        from jobsJar
+        from(jobsJar) {
+            // Remove the jar extension from the jobs jar to verify the deployment of non-jar files.
+            rename {
+                'ignite-integration-test-jobs-1.0-SNAPSHOT.bin'
+            }
+        }
         from unit1Jar
         from unit2Jar
     }
@@ -45,8 +50,9 @@ processIntegrationTestResources {
 dependencies {
     jobsImplementation project(':ignite-api')
     jobsImplementation project(':ignite-core')
+    jobsImplementation project(':ignite-transactions')
+    jobsImplementation project(':ignite-runner')
+    jobsImplementation testFixtures(project(':ignite-runner'))
     unit1Implementation project(':ignite-api')
     unit2Implementation project(':ignite-api')
-
-    integrationTestImplementation sourceSets.jobs.output
 }

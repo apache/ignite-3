@@ -45,7 +45,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -61,9 +60,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -85,8 +81,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     private ScheduledExecutorService scheduledExecutorService;
 
     private final HybridClock clock = new HybridClockImpl();
-
-    private final ClusterService clusterService = mock(ClusterService.class);
 
     private KeyValueStorage keyValueStorage;
 
@@ -224,6 +218,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     private void stopAndRestartComponentsNoDeployWatches() throws Exception {
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
+        assertThat(keyValueStorage.flush(), willCompleteSuccessfully());
+
         ComponentContext componentContext = new ComponentContext();
         closeAll(
                 catalogManager == null ? null :
@@ -274,9 +270,4 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         controller.start(metastoreRecoveryFuture.join().revision());
     }
 
-    private void setLocalNodeToClusterService(InternalClusterNode clusterNode) {
-        TopologyService topologyService = mock(TopologyService.class, invocation -> clusterNode);
-
-        when(clusterService.topologyService()).thenReturn(topologyService);
-    }
 }

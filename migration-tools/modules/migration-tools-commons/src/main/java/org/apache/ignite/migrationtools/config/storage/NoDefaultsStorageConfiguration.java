@@ -34,7 +34,8 @@ import org.apache.ignite3.internal.configuration.storage.LocalFileConfigurationS
  * Configuration registry entirely because we do not use it's features.
  */
 public class NoDefaultsStorageConfiguration extends LocalFileConfigurationStorage {
-    // TODO: Check if it needs to be volatile. The listener must see the defaults after .write().
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28134 Check if it needs to be volatile.
+    //  The listener must see the defaults after .write().
     private Map<String, ? extends Serializable> defaultValues = null;
 
     public NoDefaultsStorageConfiguration(Path configPath, ConfigurationTreeGenerator generator, ConfigurationModule module) {

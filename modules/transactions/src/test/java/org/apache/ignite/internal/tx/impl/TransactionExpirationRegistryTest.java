@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,8 +61,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         lenient().when(tx1.id()).thenReturn(txId1);
         lenient().when(tx2.id()).thenReturn(txId2);
-        lenient().when(tx1.rollbackTimeoutExceededAsync()).thenReturn(nullCompletedFuture());
-        lenient().when(tx2.rollbackTimeoutExceededAsync()).thenReturn(nullCompletedFuture());
+        lenient().when(tx1.rollbackWithExceptionAsync(any(TransactionException.class))).thenReturn(nullCompletedFuture());
+        lenient().when(tx2.rollbackWithExceptionAsync(any(TransactionException.class))).thenReturn(nullCompletedFuture());
     }
 
     @Test
@@ -70,8 +72,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         registry.expireUpTo(3000);
 
-        verify(tx1).rollbackTimeoutExceededAsync();
-        verify(tx2).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
+        verify(tx2).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -80,7 +82,7 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         registry.expireUpTo(1000);
 
-        verify(tx1).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -89,7 +91,7 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         registry.expireUpTo(1000);
 
-        verify(tx1, never()).rollbackTimeoutExceededAsync();
+        verify(tx1, never()).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -99,7 +101,7 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
         registry.expireUpTo(1000);
         registry.expireUpTo(2000);
 
-        verify(tx1).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -109,8 +111,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         registry.expireUpTo(2000);
 
-        verify(tx1).rollbackTimeoutExceededAsync();
-        verify(tx2).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
+        verify(tx2).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -120,8 +122,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
         registry.register(tx1, 1000);
         registry.register(tx2, 2000);
 
-        verify(tx1).rollbackTimeoutExceededAsync();
-        verify(tx2).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
+        verify(tx2).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -133,8 +135,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         registry.expireUpTo(2000);
 
-        verify(tx1, times(1)).rollbackTimeoutExceededAsync();
-        verify(tx2, times(1)).rollbackTimeoutExceededAsync();
+        verify(tx1, times(1)).rollbackWithExceptionAsync(any(TransactionException.class));
+        verify(tx2, times(1)).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -144,8 +146,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
         registry.abortAllRegistered();
 
-        verify(tx1).rollbackTimeoutExceededAsync();
-        verify(tx2).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
+        verify(tx2).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -155,8 +157,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
         registry.register(tx1, 1000);
         registry.register(tx2, Long.MAX_VALUE);
 
-        verify(tx1).rollbackTimeoutExceededAsync();
-        verify(tx2).rollbackTimeoutExceededAsync();
+        verify(tx1).rollbackWithExceptionAsync(any(TransactionException.class));
+        verify(tx2).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test
@@ -170,7 +172,7 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
         registry.expireUpTo(2000);
 
         // Should not be aborted due to expiration as we removed the transaction.
-        verify(tx1, never()).rollbackTimeoutExceededAsync();
+        verify(tx1, never()).rollbackWithExceptionAsync(any(TransactionException.class));
     }
 
     @Test

@@ -137,11 +137,11 @@ public class OrphanDetectorTxLabelTest extends BaseIgniteAbstractTest {
         // Put labels into the storage used by both the lock manager and OrphanDetector.
         txStateMetaStorage.updateMeta(
                 orphanTxId,
-                old -> new TxStateMeta(PENDING, LOCAL_NODE_ID, zonePartitionId, null, null, null, null, null, orphanLabel)
+                old -> new TxStateMeta(PENDING, LOCAL_NODE_ID, zonePartitionId, null, null, null, null, null, orphanLabel, null, null)
         );
         txStateMetaStorage.updateMeta(
                 concurrentTxId,
-                old -> new TxStateMeta(PENDING, LOCAL_NODE_ID, zonePartitionId, null, null, null, null, null, concurrentLabel)
+                old -> new TxStateMeta(PENDING, LOCAL_NODE_ID, zonePartitionId, null, null, null, null, null, concurrentLabel, null, null)
         );
 
         ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
@@ -177,7 +177,7 @@ public class OrphanDetectorTxLabelTest extends BaseIgniteAbstractTest {
 
         txStateMetaStorage.updateMeta(
                 orphanTxId,
-                old -> new TxStateMeta(PENDING, LOCAL_NODE_ID, zonePartitionId, null, null, null, null, null, orphanLabel)
+                old -> new TxStateMeta(PENDING, LOCAL_NODE_ID, zonePartitionId, null, null, null, null, null, orphanLabel, null, null)
         );
 
         ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
@@ -218,5 +218,3 @@ public class OrphanDetectorTxLabelTest extends BaseIgniteAbstractTest {
         }
     }
 }
-
-

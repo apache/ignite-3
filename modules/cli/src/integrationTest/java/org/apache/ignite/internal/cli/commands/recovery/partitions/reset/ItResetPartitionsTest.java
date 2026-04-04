@@ -83,15 +83,17 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testResetPartitionsPartitionsOutOfRange() {
+        int partitionCount = partitionsCount(ZONE);
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, String.valueOf(DEFAULT_PARTITION_COUNT));
+                RECOVERY_PARTITION_IDS_OPTION, String.valueOf(partitionCount));
 
         assertErrOutputContains(String.format(
                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                DEFAULT_PARTITION_COUNT - 1,
+                partitionCount - 1,
                 ZONE,
-                DEFAULT_PARTITION_COUNT
+                partitionCount
         ));
         assertOutputIsEmpty();
     }

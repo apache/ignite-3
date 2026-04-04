@@ -175,7 +175,7 @@ public class Ignite2ClusterContainer implements Startable {
             }
         }
 
-        // TODO: CHMOD This is a hack for team city
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28157 CHMOD This is a hack for team city.
         if (storagePathMappedToExternal) {
             try {
                 var firstContainer = this.containers.get(0);
@@ -189,7 +189,7 @@ public class Ignite2ClusterContainer implements Startable {
             }
         }
 
-        // TODO: Close all at the same time.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28158 Close all at the same time.
         for (GenericContainer<?> node : this.containers) {
             node.stop();
         }
@@ -204,8 +204,8 @@ public class Ignite2ClusterContainer implements Startable {
      */
     @SuppressWarnings("PMD.UnnecessaryCast")
     public void waitForNextCheckpoint() throws InterruptedException {
-        // TODO: Make a specific checkpoint log implementation.
-        // TODO: In the future, we will be able to call shutdown(false) on the container to properly shutdown the nodes.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28159 Make a specific checkpoint log implementation.
+        //  In the future, we will be able to call shutdown(false) on the container to properly shutdown the nodes.
 
         LOGGER.info("Waiting for checkpoints to happen. This might take a while.");
         var nodeCheckpointCheckers = this.containers.stream()

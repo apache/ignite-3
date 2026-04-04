@@ -19,7 +19,7 @@ Create a Docker Compose file to run a three-node Ignite cluster:
 name: ignite3
 
 x-ignite-def: &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"
@@ -126,7 +126,7 @@ Include the Ignite client dependency in your `pom.xml` file:
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-client</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 </dependencies>
 ```

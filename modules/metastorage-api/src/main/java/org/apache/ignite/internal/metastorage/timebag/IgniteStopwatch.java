@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.timebag;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -74,13 +73,6 @@ final class IgniteStopwatch {
      */
     static IgniteStopwatch createUnstarted() {
         return new IgniteStopwatch();
-    }
-
-    /**
-     * Creates (but does not start) a new stopwatch, using the specified time source.
-     */
-    private static IgniteStopwatch createUnstarted(IgniteTicker ticker) {
-        return new IgniteStopwatch(ticker);
     }
 
     /**
@@ -193,13 +185,4 @@ final class IgniteStopwatch {
         return desiredUnit.convert(elapsedNanos(), NANOSECONDS);
     }
 
-    /**
-     * Returns the current elapsed time shown on this stopwatch as a {@link Duration}.
-     * Unlike {@link #elapsed(TimeUnit)}, this method does not lose any precision due to rounding.
-     *
-     * @return the elapsed time.
-     */
-    private Duration elapsed() {
-        return Duration.ofNanos(elapsedNanos());
-    }
 }

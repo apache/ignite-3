@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateDynamicParameters;
 import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateParsedStatement;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
@@ -107,11 +107,11 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
         }
 
         if (!queryType.supportsExplicitTransactions()) {
-            throw new SqlException(RUNTIME_ERR, queryType.displayName() + " doesn't support transactions.");
+            throw new SqlException(STMT_VALIDATION_ERR, queryType.displayName() + " doesn't support transactions.");
         }
 
         if (SqlQueryType.DML == queryType && txWrapper.unwrap().isReadOnly()) {
-            throw new SqlException(RUNTIME_ERR, queryType.displayName() + " cannot be started by using read only transactions.");
+            throw new SqlException(STMT_VALIDATION_ERR, queryType.displayName() + " cannot be started by using read only transactions.");
         }
     }
 }

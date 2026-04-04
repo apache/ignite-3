@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 
 /**
  * Binary row implementation that stores the schema version as a separate field.

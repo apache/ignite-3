@@ -40,7 +40,7 @@ public class CliConfigProfileActivateCommand extends BaseCommand implements Call
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(profileName))
+                .input(new StringCallInput(profileName))
         );
     }
 }

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.internal.util.TupleTypeCastUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -216,9 +217,13 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public <T> T valueOrDefault(String columnName, T defaultValue) {
-            T ret = (T) row.get(columnIndexChecked(columnName));
+            int columnIndex = columnIndex(columnName);
 
-            return ret != null ? ret : defaultValue;
+            if (columnIndex == -1) {
+                return defaultValue;
+            }
+
+            return (T) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */
@@ -254,73 +259,97 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public byte byteValue(String columnName) {
-            return (byte) getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
+
+            return TupleTypeCastUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public byte byteValue(int columnIndex) {
-            return (byte) getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
+
+            return TupleTypeCastUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public short shortValue(String columnName) {
-            return (short) getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
+
+            return TupleTypeCastUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public short shortValue(int columnIndex) {
-            return (short) getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
+
+            return TupleTypeCastUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public int intValue(String columnName) {
-            return (int) getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
+
+            return TupleTypeCastUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public int intValue(int columnIndex) {
-            return (int) getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
+
+            return TupleTypeCastUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public long longValue(String columnName) {
-            return (long) getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
+
+            return TupleTypeCastUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public long longValue(int columnIndex) {
-            return (long) getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
+
+            return TupleTypeCastUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public float floatValue(String columnName) {
-            return (float) getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
+
+            return TupleTypeCastUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public float floatValue(int columnIndex) {
-            return (float) getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
+
+            return TupleTypeCastUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public double doubleValue(String columnName) {
-            return (double) getValueNotNull(columnName);
+            Object number = getValueNotNull(columnName);
+
+            return TupleTypeCastUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
         @Override
         public double doubleValue(int columnIndex) {
-            return (double) getValueNotNull(columnIndex);
+            Object number = getValueNotNull(columnIndex);
+
+            return TupleTypeCastUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
@@ -432,28 +461,49 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         /** {@inheritDoc} */
         @Override
-        public String toString() {
-            return S.tupleToString(this);
+        public int hashCode() {
+            return Tuple.hashCode(this);
         }
 
-        private Object getValueNotNull(int columnIndex) {
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+
+            //noinspection SimplifiableIfStatement
+            if (obj instanceof Tuple) {
+                return Tuple.equals(this, (Tuple) obj);
+            }
+
+            return false;
+        }
+
+        private <T> T getValueNotNull(int columnIndex) {
             Object value = row.get(columnIndex);
 
             if (value == null) {
                 throw new NullPointerException(format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, columnIndex));
             }
 
-            return value;
+            return (T) value;
         }
 
-        private Object getValueNotNull(String columnName) {
+        private <T> T getValueNotNull(String columnName) {
             Object value = row.get(columnIndexChecked(columnName));
 
             if (value == null) {
                 throw new NullPointerException(format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, columnName));
             }
 
-            return value;
+            return (T) value;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.tupleToString(this);
         }
     }
 }

@@ -54,6 +54,9 @@ class FinishedTransactionBatchRequestHandlerTest extends BaseIgniteAbstractTest 
     @Mock
     private LowWatermark lowWatermark;
 
+    @Mock
+    private TransactionInflights transactionInflights;
+
     private FinishedTransactionBatchRequestHandler requestHandler;
 
     private NetworkMessageHandler networkHandler;
@@ -63,6 +66,7 @@ class FinishedTransactionBatchRequestHandlerTest extends BaseIgniteAbstractTest 
         requestHandler = new FinishedTransactionBatchRequestHandler(
                 messagingService,
                 resourceRegistry,
+                transactionInflights,
                 lowWatermark,
                 ForkJoinPool.commonPool()
         );
@@ -86,6 +90,8 @@ class FinishedTransactionBatchRequestHandlerTest extends BaseIgniteAbstractTest 
 
         networkHandler.onReceived(message, mock(InternalClusterNode.class), null);
 
+        verify(transactionInflights, timeout(10_000)).removeTxContext(txId1);
+        verify(transactionInflights, timeout(10_000)).removeTxContext(txId2);
         verify(lowWatermark, timeout(10_000)).unlock(txId1);
         verify(lowWatermark, timeout(10_000)).unlock(txId2);
     }

@@ -67,7 +67,7 @@ public class CsharpGenerator extends GenericGenerator {
             line("            " + descriptor.className + ".GroupCode => " + descriptor.className + ".GroupName,");
         }
         line();
-        line("            _ => UnknownGroupName");
+        line("            _ => UnknownGroupName + groupCode");
         line("        };");
         line();
         line("        /// <summary>");

@@ -59,7 +59,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode({Mode.AverageTime, Mode.Throughput})
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark {
-    private static final IgniteLogger LOG = Loggers.forClass(TxBalanceRetryOperationBenchmark.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TxUpsertRetryOperationBenchmark.class);
 
     private static RecordView<Tuple> recordView;
 

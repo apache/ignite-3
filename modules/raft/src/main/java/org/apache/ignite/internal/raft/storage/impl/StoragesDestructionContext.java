@@ -18,26 +18,26 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.jetbrains.annotations.Nullable;
 
-/** Contains {@link StorageDestructionIntent}, server data path and {@link LogStorageFactory} for storage destruction. */
+/** Contains {@link StorageDestructionIntent}, server data path and {@link LogStorageManager} for storage destruction. */
 public class StoragesDestructionContext {
     private final StorageDestructionIntent intent;
 
-    private final @Nullable LogStorageFactory logStorageFactory;
+    private final @Nullable LogStorageManager logStorageManager;
     private final Path serverDataPath;
 
     /**
      * Constructor.
      *
      * @param intent Intent to destroy raft group storages.
-     * @param logStorageFactory factory managing log storage of the group.
+     * @param logStorageManager factory managing log storage of the group.
      * @param serverDataPath Path containing raft server metadata.
      */
-    public StoragesDestructionContext(StorageDestructionIntent intent, @Nullable LogStorageFactory logStorageFactory, Path serverDataPath) {
+    public StoragesDestructionContext(StorageDestructionIntent intent, @Nullable LogStorageManager logStorageManager, Path serverDataPath) {
         this.intent = intent;
-        this.logStorageFactory = logStorageFactory;
+        this.logStorageManager = logStorageManager;
         this.serverDataPath = serverDataPath;
     }
 
@@ -47,8 +47,8 @@ public class StoragesDestructionContext {
     }
 
     /** Returns the factory managing log storage of the group. Null for volatile raft groups on startup. */
-    public @Nullable LogStorageFactory logStorageFactory() {
-        return logStorageFactory;
+    public @Nullable LogStorageManager logStorageManager() {
+        return logStorageManager;
     }
 
     /** Returns the intent to destroy raft group storages. */

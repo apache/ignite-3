@@ -92,6 +92,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -104,7 +107,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -113,6 +118,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.distributed.replicator.action.RequestTypes;
+import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -141,11 +147,15 @@ import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
+import org.apache.ignite.internal.partition.replicator.index.IndexMeta;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatus;
+import org.apache.ignite.internal.partition.replicator.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandBase;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -162,7 +172,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -182,7 +191,6 @@ import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -210,13 +218,9 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
-import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -233,9 +237,11 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -250,6 +256,8 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
@@ -523,8 +531,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             }
         });
 
-        when(topologySrv.localMember()).thenReturn(localNode);
-
         when(safeTimeClock.waitFor(any())).thenReturn(nullCompletedFuture());
         when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
@@ -580,12 +586,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
 
-        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, PART_ID, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple, false);
-        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
+        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, PART_ID, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Int2ObjectMaps.singleton(pkStorage().id(), pkStorage()))
         );
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
@@ -636,12 +642,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService,
                 clusterNodeResolver,
                 messagingService,
-                mock(PlacementDriver.class),
+                mock(PlacementDriverHelper.class),
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
                         clockService
-                )
+                ),
+                new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
+                localNode,
+                Runnable::run
         );
 
         transactionStateResolver.start();
@@ -656,9 +665,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 Runnable::run,
                 new ZonePartitionId(tableDescriptor.zoneId(), PART_ID),
                 TABLE_ID,
-                () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexLocker),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexLocker)),
                 pkStorageSupplier,
-                () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
+                () -> Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(sortedIndexId, sortedIndexStorage),
+                        Int2ObjectMap.entry(hashIndexId, hashIndexStorage)),
                 clockService,
                 safeTimeClock,
                 transactionStateResolver,
@@ -1654,7 +1668,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, TABLE_ID, TABLE_NAME, columns);
+        return new FullTableSchema(-1, schemaVersion, TABLE_ID, TABLE_NAME, columns, Int2IntMaps.EMPTY_MAP);
     }
 
     private AtomicReference<Boolean> interceptFinishTxCommand() {
@@ -2027,12 +2041,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
+        Executor wise = Runnable::run;
+
+        doAnswer(invocation -> wise).when(txManager).writeIntentSwitchExecutor();
 
         doAnswer(invocation -> nullCompletedFuture())
-                .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
+                .when(txManager).finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), any(), any());
         doAnswer(invocation -> nullCompletedFuture())
-                .when(txManager).cleanup(any(), anyString(), any());
+                .when(txManager).cleanup(any(), anyString(), any(), anyBoolean(), any());
     }
 
     private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, RwListenerInvocation listenerInvocation) {
@@ -2101,6 +2117,68 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return Arrays.stream(RequestType.values())
                 .filter(RequestTypes::isMultipleRowsWrite)
                 .map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("singleRowWriteRequestTypes")
+    public void singleRowWritesRespectFailedSchemaValidationResult(RequestType requestType) {
+        RwListenerInvocation invocation;
+
+        if (requestType == RW_DELETE || requestType == RW_GET_AND_DELETE) {
+            invocation = (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, true);
+        } else {
+            invocation = (targetTxId, key) -> doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, true);
+        }
+
+        testWritesRespectFailedSchemaValidationResult(requestType, invocation);
+    }
+
+    @Test
+    public void replaceRequestRespectsFailedSchemaValidationResult() {
+        RwListenerInvocation invocation = (targetTxId, key) -> doReplaceRequest(
+                targetTxId,
+                marshalKeyOrKeyValue(RW_REPLACE, key),
+                marshalKeyOrKeyValue(RW_REPLACE, key),
+                true
+        );
+
+        testWritesRespectFailedSchemaValidationResult(RW_REPLACE, invocation);
+    }
+
+    @ParameterizedTest
+    @MethodSource("multiRowsWriteRequestTypes")
+    public void multiRowWritesRespectFailedSchemaValidationResult(RequestType requestType) {
+        RwListenerInvocation invocation;
+
+        if (requestType == RW_DELETE_ALL) {
+            invocation = (targetTxId, key)
+                    -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, true);
+        } else {
+            invocation = (targetTxId, key)
+                    -> doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, true);
+        }
+
+        testWritesRespectFailedSchemaValidationResult(requestType, invocation);
+    }
+
+    private void testWritesRespectFailedSchemaValidationResult(RequestType requestType, RwListenerInvocation listenerInvocation) {
+        TestKey key = nextKey();
+
+        if (RequestTypes.looksUpFirst(requestType)) {
+            upsertInNewTxFor(key);
+
+            // While handling the upsert, our mocks were touched, let's reset them to prevent false-positives during verification.
+            Mockito.reset(schemaSyncService);
+        }
+
+        UUID targetTxId = newTxId();
+
+        when(mockRaftClient.run(any(UpdateCommandBase.class)))
+                .thenReturn(failedFuture(new CompletionException(new RaftException(RaftError.EREJECTED_BY_VALIDATOR))));
+
+        CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
+
+        assertThat(future, willThrow(IncompatibleSchemaVersionException.class));
     }
 
     @CartesianTest
@@ -2555,39 +2633,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> invoke(UUID targetTxId, TestKey key);
     }
 
-    @ParameterizedTest(name = "readOnly = {0}")
-    @ValueSource(booleans = {true, false})
-    void testStaleTxOperationAfterIndexStartBuilding(boolean readOnly) {
-        int indexId = hashIndexStorage.id();
-        int indexCreationCatalogVersion = 1;
-        int startBuildingIndexCatalogVersion = 2;
-        long indexCreationActivationTs = clock.now().addPhysicalTime(-100).longValue();
-        long startBuildingIndexActivationTs = clock.nowLong();
-
-        setIndexMetaInBuildingStatus(
-                indexId,
-                indexCreationCatalogVersion,
-                indexCreationActivationTs,
-                startBuildingIndexCatalogVersion,
-                startBuildingIndexActivationTs
-        );
-
-        fireHashIndexStartBuildingEventForStaleTxOperation(indexId, startBuildingIndexCatalogVersion);
-
-        UUID txId = newTxId();
-        long beginTs = beginTimestamp(txId).longValue();
-
-        when(catalogService.activeCatalogVersion(eq(beginTs))).thenReturn(0);
-
-        BinaryRow row = binaryRow(0);
-
-        if (readOnly) {
-            assertThat(roGetAsync(row, clock.now()), willCompleteSuccessfully());
-        } else {
-            assertThat(upsertAsync(txId, row), willThrow(StaleTransactionOperationException.class));
-        }
-    }
-
     @Test
     void testBuildIndexReplicaRequest() {
         int indexId = hashIndexStorage.id();
@@ -2812,9 +2857,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 newestCommitTsIsPresent
         );
 
-        HybridTimestamp readTs = outdatedReadTs
-                ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
-                : new HybridTimestamp(100, 0);
+        HybridTimestamp readTs;
+
+        if (writeIntentHasThisTxId) {
+            readTs = HybridTimestamp.MIN_VALUE;
+        } else {
+            readTs = outdatedReadTs
+                    ? new HybridTimestamp(clockService.maxClockSkewMillis() - 1, 0)
+                    : new HybridTimestamp(100, 0);
+        }
+
         HybridTimestamp newestCommitTs = newestCommitTsIsPresent ? new HybridTimestamp(50, 0) : null;
 
         TxStatePrimaryReplicaRequest request = TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()

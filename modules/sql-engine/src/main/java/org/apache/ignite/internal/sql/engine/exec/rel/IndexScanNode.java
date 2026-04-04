@@ -27,6 +27,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
@@ -156,5 +157,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             default:
                 throw new AssertionError("Unexpected index type: " + schemaIndex.type());
         }
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        super.dumpMetrics0(writer);
+        writer.app(", indexName=").app(schemaIndex.name());
     }
 }

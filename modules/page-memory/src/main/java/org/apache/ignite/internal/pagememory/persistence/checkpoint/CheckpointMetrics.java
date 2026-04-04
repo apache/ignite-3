@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
 /** Checkpoint metrics. */
 class CheckpointMetrics {
@@ -42,7 +43,7 @@ class CheckpointMetrics {
 
     private final AtomicLongMetric lastTotalPagesNumber;
 
-    CheckpointMetrics(CheckpointMetricSource source) {
+    CheckpointMetrics(CollectionMetricSource source) {
         lastLockWaitDuration = source.addMetric(new AtomicLongMetric(
                 "LastCheckpointLockWaitDuration",
                 "Duration of the last checkpoint lock wait in milliseconds."

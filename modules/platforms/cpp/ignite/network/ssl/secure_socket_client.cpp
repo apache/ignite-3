@@ -15,57 +15,23 @@
  * limitations under the License.
  */
 
+#include "ignite/common/detail/defer.h"
+#include "ignite/network/network.h"
 #include "ignite/network/detail/sockets.h"
-#include "ignite/network/detail/utils.h"
 #include "ignite/network/ssl/secure_socket_client.h"
 #include "ignite/network/ssl/secure_utils.h"
-#include "ignite/network/ssl/ssl_gateway.h"
 
-#include "ignite/common/detail/defer.h"
+namespace ignite::network {
 
-#include <sstream>
-#include <cassert>
-
-namespace {
-
-using namespace ignite::network;
-
-void free_bio(BIO* bio)
+int secure_socket_client::fill_bio_in(std::int32_t timeout)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
+    auto received = m_socket_client->receive(m_recv_packet.data(), m_recv_packet.size(), timeout);
+    if (received <= 0)
+        return received;
 
-    assert(gateway.is_loaded());
-
-    gateway.BIO_free_all_(bio);
+    m_ssl_conn->feed_input(m_recv_packet.data(), received);
+    return received;
 }
-
-SSL* ssl_from_bio_no_check(void* bio) {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-    SSL* ssl = nullptr;
-    gateway.BIO_get_ssl_(reinterpret_cast<BIO*>(bio), &ssl);
-    return ssl;
-}
-
-SSL* ssl_from_bio(void* bio, ignite::error::code on_fail_code, const std::string& on_fail_msg) {
-    SSL* ssl = ssl_from_bio_no_check(bio);
-    if (!ssl)
-        throw ignite::ignite_error(on_fail_code, on_fail_msg);
-
-    return ssl;
-}
-
-SSL* ssl_from_bio(void* bio, const std::string& on_fail_msg) {
-    SSL* ssl = ssl_from_bio_no_check(bio);
-    if (!ssl)
-        throw_last_secure_error(on_fail_msg);
-
-    return ssl;
-}
-
-} // anonymous namespace
-
-namespace ignite::network
-{
 
 secure_socket_client::~secure_socket_client()
 {
@@ -77,9 +43,7 @@ secure_socket_client::~secure_socket_client()
 
 bool secure_socket_client::connect(const char* hostname, std::uint16_t port, std::int32_t timeout)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    assert(gateway.is_loaded());
+    ensure_ssl_loaded();
 
     close_internal();
 
@@ -91,46 +55,20 @@ bool secure_socket_client::connect(const char* hostname, std::uint16_t port, std
             throw_last_secure_error("Can not create SSL context", "Aborting connect");
     }
 
-    m_bio = make_ssl(m_context, hostname, port, m_blocking);
+    if (!m_socket_client->connect(hostname, port, timeout))
+        return false;
 
-    auto cleanup = ::ignite::detail::defer([&] { close_internal(); });
+    auto ssl_cleanup = ::ignite::detail::defer([&] { close_internal(); });
 
-    SSL* ssl = ssl_from_bio(m_bio, "Can not get SSL instance from BIO");
+    m_ssl_conn = std::make_unique<ssl_connection>(m_context, hostname);
 
-    int res = gateway.SSL_set_tlsext_host_name_(ssl, hostname);
-
-    if (res != SSL_OPERATION_SUCCESS)
-        throw_last_secure_error("Can not set host name for secure connection");
-
-    gateway.SSL_set_connect_state_(ssl);
-
-    bool connected = complete_connect_internal(ssl, timeout);
-
+    bool connected = complete_connect_internal(timeout);
     if (!connected)
         return false;
 
-    // Verify a server certificate was presented during the negotiation
-    X509* cert = gateway.SSL_get_peer_certificate_(ssl);
-    if (cert)
-        gateway.X509_free_(cert);
-    else
-        throw_last_secure_error("Remote host did not provide certificate");
+    m_ssl_conn->verify_peer();
 
-    // Verify the result of chain verification.
-    // Verification performed according to RFC 4158.
-    res = gateway.SSL_get_verify_result_(ssl);
-    if (X509_V_OK != res)
-        throw_last_secure_error("Certificate chain verification failed");
-
-    res = wait_on_socket(ssl, timeout, false);
-
-    if (res == wait_result::TIMEOUT)
-        return false;
-
-    if (res != wait_result::SUCCESS)
-        throw_last_secure_error("Error while establishing secure connection");
-
-    cleanup.release();
+    ssl_cleanup.release();
 
     return true;
 }
@@ -142,179 +80,130 @@ void secure_socket_client::close()
 
 int secure_socket_client::send(const std::byte* data, std::size_t size, std::int32_t timeout)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
+    if (!m_ssl_conn)
+        throw ignite_error(error::code::CONNECTION, "Trying to send data using closed connection");
 
-    assert(gateway.is_loaded());
+    int ssl_res;
+    do
+    {
+        ssl_res = m_ssl_conn->write(data, static_cast<int>(size));
+        if (ssl_res <= 0)
+        {
+            if (m_ssl_conn->is_fatal_error(ssl_res))
+                return ssl_res;
 
-    SSL* ssl = ssl_from_bio(m_bio, error::code::CONNECTION, "Trying to send data using closed connection");
+            int flush_res = flush_bio_out(timeout);
+            if (flush_res < 0 || flush_res == wait_result::TIMEOUT)
+                return flush_res;
 
-    int res = wait_on_socket(ssl, timeout, false);
+            if (m_ssl_conn->wants_read_input())
+            {
+                int fill_res = fill_bio_in(timeout);
+                if (fill_res < 0 || fill_res == wait_result::TIMEOUT)
+                    return fill_res;
+            }
+        }
+    } while (ssl_res <= 0);
 
-    if (res == wait_result::TIMEOUT)
-        return res;
+    int flush_res = flush_bio_out(timeout);
+    if (flush_res < 0 || flush_res == wait_result::TIMEOUT)
+        return flush_res;
 
-    do {
-        res = gateway.SSL_write_(ssl, data, static_cast<int>(size));
-
-        int waitRes = wait_on_socket_if_needed(res, ssl, timeout);
-        if (waitRes <= 0)
-            return waitRes;
-    } while (res <= 0);
-
-    return res;
+    return ssl_res;
 }
 
 int secure_socket_client::receive(std::byte* buffer, std::size_t size, std::int32_t timeout)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
+    if (!m_ssl_conn)
+        throw ignite_error(error::code::CONNECTION, "Trying to receive data using closed connection");
 
-    assert(gateway.is_loaded());
-
-    SSL* ssl = ssl_from_bio(m_bio, error::code::CONNECTION, "Trying to receive data using closed connection");
-
-    int res = 0;
-    if (!m_blocking && gateway.SSL_pending_(ssl) == 0)
+    if (!m_socket_client->is_blocking() && m_ssl_conn->pending_decrypted() == 0)
     {
-        res = wait_on_socket(ssl, timeout, true);
-
-        if (res < 0 || res == wait_result::TIMEOUT)
-            return res;
+        int fill_res = fill_bio_in(timeout);
+        if (fill_res < 0 || fill_res == wait_result::TIMEOUT)
+            return fill_res;
     }
 
-    do {
-        res = gateway.SSL_read_(ssl, buffer, static_cast<int>(size));
+    int ssl_res;
+    do
+    {
+        ssl_res = m_ssl_conn->read(buffer, static_cast<int>(size));
+        if (ssl_res <= 0)
+        {
+            if (m_ssl_conn->is_fatal_error(ssl_res))
+                return ssl_res;
 
-        int waitRes = wait_on_socket_if_needed(res, ssl, timeout);
-        if (waitRes <= 0)
-            return waitRes;
-    } while (res <= 0);
+            int fill_res = fill_bio_in(timeout);
+            if (fill_res < 0 || fill_res == wait_result::TIMEOUT)
+                return fill_res;
 
-    return res;
+            int flush_res = flush_bio_out(timeout);
+            if (flush_res < 0 || flush_res == wait_result::TIMEOUT)
+                return flush_res;
+        }
+    } while (ssl_res <= 0);
+
+    return ssl_res;
 }
 
-void* secure_socket_client::make_ssl(void* context, const char* hostname, std::uint16_t port, bool& blocking)
+void secure_socket_client::close_internal()
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    assert(gateway.is_loaded());
-
-    BIO* bio = gateway.BIO_new_ssl_connect_(reinterpret_cast<SSL_CTX*>(context));
-    if (!bio)
-        throw_last_secure_error("Can not create SSL connection");
-
-    auto cleanup = ::ignite::detail::defer([&] { free_bio(bio); });
-
-    blocking = gateway.BIO_set_nbio_(bio, 1) != SSL_OPERATION_SUCCESS;
-
-    std::stringstream stream;
-    stream << hostname << ":" << port;
-
-    std::string address = stream.str();
-
-    long res = gateway.BIO_set_conn_hostname_(bio, address.c_str());
-    if (res != SSL_OPERATION_SUCCESS)
-        throw_last_secure_error("Can not set SSL connection hostname");
-
-    cleanup.release();
-
-    return bio;
+    m_ssl_conn.reset();
+    m_socket_client->close();
 }
 
-bool secure_socket_client::complete_connect_internal(void* m_ssl, int timeout)
+bool secure_socket_client::complete_connect_internal(std::int32_t timeout)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    assert(gateway.is_loaded());
-
-    SSL* ssl0 = reinterpret_cast<SSL*>(m_ssl);
-
     while (true)
     {
-        int res = gateway.SSL_connect_(ssl0);
+        bool done = m_ssl_conn->do_handshake();
 
-        if (res == SSL_OPERATION_SUCCESS)
+        int flush_res = flush_bio_out(timeout);
+        if (flush_res == wait_result::TIMEOUT)
+            return false;
+        if (flush_res < 0)
+            throw_last_secure_error("Error while establishing secure connection");
+
+        if (done)
             break;
 
-        int sslError = gateway.SSL_get_error_(ssl0, res);
-
-        if (is_actual_error(sslError))
-            throw_last_secure_error("Can not establish secure connection");
-
-        int want = gateway.SSL_want_(ssl0);
-
-        res = wait_on_socket(m_ssl, timeout, want == SSL_READING);
-
-        if (res == wait_result::TIMEOUT)
+        int fill_res = fill_bio_in(timeout);
+        if (fill_res == wait_result::TIMEOUT)
             return false;
-
-        if (res != wait_result::SUCCESS)
+        if (fill_res < 0)
             throw_last_secure_error("Error while establishing secure connection");
     }
 
-    if (std::string("TLSv1.3") == gateway.SSL_get_version_(ssl0))
+    if (std::string("TLSv1.3") == m_ssl_conn->version())
     {
         // Workaround. Need to get SSL into read state to avoid a deadlock.
         // See https://github.com/openssl/openssl/issues/7967 for details.
-        gateway.SSL_read_(ssl0, nullptr, 0);
-        int res = wait_on_socket(m_ssl, timeout, true);
+        m_ssl_conn->read(nullptr, 0);
 
-        if (res == wait_result::TIMEOUT)
+        if (wait_result::TIMEOUT == flush_bio_out(timeout))
+            return false;
+
+        if (wait_result::TIMEOUT == fill_bio_in(timeout))
             return false;
     }
 
     return true;
 }
 
-void secure_socket_client::close_internal()
+int secure_socket_client::flush_bio_out(std::int32_t timeout)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
+    auto data = m_ssl_conn->drain_output();
+    if (data.empty())
+        return wait_result::SUCCESS;
 
-    if (gateway.is_loaded() && m_bio)
+    std::size_t sent = 0;
+    while (sent < data.size())
     {
-        gateway.BIO_free_all_(reinterpret_cast<BIO*>(m_bio));
+        int n = m_socket_client->send(data.data() + sent, data.size() - sent, timeout);
+        if (n < 0 || n == wait_result::TIMEOUT)
+            return n;
 
-        m_bio = nullptr;
-    }
-}
-
-int secure_socket_client::wait_on_socket(void* ssl, std::int32_t timeout, bool rd)
-{
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    assert(gateway.is_loaded());
-
-    SSL* ssl0 = reinterpret_cast<SSL*>(ssl);
-    int fd = gateway.SSL_get_fd_(ssl0);
-
-    if (fd < 0)
-    {
-        std::stringstream ss;
-        ss << "Can not get file descriptor from the SSL socket, fd=" << fd;
-
-        throw_last_secure_error(ss.str());
-    }
-
-    return detail::wait_on_socket(fd, timeout, rd);
-}
-
-int secure_socket_client::wait_on_socket_if_needed(int res, void* ssl, int timeout)
-{
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    assert(gateway.is_loaded());
-
-    SSL* ssl0 = reinterpret_cast<SSL*>(ssl);
-
-    if (res <= 0)
-    {
-        int err = gateway.SSL_get_error_(ssl0, res);
-        if (is_actual_error(err))
-            return res;
-
-        int want = gateway.SSL_want_(ssl0);
-        int wait_res = wait_on_socket(ssl, timeout, want == SSL_READING);
-        if (wait_res < 0 || wait_res == wait_result::TIMEOUT)
-            return wait_res;
+        sent += static_cast<std::size_t>(n);
     }
 
     return wait_result::SUCCESS;

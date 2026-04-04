@@ -726,7 +726,7 @@ public class HoconConverterTest {
         change("rootInjectedName.nestedNamed = [{someName = foo}]");
 
         assertEquals("nested{},nestedNamed=[{someName=foo}]", asHoconStr(List.of("rootInjectedName")));
-        assertEquals("[someName=foo]", asHoconStr(List.of("rootInjectedName", "nestedNamed")));
+        assertEquals("[{someName=foo}]", asHoconStr(List.of("rootInjectedName", "nestedNamed")));
         assertEquals("{}", asHoconStr(List.of("rootInjectedName", "nestedNamed", "foo")));
 
         // Let's check that the NamedConfigValue#syntheticKeyName key will not work.

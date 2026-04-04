@@ -49,8 +49,7 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
                 new UUID(1, 2),
                 10_000,
                 readTimestamp,
-                new CompletableFuture<>()
-        );
+                new CompletableFuture<>());
 
         assertThat(tx.schemaTimestamp(), is(readTimestamp));
     }

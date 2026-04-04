@@ -169,6 +169,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 .thenApply(frags -> new MappedFragments(frags, topologySnapshot.version));
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // TODO: IGNITE-26465 Part of planned caching approach (see commented-out code above)
     private MappingsCacheValue computeMappingCacheKey(
             MappingsCacheValue val,
             TopologySnapshot topologySnapshot,
@@ -456,6 +457,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
         // private final CompletableFuture<MappedFragments> mappedFragments;
 
+        @SuppressWarnings("PMD.UnusedFormalParameter") // TODO: IGNITE-26465 remove annotation
         MappingsCacheValue(long topologyVersion, IntSet zoneIds, CompletableFuture<MappedFragmentsWithNodes> mappedFragments) {
             this.topologyVersion = topologyVersion;
             this.zoneIds = zoneIds;

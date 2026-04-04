@@ -24,34 +24,34 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
 class PersistentLogStorageFactories {
     private final String dataPath;
 
-    private final Map<PeerId, LogStorageFactory> factories = new ConcurrentHashMap<>();
+    private final Map<PeerId, LogStorageManager> factories = new ConcurrentHashMap<>();
 
     PersistentLogStorageFactories(String dataPath) {
         this.dataPath = dataPath;
     }
 
-    LogStorageFactory factoryFor(PeerId peerId) {
-        return factories.computeIfAbsent(peerId, this::startPersistentLogStorageFactory);
+    LogStorageManager factoryFor(PeerId peerId) {
+        return factories.computeIfAbsent(peerId, this::startPersistentLogStorageManager);
     }
 
-    private DefaultLogStorageFactory startPersistentLogStorageFactory(PeerId peerId) {
+    private DefaultLogStorageManager startPersistentLogStorageManager(PeerId peerId) {
         Path path = Path.of(dataPath).resolve("logs").resolve(peerId.getConsistentId() + "-" + peerId.getIdx());
-        DefaultLogStorageFactory persistentLogStorageFactory = new DefaultLogStorageFactory(path);
+        DefaultLogStorageManager persistentLogStorageManager = new DefaultLogStorageManager(path);
 
-        assertThat(persistentLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(persistentLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        return persistentLogStorageFactory;
+        return persistentLogStorageManager;
     }
 
     void shutdown() {
-        for (LogStorageFactory factory : factories.values()) {
+        for (LogStorageManager factory : factories.values()) {
             assertThat(factory.stopAsync(), willCompleteSuccessfully());
         }
     }

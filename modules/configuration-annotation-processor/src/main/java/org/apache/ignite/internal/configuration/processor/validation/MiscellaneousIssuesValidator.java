@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.configuration.processor.validation;
 
+import static com.sun.source.tree.Tree.Kind.NULL_LITERAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessor.CONFIGURATION_SCHEMA_POSTFIX;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.containsAnyAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.simpleName;
 
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.Trees;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.VariableElement;
@@ -78,9 +82,19 @@ public class MiscellaneousIssuesValidator extends Validator {
                 ));
             }
 
-            if (field.getAnnotation(Value.class) != null) {
+            Value valueAnnotation = field.getAnnotation(Value.class);
+
+            if (valueAnnotation != null) {
                 // Must be a primitive or an array of the primitives (including java.lang.String, java.util.UUID).
                 assertValidValueFieldType(classWrapper, field);
+
+                // Fields with "hasDefault = true" must not be initialized with null.
+                if (valueAnnotation.hasDefault() && isInitializedWithNull(field)) {
+                    throw new ConfigurationValidationException(classWrapper, String.format(
+                            "Field '%s' is marked with 'hasDefault = true' but the default value is null.",
+                            field.getSimpleName()
+                    ));
+                }
             }
 
             if (field.getAnnotation(PolymorphicId.class) != null) {
@@ -104,5 +118,15 @@ public class MiscellaneousIssuesValidator extends Validator {
                 ));
             }
         }
+    }
+
+    private boolean isInitializedWithNull(VariableElement field) {
+        Trees trees = Trees.instance(processingEnvironment);
+
+        var variableTree = (VariableTree) trees.getTree(field);
+
+        ExpressionTree initializer = variableTree.getInitializer();
+
+        return initializer != null && initializer.getKind() == NULL_LITERAL;
     }
 }

@@ -105,28 +105,11 @@ public class TruncationConfig {
                 ? maxColWidthOverride
                 : readMaxColumnWidth(configManagerProvider);
 
-        // Wrap the terminal width supplier with fallback logic
-        IntSupplier widthWithFallback = () -> {
-            int width = terminalWidthSupplier.getAsInt();
-            if (width > 0) {
-                return width;
-            }
-            // Try COLUMNS environment variable as fallback
-            String columnsEnv = System.getenv("COLUMNS");
-            if (columnsEnv != null && !columnsEnv.isEmpty()) {
-                try {
-                    int envWidth = Integer.parseInt(columnsEnv);
-                    if (envWidth > 0) {
-                        return envWidth;
-                    }
-                } catch (NumberFormatException ignored) {
-                    // Fall through to default
-                }
-            }
-            return DEFAULT_TERMINAL_WIDTH;
-        };
+        // Snapshot the terminal width eagerly to avoid inconsistent values
+        // between calls (Windows terminals can return 0 intermittently).
+        int terminalWidth = resolveTerminalWidth(terminalWidthSupplier);
 
-        return new TruncationConfig(true, maxColumnWidth, widthWithFallback);
+        return new TruncationConfig(true, maxColumnWidth, terminalWidth);
     }
 
     /**
@@ -148,13 +131,32 @@ public class TruncationConfig {
     }
 
     /**
-     * Returns the terminal width. This value is evaluated dynamically
-     * to support terminal resize during a session.
+     * Returns the terminal width.
      *
      * @return terminal width (0 means no constraint)
      */
     public int getTerminalWidth() {
         return terminalWidthSupplier.getAsInt();
+    }
+
+    private static int resolveTerminalWidth(IntSupplier terminalWidthSupplier) {
+        int width = terminalWidthSupplier.getAsInt();
+        if (width > 0) {
+            return width;
+        }
+        // Try COLUMNS environment variable as fallback
+        String columnsEnv = System.getenv("COLUMNS");
+        if (columnsEnv != null && !columnsEnv.isEmpty()) {
+            try {
+                int envWidth = Integer.parseInt(columnsEnv);
+                if (envWidth > 0) {
+                    return envWidth;
+                }
+            } catch (NumberFormatException ignored) {
+                // Fall through to default
+            }
+        }
+        return DEFAULT_TERMINAL_WIDTH;
     }
 
     private static boolean readTruncateEnabled(ConfigManagerProvider configManagerProvider) {

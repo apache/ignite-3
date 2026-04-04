@@ -24,11 +24,16 @@ import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestio
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
+import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
+import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
+import org.jline.terminal.Terminal;
+import picocli.CommandLine;
+import picocli.CommandLine.IFactory;
 
 /**
  * Class which runs main REPL mode, it's used both when starting directly into the REPL mode and from the `connect` command.
@@ -50,8 +55,11 @@ public class ReplManager {
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;
 
+    @Inject
+    private Terminal terminal;
+
     /**
-     * Subscribes to CLI events. Should be called before {@link #startReplMode()}.
+     * Subscribes to CLI events. Should be called before {@link #startReplMode(IFactory)} ()}.
      */
     public void subscribe() {
         eventListeningActivationPoint.subscribe();
@@ -60,14 +68,16 @@ public class ReplManager {
     /**
      * Enters REPL mode.
      */
-    public void startReplMode() {
-        replExecutorProvider.get().execute(Repl.builder()
+    public void startReplMode(CommandLine.IFactory factory) {
+        QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
+
+        replExecutorProvider.get(factory).execute(Repl.builder()
                 .withPromptProvider(promptProvider)
                 .withCommandClass(TopLevelCliReplCommand.class)
                 .withDefaultValueProvider(defaultValueProvider)
                 .withCallExecutionPipelineProvider((executor, exceptionHandlers, line) ->
                         CallExecutionPipeline.builder(executor)
-                                .inputProvider(() -> new StringCallInput(line))
+                                .input(new StringCallInput(line))
                                 .output(System.out)
                                 .errOutput(System.err)
                                 .exceptionHandlers(new DefaultExceptionHandlers())

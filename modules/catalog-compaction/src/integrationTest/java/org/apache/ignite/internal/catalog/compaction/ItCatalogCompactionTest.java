@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.ConfigTemplates.DEFAULT_PROFILES;
+import static org.apache.ignite.internal.ConfigTemplates.renderConfigTemplate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -92,26 +92,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  },\n"
-                + "  storage.profiles: {"
-                + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-                + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-                + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-                + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-                + "  },\n"
-                + "  storage.engines: { "
-                + "    aipersist: { checkpoint: { "
-                + "      intervalMillis: " + CHECK_POINT_INTERVAL_MS
-                + "    } } "
-                + "  },\n"
-                + "  clientConnector.port: {},\n"
-                + "  rest.port: {},\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
-                + "}";
+        return renderConfigTemplate(
+                DEFAULT_PROFILES
+                + "  storage.engines.aipersist.checkpoint.intervalMillis: " + CHECK_POINT_INTERVAL_MS + ",\n"
+        );
     }
 
     @Override
@@ -157,14 +141,16 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         debug.recordCatalogState("init");
         debug.recordMinTxTimesState("init");
 
-        Catalog catalog1 = getLatestCatalog(node2);
+        Catalog catalog1 = awaitCatalogPublicationOnAllNodesAndGet(getLatestCatalog(node0).version());
+
         InternalTransaction tx1 = beginTx(node0, false);
         debug.recordTx(tx1);
 
         // Changing the catalog and starting transaction.
         sql("create table a(a int primary key)");
-        Catalog catalog2 = getLatestCatalog(node0);
-        assertThat(catalog2.version(), is(catalog1.version() + 1));
+
+        Catalog catalog2 = awaitCatalogPublicationOnAllNodesAndGet(catalog1.version() + 1);
+
         List<InternalTransaction> txs2 = Stream.of(node1, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
         List<InternalTransaction> ignoredReadonlyTxs = Stream.of(node0, node1, node2)
                 .map(node -> beginTx(node, true))
@@ -176,9 +162,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         // Changing the catalog again and starting transaction.
         sql("alter table a add column (b int)");
 
-        Awaitility.await().until(() -> getLatestCatalogVersion(node1), is(catalog2.version() + 1));
-        Catalog catalog3 = getLatestCatalog(node1);
-
+        Catalog catalog3 = awaitCatalogPublicationOnAllNodesAndGet(catalog2.version() + 1);
         List<InternalTransaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
         debug.recordTx(txs3);
@@ -332,6 +316,20 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                         catalogManager.earliestCatalogVersion(), is(expectedVersion));
             }
         });
+    }
+
+    private Catalog awaitCatalogPublicationOnAllNodesAndGet(int expectedVersion) {
+        Awaitility.await().pollInSameThread().untilAsserted(() -> {
+            for (int i = 0; i < initialNodes(); i++) {
+                assertThat("node#" + i, getLatestCatalogVersion(node(i)), is(expectedVersion));
+            }
+        });
+
+        Catalog catalog = getLatestCatalog(node(0));
+
+        assertThat(catalog.version(), is(expectedVersion));
+
+        return catalog;
     }
 
     private class DebugInfoCollector {

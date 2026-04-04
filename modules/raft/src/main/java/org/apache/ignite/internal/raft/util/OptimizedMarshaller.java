@@ -159,6 +159,7 @@ public class OptimizedMarshaller implements Marshaller {
     /**
      * Invoked on empty buffer, before writing any data to it.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
     }
 
