@@ -86,7 +86,7 @@ internal static class IgniteQueryParser
         return new CompoundExpressionTreeProcessor(
             new IExpressionTreeProcessor[]
             {
-                new PartialEvaluatingExpressionTreeProcessor(new CustomEvaluatableExpressionFilter()),
+                new PartialEvaluatingExpressionTreeProcessor(new IgniteEvaluatableExpressionFilter()),
                 new TransformingExpressionTreeProcessor(transformationProvider)
             });
     }
@@ -94,7 +94,7 @@ internal static class IgniteQueryParser
     /// <summary>
     /// Implementation of IEvaluatableExpressionFilter.
     /// </summary>
-    private sealed class CustomEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
+    private sealed class IgniteEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
     {
         // Ignores implicit ReadOnlySpan conversion to support C# 14 first class span Contains.
         public override bool IsEvaluatableMethodCall(MethodCallExpression node)
