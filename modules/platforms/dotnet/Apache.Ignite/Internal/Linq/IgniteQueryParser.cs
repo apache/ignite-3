@@ -25,7 +25,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using Dml;
-using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Parsing.ExpressionVisitors.Transformation;
 using Remotion.Linq.Parsing.ExpressionVisitors.TreeEvaluation;
 using Remotion.Linq.Parsing.Structure;
