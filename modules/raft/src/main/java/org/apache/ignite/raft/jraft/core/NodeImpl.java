@@ -50,11 +50,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
-import org.apache.ignite.internal.metrics.sources.LogManagerMetricSource;
 import org.apache.ignite.internal.metrics.sources.NodeMetricSource;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
-import org.apache.ignite.internal.metrics.sources.ReadOnlyServiceMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
@@ -1159,8 +1156,15 @@ public class NodeImpl implements Node, RaftServerService {
             this.writeLock.lock();
             if (this.conf.isStable() && this.conf.getConf().size() == 1 && this.conf.getConf().contains(this.serverId)) {
                 // The group contains only this server which must be the LEADER, trigger
-                // the timer immediately.
-                electSelf();
+                // the timer immediately. Skip if already a leader — the election timer may have
+                // fired and completed a full election between stepDown() and this lock acquisition,
+                // in which case calling electSelf() again would corrupt BallotBox / confCtx state.
+                if (this.state != State.STATE_LEADER) {
+                    electSelf();
+                }
+                else {
+                    this.writeLock.unlock();
+                }
             }
             else {
                 this.writeLock.unlock();
