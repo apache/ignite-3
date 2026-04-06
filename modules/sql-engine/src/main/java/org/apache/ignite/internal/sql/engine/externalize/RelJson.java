@@ -420,7 +420,15 @@ class RelJson {
                 RexLiteral literal = (RexLiteral) node;
                 Object value = literal.getValue3();
                 map = map();
-                map.put("literal", toJson(value));
+                // For approximate numeric types, serialize special floating-point values (NaN, ±Infinity, -0.0)
+                // as strings to preserve them through JSON round-trip. Jackson deserializes floating-point numbers
+                // as BigDecimal (due to USE_BIG_DECIMAL_FOR_FLOATS), which cannot represent these special values.
+                if (value instanceof Double && isApproximateNumeric(node.getType())
+                        && isSpecialFloatingPointValue((Double) value)) {
+                    map.put("literal", value.toString());
+                } else {
+                    map.put("literal", toJson(value));
+                }
                 map.put("type", toJson(node.getType()));
 
                 return map;
@@ -1061,5 +1069,16 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
+    }
+
+    /**
+     * Returns {@code true} if the given double value is a special IEEE 754 floating-point value
+     * that cannot be represented by {@link java.math.BigDecimal}: {@code NaN}, positive/negative
+     * infinity, or negative zero ({@code -0.0}).
+     */
+    private static boolean isSpecialFloatingPointValue(double d) {
+        return Double.isNaN(d)
+                || Double.isInfinite(d)
+                || d == 0.0 && Double.doubleToRawLongBits(d) != 0; // -0.0d
     }
 }

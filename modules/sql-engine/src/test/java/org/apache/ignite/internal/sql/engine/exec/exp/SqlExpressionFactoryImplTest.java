@@ -871,7 +871,7 @@ public class SqlExpressionFactoryImplTest extends BaseIgniteAbstractTest {
             SqlOperator op,
             float left,
             float right,
-            boolean exoected
+            boolean expected
     ) {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory tf = Commons.typeFactory();
@@ -887,7 +887,7 @@ public class SqlExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexNode filter = rexBuilder.makeCall(op, List.of(ref1, ref2));
 
         SqlPredicate predicate = expFactory.predicate(filter, rowType);
-        assertEquals(exoected, predicate.test(ctx, new Object[]{left, right}),
+        assertEquals(expected, predicate.test(ctx, new Object[]{left, right}),
                 "Failed for " + left + " " + op.getName() + " " + right);
     }
 
