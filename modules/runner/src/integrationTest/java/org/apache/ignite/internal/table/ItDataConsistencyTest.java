@@ -187,7 +187,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         Ignite node = node(0);
         Table accounts = node.tables().table("accounts");
 
-        log.info("After test ops={} restarts={} fails={} readOps={} readFails={}", ops.sum(), restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
+        log.info("After test ops={} restarts={} fails={} readOps={} readFails={}", ops.sum(), restarts.sum(), fails.sum(), readOps.sum(),
+                readFails.sum());
 
         double total0 = 0;
 
@@ -205,7 +206,6 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
                         .until(() -> ignite.txManager().lockManager().isEmpty());
             } catch (ConditionTimeoutException e) {
-                // TODO Dump lock manager state.
                 throw e;
             }
         }

@@ -1265,7 +1265,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
         kill(killMessage.txId());
     }
 
-    private void handleReplicaAsyncResponse(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+    private void handleReplicaAsyncResponse(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) { // NOPMD
         if (!(message instanceof ReplicaResponse)) {
             return;
         }
