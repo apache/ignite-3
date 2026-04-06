@@ -187,6 +187,9 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
 
+    /** Topology service. */
+    private final TopologyService topologyService;
+
     /** Local node. */
     private final InternalClusterNode localNode;
 
@@ -352,6 +355,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+        this.topologyService = topologyService;
         this.localNode = localNode;
         this.messagingService = messagingService;
         this.primaryReplicaExpiredListener = this::primaryReplicaExpiredListener;
@@ -1059,7 +1063,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
         // TODO https://issues.apache.org/jira/browse/IGNITE-23539
         lockManager.start(deadlockPreventionPolicy);
 
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+        messagingService.addMessageHandler(ReplicaMessageGroup.class, this::handleReplicaAsyncResponse);
 
         persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
                 replicaService,
