@@ -90,7 +90,7 @@ class RaftLogGcSoftLimitTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
@@ -102,7 +102,7 @@ class RaftLogGcSoftLimitTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         if (fileManager != null) {
-            fileManager.close();
+            fileManager.stop();
         }
     }
 

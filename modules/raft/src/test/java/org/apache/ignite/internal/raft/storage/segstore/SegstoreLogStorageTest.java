@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -53,7 +52,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAllManually(segmentFileManager);
+        segmentFileManager.stop();
     }
 
     @Override
@@ -64,7 +63,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
                     path,
                     1,
                     new NoOpFailureManager(),
-                    raftConfiguration,
+                    raftConfiguration.fsync().value(),
                     storageConfiguration
             );
 
@@ -85,7 +84,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         logStorage.appendEntries(TestUtils.mockEntries(numEntries));
 
         logStorage.shutdown();
-        segmentFileManager.close();
+        segmentFileManager.stop();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
@@ -107,7 +106,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         assertThat(logStorage.getLastLogIndex(), is(lastIndexKept));
 
         logStorage.shutdown();
-        segmentFileManager.close();
+        segmentFileManager.stop();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
@@ -129,7 +128,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
 
         logStorage.shutdown();
-        segmentFileManager.close();
+        segmentFileManager.stop();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
@@ -151,7 +150,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         assertThat(logStorage.getLastLogIndex(), is(nextLogIndex));
 
         logStorage.shutdown();
-        segmentFileManager.close();
+        segmentFileManager.stop();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());

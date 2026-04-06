@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.UNSPECIFIED_MAX_LOG_ENTRY_SIZE;
 import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.computeDefaultMaxLogEntrySizeBytes;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
@@ -33,16 +35,18 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.LogStorageView;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -91,7 +95,7 @@ import org.jetbrains.annotations.TestOnly;
  * <p>When a rollover happens and the segment file being replaced has at least 8 bytes left, a special {@link #SWITCH_SEGMENT_RECORD} is
  * written at the end of the file. If there are less than 8 bytes left, no switch records are written.
  */
-class SegmentFileManager implements ManuallyCloseable {
+class SegmentFileManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(SegmentFileManager.class);
 
     private static final int ROLLOVER_WAIT_TIMEOUT_MS = 30_000;
@@ -159,12 +163,12 @@ class SegmentFileManager implements ManuallyCloseable {
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
-            RaftConfiguration raftConfiguration,
+            boolean isSync,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
         this.segmentFilesDir = baseDir.resolve("segments");
         this.stripes = stripes;
-        this.isSync = raftConfiguration.fsync().value();
+        this.isSync = isSync;
 
         Files.createDirectories(segmentFilesDir);
 
@@ -192,6 +196,17 @@ class SegmentFileManager implements ManuallyCloseable {
                 logStorageView.maxCheckpointQueueSize(),
                 garbageCollector::onLogStorageSizeIncreased
         );
+    }
+
+    @Override
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                start();
+            } catch (IOException e) {
+                throw new CompletionException(e);
+            }
+        }, componentContext.executor());
     }
 
     void start() throws IOException {
@@ -243,6 +258,17 @@ class SegmentFileManager implements ManuallyCloseable {
         garbageCollector.start();
 
         checkpointer.start();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        try {
+            stop();
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return completedFuture(null);
     }
 
     Path segmentFilesDir() {
@@ -477,6 +503,8 @@ class SegmentFileManager implements ManuallyCloseable {
     private SegmentFileWithMemtable currentSegmentFile() {
         SegmentFileWithMemtable segmentFile = currentSegmentFile.get();
 
+        assert segmentFile != null : "Segment file manager is not started";
+
         if (!segmentFile.readOnly()) {
             return segmentFile;
         }
@@ -530,8 +558,7 @@ class SegmentFileManager implements ManuallyCloseable {
         }
     }
 
-    @Override
-    public void close() throws Exception {
+    public void stop() throws Exception {
         synchronized (rolloverLock) {
             if (isStopped) {
                 return;

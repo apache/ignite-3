@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -61,7 +60,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
                 workDir,
                 1,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
@@ -70,7 +69,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAllManually(segmentFileManager);
+        segmentFileManager.stop();
     }
 
     protected SegstoreLogStorage newLogStorage(long groupId) {

@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomByt
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -119,14 +118,14 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 failureManager,
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAllManually(fileManager);
+        fileManager.stop();
     }
 
     @Test
@@ -281,7 +280,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @RepeatedTest(10)
-    void testConcurrentWritesWithClose(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws Exception {
+    void testConcurrentWritesWithStop(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws Exception {
         int batchSize = FILE_SIZE / 10;
 
         List<byte[]> batches = randomData(batchSize, 100);
@@ -296,7 +295,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
             if (i == batches.size() / 2) {
                 stopTask = runAsync(() -> {
                     try {
-                        fileManager.close();
+                        fileManager.stop();
                     } catch (Exception e) {
                         throw new CompletionException(e);
                     }
@@ -454,7 +453,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFiles.size() - 1));
 
-        fileManager.close();
+        fileManager.stop();
 
         // Delete an index file. We expect it to be re-created after recovery.
         Files.delete(indexFiles.get(0));
@@ -503,7 +502,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         assertThat(tmpIndexFiles(), hasSize(1));
 
-        fileManager.close();
+        fileManager.stop();
 
         for (Path indexFile : indexFiles()) {
             Files.delete(indexFile);
@@ -542,7 +541,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         fileManager.truncateSuffix(GROUP_ID, lastLogIndexKept);
 
         if (restart) {
-            fileManager.close();
+            fileManager.stop();
 
             for (Path indexFile : indexFiles()) {
                 Files.deleteIfExists(indexFile);
@@ -591,7 +590,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
 
         if (restart) {
-            fileManager.close();
+            fileManager.stop();
 
             for (Path indexFile : indexFiles()) {
                 Files.deleteIfExists(indexFile);
@@ -640,7 +639,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
 
         if (restart) {
-            fileManager.close();
+            fileManager.stop();
 
             for (Path indexFile : indexFiles()) {
                 Files.deleteIfExists(indexFile);

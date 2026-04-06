@@ -93,7 +93,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
@@ -107,7 +107,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         if (fileManager != null) {
-            fileManager.close();
+            fileManager.stop();
         }
     }
 
@@ -408,14 +408,14 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         Files.createFile(orphanedIndexFile);
 
-        fileManager.close();
+        fileManager.stop();
 
         fileManager = new SegmentFileManager(
                 NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
@@ -733,14 +733,14 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     private void restartSegmentFileManager() throws Exception {
-        fileManager.close();
+        fileManager.stop();
 
         fileManager = new SegmentFileManager(
                 NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
