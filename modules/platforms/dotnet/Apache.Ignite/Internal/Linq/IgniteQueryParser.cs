@@ -125,9 +125,8 @@ internal static class IgniteQueryParser
                 Type.MakeGenericMethodParameter(0)
             ])!;
 
-#pragma warning disable CA1819
+        [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Interface impl")]
         public ExpressionType[] SupportedExpressionTypes => [ExpressionType.Call];
-#pragma warning restore CA1819
 
         public static bool IsSpanImplicitConversion([NotNullWhen(true)] MethodCallExpression? node) =>
             node?.Method is { IsSpecialName: true, Name: "op_Implicit", DeclaringType.IsGenericType: true }
