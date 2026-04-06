@@ -1035,26 +1035,34 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        var deadlockPreventionPolicy = new WoundWaitDeadlockPreventionPolicy() {
+//        var deadlockPreventionPolicy = new WoundWaitDeadlockPreventionPolicy() {
+//            @Override
+//            public long waitTimeout() {
+//                return DEFAULT_LOCK_TIMEOUT;
+//            }
+//
+//            @Override
+//            public void failAction(UUID owner) {
+//                // TODO IGNITE-28447 sendTxRecoveryMessage and delete locks.
+//                TxStateMeta state = txStateVolatileStorage.state(owner);
+//                if (state == null || state.txCoordinatorId() == null) {
+//                    return; // Tx state is invalid. Locks will be cleaned up by tx recovery process.
+//                }
+//
+//                InternalClusterNode coordinator = topologyService.getById(state.txCoordinatorId());
+//                if (coordinator == null) {
+//                    return; // Tx is abandoned. Locks will be cleaned up by tx recovery process.
+//                }
+//
+//                txMessageSender.kill(coordinator, owner);
+//            }
+//        };
+
+        // This commented section is left intentionally.
+        var deadlockPreventionPolicy = new WaitDieDeadlockPreventionPolicy() {
             @Override
             public long waitTimeout() {
                 return DEFAULT_LOCK_TIMEOUT;
-            }
-
-            @Override
-            public void failAction(UUID owner) {
-                // TODO IGNITE-28447 sendTxRecoveryMessage and delete locks.
-                TxStateMeta state = txStateVolatileStorage.state(owner);
-                if (state == null || state.txCoordinatorId() == null) {
-                    return; // Tx state is invalid. Locks will be cleaned up by tx recovery process.
-                }
-
-                InternalClusterNode coordinator = topologyService.getById(state.txCoordinatorId());
-                if (coordinator == null) {
-                    return; // Tx is abandoned. Locks will be cleaned up by tx recovery process.
-                }
-
-                txMessageSender.kill(coordinator, owner);
             }
         };
 
