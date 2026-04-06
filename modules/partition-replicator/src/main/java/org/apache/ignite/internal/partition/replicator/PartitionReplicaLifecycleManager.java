@@ -189,7 +189,6 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -220,6 +219,8 @@ public class PartitionReplicaLifecycleManager extends
     private final MetaStorageManager metaStorageMgr;
 
     private final TopologyService topologyService;
+
+    private final InternalClusterNode localNode;
 
     private final LowWatermark lowWatermark;
 
@@ -319,6 +320,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param distributionZoneMgr Distribution zone manager.
      * @param metaStorageMgr Metastorage manager.
      * @param topologyService Topology service.
+     * @param localNode Local node.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *         will be executed.
@@ -342,6 +344,7 @@ public class PartitionReplicaLifecycleManager extends
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
@@ -368,6 +371,7 @@ public class PartitionReplicaLifecycleManager extends
                 distributionZoneMgr,
                 metaStorageMgr,
                 topologyService,
+                localNode,
                 lowWatermark,
                 failureProcessor,
                 ioExecutor,
@@ -386,6 +390,7 @@ public class PartitionReplicaLifecycleManager extends
                         txManager,
                         outgoingSnapshotsManager,
                         topologyService,
+                        localNode,
                         catalogService,
                         failureProcessor,
                         partitionOperationsExecutor,
@@ -406,6 +411,7 @@ public class PartitionReplicaLifecycleManager extends
             DistributionZoneManager distributionZoneMgr,
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
@@ -430,6 +436,7 @@ public class PartitionReplicaLifecycleManager extends
         this.distributionZoneMgr = distributionZoneMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.lowWatermark = lowWatermark;
         this.failureProcessor = failureProcessor;
         this.ioExecutor = ioExecutor;
@@ -471,7 +478,7 @@ public class PartitionReplicaLifecycleManager extends
                 placementDriverHelper,
                 txMessageSender,
                 txRecoveryEngine,
-                new Lazy<>(topologyService::localMember),
+                localNode,
                 commonExecutor
         );
 
@@ -862,7 +869,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
-                                                topologyService.localMember(),
+                                                localNode,
                                                 zonePartitionId,
                                                 transactionStateResolver,
                                                 txMessageSender,
@@ -977,7 +984,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private InternalClusterNode localNode() {
-        return topologyService.localMember();
+        return localNode;
     }
 
     @Override
@@ -2057,7 +2064,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
-        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+        if (localNode.id().equals(parameters.leaseholderId())) {
             ZonePartitionId groupId = (ZonePartitionId) parameters.groupId();
 
             // We do not wait future in order not to block meta storage updates.

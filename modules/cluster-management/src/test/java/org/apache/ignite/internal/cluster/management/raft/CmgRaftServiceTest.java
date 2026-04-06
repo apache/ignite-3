@@ -33,37 +33,26 @@ import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CmgRaftServiceTest extends BaseIgniteAbstractTest {
-    @Mock
-    private TimeAwareRaftGroupService raftGroupService;
-
-    @Mock
-    private TopologyService topologyService;
-
-    @SuppressWarnings("unused") // It's automatically injected to CmgRaftService.
-    @Mock
-    private LogicalTopology logicalTopology;
-
-    @InjectMocks
-    private CmgRaftService cmgRaftService;
-
     private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("host", 3000));
 
     @Test
-    void joinReadyCommandIsExecutedWithoutTimeout() {
-        when(topologyService.localMember()).thenReturn(localNode);
+    void joinReadyCommandIsExecutedWithoutTimeout(
+            @Mock TimeAwareRaftGroupService raftGroupService,
+            @Mock LogicalTopology logicalTopology
+    ) {
         when(raftGroupService.run(any(), anyLong())).thenReturn(nullCompletedFuture());
+
+        CmgRaftService cmgRaftService = new CmgRaftService(raftGroupService, localNode, logicalTopology);
 
         assertThat(cmgRaftService.completeJoinCluster(new EmptyNodeAttributes()), willCompleteSuccessfully());
 

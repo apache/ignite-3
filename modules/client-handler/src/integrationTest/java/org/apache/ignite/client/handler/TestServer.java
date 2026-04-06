@@ -19,8 +19,8 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
@@ -35,6 +35,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -46,9 +47,9 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
-import org.mockito.Mockito;
 
 /** Test server that can be started with SSL configuration. */
 public class TestServer {
@@ -117,9 +118,10 @@ public class TestServer {
 
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(new UUID(0, 0));
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+        ClusterService clusterService = mock(ClusterService.class);
+
+        when(clusterService.staticLocalNode())
+                .thenReturn(new ClusterNodeImpl(new UUID(0, 0), "consistent-id", new NetworkAddress("127.0.0.1", 123)));
 
         ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "Test Server");
 

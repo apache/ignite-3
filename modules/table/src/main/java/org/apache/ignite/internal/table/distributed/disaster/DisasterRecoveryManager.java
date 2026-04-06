@@ -98,7 +98,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -189,8 +188,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Raft manager. */
     final Loza raftManager;
 
-    /** Cluster physical topology service.  */
-    private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
 
     private final LogicalTopologyService logicalTopology;
 
@@ -231,7 +229,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             CatalogManager catalogManager,
             DistributionZoneManager dzManager,
             Loza raftManager,
-            TopologyService topologyService,
+            InternalClusterNode localNode,
             LogicalTopologyService logicalTopology,
             TableManager tableManager,
             MetricManager metricManager,
@@ -245,7 +243,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.catalogManager = catalogManager;
         this.dzManager = dzManager;
         this.raftManager = raftManager;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.logicalTopology = logicalTopology;
         this.tableManager = tableManager;
         this.metricManager = metricManager;
@@ -757,7 +755,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         .findFirst()
                         .orElseThrow();
 
-                String localNodeName = topologyService.localMember().name();
+                String localNodeName = localNode.name();
 
                 // If this is not the target node, forward the request and return its response.
                 if (!firstNode.equals(localNodeName)) {
@@ -1346,7 +1344,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     InternalClusterNode localNode() {
-        return topologyService.localMember();
+        return localNode;
     }
 
     private void onTableCreate(CreateTableEventParameters parameters) {

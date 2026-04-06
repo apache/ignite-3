@@ -189,8 +189,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
 
-    /** Topology service. */
-    private final TopologyService topologyService;
+    /** Local node. */
+    private final InternalClusterNode localNode;
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -283,7 +283,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             MetricManager metricManager
     ) {
         this(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode(),
                 txConfig,
                 systemCfg,
                 clusterService.messagingService(),
@@ -328,7 +328,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param metricManager Metric manager.
      */
     public TxManagerImpl(
-            String nodeName,
+            InternalClusterNode localNode,
             TransactionConfiguration txConfig,
             SystemDistributedConfiguration systemCfg,
             MessagingService messagingService,
@@ -357,7 +357,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.messagingService = messagingService;
         this.primaryReplicaExpiredListener = this::primaryReplicaExpiredListener;
         this.primaryReplicaElectedListener = this::primaryReplicaElectedListener;
@@ -377,7 +377,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         writeIntentSwitchPool = Executors.newFixedThreadPool(
                 cpus,
-                IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(localNode.name(), "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         orphanDetector = new OrphanDetector(
@@ -391,7 +391,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         txMessageSender = new TxMessageSender(messagingService, replicaService, clockService);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender,
-                topologyService, txStateVolatileStorage);
+                localNode, txStateVolatileStorage);
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
@@ -437,9 +437,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
         return primaryReplicaEventListener(eventParameters, groupId -> {
             if (localNodeId.equals(eventParameters.leaseholderId())) {
-                String localNodeName = topologyService.localMember().name();
-
-                txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+                txMessageSender.sendRecoveryCleanup(localNode.name(), groupId);
             }
         });
     }
@@ -980,7 +978,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
 
         // Adjust the timeout so local expiration happens after coordinator expiration.
-        var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, topologyService.localMember(),
+        var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, localNode,
                 timeout + clockService.maxClockSkewMillis()) {
             boolean isTimeout = false;
             TxState txState = PENDING;
@@ -1042,13 +1040,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         // TODO https://issues.apache.org/jira/browse/IGNITE-23539
         lockManager.start(deadlockPreventionPolicy);
 
-        localNodeId = topologyService.localMember().id();
+        localNodeId = localNode.id();
 
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
         persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
                 replicaService,
-                topologyService.localMember(),
+                localNode,
                 clockService,
                 placementDriver
         );

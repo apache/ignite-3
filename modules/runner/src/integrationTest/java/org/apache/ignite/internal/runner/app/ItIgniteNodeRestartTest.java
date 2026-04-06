@@ -421,8 +421,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
-        LogStorageManager partitionsLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
+        String nodeName = clusterSvc.staticLocalNode().name();
+
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath());
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
@@ -447,8 +448,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
-        LogStorageManager cmgLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
+        LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -510,14 +510,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        LogStorageManager msLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
+        LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         var metaStorageMgr = new MetaStorageManagerImpl(
-                clusterSvc,
+                clusterSvc.staticLocalNode(),
                 cmgManager,
                 logicalTopologyService,
                 raftMgr,
@@ -628,7 +627,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         ReplicaManager replicaMgr = new ReplicaManager(
-                name,
                 clusterSvc,
                 cmgManager,
                 groupId -> zonePartitionStableAssignments(metaStorageMgr, groupId),
@@ -665,7 +663,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var txManager = new TxManagerImpl(
-                name,
+                clusterSvc.staticLocalNode(),
                 txConfiguration,
                 systemDistributedConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
@@ -726,8 +724,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                name,
-                () -> clusterSvc.topologyService().localMember().id(),
+                clusterSvc.staticLocalNode(),
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
@@ -767,6 +764,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
+                clusterSvc.staticLocalNode(),
                 lowWatermark,
                 failureProcessor,
                 threadPoolsManager.tableIoExecutor(),
@@ -795,6 +793,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicationConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
+                clusterSvc.staticLocalNode(),
                 lockManager,
                 replicaService,
                 txManager,

@@ -578,6 +578,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
+                clusterService.staticLocalNode(),
                 mock(LockManager.class),
                 mock(ReplicaService.class),
                 tm,

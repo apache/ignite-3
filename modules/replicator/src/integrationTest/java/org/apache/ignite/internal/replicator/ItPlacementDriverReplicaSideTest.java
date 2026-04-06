@@ -185,7 +185,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
 
-        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
+        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).staticLocalNode();
 
         for (String nodeName : nodeNames) {
             ClusterService clusterService = clusterServices.get(nodeName);
@@ -195,7 +195,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
             LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     partitionsWorkDir.raftLogPath()
             );
 
@@ -224,7 +224,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
 
             var replicaManager = new ReplicaManager(
-                    nodeName,
                     clusterService,
                     cmgManager,
                     groupId -> completedFuture(Assignments.EMPTY),
@@ -326,7 +325,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 return;
             }
 
-            var handlerNode = handlerService.topologyService().localMember();
+            var handlerNode = handlerService.staticLocalNode();
 
             log.info("Lease is denied [replica={}, actor={}, redirect={}]", sender, handlerNode.name(),
                     ((StopLeaseProlongationMessage) msg).redirectProposal());

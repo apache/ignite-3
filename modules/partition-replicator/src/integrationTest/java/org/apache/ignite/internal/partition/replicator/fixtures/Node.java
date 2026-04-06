@@ -392,7 +392,9 @@ public class Node {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemLocalConfiguration, dir);
 
-        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+        String nodeName = clusterService.staticLocalNode().name();
+
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath());
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
@@ -424,8 +426,7 @@ public class Node {
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
-        cmgLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+        cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -467,14 +468,13 @@ public class Node {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
 
-        msLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+        msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         metaStorageManager = new MetaStorageManagerImpl(
-                clusterService,
+                clusterService.staticLocalNode(),
                 cmgManager,
                 logicalTopologyService,
                 raftManager,
@@ -661,7 +661,6 @@ public class Node {
         var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         replicaManager = new ReplicaManager(
-                name,
                 clusterService,
                 cmgManager,
                 groupId -> completedFuture(Assignments.EMPTY),
@@ -689,7 +688,7 @@ public class Node {
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         catalogCompactionRunner = new CatalogCompactionRunner(
-                name,
+                clusterService.staticLocalNode(),
                 (CatalogManagerImpl) catalogManager,
                 clusterService.messagingService(),
                 logicalTopologyService,
@@ -697,7 +696,6 @@ public class Node {
                 replicaSvc,
                 clockService,
                 schemaSyncService,
-                clusterService.topologyService(),
                 lowWatermark,
                 clockService::nowLong,
                 minTimeCollectorService,
@@ -709,8 +707,7 @@ public class Node {
                 clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
 
         distributionZoneManager = new DistributionZoneManager(
-                name,
-                () -> clusterService.topologyService().localMember().id(),
+                clusterService.staticLocalNode(),
                 metaStorageManager,
                 logicalTopologyService,
                 catalogManager,
@@ -737,6 +734,7 @@ public class Node {
                 distributionZoneManager,
                 metaStorageManager,
                 clusterService.topologyService(),
+                clusterService.staticLocalNode(),
                 lowWatermark,
                 failureManager,
                 threadPoolsManager.tableIoExecutor(),
@@ -777,6 +775,7 @@ public class Node {
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
+                clusterService.staticLocalNode(),
                 lockManager,
                 replicaSvc,
                 txManager,

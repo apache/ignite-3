@@ -246,7 +246,7 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
             Mapper<TestObjectWithAllTypes> valMapper
     ) {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        when(clusterService.topologyService().localMember().address())
+        when(clusterService.staticLocalNode().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
@@ -282,7 +282,7 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
             Mapper<TestObjectWithAllTypes> recMapper
     ) {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        when(clusterService.topologyService().localMember().address())
+        when(clusterService.staticLocalNode().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));

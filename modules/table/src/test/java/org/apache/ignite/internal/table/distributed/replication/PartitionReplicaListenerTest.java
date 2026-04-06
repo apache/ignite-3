@@ -531,8 +531,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             }
         });
 
-        when(topologySrv.localMember()).thenReturn(localNode);
-
         when(safeTimeClock.waitFor(any())).thenReturn(nullCompletedFuture());
         when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
@@ -651,7 +649,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         clockService
                 ),
                 new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
-                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                localNode,
                 Runnable::run
         );
 

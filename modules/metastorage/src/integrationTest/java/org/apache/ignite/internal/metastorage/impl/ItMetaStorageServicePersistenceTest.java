@@ -88,11 +88,10 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         InternalClusterNode followerNode = getNode(server);
 
         metaStorage = new MetaStorageServiceImpl(
-                followerNode.name(),
+                followerNode,
                 service,
                 new IgniteSpinBusyLock(),
-                server.options().getClock(),
-                followerNode.id()
+                server.options().getClock()
         );
 
         // Put some data in the metastorage
@@ -148,7 +147,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public RaftGroupListener createListener(ClusterService service, RaftServer server, Path listenerPersistencePath) {
-        String nodeName = service.nodeName();
+        String nodeName = service.staticLocalNode().name();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
             var s = new RocksDbKeyValueStorage(
@@ -187,6 +186,6 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     }
 
     private static InternalClusterNode getNode(RaftServer server) {
-        return server.clusterService().topologyService().localMember();
+        return server.clusterService().staticLocalNode();
     }
 }

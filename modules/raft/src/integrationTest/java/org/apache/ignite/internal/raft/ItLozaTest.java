@@ -173,7 +173,7 @@ public class ItLozaTest extends IgniteAbstractTest {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                spyService.nodeName(),
+                spyService.staticLocalNode().name(),
                 partitionsWorkDir.raftLogPath()
         );
 
@@ -203,7 +203,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
             RaftGroupService client = startClient(
                     new TestReplicationGroupId(Integer.toString(i)),
-                    spyService.topologyService().localMember(),
+                    spyService.staticLocalNode(),
                     partitionsConfigurer
             );
 
@@ -228,7 +228,7 @@ public class ItLozaTest extends IgniteAbstractTest {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 partitionsWorkDir.raftLogPath()
         );
 
@@ -240,7 +240,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
-        String nodeName = clusterService.nodeName();
+        String nodeName = clusterService.staticLocalNode().name();
 
         var volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("spill"));
 
@@ -318,7 +318,7 @@ public class ItLozaTest extends IgniteAbstractTest {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
+                clusterService.staticLocalNode().name(),
                 partitionsWorkDir.raftLogPath()
         );
         logStorageManager = spy(logStorageManager);
@@ -331,8 +331,8 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(clusterService.nodeName()));
-        Peer peer = configuration.peer(clusterService.nodeName());
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(clusterService.staticLocalNode().name()));
+        Peer peer = configuration.peer(clusterService.staticLocalNode().name());
 
         RaftGroupListener raftGroupListener = new DrainingRaftGroupListener();
 

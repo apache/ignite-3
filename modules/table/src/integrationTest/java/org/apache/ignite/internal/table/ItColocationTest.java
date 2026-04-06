@@ -193,7 +193,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
-        when(clusterService.topologyService().localMember()).thenReturn(clusterNode);
+        when(clusterService.staticLocalNode()).thenReturn(clusterNode);
 
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 

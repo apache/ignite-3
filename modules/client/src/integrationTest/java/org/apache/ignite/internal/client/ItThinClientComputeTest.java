@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
@@ -85,6 +84,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
@@ -295,8 +295,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
-        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // Async job completes normally after cooperative cancellation (returns from isCancelled() check) — COMPLETED.
+        // Sync job throws RuntimeException on thread interruption — FAILED (not CancellationException).
+        JobStatus expectedStatus = asyncJob ? COMPLETED : FAILED;
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(expectedStatus)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(expectedStatus)));
     }
 
     @Test
@@ -329,7 +332,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         // Cancel task 1, task 3 should start executing
         assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        // SleepJob throws RuntimeException, not CancellationException.
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(FAILED)));
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Task 2 is still queued
@@ -408,9 +412,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         cancelHandle.cancel();
 
+        // SleepJob throws RuntimeException on interrupt, not CancellationException.
         await().until(() -> executions, contains(
-                jobExecutionWithStatus(CANCELED),
-                jobExecutionWithStatus(CANCELED)
+                jobExecutionWithStatus(FAILED),
+                jobExecutionWithStatus(FAILED)
         ));
 
         assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
@@ -725,7 +730,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @ParameterizedTest
@@ -747,7 +752,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @Test

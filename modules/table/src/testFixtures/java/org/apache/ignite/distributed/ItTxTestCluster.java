@@ -303,15 +303,15 @@ public class ItTxTestCluster {
         @Override
         public @Nullable InternalClusterNode getById(UUID id) {
             for (ClusterService service : cluster) {
-                InternalClusterNode clusterNode = service.topologyService().localMember();
+                InternalClusterNode clusterNode = service.staticLocalNode();
 
                 if (clusterNode.id().equals(id)) {
                     return clusterNode;
                 }
             }
 
-            if (client != null && client.topologyService().localMember().id().equals(id)) {
-                return client.topologyService().localMember();
+            if (client != null && client.staticLocalNode().id().equals(id)) {
+                return client.staticLocalNode();
             }
 
             return null;
@@ -320,7 +320,7 @@ public class ItTxTestCluster {
         @Override
         public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
             for (ClusterService service : cluster) {
-                InternalClusterNode clusterNode = service.topologyService().localMember();
+                InternalClusterNode clusterNode = service.staticLocalNode();
 
                 if (clusterNode.name().equals(consistentId)) {
                     return clusterNode;
@@ -398,7 +398,7 @@ public class ItTxTestCluster {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
 
-        InternalClusterNode firstNode = first(cluster).topologyService().localMember();
+        InternalClusterNode firstNode = first(cluster).staticLocalNode();
 
         placementDriver = new TestPlacementDriver(firstNode);
 
@@ -439,7 +439,7 @@ public class ItTxTestCluster {
         for (int i = 0; i < nodes; i++) {
             ClusterService clusterService = cluster.get(i);
 
-            InternalClusterNode node = clusterService.topologyService().localMember();
+            InternalClusterNode node = clusterService.staticLocalNode();
 
             HybridClock clock = createClock(node);
             ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock, executor);
@@ -456,7 +456,7 @@ public class ItTxTestCluster {
 
             LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     "test",
-                    clusterService.nodeName(),
+                    clusterService.staticLocalNode().name(),
                     partitionsWorkDir.resolve("log"),
                     raftConfig.fsync().value()
             );
@@ -499,7 +499,6 @@ public class ItTxTestCluster {
             schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
             ReplicaManager replicaMgr = new ReplicaManager(
-                    nodeName,
                     clusterService,
                     cmgManager,
                     groupId -> completedFuture(Assignments.EMPTY),
@@ -621,7 +620,7 @@ public class ItTxTestCluster {
             LowWatermark lowWatermark
     ) {
         return new TxManagerImpl(
-                node.name(),
+                node,
                 txConfiguration,
                 systemDistributedConfig,
                 clusterService.messagingService(),
@@ -750,7 +749,7 @@ public class ItTxTestCluster {
                         new PlacementDriverHelper(placementDriver, clockServices.get(assignment)),
                         txMessageSender,
                         txRecoveryEngine,
-                        new Lazy<>(() -> mock(InternalClusterNode.class)),
+                        mock(InternalClusterNode.class),
                         Runnable::run
                 );
                 transactionStateResolver.start();
@@ -884,7 +883,7 @@ public class ItTxTestCluster {
     }
 
     private static String extractConsistentId(ClusterService nodeService) {
-        return nodeService.topologyService().localMember().name();
+        return nodeService.staticLocalNode().name();
     }
 
     /**
@@ -1282,12 +1281,12 @@ public class ItTxTestCluster {
 
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
-        clientClock = createClock(client.topologyService().localMember());
+        clientClock = createClock(client.staticLocalNode());
         clientClockWaiter = new ClockWaiter("client-node", clientClock, executor);
         assertThat(clientClockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
         clientClockService = new TestClockService(clientClock, clientClockWaiter);
 
-        LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
+        LOG.info("Replica manager has been started, node=[" + client.staticLocalNode() + ']');
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
@@ -1308,7 +1307,7 @@ public class ItTxTestCluster {
         clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService, txStateVolatileStorage);
 
         clientTxManager = new TxManagerImpl(
-                "client",
+                client.staticLocalNode(),
                 txConfiguration,
                 systemDistributedConfig,
                 client.messagingService(),
@@ -1354,7 +1353,7 @@ public class ItTxTestCluster {
                         clientClockService
                 ),
                 new TxRecoveryEngine(clientTxManager, client.topologyService()),
-                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                mock(InternalClusterNode.class),
                 Runnable::run
         );
 

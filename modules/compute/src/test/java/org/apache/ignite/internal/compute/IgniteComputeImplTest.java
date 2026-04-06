@@ -53,7 +53,6 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -78,7 +77,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -97,15 +95,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private ComputeComponentImpl computeComponent;
 
     @Mock
-    private LogicalTopologyService logicalTopologyService;
-
-    @Mock
     private PlacementDriver placementDriver;
 
     @Mock
     private HybridClock clock;
 
-    @InjectMocks
     private IgniteComputeImpl compute;
 
     @Mock
@@ -132,9 +126,18 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     void setupMocks() {
         jobTimestamp = new HybridTimestamp(System.currentTimeMillis(), 123);
 
-        lenient().when(topologyService.localMember()).thenReturn(localNode);
         lenient().when(topologyService.getByConsistentId(localNode.name())).thenReturn(localNode);
         lenient().when(topologyService.getByConsistentId(remoteNode.name())).thenReturn(remoteNode);
+
+        compute = new IgniteComputeImpl(
+                localNode.name(),
+                placementDriver,
+                topologyService,
+                igniteTables,
+                computeComponent,
+                clock,
+                observableTimestampTracker
+        );
     }
 
     @Test

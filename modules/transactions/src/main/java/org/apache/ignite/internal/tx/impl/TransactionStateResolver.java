@@ -57,7 +57,6 @@ import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
-import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -96,7 +95,7 @@ public class TransactionStateResolver {
 
     private final TxRecoveryEngine txRecoveryEngine;
 
-    private final Lazy<InternalClusterNode> localNode;
+    private final InternalClusterNode localNode;
 
     /**
      * The constructor.
@@ -119,7 +118,7 @@ public class TransactionStateResolver {
             PlacementDriverHelper placementDriverHelper,
             TxMessageSender txMessageSender,
             TxRecoveryEngine txRecoveryEngine,
-            Lazy<InternalClusterNode> localNode,
+            InternalClusterNode localNode,
             Executor throttledLogExecutor
     ) {
         this.txManager = txManager;
@@ -391,7 +390,7 @@ public class TransactionStateResolver {
         ReplicaMeta replicaMeta = placementDriverHelper.getCurrentPrimaryReplica(commitPartitionId);
 
         return replicaMeta == null
-                ? localNode.get().name() // Will be resolved correctly by tx cleanup sender.
+                ? localNode.name() // Will be resolved correctly by tx cleanup sender.
                 : replicaMeta.getLeaseholder();
     }
 

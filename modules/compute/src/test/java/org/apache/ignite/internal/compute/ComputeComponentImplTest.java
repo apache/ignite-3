@@ -145,6 +145,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponentImpl computeComponent;
 
+    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), INSTANCE_NAME, new NetworkAddress("local-host", 1));
     private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
     private final InternalClusterNode remoteNode = new ClusterNodeImpl(
             randomUUID(),
@@ -157,7 +158,6 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
-        lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
         UnitsClassLoader classLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
         UnitsClassLoaderContext jobContext = new UnitsClassLoaderContext(classLoader, ignored -> {});
@@ -175,7 +175,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 tracker -> ignite,
                 stateMachine,
                 computeConfiguration,
-                topologyService,
+                localNode,
                 new TestClockService(new HybridClockImpl()),
                 EventLog.NOOP
         );
@@ -184,6 +184,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 INSTANCE_NAME,
                 messagingService,
                 topologyService,
+                localNode,
                 logicalTopologyService,
                 unitsContextManager,
                 computeExecutor,

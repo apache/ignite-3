@@ -155,14 +155,14 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         String leaseholder = "local";
 
+        InternalClusterNode localNode = new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"));
+
         TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(
-                new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"))
-        );
 
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(localNode);
 
         for (int size : sizes) {
             log.info("Check: size=" + size);

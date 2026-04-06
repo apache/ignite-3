@@ -407,7 +407,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
             if (isServerAddress.test(addr)) { // RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
-                        .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
+                        .filter(peer -> peer.consistentId().equals(cluster.staticLocalNode().name())).findAny().get();
 
                 var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
 
@@ -419,7 +419,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
                 Path workingDir = dataPath.resolve("partitions");
 
                 LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                        cluster.nodeName(),
+                        cluster.staticLocalNode().name(),
                         workingDir.resolve("log")
                 );
 

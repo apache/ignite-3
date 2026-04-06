@@ -77,10 +77,12 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.NetworkAddress;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -178,8 +180,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private DataNodesManager createDataNodesManager(LowWatermark lowWatermark) {
         return new DataNodesManager(
-                NODE_NAME,
-                () -> nodeId,
+                new ClusterNodeImpl(nodeId, NODE_NAME, new NetworkAddress("127.0.0.1", 123)),
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 catalogManager,

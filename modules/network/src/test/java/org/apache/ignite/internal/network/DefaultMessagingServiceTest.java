@@ -712,6 +712,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 node.name(),
                 networkMessagesFactory,
                 topologyService,
+                node,
                 staleIdDetector,
                 classDescriptorRegistry,
                 marshaller,

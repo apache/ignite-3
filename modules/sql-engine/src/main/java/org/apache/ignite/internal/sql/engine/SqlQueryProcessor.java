@@ -280,7 +280,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** {@inheritDoc} */
     @Override
     public synchronized CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        InternalClusterNode localNode = clusterSrvc.topologyService().localMember();
+        InternalClusterNode localNode = clusterSrvc.staticLocalNode();
         String nodeName = localNode.name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(
@@ -375,7 +375,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
-                clusterSrvc.topologyService(),
+                localNode,
                 msgSrvc,
                 sqlSchemaManager,
                 ddlCommandHandler,
@@ -396,7 +396,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ));
 
         queryExecutor = registerService(new QueryExecutor(
-                clusterSrvc.topologyService().localMember().name(),
+                nodeName,
                 CACHE_FACTORY,
                 PARSED_RESULT_CACHE_SIZE,
                 new ParserServiceImpl(),

@@ -201,7 +201,7 @@ public class Loza implements RaftManager {
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,
-                IgniteThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
+                IgniteThreadFactory.create(clusterNetSvc.staticLocalNode().name(), CLIENT_POOL_NAME, LOG)
         );
     }
 

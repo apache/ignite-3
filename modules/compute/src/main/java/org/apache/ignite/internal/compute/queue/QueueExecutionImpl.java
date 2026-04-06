@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static org.apache.ignite.internal.compute.ComputeUtils.isCancellationException;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCanceledEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCancelingEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCompletedEvent;
@@ -209,11 +210,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 if (throwable instanceof QueueEntryCanceledException) {
                     logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(new CancellationException());
-                } else if (queueEntry.isInterrupted()) {
+                } else if (isCancellationException(throwable)) {
                     stateMachine.cancelJob(jobId);
                     logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(throwable);
-                } else if (retries.decrementAndGet() >= 0) {
+                } else if (!isCanceling() && retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
@@ -239,5 +240,10 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private boolean isCanceled() {
         JobState state = stateMachine.currentState(jobId);
         return state != null && state.status() == JobStatus.CANCELED;
+    }
+
+    private boolean isCanceling() {
+        JobState state = stateMachine.currentState(jobId);
+        return state != null && state.status() == JobStatus.CANCELING;
     }
 }

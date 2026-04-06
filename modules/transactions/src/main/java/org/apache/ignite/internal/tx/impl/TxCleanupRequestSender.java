@@ -24,7 +24,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
-import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.scheduleRetry;
 
@@ -51,9 +50,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
-import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
@@ -149,41 +146,25 @@ public class TxCleanupRequestSender {
         });
 
         if (ctx != null && ctx.partitions.isEmpty()) {
-            markTxnCleanupReplicated(info.txId(), ctx.txState, ctx.commitPartitionId);
+            markTxnCleanupReplicated(info.txId(), ctx.txState, ctx.commitTimestamp, ctx.commitPartitionId);
 
             writeIntentsReplicated.remove(info.txId());
         }
     }
 
-    private void markTxnCleanupReplicated(UUID txId, TxState state, ZonePartitionId commitPartitionId) {
+    private void markTxnCleanupReplicated(
+            UUID txId,
+            TxState state,
+            @Nullable HybridTimestamp commitTimestamp,
+            ZonePartitionId commitPartitionId
+    ) {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
-        TxStateMeta txStateMeta = txStateVolatileStorage.state(txId);
-        final CompletableFuture<HybridTimestamp> commitTimestampFuture;
-        if (state == TxState.COMMITTED && (txStateMeta == null || txStateMeta.commitTimestamp() == null)) {
-            commitTimestampFuture = placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartitionId)
-                    .thenCompose(replicaMeta -> {
-                                String primaryNode = replicaMeta.getLeaseholder();
-                                HybridTimestamp startTime = replicaMeta.getStartTime();
-                                return txMessageSender.resolveTxStateFromCommitPartition(
-                                            txStateResolutionParameters().txId(txId).commitGroupId(commitPartitionId).build(),
-                                            primaryNode,
-                                            startTime.longValue()
-                                        )
-                                        .thenApply(TransactionMeta::commitTimestamp);
-                            }
-                    );
-        } else {
-            HybridTimestamp existingCommitTs = txStateMeta == null ? null : txStateMeta.commitTimestamp();
-            commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
-        }
-
-        commitTimestampFuture.thenAccept(commitTimestamp ->
-                txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                        .commitPartitionId(commitPartitionId)
-                        .commitTimestamp(commitTimestamp)
-                        .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                        .build())
+        txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                .commitPartitionId(commitPartitionId)
+                .commitTimestamp(commitTimestamp)
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .build()
         );
     }
 
@@ -228,7 +209,12 @@ public class TxCleanupRequestSender {
         if (commitPartitionId != null) {
             writeIntentsReplicated.put(
                     txId,
-                    new CleanupContext(commitPartitionId, enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED)
+                    new CleanupContext(
+                            commitPartitionId,
+                            enlistedPartitions.keySet(),
+                            commit ? TxState.COMMITTED : TxState.ABORTED,
+                            commitTimestamp
+                    )
             );
         }
 
@@ -280,8 +266,12 @@ public class TxCleanupRequestSender {
             // Start tracking the partitions we want to learn the replication confirmation from.
             writeIntentsReplicated.put(
                     txId,
-                    new CleanupContext(commitPartitionId, new HashSet<>(partitionIds.keySet()),
-                            commit ? TxState.COMMITTED : TxState.ABORTED)
+                    new CleanupContext(
+                            commitPartitionId,
+                            new HashSet<>(partitionIds.keySet()),
+                            commit ? TxState.COMMITTED : TxState.ABORTED,
+                            commitTimestamp
+                    )
             );
         }
 
@@ -492,10 +482,19 @@ public class TxCleanupRequestSender {
          */
         private final TxState txState;
 
-        private CleanupContext(ZonePartitionId commitPartitionId, Set<ZonePartitionId> partitions, TxState txState) {
+        @Nullable
+        private final HybridTimestamp commitTimestamp;
+
+        private CleanupContext(
+                ZonePartitionId commitPartitionId,
+                Set<ZonePartitionId> partitions,
+                TxState txState,
+                @Nullable HybridTimestamp commitTimestamp
+        ) {
             this.commitPartitionId = commitPartitionId;
             this.partitions = partitions;
             this.txState = txState;
+            this.commitTimestamp = commitTimestamp;
         }
     }
 

@@ -23,7 +23,7 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.rest.client.api.RecoveryApi;
+import org.apache.ignite.rest.client.api.SystemDisasterRecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ResetClusterRequest;
 
@@ -38,7 +38,7 @@ public class ResetClusterCall implements Call<ResetClusterCallInput, String> {
 
     @Override
     public DefaultCallOutput<String> execute(ResetClusterCallInput input) {
-        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
+        SystemDisasterRecoveryApi client = new SystemDisasterRecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         ResetClusterRequest command = new ResetClusterRequest();
 
