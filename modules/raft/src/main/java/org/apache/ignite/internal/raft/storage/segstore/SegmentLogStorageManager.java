@@ -65,12 +65,12 @@ public class SegmentLogStorageManager implements LogStorageManager {
 
     @Override
     public Set<String> raftNodeStorageIdsOnDisk() {
-        throw new UnsupportedOperationException("");
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public long totalBytesOnDisk() {
-        throw new UnsupportedOperationException("");
+        return fileManager.logSizeBytes();
     }
 
     @Override

@@ -497,6 +497,11 @@ class SegmentFileManager implements IgniteComponent {
         return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
+    /** Returns current size of all log storage files in bytes. */
+    long logSizeBytes() {
+        return garbageCollector.logSizeBytes();
+    }
+
     /**
      * Returns the current segment file possibly waiting for an ongoing rollover to complete.
      */
