@@ -341,12 +341,12 @@ public class OffheapReadWriteLock {
         while (true) {
             long state = GridUnsafe.getLongVolatile(null, lock);
 
-            if (lockCount(state) != -1) {
+            long ownerId = getOwnerId(lock);
+            if (lockCount(state) != -1 || ownerId != NO_OWNER_ID && ownerId != Thread.currentThread().getId()) {
                 throw new IllegalMonitorStateException("Attempted to release write lock while not holding it "
                         + "[lock=" + hexLong(lock) + ", state=" + hexLong(state) + ']');
             }
 
-            // Do it strictly after the check, that the best we can do in the absence of K-CAS.
             clearOwnerId(lock);
 
             updated = releaseWithTag(state, tag);

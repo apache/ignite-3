@@ -67,8 +67,8 @@ public class ThreadUtils {
             return;
         }
 
-        // We don't really need a full stack, and shorter trace should be less disruptive I think.
-        int maxStackElements = 15;
+        // We don't really need a full stack, 64 as a default should be enough for debugging.
+        int maxStackElements = 64;
 
         ThreadInfo info = ManagementFactory.getThreadMXBean().getThreadInfo(threadId, maxStackElements);
         if (info == null) {
