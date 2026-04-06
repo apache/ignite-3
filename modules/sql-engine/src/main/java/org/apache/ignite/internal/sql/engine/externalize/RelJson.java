@@ -420,7 +420,19 @@ class RelJson {
                 RexLiteral literal = (RexLiteral) node;
                 Object value = literal.getValue3();
                 map = map();
-                map.put("literal", toJson(value));
+                // Convert the approximate numeric negative zero (-0.0) value to a string to preserve the minus sign,
+                // otherwise due to USE_BIG_DECIMAL_FOR_FLOATS jackson will create a BigDecimal from a double (-0.0)
+                // and this will result in the loss of the minus sign.
+                // Other special values +Infinity/-Infinity/NaN are serialized by jackson as strings.
+                // The value in RexLiteral for approximate types is always of type Double (see RexLiteral#valueMatchesType).
+                if (value instanceof Double
+                        && isApproximateNumeric(node.getType())
+                        && ((Double) value == -0.0d)) {
+                    map.put("literal", "-0.0");
+                } else {
+                    map.put("literal", toJson(value));
+                }
+
                 map.put("type", toJson(node.getType()));
 
                 return map;

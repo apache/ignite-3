@@ -378,18 +378,20 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val > 0", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(false));
+            assertThat(predicate.test(context, row(-0.0f)), is(false));
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
             assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(true));
             assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(false));
-            assertThat(predicate.test(context, row(Float.NaN)), is(false));
+            assertThat(predicate.test(context, row(Float.NaN)), is(true));
         }
 
         {
             IgnitePredicate predicate = factory.predicate("val <> 0", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(true));
+            assertThat(predicate.test(context, row(-0.0f)), is(true));
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -402,6 +404,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val <= 0", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(true));
+            assertThat(predicate.test(context, row(-0.0f)), is(true));
             assertThat(predicate.test(context, row(0.0f)), is(true));
             assertThat(predicate.test(context, row(100.5f)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -414,6 +417,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val IS NULL", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(false));
+            assertThat(predicate.test(context, row(-0.0f)), is(false));
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(false));
             assertThat(predicate.test(context, row(null)), is(true));
@@ -426,6 +430,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val IS NOT NULL", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(true));
+            assertThat(predicate.test(context, row(-0.0f)), is(true));
             assertThat(predicate.test(context, row(0.0f)), is(true));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -438,6 +443,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val < 0.1", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(true));
+            assertThat(predicate.test(context, row(-0.0f)), is(true));
             assertThat(predicate.test(context, row(0.0f)), is(true));
             assertThat(predicate.test(context, row(100.5f)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -450,12 +456,13 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val > 0.1", inputType);
 
             assertThat(predicate.test(context, row(-100.5f)), is(false));
+            assertThat(predicate.test(context, row(-0.0f)), is(false));
             assertThat(predicate.test(context, row(0.0f)), is(false));
             assertThat(predicate.test(context, row(100.5f)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
             assertThat(predicate.test(context, row(Float.POSITIVE_INFINITY)), is(true));
             assertThat(predicate.test(context, row(Float.NEGATIVE_INFINITY)), is(false));
-            assertThat(predicate.test(context, row(Float.NaN)), is(false));
+            assertThat(predicate.test(context, row(Float.NaN)), is(true));
         }
     }
 
@@ -469,18 +476,20 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val > 0", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(false));
+            assertThat(predicate.test(context, row(-0.0d)), is(false));
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
             assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(true));
             assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(false));
-            assertThat(predicate.test(context, row(Double.NaN)), is(false));
+            assertThat(predicate.test(context, row(Double.NaN)), is(true));
         }
 
         {
             IgnitePredicate predicate = factory.predicate("val <> 0", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(true));
+            assertThat(predicate.test(context, row(-0.0d)), is(true));
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -493,6 +502,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val <= 0", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(true));
+            assertThat(predicate.test(context, row(-0.0d)), is(true));
             assertThat(predicate.test(context, row(0.0)), is(true));
             assertThat(predicate.test(context, row(100.5)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -505,6 +515,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val IS NULL", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(false));
+            assertThat(predicate.test(context, row(-0.0d)), is(false));
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(false));
             assertThat(predicate.test(context, row(null)), is(true));
@@ -517,6 +528,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val IS NOT NULL", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(true));
+            assertThat(predicate.test(context, row(-0.0d)), is(true));
             assertThat(predicate.test(context, row(0.0)), is(true));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -529,6 +541,7 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val < 0.1", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(true));
+            assertThat(predicate.test(context, row(-0.0d)), is(true));
             assertThat(predicate.test(context, row(0.0)), is(true));
             assertThat(predicate.test(context, row(100.5)), is(false));
             assertThat(predicate.test(context, row(null)), is(false));
@@ -541,12 +554,13 @@ class IgnitePredicateTest extends AbstractExpressionFactoryTest {
             IgnitePredicate predicate = factory.predicate("val > 0.1", inputType);
 
             assertThat(predicate.test(context, row(-100.5)), is(false));
+            assertThat(predicate.test(context, row(-0.0d)), is(false));
             assertThat(predicate.test(context, row(0.0)), is(false));
             assertThat(predicate.test(context, row(100.5)), is(true));
             assertThat(predicate.test(context, row(null)), is(false));
             assertThat(predicate.test(context, row(Double.POSITIVE_INFINITY)), is(true));
             assertThat(predicate.test(context, row(Double.NEGATIVE_INFINITY)), is(false));
-            assertThat(predicate.test(context, row(Double.NaN)), is(false));
+            assertThat(predicate.test(context, row(Double.NaN)), is(true));
         }
     }
 
