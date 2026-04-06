@@ -27,9 +27,11 @@ import org.apache.ignite.internal.tx.Lock;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
+/**
+ * Validates if a lock future will wait for expected owner.
+ */
 public class LockWaiterMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> {
     private final UUID waiterId;
-    private CompletableFuture<Lock> item;
 
     private LockWaiterMatcher(UUID txId) {
         this.waiterId = txId;
@@ -38,7 +40,6 @@ public class LockWaiterMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> 
     @Override
     protected boolean matchesSafely(CompletableFuture<Lock> item) {
         try {
-            this.item = item;
             item.get(50, TimeUnit.MILLISECONDS);
             return false; // Timeout exception is expected.
         } catch (TimeoutException e) {

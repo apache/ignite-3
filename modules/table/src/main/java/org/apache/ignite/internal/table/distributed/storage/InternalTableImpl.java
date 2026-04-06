@@ -649,7 +649,7 @@ public class InternalTableImpl implements InternalTable {
             if (req.isWrite()) {
                 // Track only write requests from explicit transactions.
                 if (!tx.remote() && !transactionInflights.addInflight(tx.id())) {
-                    // TODO can add inflight even if the error
+                    // TODO IGNITE-28461 fail fast if TxContext.err != null.
                     return failedFuture(tx.enlistFailedException());
                 }
 

@@ -156,7 +156,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThread.join(3_000);
         }
 
-        // TODO unregisted from timeout tracker killed transactions!!!!
+        // TODO IGNITE-28464 unregister from expiration tracker.
         validate();
     }
 

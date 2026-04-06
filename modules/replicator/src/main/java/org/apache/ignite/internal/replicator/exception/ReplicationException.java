@@ -23,7 +23,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.tx.RetriableReplicaRequestException;
-import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * The exception is thrown when some issue happened during a replication.

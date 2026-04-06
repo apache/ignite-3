@@ -416,6 +416,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx4 = (InternalTransaction) igniteTransactions.begin();
 
+        assertTrue(tx3.id().compareTo(tx4.id()) < 0);
+        assertTrue(tx2.id().compareTo(tx3.id()) < 0);
+        assertTrue(tx1.id().compareTo(tx2.id()) < 0);
+
         boolean reversed = txManager(accounts).lockManager().policy().reverse();
         if (reversed) {
             InternalTransaction tmp = tx1;
@@ -426,10 +430,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             tx2 = tx3;
             tx3 = tmp;
         }
-
-        assertTrue(tx3.id().compareTo(tx4.id()) < 0);
-        assertTrue(tx2.id().compareTo(tx3.id()) < 0);
-        assertTrue(tx1.id().compareTo(tx2.id()) < 0);
 
         RecordView<Tuple> acc0 = accounts.recordView();
         RecordView<Tuple> acc2 = accounts.recordView();
@@ -986,34 +986,25 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     public void testGetAllConflict() throws Exception {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
-        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction older = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction younger = (InternalTransaction) igniteTransactions.begin();
 
         boolean reversed = txManager(accounts).lockManager().policy().reverse();
-
-        Transaction owner = reversed ? tx2 : tx1;
-        Transaction waiter = reversed ? tx1 : tx2;
 
         RecordView<Tuple> txAcc = accounts.recordView();
         RecordView<Tuple> txAcc2 = accounts.recordView();
 
-        txAcc2.upsert(owner, makeValue(1, 300.));
-        txAcc.upsert(waiter, makeValue(2, 400.));
+        txAcc2.upsert(older, makeValue(1, 300.));
+        txAcc.upsert(younger, makeValue(2, 400.));
 
-        CompletableFuture<List<Tuple>> fut = txAcc.getAllAsync(waiter, List.of(makeKey(2), makeKey(1)));
-        ensureFutureNotCompleted(fut, 100);
+        // Triggers a conflict, which invalidates younger transaction.
+        txAcc.getAllAsync(reversed ? younger : older, List.of(makeKey(2), makeKey(1)));
+        assertTrue(waitForCondition(() -> TxState.ABORTED == younger.state(), 5_000), younger.state().toString());
 
-        validateBalance(txAcc2.getAll(owner, List.of(makeKey(2), makeKey(1))), 200., 300.);
-        validateBalance(txAcc2.getAll(owner, List.of(makeKey(1), makeKey(2))), 300., 200.);
+        validateBalance(txAcc2.getAll(older, List.of(makeKey(2), makeKey(1))), 200., 300.);
+        validateBalance(txAcc2.getAll(older, List.of(makeKey(1), makeKey(2))), 300., 200.);
 
-        assertTrue(waitForCondition(() -> TxState.ABORTED == tx2.state(), 5_000), tx2.state().toString());
-
-        owner.commit();
-        try {
-            waiter.rollback();
-        } catch (TransactionException e) {
-            // Expected.
-        }
+        older.commit();
 
         validateBalance(accounts.recordView().getAll(null, List.of(makeKey(2), makeKey(1))), 200., 300.);
     }

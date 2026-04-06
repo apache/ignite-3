@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.test;
 
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.util.UUID;
@@ -33,10 +32,13 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 
+/**
+ * Validates if a lock future will be granted to expected owner.
+ */
 public class LockFutureMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> {
     private final Matcher<Lock> lockModeMatcher;
 
-    public LockFutureMatcher(Matcher<Lock> lockModeMatcher) {
+    private LockFutureMatcher(Matcher<Lock> lockModeMatcher) {
         this.lockModeMatcher = lockModeMatcher;
     }
 

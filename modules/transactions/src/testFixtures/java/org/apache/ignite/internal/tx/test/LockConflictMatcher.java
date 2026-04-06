@@ -29,9 +29,11 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
+/**
+ * Validates if a lock operations ends with a conflict with expected transaction.
+ */
 public class LockConflictMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> {
     private final UUID conflictId;
-    private CompletableFuture<Lock> item;
 
     private LockConflictMatcher(UUID txId) {
         this.conflictId = txId;
@@ -40,7 +42,6 @@ public class LockConflictMatcher extends TypeSafeMatcher<CompletableFuture<Lock>
     @Override
     protected boolean matchesSafely(CompletableFuture<Lock> item) {
         try {
-            this.item = item;
             item.get(100, TimeUnit.MILLISECONDS);
             return false; // Exception is expected.
         } catch (InterruptedException | TimeoutException e) {

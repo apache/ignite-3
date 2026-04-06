@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static java.util.concurrent.atomic.AtomicLongFieldUpdater.newUpdater;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.jetbrains.annotations.Nullable;
@@ -34,6 +35,9 @@ import org.jetbrains.annotations.TestOnly;
 public class PartitionInflights {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS_HINT = 1024;
+
+    /** Field updater for inflights. */
+    private static final AtomicLongFieldUpdater<CleanupContext> UPDATER = newUpdater(CleanupContext.class, "inflights");
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, CleanupContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
@@ -58,7 +62,7 @@ public class PartitionInflights {
             if (ctx.finishFut != null || testPred.test(txId)) {
                 res[0] = false;
             } else {
-                ctx.inflights.incrementAndGet();
+                UPDATER.incrementAndGet(ctx);
                 if (requestType.isWrite()) {
                     ctx.hasWrites = true;
                 }
@@ -76,7 +80,7 @@ public class PartitionInflights {
      * @param ctx Cleanup context.
      */
     static void removeInflight(CleanupContext ctx) {
-        long val = ctx.inflights.decrementAndGet();
+        long val = UPDATER.decrementAndGet(ctx);
 
         if (ctx.finishFut != null && val == 0) {
             ctx.finishFut.complete(null);
@@ -96,11 +100,11 @@ public class PartitionInflights {
             }
 
             if (ctx.finishFut == null) {
-                ctx.finishFut = ctx.inflights.get() == 0 ? nullCompletedFuture() : new CompletableFuture<>();
+                ctx.finishFut = UPDATER.get(ctx) == 0 ? nullCompletedFuture() : new CompletableFuture<>();
             }
 
             // Avoiding a data race with a concurrent decrementing thread, which might not see finishFut publication.
-            if (ctx.inflights.get() == 0 && !ctx.finishFut.isDone()) {
+            if (UPDATER.get(ctx) == 0 && !ctx.finishFut.isDone()) {
                 ctx.finishFut = nullCompletedFuture();
             }
 
@@ -132,18 +136,8 @@ public class PartitionInflights {
      */
     public static class CleanupContext {
         volatile CompletableFuture<Void> finishFut;
-        AtomicLong inflights = new AtomicLong(0); // TODO atomic updater
+        volatile long inflights = 0;
         volatile boolean hasWrites = false;
-
-//        void addInflight() {
-//            inflights.incrementAndGet();
-//        }
-//
-//        void removeInflight(UUID txId) {
-//            //assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
-//
-//            inflights.decrementAndGet();
-//        }
     }
 
     @TestOnly

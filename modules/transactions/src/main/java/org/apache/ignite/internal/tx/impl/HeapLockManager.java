@@ -77,12 +77,12 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Lock waiters are placed in the queue, ordered according to transaction priority: older transactions are first.
  * When a new waiter is placed in the queue, it's validated against current lock owners: if a waiter is not allowed to wait,
- * according to the {@link HeapLockManager#deadlockPreventionPolicy}, lock request is denied.
+ * according to the {@link HeapLockManager#deadlockPreventionPolicy}, lock request is denied or current owner is invalidated.
  *
- * When an owner is removed from the queue (on lock release), first we try to lock anything possible in the first pass, in the second pass
- * fail conflicting waiters.
+ * <p>When an owner is removed from the queue (on lock release), first try locking anything possible.
+ * In the second conflicts, which can appear on first path, are resolved.
  *
- * <p>Additionally limits the lock map size.
+ * <p>Lock table size is limited and implicitly defines the maximum size of a transaction.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
     /** Table size. */
@@ -923,7 +923,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             synchronized (waiters) {
                 if (!isUsed()) {
-                    return new IgniteBiTuple<>(null, lockMode); // TODO ugly
+                    return new IgniteBiTuple<>(null, lockMode);
                 }
 
                 // We always replace the previous waiter with the new one. If the previous waiter has lock intention then incomplete
@@ -989,7 +989,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     // Notify once on first found conflict.
                     notified[0] = true;
                     if (notifyListeners(waiter.txId())) {
-                        // If there is an abandoned owner, fail waiter. TODO ticket
+                        // If there is an abandoned owner, fail waiter. TODO IGNITE-28458 wait instead of failing.
                         failWaiter(waiter, notifications, createLockException(waiter, owner, true));
 
                         return true;

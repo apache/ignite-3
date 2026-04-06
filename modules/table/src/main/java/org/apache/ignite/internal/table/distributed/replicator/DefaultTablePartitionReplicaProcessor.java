@@ -264,8 +264,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    private static final int CONCURRENCY = Runtime.getRuntime().availableProcessors();
-
     private final ZonePartitionId replicationGroupId;
 
     private final int tableId;

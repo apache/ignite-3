@@ -23,7 +23,15 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
 /**
- * Wound-wait prevention policy. TODO desc.
+ * Implements a deadlock prevention policy that resolves conflicts between two transactions (tx1 and tx2) contending for the same key. When
+ * tx1 holds a lock and tx2 attempts to acquire it, the policy allows tx2 to wait for the lock if any of the following conditions are
+ * met:
+ * <ul>
+ *     <li>tx2 is younger than tx1.</li>
+ *     <li>tx2 is older than tx1 but has a lower {@link org.apache.ignite.internal.tx.TxPriority}.</li>
+ *     <li>The wait timeout is greater than 0.</li>
+ * </ul>
+ * If none of these conditions are met, tx1 is killed to prevent deadlock.
  */
 public class WoundWaitDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
     private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
