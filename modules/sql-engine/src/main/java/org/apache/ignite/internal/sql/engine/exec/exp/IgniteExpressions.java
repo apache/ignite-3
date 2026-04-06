@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import java.lang.reflect.Type;
+import java.util.EnumSet;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.ExpressionType;
 import org.apache.calcite.linq4j.tree.Expressions;
@@ -29,6 +30,16 @@ import org.jetbrains.annotations.Nullable;
 
 /** Calcite liq4j expressions customized for Ignite. */
 public class IgniteExpressions {
+    /** Comparison expression types that need special handling for floating-point types. */
+    private static final EnumSet<ExpressionType> COMPARISON_EXPRESSION_TYPES = EnumSet.of(
+            ExpressionType.Equal,
+            ExpressionType.NotEqual,
+            ExpressionType.LessThan,
+            ExpressionType.LessThanOrEqual,
+            ExpressionType.GreaterThan,
+            ExpressionType.GreaterThanOrEqual
+    );
+
     /** Make binary expression with arithmetic operations override. */
     public static Expression makeBinary(ExpressionType binaryType, Expression left, Expression right) {
         switch (binaryType) {
@@ -41,6 +52,13 @@ public class IgniteExpressions {
             case Divide:
                 return divideExact(left, right);
             default:
+                if (COMPARISON_EXPRESSION_TYPES.contains(binaryType)) {
+                    Expression floatingPointCmp = compareFloatingPoint(binaryType, left, right);
+                    if (floatingPointCmp != null) {
+                        return floatingPointCmp;
+                    }
+                }
+
                 return Expressions.makeBinary(binaryType, left, right);
         }
     }
@@ -159,6 +177,42 @@ public class IgniteExpressions {
         }
 
         return Expressions.makeUnary(unaryType, operand);
+    }
+
+    /**
+     * Generates a comparison expression for floating-point types using {@link Float#compare(float, float)}
+     * or {@link Double#compare(double, double)} instead of primitive comparison operators.
+     *
+     * <p>This is necessary because Java primitive comparisons ({@code ==}, {@code <}, etc.) do not handle
+     * {@code NaN} values in a way consistent with SQL semantics. For example, {@code Float.NaN == Float.NaN}
+     * is {@code false} in Java primitive arithmetic, but SQL expects {@code NaN = NaN} to be {@code true}.
+     *
+     * <p>Using {@code Float.compare}/{@code Double.compare} treats {@code NaN} as equal to itself and greater
+     * than all other values, which matches the expected SQL behavior.
+     *
+     * @param binaryType The comparison expression type.
+     * @param left Left operand.
+     * @param right Right operand.
+     * @return A comparison expression using {@code compare()}, or {@code null} if the operands are not floating-point.
+     */
+    private static @Nullable Expression compareFloatingPoint(ExpressionType binaryType, Expression left, Expression right) {
+        Type leftType = left.getType();
+        Type rightType = right.getType();
+
+        boolean isFloat = leftType == Float.TYPE || rightType == Float.TYPE;
+        boolean isDouble = leftType == Double.TYPE || rightType == Double.TYPE;
+
+        if (!isFloat && !isDouble) {
+            return null;
+        }
+
+        // Double takes precedence over Float
+        Class<?> compareClass = isDouble ? Double.class : Float.class;
+
+        // Generate: Float.compare(left, right) op 0  or  Double.compare(left, right) op 0
+        Expression cmp = Expressions.call(compareClass, "compare", left, right);
+
+        return Expressions.makeBinary(binaryType, cmp, Expressions.constant(0));
     }
 
     /** Find larger in type hierarchy. */

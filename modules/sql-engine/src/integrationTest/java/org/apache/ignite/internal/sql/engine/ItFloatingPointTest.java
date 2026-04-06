@@ -205,15 +205,15 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
         assertQuery("SELECT fn FROM test WHERE fn = '-Infinity'::FLOAT").returns(Float.NEGATIVE_INFINITY).check();
         assertQuery("SELECT f FROM test WHERE f = '+Infinity'::FLOAT").returns(Float.POSITIVE_INFINITY).check();
         assertQuery("SELECT fn FROM test WHERE fn = '+Infinity'::FLOAT").returns(Float.POSITIVE_INFINITY).check();
-        assertQuery("SELECT f FROM test WHERE f = 'NaN'::FLOAT").returnNothing().check(); // NaN never equals
-        assertQuery("SELECT fn FROM test WHERE fn = 'NaN'::FLOAT").returnNothing().check(); // NaN never equals
+        assertQuery("SELECT f FROM test WHERE f = 'NaN'::FLOAT").returns(Float.NaN).check();
+        assertQuery("SELECT fn FROM test WHERE fn = 'NaN'::FLOAT").returns(Float.NaN).check();
 
         assertQuery("SELECT d FROM test WHERE d = '-Infinity'::DOUBLE").returns(Double.NEGATIVE_INFINITY).check();
         assertQuery("SELECT dn FROM test WHERE dn = '-Infinity'::DOUBLE").returns(Double.NEGATIVE_INFINITY).check();
         assertQuery("SELECT d FROM test WHERE d = '+Infinity'::DOUBLE").returns(Double.POSITIVE_INFINITY).check();
         assertQuery("SELECT dn FROM test WHERE dn = '+Infinity'::DOUBLE").returns(Double.POSITIVE_INFINITY).check();
-        assertQuery("SELECT d FROM test WHERE d = 'NaN'::DOUBLE").returnNothing().check(); // NaN never equals
-        assertQuery("SELECT dn FROM test WHERE dn = 'NaN'::DOUBLE").returnNothing().check(); // NaN never equals
+        assertQuery("SELECT d FROM test WHERE d = 'NaN'::DOUBLE").returns(Double.NaN).check();
+        assertQuery("SELECT dn FROM test WHERE dn = 'NaN'::DOUBLE").returns(Double.NaN).check();
     }
 
     @Test
