@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -48,12 +49,22 @@ public class ClientTupleReplaceExactRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, notificationSender, tsTracker, of(READ_SECOND_TUPLE))
+        return ClientTupleRequestBase.readAsync(
+                        in,
+                        tables,
+                        resources,
+                        metrics,
+                        txManager,
+                        notificationSender,
+                        tsTracker,
+                        of(READ_SECOND_TUPLE)
+                )
                 .thenCompose(req -> req.table().recordView().replaceExactAsync(req.tx(), req.tuple(), req.tuple2())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

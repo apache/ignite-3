@@ -115,6 +115,7 @@ public class ClientSqlExecuteRequest {
                 in,
                 timestampTracker,
                 resources,
+                metrics,
                 txManager,
                 tables,
                 notificationSender,
