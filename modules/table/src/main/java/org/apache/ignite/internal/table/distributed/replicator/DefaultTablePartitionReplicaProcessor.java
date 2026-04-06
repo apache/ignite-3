@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.replicator.PartitionInflights.removeInflight;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
 import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
@@ -342,13 +343,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     /** Registry of replica request handlers. */
     private final ReplicaRequestHandlers requestHandlers;
-
-    /**
-     * Guards against concurrent pending lock release on await cleanup path and lock acquisition during transactional operation.
-     * A situation is possible then a table operation acquires large number of locks and release attempt
-     * is done in the middle of it. Some locks are not released in this situation.
-     */
-    private final Map<UUID, Void> releaseLocksGuard = new ConcurrentHashMap<>(Runtime.getRuntime().availableProcessors());
 
     /**
      * The constructor.
@@ -1563,7 +1557,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
             // Using non-retriable exception intentionally to prevent unnecessary retries.
             // Killed state will be propagated in the cause.
-            releaseLocksGuard.compute(txId, (k, v) -> {
+            partitionInflights.runClosure(txId, () -> {
                 lockManager.failAllWaiters(txId, new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                         format("Can't acquire a lock because {} [{}].",
@@ -1576,8 +1570,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                                 formatTxInfo(txId, txManager)),
                         publicCause
                 ));
-
-                return null;
             });
         }
 
@@ -1692,10 +1684,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         if (full) {
             AtomicReference<CompletableFuture<T>> futRef = new AtomicReference<>();
 
-            releaseLocksGuard.compute(txId, (k, v) -> {
+            partitionInflights.runClosure(txId, () -> {
                 futRef.set(op.get());
-
-                return null;
             });
 
             return futRef.get().whenComplete((v, th) -> {
@@ -1743,35 +1733,31 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         try {
             AtomicReference<CompletableFuture<T>> futRef = new AtomicReference<>();
 
-            releaseLocksGuard.compute(txId, (k, v) -> {
-                futRef.set(op.get());
-
-                return null;
-            });
+            partitionInflights.runClosure(txId, () -> futRef.set(op.get()));
 
             futRef.get().whenComplete((v, th) -> {
                 if (th != null) {
-                    partitionInflights.removeInflight(ctx);
+                    removeInflight(ctx);
                 } else {
                     if (v instanceof ReplicaResult) {
                         ReplicaResult res = (ReplicaResult) v;
 
                         if (res.applyResult().replicationFuture() != null) {
                             res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-                                partitionInflights.removeInflight(ctx);
+                                removeInflight(ctx);
                             });
                         } else {
-                            partitionInflights.removeInflight(ctx);
+                            removeInflight(ctx);
                         }
                     } else {
-                        partitionInflights.removeInflight(ctx);
+                        removeInflight(ctx);
                     }
                 }
             });
 
             return futRef.get();
         } catch (Throwable err) {
-            partitionInflights.removeInflight(ctx);
+            removeInflight(ctx);
             throw err;
         }
     }

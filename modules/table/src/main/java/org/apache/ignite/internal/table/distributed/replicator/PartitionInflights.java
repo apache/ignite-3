@@ -75,6 +75,20 @@ public class PartitionInflights {
     }
 
     /**
+     * Runs a closure under a transaction lock.
+     *
+     * @param txId Transaction id.
+     * @param r Runnable.
+     */
+    public void runClosure(UUID txId, Runnable r) {
+        txCtxMap.compute(txId, (uuid, ctx) -> {
+            r.run();
+
+            return ctx;
+        });
+    }
+
+    /**
      * Unregisters the inflight for a transaction.
      *
      * @param ctx Cleanup context.
