@@ -1684,9 +1684,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         if (full) {
             AtomicReference<CompletableFuture<T>> futRef = new AtomicReference<>();
 
-            partitionInflights.runClosure(txId, () -> {
-                futRef.set(op.get());
-            });
+            partitionInflights.runClosure(txId, () -> futRef.set(op.get()));
 
             return futRef.get().whenComplete((v, th) -> {
                 // Fast unlock.
