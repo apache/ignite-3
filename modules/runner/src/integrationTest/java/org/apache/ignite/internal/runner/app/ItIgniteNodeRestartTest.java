@@ -787,13 +787,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         TableManager tableManager = new TableManager(
-                name,
+                clusterSvc.staticLocalNode(),
                 registry,
                 gcConfig,
                 replicationConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
-                clusterSvc.staticLocalNode(),
                 lockManager,
                 replicaService,
                 txManager,

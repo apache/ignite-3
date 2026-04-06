@@ -17,22 +17,23 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayContaining;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Tests for {@link CancelHandleHelper}.
@@ -141,12 +142,13 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
         cancelHandle.cancel();
         assertTrue(cancelHandle.isCancelled());
 
-        Runnable action = Mockito.mock(Runnable.class);
+        AtomicInteger counter = new AtomicInteger();
+        Runnable action = counter::incrementAndGet;
         CompletableFuture<Void> f = new CompletableFuture<>();
 
         // Attach it to some operation hasn't completed yet
         CancelHandleHelper.addCancelAction(token, action, f);
-        verify(action, times(1)).run();
+        assertThat(counter.get(), is(1));
 
         cancelHandle.cancelAsync().join();
         // We do not wait for cancellation to complete because
@@ -155,7 +157,7 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
 
         // Action runs immediately
         CancelHandleHelper.addCancelAction(token, action, f);
-        verify(action, times(2)).run();
+        assertThat(counter.get(), is(2));
     }
 
     @Test
@@ -166,12 +168,13 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
         cancelHandle.cancelAsync();
         assertTrue(cancelHandle.isCancelled());
 
-        Runnable action = Mockito.mock(Runnable.class);
+        AtomicInteger counter = new AtomicInteger();
+        Runnable action = counter::incrementAndGet;
         CompletableFuture<Void> f = new CompletableFuture<>();
 
         // Attach it to some operation hasn't completed yet
         CancelHandleHelper.addCancelAction(token, action, f);
-        verify(action, times(1)).run();
+        assertThat(counter.get(), is(1));
 
         cancelHandle.cancelAsync().join();
         // We do not wait for cancellation to complete because
@@ -180,39 +183,33 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
 
         // Action runs immediately
         CancelHandleHelper.addCancelAction(token, action, f);
-        verify(action, times(2)).run();
+        assertThat(counter.get(), is(2));
     }
 
     @Test
     public void testArgumentsMustNotBeNull() {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
-        Runnable action = Mockito.mock(Runnable.class);
+        Runnable action = () -> {};
         CompletableFuture<Void> f = nullCompletedFuture();
 
-        {
-            NullPointerException err = assertThrows(
-                    NullPointerException.class,
-                    () -> CancelHandleHelper.addCancelAction(null, action, f)
-            );
-            assertEquals("token", err.getMessage());
-        }
+        assertThrows(
+                NullPointerException.class,
+                () -> CancelHandleHelper.addCancelAction(null, action, f),
+                "token"
+        );
 
-        {
-            NullPointerException err = assertThrows(
-                    NullPointerException.class,
-                    () -> CancelHandleHelper.addCancelAction(token, null, f)
-            );
-            assertEquals("cancelAction", err.getMessage());
-        }
+        assertThrows(
+                NullPointerException.class,
+                () -> CancelHandleHelper.addCancelAction(token, null, f),
+                "cancelAction"
+        );
 
-        {
-            NullPointerException err = assertThrows(
-                    NullPointerException.class,
-                    () -> CancelHandleHelper.addCancelAction(token, action, null)
-            );
-            assertEquals("completionFut", err.getMessage());
-        }
+        assertThrows(
+                NullPointerException.class,
+                () -> CancelHandleHelper.addCancelAction(token, action, null),
+                "completionFut"
+        );
     }
 
     @Test
@@ -284,10 +281,168 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
         f1.complete(null);
         f2.complete(null);
 
-        IgniteException err = assertThrows(IgniteException.class, cancelHandle::cancel);
+        Throwable err = assertThrowsWithCode(
+                IgniteException.class,
+                Common.INTERNAL_ERR,
+                cancelHandle::cancel,
+                "Failed to cancel an operation"
+        );
 
-        assertEquals("Failed to cancel an operation", err.getMessage());
-        assertEquals(Common.INTERNAL_ERR, err.code(), err.toString());
-        assertEquals(Arrays.asList(e1, e2), Arrays.asList(err.getSuppressed()));
+        assertThat(err.getSuppressed(), arrayContaining(e1, e2));
+    }
+
+    @Test
+    public void testTokenIsCancelled() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        assertThat(token.isCancelled(), is(false));
+
+        cancelHandle.cancel();
+
+        assertThat(token.isCancelled(), is(true));
+    }
+
+    @Test
+    public void testTokenIsCancelledAsync() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        assertThat(token.isCancelled(), is(false));
+
+        cancelHandle.cancelAsync();
+
+        assertThat(token.isCancelled(), is(true));
+    }
+
+    @Test
+    public void testListenCallbackInvokedOnCancel() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        AtomicBoolean callbackCalled = new AtomicBoolean();
+        token.addListener(() -> callbackCalled.set(true));
+
+        assertThat(callbackCalled.get(), is(false));
+
+        cancelHandle.cancel();
+
+        assertThat(callbackCalled.get(), is(true));
+    }
+
+    @Test
+    public void testListenCallbackInvokedImmediatelyIfAlreadyCancelled() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        cancelHandle.cancel();
+
+        AtomicBoolean callbackCalled = new AtomicBoolean();
+        token.addListener(() -> callbackCalled.set(true));
+
+        assertThat(callbackCalled.get(), is(true));
+    }
+
+    @Test
+    public void testListenMultipleCallbacks() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        AtomicInteger counter = new AtomicInteger();
+        token.addListener(counter::incrementAndGet);
+        token.addListener(counter::incrementAndGet);
+        token.addListener(counter::incrementAndGet);
+
+        cancelHandle.cancel();
+
+        assertThat(counter.get(), is(3));
+    }
+
+    @Test
+    public void testListenCloseRemovesCallback() throws Exception {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        AtomicBoolean callbackCalled = new AtomicBoolean();
+        AutoCloseable handle = token.addListener(() -> callbackCalled.set(true));
+
+        // Close the handle before cancellation
+        handle.close();
+
+        cancelHandle.cancel();
+
+        // Callback should not have been called
+        assertThat(callbackCalled.get(), is(false));
+    }
+
+    @Test
+    public void testListenCloseAfterCancelIsNoOp() throws Exception {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        AtomicBoolean callbackCalled = new AtomicBoolean();
+        AutoCloseable handle = token.addListener(() -> callbackCalled.set(true));
+
+        cancelHandle.cancel();
+        assertThat(callbackCalled.get(), is(true));
+
+        // Close after cancel - should not throw
+        handle.close();
+    }
+
+    @Test
+    public void testListenNullCallbackThrows() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        assertThrows(
+                NullPointerException.class,
+                () -> token.addListener(null),
+                "callback"
+        );
+    }
+
+    @Test
+    public void testExceptionInListenerCallbackWrappedWhenAlreadyCancelled() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        cancelHandle.cancel();
+
+        // Listener registered after cancellation should wrap exceptions consistently
+        // with the cancel() path (IgniteException with INTERNAL_ERR).
+        assertThrowsWithCode(
+                IgniteException.class,
+                Common.INTERNAL_ERR,
+                () -> token.addListener(() -> {
+                    throw new RuntimeException("listener error");
+                }),
+                "Failed to cancel an operation"
+        );
+    }
+
+    @Test
+    public void testExceptionsInListenerCallbacksAreWrapped() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        RuntimeException e1 = new RuntimeException("e1");
+        token.addListener(() -> {
+            throw e1;
+        });
+
+        RuntimeException e2 = new RuntimeException("e2");
+        token.addListener(() -> {
+            throw e2;
+        });
+
+        Throwable err = assertThrowsWithCode(
+                IgniteException.class,
+                Common.INTERNAL_ERR,
+                cancelHandle::cancel,
+                "Failed to cancel an operation"
+        );
+
+        assertThat(err.getSuppressed(), arrayContaining(e1, e2));
     }
 }

@@ -62,6 +62,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -132,8 +133,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         assert executorService != null;
 
         Ignite scopedIgnite = createIgniteForJob(arg);
-        AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(scopedIgnite, isInterrupted, classLoader, options.partition());
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecutionContext context = new JobExecutionContextImpl(scopedIgnite, cancelHandle, classLoader, options.partition());
 
         metadataBuilder
                 .jobClassName(jobClassName)
@@ -151,7 +152,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 metadataBuilder
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted, null, false, localNode);
+        return new JobExecutionInternal<>(execution, cancelHandle, null, false, localNode);
     }
 
     /**

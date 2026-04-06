@@ -60,6 +60,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -446,6 +447,40 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
             return CompletableFuture.failedFuture(new CancellationException("self-cancelled"));
+        }
+    }
+
+    @Test
+    void cancelAsyncJobViaCancellationToken() {
+        JobExecutionInternal<?> execution = executeJob(CancellationTokenJob.class);
+
+        JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
+
+        // The job registers a cancel action on the cancellation token that completes the future.
+        // When cancel() is called, the token fires the action synchronously, completing the job with a result.
+        execution.cancel();
+
+        await().until(
+                execution::state,
+                jobStateWithStatusAndCreateTimeStartTime(COMPLETED, executingState.createTime(), executingState.startTime())
+        );
+
+        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalResult(h, null, null)), willBe(42));
+    }
+
+    /** Async job that uses cancellationToken() to react to cancellation and complete the future. */
+    private static class CancellationTokenJob implements ComputeJob<Object[], Integer> {
+        @Override
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
+            CompletableFuture<Integer> result = new CompletableFuture<>();
+
+            CancelHandleHelper.addCancelAction(
+                    context.cancellationToken(),
+                    () -> result.complete(42),
+                    result
+            );
+
+            return result;
         }
     }
 

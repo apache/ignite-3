@@ -33,4 +33,4 @@ set JVM_GC_LOG_SIZE=100m
 set JVM_GC_NUM_LOGS=10
 
 @rem For any additional users settings
-set IGNITE3_EXTRA_JVM_ARGS=
+if not defined IGNITE3_EXTRA_JVM_ARGS set IGNITE3_EXTRA_JVM_ARGS=

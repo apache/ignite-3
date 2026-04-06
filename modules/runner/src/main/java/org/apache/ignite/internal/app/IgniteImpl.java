@@ -511,8 +511,6 @@ public class IgniteImpl implements Ignite {
 
     private final LogStorageManager cmgLogStorageManager;
 
-    private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
-
     private final IndexMetaStorage indexMetaStorage;
 
     private final EventLogImpl eventLog;
@@ -701,7 +699,7 @@ public class IgniteImpl implements Ignite {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
-        partitionRaftConfigurer =
+        RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.metaPath());
 
         GroupStoragesContextResolver groupStoragesContextResolver = createGroupStoragesContextResolver();
@@ -1166,13 +1164,12 @@ public class IgniteImpl implements Ignite {
         partitionModificationCounterFactory = new PartitionModificationCounterFactory(clockService::current, clusterSvc.messagingService());
 
         distributedTblMgr = new TableManager(
-                name,
+                localNode,
                 registry,
                 gcConfig,
                 replicationConfig,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
-                localNode,
                 lockMgr,
                 replicaSvc,
                 txManager,
