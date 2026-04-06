@@ -129,7 +129,8 @@ internal static class IgniteQueryParser
         public ExpressionType[] SupportedExpressionTypes => [ExpressionType.Call];
 
         public static bool IsSpanImplicitConversion([NotNullWhen(true)] MethodCallExpression? node) =>
-            node?.Method is { IsSpecialName: true, Name: "op_Implicit", DeclaringType.IsGenericType: true }
+            node?.Method is { IsSpecialName: true, Name: "op_Implicit" }
+            && node.Method.DeclaringType is { IsGenericType: true }
             && node.Method.DeclaringType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>);
 
         public Expression Transform(MethodCallExpression expression)
