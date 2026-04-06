@@ -49,7 +49,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1324,9 +1323,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                         return;
                     }
 
-                    int partsCnt = assignments.size();
-
-                    tx.assignCommitPartition(new ZonePartitionId(zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
+                    tx.assignCommitPartition(new ZonePartitionId(zoneId, assignments.keySet().iterator().nextInt()));
 
                     for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
                         ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
