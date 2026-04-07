@@ -287,6 +287,24 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                         .build()));
     }
 
+    /**
+     * Mocks GetLeaderRequest: returns leader when {@code leaderAvailable} is set, otherwise returns the given error.
+     */
+    private void mockGetLeaderWithFlag(AtomicBoolean leaderAvailable, RaftError errorWhenUnavailable) {
+        when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    if (leaderAvailable.get()) {
+                        return completedFuture(FACTORY.getLeaderResponse()
+                                .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
+                                .currentTerm(CURRENT_TERM)
+                                .build());
+                    }
+                    return completedFuture(FACTORY.errorResponse()
+                            .errorCode(errorWhenUnavailable.getNumber())
+                            .build());
+                });
+    }
+
     private boolean isTestWriteCommand(Object arg) {
         if (!(arg instanceof WriteActionRequest)) {
             return false;
@@ -367,21 +385,9 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // WriteActionRequest always succeeds (sent after leader is discovered).
         mockUserInputSuccess();
 
+        // EBUSY keeps retry loop on same peer; EPERM marks unavailable, exhausting all peers.
         AtomicBoolean leaderAvailable = new AtomicBoolean(false);
-
-        when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    if (leaderAvailable.get()) {
-                        return completedFuture(FACTORY.getLeaderResponse()
-                                .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
-                                .currentTerm(CURRENT_TERM)
-                                .build());
-                    }
-                    // EBUSY keeps retry loop on same peer; EPERM marks unavailable, exhausting all peers.
-                    return completedFuture(FACTORY.errorResponse()
-                            .errorCode(RaftError.EBUSY.getNumber())
-                            .build());
-                });
+        mockGetLeaderWithFlag(leaderAvailable, RaftError.EBUSY);
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
@@ -1146,17 +1152,20 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // WriteActionRequest always succeeds (sent after leader is discovered).
         mockUserInputSuccess();
 
+        AtomicBoolean leaderAvailable = new AtomicBoolean(false);
+        mockGetLeaderWithFlag(leaderAvailable, RaftError.EPERM);
+
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
         // Start the command with infinite timeout.
-        // refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest (default mock returns EPERM).
+        // refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest (returns EPERM).
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
         // The result should NOT be complete yet - GetLeaderRequest is retrying.
         assertThat(result.isDone(), is(false));
 
-        // Update GetLeaderRequest mock to return leader, and simulate leader election.
-        mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
+        // Signal leader availability and simulate leader election.
+        leaderAvailable.set(true);
         simulateLeaderElection(NODES.get(0), CURRENT_TERM);
 
         // Should eventually succeed (GetLeaderRequest succeeds, then WriteActionRequest succeeds).
