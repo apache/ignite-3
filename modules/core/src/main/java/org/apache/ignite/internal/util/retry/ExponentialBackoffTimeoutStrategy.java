@@ -32,6 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>This class is stateless and thread-safe. A single instance can be shared across
  * multiple retry contexts.
  */
+// TODO: need to replace timeout strategy in ignite-raft module with this one.
 public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /**
      * Default backoff coefficient applied on each retry step. Doubles the timeout per attempt.
