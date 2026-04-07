@@ -85,8 +85,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         //noinspection ConcatenationWithEmptyString
         CLUSTER.node("N1").initSchema(""
                 + "CREATE ZONE test_zone (partitions " + PARTITIONS_COUNT + ") storage profiles ['Default'];"
-                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE test_zone;"
-                + "CREATE TABLE empty_table_for_update (id INT PRIMARY KEY, val INT) ZONE test_zone");
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE test_zone;");
 
         CLUSTER.setAssignmentsProvider("T1", (partitionCount, b) -> IntStream.range(0, partitionCount)
                 .mapToObj(i -> List.of("N1"))
@@ -181,6 +180,21 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             Mockito.verify(spiedTx, never())
                     .enlist(argThat(partitionIdMismatch), anyInt(), any(), anyLong());
         }
+    }
+
+    @Test
+    void testNoCommitPartitionAssignment() {
+        NoOpTransaction tx = NoOpTransaction.readWrite("t1", false);
+        tx.assignCommitPartition(new ZonePartitionId(1, 1));
+
+        NoOpTransaction spiedTx = Mockito.spy(tx);
+
+        assertQuery("UPDATE t1 /*+ no_index */ SET val = 42 WHERE id = ?", spiedTx)
+                .withParam(1)
+                .check();
+
+        // Transaction already has a commit partition, so no assignment is expected during query processing.
+        Mockito.verify(spiedTx, never()).assignCommitPartition(any());
     }
 
     private static QueryChecker assertQuery(String qry, InternalTransaction tx) {
