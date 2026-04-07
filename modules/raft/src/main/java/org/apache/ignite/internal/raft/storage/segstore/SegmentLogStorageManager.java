@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Set;
@@ -75,12 +78,24 @@ public class SegmentLogStorageManager implements LogStorageManager {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        return fileManager.startAsync(componentContext);
+        try {
+            fileManager.start();
+
+            return nullCompletedFuture();
+        } catch (IOException e) {
+            return failedFuture(new LogStorageException("Couldn't start SegmentLogStorageManager", e));
+        }
     }
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        return fileManager.stopAsync(componentContext);
+        try {
+            fileManager.close();
+
+            return nullCompletedFuture();
+        } catch (Exception e) {
+            return failedFuture(new LogStorageException("Couldn't stop SegmentLogStorageManager", e));
+        }
     }
 
     private static long convertGroupId(String groupId) {
@@ -92,10 +107,10 @@ public class SegmentLogStorageManager implements LogStorageManager {
             return 2;
         }
 
-        String[] partS = GROUP_ID_PATTERN.split(groupId);
+        String[] groupIdParts = GROUP_ID_PATTERN.split(groupId);
 
-        if (partS.length == 2) {
-            return Long.parseLong(partS[0]) << 32 | Long.parseLong(partS[1]);
+        if (groupIdParts.length == 2) {
+            return Long.parseLong(groupIdParts[0]) << 32 | Long.parseLong(groupIdParts[1]);
         } else {
             throw new IllegalArgumentException("Invalid groupId: " + groupId);
         }

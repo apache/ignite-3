@@ -33,7 +33,7 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
-import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageManager;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -62,8 +62,8 @@ class HybridLogStorageTest extends BaseStorageTest {
     public void testTransferLogStorage() {
         Path storagePath = getStoragePath();
 
-        LogStorageManager oldStorageFactory = new LogitLogStorageManager("test", storeOptions(), storagePath.resolve("old"));
-        LogStorageManager newStorageFactory = new LogitLogStorageManager("test", storeOptions(), storagePath);
+        LogStorageManager oldStorageFactory = new DefaultLogStorageManager(storagePath.resolve("old"));
+        LogStorageManager newStorageFactory = new DefaultLogStorageManager(storagePath);
 
         testHybridStorage(oldStorageFactory, newStorageFactory);
     }
@@ -72,7 +72,7 @@ class HybridLogStorageTest extends BaseStorageTest {
     public void testHybridStorageWithoutOldStorage() {
         Path storagePath = path.resolve(STORAGE_RELATIVE_PATH).resolve(NEW_STORAGE_RELATIVE_PATH);
 
-        LogStorageManager newStorageFactory = new LogitLogStorageManager("test", storeOptions(), storagePath);
+        LogStorageManager newStorageFactory = new DefaultLogStorageManager(storagePath);
 
         testHybridStorage(null, newStorageFactory);
     }
@@ -92,7 +92,7 @@ class HybridLogStorageTest extends BaseStorageTest {
 
         assertThat(newStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        LogStorageManager oldStorageFactory = new LogitLogStorageManager("test", storeOptions(), storagePath);
+        LogStorageManager oldStorageFactory = new DefaultLogStorageManager(storagePath);
 
         testHybridStorage(oldStorageFactory, newStorageFactory);
     }

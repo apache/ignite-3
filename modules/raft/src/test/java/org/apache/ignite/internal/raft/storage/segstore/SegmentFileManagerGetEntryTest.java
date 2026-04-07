@@ -95,7 +95,7 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        fileManager.stop();
+        fileManager.close();
     }
 
     @Test

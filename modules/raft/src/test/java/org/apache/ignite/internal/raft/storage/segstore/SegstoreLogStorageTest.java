@@ -52,7 +52,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        segmentFileManager.stop();
+        segmentFileManager.close();
     }
 
     @Override
@@ -84,7 +84,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         logStorage.appendEntries(TestUtils.mockEntries(numEntries));
 
         logStorage.shutdown();
-        segmentFileManager.stop();
+        segmentFileManager.close();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
@@ -106,7 +106,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         assertThat(logStorage.getLastLogIndex(), is(lastIndexKept));
 
         logStorage.shutdown();
-        segmentFileManager.stop();
+        segmentFileManager.close();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
@@ -128,7 +128,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         assertThat(logStorage.getLastLogIndex(), is((long) numEntries - 1));
 
         logStorage.shutdown();
-        segmentFileManager.stop();
+        segmentFileManager.close();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());
@@ -150,7 +150,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         assertThat(logStorage.getLastLogIndex(), is(nextLogIndex));
 
         logStorage.shutdown();
-        segmentFileManager.stop();
+        segmentFileManager.close();
 
         logStorage = newLogStorage();
         logStorage.init(newLogStorageOptions());

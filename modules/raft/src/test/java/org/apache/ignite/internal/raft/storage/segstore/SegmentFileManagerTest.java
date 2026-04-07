@@ -125,7 +125,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        fileManager.stop();
+        fileManager.close();
     }
 
     @Test
@@ -280,7 +280,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     }
 
     @RepeatedTest(10)
-    void testConcurrentWritesWithStop(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws Exception {
+    void testConcurrentWritesWithClose(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws Exception {
         int batchSize = FILE_SIZE / 10;
 
         List<byte[]> batches = randomData(batchSize, 100);
@@ -295,7 +295,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
             if (i == batches.size() / 2) {
                 stopTask = runAsync(() -> {
                     try {
-                        fileManager.stop();
+                        fileManager.close();
                     } catch (Exception e) {
                         throw new CompletionException(e);
                     }
@@ -453,7 +453,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         List<Path> indexFiles = await().until(this::indexFiles, hasSize(segmentFiles.size() - 1));
 
-        fileManager.stop();
+        fileManager.close();
 
         // Delete an index file. We expect it to be re-created after recovery.
         Files.delete(indexFiles.get(0));
@@ -502,7 +502,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         assertThat(tmpIndexFiles(), hasSize(1));
 
-        fileManager.stop();
+        fileManager.close();
 
         for (Path indexFile : indexFiles()) {
             Files.delete(indexFile);
@@ -541,7 +541,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         fileManager.truncateSuffix(GROUP_ID, lastLogIndexKept);
 
         if (restart) {
-            fileManager.stop();
+            fileManager.close();
 
             for (Path indexFile : indexFiles()) {
                 Files.deleteIfExists(indexFile);
@@ -590,7 +590,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
 
         if (restart) {
-            fileManager.stop();
+            fileManager.close();
 
             for (Path indexFile : indexFiles()) {
                 Files.deleteIfExists(indexFile);
@@ -639,7 +639,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
 
         if (restart) {
-            fileManager.stop();
+            fileManager.close();
 
             for (Path indexFile : indexFiles()) {
                 Files.deleteIfExists(indexFile);

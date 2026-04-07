@@ -102,7 +102,7 @@ class RaftLogGcSoftLimitTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         if (fileManager != null) {
-            fileManager.stop();
+            fileManager.close();
         }
     }
 

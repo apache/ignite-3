@@ -69,7 +69,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        segmentFileManager.stop();
+        segmentFileManager.close();
     }
 
     protected SegstoreLogStorage newLogStorage(long groupId) {

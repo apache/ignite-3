@@ -107,7 +107,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         if (fileManager != null) {
-            fileManager.stop();
+            fileManager.close();
         }
     }
 
@@ -408,7 +408,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         Files.createFile(orphanedIndexFile);
 
-        fileManager.stop();
+        fileManager.close();
 
         fileManager = new SegmentFileManager(
                 NODE_NAME,
@@ -733,7 +733,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     private void restartSegmentFileManager() throws Exception {
-        fileManager.stop();
+        fileManager.close();
 
         fileManager = new SegmentFileManager(
                 NODE_NAME,
