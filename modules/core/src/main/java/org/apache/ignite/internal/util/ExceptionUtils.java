@@ -34,7 +34,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -74,23 +73,6 @@ public final class ExceptionUtils {
             "getLinkedCause",
             "getThrowable"
     };
-
-    /**
-     * The Method object for Java 1.4 getCause.
-     */
-    private static final Method THROWABLE_CAUSE_METHOD;
-
-    static {
-        Method causeMtd;
-
-        try {
-            causeMtd = Throwable.class.getMethod("getCause", (Class<?>) null);
-        } catch (Exception ignored) {
-            causeMtd = null;
-        }
-
-        THROWABLE_CAUSE_METHOD = causeMtd;
-    }
 
     /**
      * Introspects the {@code Throwable} to obtain the cause.
@@ -166,58 +148,6 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Checks if the Throwable class has a {@code getCause} method.
-     *
-     * @return True if Throwable is nestable.
-     */
-    public static boolean isThrowableNested() {
-        return THROWABLE_CAUSE_METHOD != null;
-    }
-
-    /**
-     * Checks whether this {@code Throwable} class can store a cause.
-     *
-     * @param throwable The {@code Throwable} to examine, may be null.
-     * @return Boolean {@code true} if nested otherwise {@code false}.
-     */
-    public static boolean isNestedThrowable(Throwable throwable) {
-        if (throwable == null) {
-            return false;
-        }
-
-        if (throwable instanceof SQLException || throwable instanceof InvocationTargetException) {
-            return true;
-        }
-
-        if (isThrowableNested()) {
-            return true;
-        }
-
-        Class<?> cls = throwable.getClass();
-        for (String methodName : CAUSE_METHOD_NAMES) {
-            try {
-                Method mtd = cls.getMethod(methodName, (Class<?>) null);
-
-                if (Throwable.class.isAssignableFrom(mtd.getReturnType())) {
-                    return true;
-                }
-            } catch (NoSuchMethodException | SecurityException ignored) {
-                // exception ignored
-            }
-        }
-
-        try {
-            cls.getField("detail");
-
-            return true;
-        } catch (NoSuchFieldException | SecurityException ignored) {
-            // exception ignored
-        }
-
-        return false;
-    }
-
-    /**
      * Introspects the {@code Throwable} to obtain the cause.
      *
      * @param throwable The throwable to introspect for a cause, may be null.
@@ -266,56 +196,6 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Returns the list of {@code Throwable} objects in the exception chain.
-     *
-     * <p>A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause
-     * will return a list containing two elements - the input throwable and the cause throwable. A {@code null} throwable will return a list
-     * of size zero.
-     *
-     * <p>This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until
-     * the end is reached, or until the next item in the chain is already in the result set.
-     *
-     * @param throwable The throwable to inspect, may be null.
-     * @return The list of throwables, never null.
-     */
-    public static List<Throwable> getThrowableList(Throwable throwable) {
-        List<Throwable> list = new ArrayList<>();
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
-        while (throwable != null && !list.contains(throwable)) {
-            list.add(throwable);
-            throwable = getCause(throwable);
-        }
-
-        return list;
-    }
-
-    /**
-     * Collects suppressed exceptions from throwable and all it causes.
-     *
-     * @param t Throwable.
-     * @return List of suppressed throwables.
-     */
-    public static List<Throwable> getSuppressedList(@Nullable Throwable t) {
-        List<Throwable> result = new ArrayList<>();
-
-        if (t == null) {
-            return result;
-        }
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
-        do {
-            for (Throwable suppressed : t.getSuppressed()) {
-                result.add(suppressed);
-
-                result.addAll(getSuppressedList(suppressed));
-            }
-        } while ((t = t.getCause()) != null);
-
-        return result;
-    }
-
-    /**
      * A way to get the entire nested stack-trace of an throwable.
      *
      * @param throwable The {@code Throwable} to be examined.
@@ -324,16 +204,7 @@ public final class ExceptionUtils {
     public static String getFullStackTrace(Throwable throwable) {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw, true);
-        var ts = getThrowableList(throwable);
-
-        for (Throwable t : ts) {
-            t.printStackTrace(pw);
-
-            if (isNestedThrowable(t)) {
-                break;
-            }
-        }
-
+        throwable.printStackTrace(pw);
         return sw.getBuffer().toString();
     }
 
