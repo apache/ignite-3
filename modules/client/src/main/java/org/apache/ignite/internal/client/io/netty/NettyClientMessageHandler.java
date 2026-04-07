@@ -28,13 +28,11 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
  */
 @SuppressWarnings("resource")
 public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
-    /** {@inheritDoc} */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         connection(ctx).onMessage((ByteBuf) msg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
         NettyClientConnection conn = connection(ctx);
@@ -44,16 +42,17 @@ public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         NettyClientConnection conn = connection(ctx);
 
         if (conn != null) {
             conn.onDisconnected(cause);
-        }
 
-        ctx.channel().close();
+            ctx.channel().close();
+        } else {
+            ctx.fireExceptionCaught(cause);
+        }
     }
 
     private static NettyClientConnection connection(ChannelHandlerContext ctx) {
