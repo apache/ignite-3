@@ -57,8 +57,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -169,6 +167,8 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.distributed.DefaultMvTableStorageFactory;
+import org.apache.ignite.internal.table.distributed.MvTableStorageFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
@@ -800,30 +800,9 @@ public class Node {
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
-        ) {
-
-            @Override
-            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                MvTableStorage storage = createSpy(super.createTableStorage(tableDescriptor, zoneDescriptor));
-
-                var partitionStorages = new ConcurrentHashMap<Integer, MvPartitionStorage>();
-
-                doAnswer(invocation -> {
-                    Integer partitionId = invocation.getArgument(0);
-
-                    return partitionStorages.computeIfAbsent(partitionId, id -> {
-                        try {
-                            return (MvPartitionStorage) createSpy(invocation.callRealMethod());
-                        } catch (Throwable e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-                }).when(storage).getMvPartition(anyInt());
-
-                return storage;
-            }
-        };
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY,
+                spyingMvTableStorageFactory(new DefaultMvTableStorageFactory(dataStorageMgr, catalogManager, lowWatermark))
+        );
 
         tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
@@ -1048,6 +1027,28 @@ public class Node {
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());
         return primaryReplicaFuture.join();
+    }
+
+    private static MvTableStorageFactory spyingMvTableStorageFactory(MvTableStorageFactory delegate) {
+        return (tableDesc, zoneDesc) -> {
+            MvTableStorage storage = createSpy(delegate.createMvTableStorage(tableDesc, zoneDesc));
+
+            var partitionStorages = new ConcurrentHashMap<Integer, MvPartitionStorage>();
+
+            doAnswer(invocation -> {
+                Integer partitionId = invocation.getArgument(0);
+
+                return partitionStorages.computeIfAbsent(partitionId, id -> {
+                    try {
+                        return (MvPartitionStorage) createSpy(invocation.callRealMethod());
+                    } catch (Throwable e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            }).when(storage).getMvPartition(anyInt());
+
+            return storage;
+        };
     }
 
     @Contract("null -> null")

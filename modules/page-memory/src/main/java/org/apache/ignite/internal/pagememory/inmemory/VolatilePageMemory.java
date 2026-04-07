@@ -58,11 +58,11 @@ import org.apache.ignite.internal.util.StringUtils;
  * <p/>
  * When page is allocated and is in use:
  * <pre>
- * +--------+--------+--------+--------+---------------------------+
- * |8 bytes |8 bytes |8 bytes |8 bytes |        PAGE_SIZE          |
- * +--------+--------+--------+--------+---------------------------+
- * | Marker |Page ID |Pin CNT |  Lock  |        Page data          |
- * +--------+--------+--------+--------+---------------------------+
+ * +--------+--------+---------+---------------------------+
+ * |8 bytes |8 bytes |16 bytes |        PAGE_SIZE          |
+ * +--------+--------+---------+---------------------------+
+ * | Marker |Page ID |  Lock   |        Page data          |
+ * +--------+--------+---------+---------------------------+
  * </pre>
  *
  * <p>Note that first 8 bytes of page header are used either for page marker or for next relative pointer depending

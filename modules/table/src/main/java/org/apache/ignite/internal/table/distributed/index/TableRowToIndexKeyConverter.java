@@ -45,6 +45,11 @@ class TableRowToIndexKeyConverter implements ColumnsExtractor {
         return converter(row).extractColumns(row);
     }
 
+    @Override
+    public boolean columnsMatch(BinaryRow tableRow, BinaryTuple indexColumns) {
+        return converter(tableRow).columnsMatch(tableRow, indexColumns);
+    }
+
     private ColumnsExtractor converter(BinaryRow row) {
         int schemaVersion = row.schemaVersion();
 

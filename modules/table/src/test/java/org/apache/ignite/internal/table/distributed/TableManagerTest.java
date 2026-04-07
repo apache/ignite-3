@@ -64,8 +64,6 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -536,6 +534,17 @@ public class TableManagerTest extends IgniteAbstractTest {
         return tbl2;
     }
 
+    private static MvTableStorageFactory spyingStorageFactory(
+            MvTableStorageFactory delegate,
+            Consumer<MvTableStorage> decorator
+    ) {
+        return (tableDesc, zoneDesc) -> {
+            MvTableStorage storage = spy(delegate.createMvTableStorage(tableDesc, zoneDesc));
+            decorator.accept(storage);
+            return storage;
+        };
+    }
+
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
         return createTableManager(tblManagerFut, unused -> {});
     }
@@ -599,17 +608,12 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new MinimumRequiredTimeCollectorServiceImpl(),
                 systemDistributedConfiguration,
                 new NoOpMetricManager(),
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY,
+                spyingStorageFactory(new DefaultMvTableStorageFactory(dsm, catalogManager, lowWatermark), storage -> {
+                    mvTableStorage = storage;
+                    tableStorageDecorator.accept(storage);
+                })
         ) {
-
-            @Override
-            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
-
-                tableStorageDecorator.accept(mvTableStorage);
-
-                return mvTableStorage;
-            }
 
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {

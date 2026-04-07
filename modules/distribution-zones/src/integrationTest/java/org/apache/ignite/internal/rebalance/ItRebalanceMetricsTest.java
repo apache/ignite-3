@@ -50,7 +50,6 @@ import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionEvaluationListener;
 import org.awaitility.core.EvaluatedCondition;
 import org.awaitility.core.TimeoutEvent;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -65,8 +64,12 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
         return 1;
     }
 
+    @Override
+    protected boolean shouldCreateDefaultZone() {
+        return false;
+    }
+
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28121")
     void testRebalanceMetrics() {
         int partitionCount = 7;
         int replicaCount = 1;

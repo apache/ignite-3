@@ -40,6 +40,11 @@ class VersionedConverter implements ColumnsExtractor {
         return delegate.extractColumns(row);
     }
 
+    @Override
+    public boolean columnsMatch(BinaryRow tableRow, BinaryTuple indexColumns) {
+        return delegate.columnsMatch(tableRow, indexColumns);
+    }
+
     int version() {
         return version;
     }

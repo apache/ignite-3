@@ -29,6 +29,8 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.binarytuple.ByteBufferAccessor;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.jetbrains.annotations.Nullable;
@@ -51,6 +53,79 @@ public class BinaryRowConverter implements ColumnsExtractor {
     public BinaryRowConverter(BinaryTupleSchema srcSchema, BinaryTupleSchema dstSchema) {
         this.srcSchema = srcSchema;
         this.dstSchema = dstSchema;
+    }
+
+    @Override
+    public boolean columnsMatch(BinaryRow tableRow, BinaryTuple indexColumns) {
+        assert srcSchema.convertible();
+
+        ByteBuffer tupleBuffer = tableRow.tupleSlice();
+        BinaryTupleReader rowReader = new BinaryTupleReader(
+                srcSchema.elementCount(), tupleBuffer, UnsafeByteBufferAccessor::new
+        );
+        ByteBufferAccessor rowAccessor = rowReader.accessor();
+        // Make sure UnsafeByteBufferAccessor is used.
+        BinaryTupleReader keyReader = new BinaryTupleReader(
+                dstSchema.elementCount(), indexColumns.byteBuffer(), UnsafeByteBufferAccessor::new
+        );
+        ByteBufferAccessor keyAccessor = keyReader.accessor();
+
+        for (int i = 0; i < dstSchema.elementCount(); i++) {
+            rowReader.seek(dstSchema.columnIndex(i));
+            keyReader.seek(i);
+
+            int rowElementBegin = rowReader.begin();
+            int keyElementBegin = keyReader.begin();
+            int rowElementLen = rowReader.end() - rowElementBegin;
+            int keyElementLen = keyReader.end() - keyElementBegin;
+
+            if (rowElementLen != keyElementLen) {
+                return false;
+            }
+
+            int probeSize = 8; // Must be aligned with `get` method used within the loop.
+            while (rowElementLen >= probeSize) {
+                if (rowAccessor.getLong(rowElementBegin) != keyAccessor.getLong(keyElementBegin)) {
+                    return false;
+                }
+
+                rowElementLen -= probeSize;
+                rowElementBegin += probeSize;
+                keyElementBegin += probeSize;
+            }
+
+            boolean res = true;
+            switch (rowElementLen) {
+                case 7:
+                    res = rowAccessor.get(rowElementBegin + 6) == keyAccessor.get(keyElementBegin + 6);
+                    // fallthrough
+                case 6:
+                    res = res && rowAccessor.get(rowElementBegin + 5) == keyAccessor.get(keyElementBegin + 5);
+                    // fallthrough
+                case 5:
+                    res = res && rowAccessor.get(rowElementBegin + 4) == keyAccessor.get(keyElementBegin + 4);
+                    // fallthrough
+                case 4:
+                    res = res && rowAccessor.getInt(rowElementBegin) == keyAccessor.getInt(keyElementBegin);
+                    break;
+                case 3:
+                    res = rowAccessor.get(rowElementBegin + 2) == keyAccessor.get(keyElementBegin + 2);
+                    // fallthrough
+                case 2:
+                    res = res && rowAccessor.getShort(rowElementBegin) == keyAccessor.getShort(keyElementBegin);
+                    break;
+                case 1:
+                    res = rowAccessor.get(rowElementBegin) == keyAccessor.get(keyElementBegin);
+                    // fallthrough
+                default: // NO-OP
+            }
+
+            if (!res) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
