@@ -53,10 +53,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class ExceptionUtils {
     /**
-     * A way to get the entire nested stack-trace of an throwable.
+     * Gets the stack trace as a char sequence.
      *
      * @param throwable The {@code Throwable} to be examined.
-     * @return The nested stack trace, with the root cause first.
+     * @return The stack trace.
      */
     public static CharSequence getFullStackTrace(Throwable throwable) {
         StringWriter sw = new StringWriter();
