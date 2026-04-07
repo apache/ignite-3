@@ -109,6 +109,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
@@ -216,6 +217,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.staticLocalNode()),
                 requestsExecutor,
+                new PartitionOperationInFlightLimiter(0),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),

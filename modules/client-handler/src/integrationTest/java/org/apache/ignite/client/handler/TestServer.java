@@ -47,6 +47,7 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -144,6 +145,7 @@ public class TestServer {
                 EventLog.NOOP,
                 new TestLowWatermark(),
                 Runnable::run,
+                new PartitionOperationInFlightLimiter(0),
                 () -> true
         );
 

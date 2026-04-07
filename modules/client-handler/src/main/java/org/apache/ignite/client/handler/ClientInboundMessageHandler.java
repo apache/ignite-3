@@ -153,6 +153,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.ReplicaOverloadedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -180,6 +181,7 @@ import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -278,6 +280,8 @@ public class ClientInboundMessageHandler
 
     private final Executor partitionOperationsExecutor;
 
+    private final PartitionOperationInFlightLimiter partitionOperationInFlightLimiter;
+
     private final BitSet features;
 
     private final Map<HandshakeExtension, Object> extensions;
@@ -309,6 +313,7 @@ public class ClientInboundMessageHandler
      * @param connectionId Connection ID.
      * @param primaryReplicaTracker Primary replica tracker.
      * @param partitionOperationsExecutor Partition operations executor.
+     * @param partitionOperationInFlightLimiter In-flight limiter for partition operations.
      * @param features Features.
      * @param extensions Extensions.
      * @param eventLog Event log.
@@ -330,6 +335,7 @@ public class ClientInboundMessageHandler
             long connectionId,
             ClientPrimaryReplicaTracker primaryReplicaTracker,
             Executor partitionOperationsExecutor,
+            PartitionOperationInFlightLimiter partitionOperationInFlightLimiter,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
@@ -373,6 +379,7 @@ public class ClientInboundMessageHandler
         this.eventLog = eventLog;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.partitionOperationInFlightLimiter = partitionOperationInFlightLimiter;
         this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
@@ -882,19 +889,28 @@ public class ClientInboundMessageHandler
             if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
+                if (!partitionOperationInFlightLimiter.tryAcquire()) {
+                    in.close();
 
-                partitionOperationsExecutor.execute(() -> {
-                    try {
-                        processOperationInternal(ctx, in, requestId0, opCode0, guard);
-                    } catch (Throwable t) {
-                        in.close();
+                    writeError(requestId0, opCode0, new ReplicaOverloadedException(), ctx, false, guard);
 
-                        writeError(requestId0, opCode0, t, ctx, false, guard);
+                    metrics.requestsFailedIncrement();
+                } else {
+                    partitionOperationsExecutor.execute(() -> {
+                        try {
+                            processOperationInternal(ctx, in, requestId0, opCode0, guard);
+                        } catch (Throwable t) {
+                            in.close();
 
-                        metrics.requestsFailedIncrement();
-                        metrics.requestsActiveDecrement();
-                    }
-                });
+                            writeError(requestId0, opCode0, t, ctx, false, guard);
+
+                            metrics.requestsFailedIncrement();
+                            metrics.requestsActiveDecrement();
+                        } finally {
+                            partitionOperationInFlightLimiter.release();
+                        }
+                    });
+                }
             } else {
                 processOperationInternal(ctx, in, requestId, opCode, guard);
             }

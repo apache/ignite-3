@@ -65,6 +65,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -272,6 +273,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 new TestLowWatermark()
                                         ),
                                         Runnable::run,
+                                        new PartitionOperationInFlightLimiter(0),
                                         features,
                                         randomExtensions(),
                                         unused -> null,

@@ -108,6 +108,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
@@ -236,6 +237,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
+                    new PartitionOperationInFlightLimiter(0),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     mock(FailureProcessor.class),
                     // TODO: IGNITE-22222 can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop

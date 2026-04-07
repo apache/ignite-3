@@ -121,6 +121,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
@@ -243,6 +244,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 executorService,
+                new PartitionOperationInFlightLimiter(0),
                 () -> Long.MAX_VALUE,
                 failureManager,
                 null,

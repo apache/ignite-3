@@ -71,6 +71,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lang.ReplicaOverloadedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -124,11 +125,11 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
@@ -225,6 +226,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Executor that will be used to execute requests by replicas. */
     private final Executor requestsExecutor;
 
+    /** In-flight limiter for partition operations. */
+    private final PartitionOperationInFlightLimiter partitionOperationInFlightLimiter;
+
     /** Failure processor. */
     private final FailureProcessor failureProcessor;
 
@@ -249,6 +253,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
+     * @param partitionOperationInFlightLimiter In-flight limiter for partition operations.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param failureProcessor Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
@@ -270,6 +275,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
+            PartitionOperationInFlightLimiter partitionOperationInFlightLimiter,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
             @Nullable Marshaller raftCommandsMarshaller,
@@ -293,6 +299,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
+        this.partitionOperationInFlightLimiter = partitionOperationInFlightLimiter;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.failureProcessor = failureProcessor;
         this.raftCommandsMarshaller = raftCommandsMarshaller;
@@ -321,6 +328,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
+        if (!partitionOperationInFlightLimiter.tryAcquire()) {
+            clusterNetSvc.messagingService().respond(
+                    sender.name(),
+                    prepareReplicaErrorResponse(false, new ReplicaOverloadedException()),
+                    correlationId);
+
+            return;
+        }
+        try {
+            handleReplicaMessage(message, sender, correlationId);
+        } finally {
+            partitionOperationInFlightLimiter.release();
+        }
+    }
+
+    private void handleReplicaMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaRequest)) {
             return;
         }
@@ -983,12 +1006,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        ExecutorChooser<NetworkMessage> replicaMessagesExecutorChooser = message -> requestsExecutor;
-
-        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, replicaMessagesExecutorChooser, handler);
+        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
         clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
         messageGroupsToHandle.forEach(
-                mg -> clusterNetSvc.messagingService().addMessageHandler(mg, replicaMessagesExecutorChooser, handler)
+                mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler)
         );
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,

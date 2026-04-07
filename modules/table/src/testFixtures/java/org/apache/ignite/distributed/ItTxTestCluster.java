@@ -195,6 +195,7 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStor
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -521,6 +522,7 @@ public class ItTxTestCluster {
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor,
+                    new PartitionOperationInFlightLimiter(0),
                     this::getSafeTimePropagationTimeout,
                     new NoOpFailureManager(),
                     commandMarshaller,
