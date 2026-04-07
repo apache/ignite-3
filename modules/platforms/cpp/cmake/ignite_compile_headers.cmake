@@ -15,10 +15,11 @@
 # limitations under the License.
 #
 
-# Compile-time check for public headers (always enabled when ENABLE_CLIENT=ON).
+# Compile-time check for all public headers (always enabled when ENABLE_CLIENT=ON).
 #
-# For every public header of ignite3-client, compiles a minimal .cpp that
-# includes ONLY that header against the INSTALLED package.  This catches:
+# For every public header registered via ignite_collect_public_headers(), compiles
+# a minimal .cpp that includes ONLY that header against the INSTALLED package.
+# This catches:
 #   1. Headers missing their own #include dependencies.
 #   2. Public headers that #include internal (non-installed) headers.
 #   3. Headers missing from the installed package.
@@ -33,19 +34,21 @@
 #   compile-public-headers
 
 if (NOT ENABLE_CLIENT)
+    # The sub-project links against the installed ignite::client target, so
+    # the check requires the client to be built even for common/tuple headers.
     message(STATUS "compile-public-headers: ENABLE_CLIENT=OFF, skipping.")
-elseif (NOT IGNITE3_CLIENT_PUBLIC_HEADERS)
-    message(WARNING "compile-public-headers: IGNITE3_CLIENT_PUBLIC_HEADERS is empty. "
-                    "Check ignite/client/CMakeLists.txt.")
+elseif (NOT IGNITE3_ALL_PUBLIC_HEADERS)
+    message(WARNING "compile-public-headers: IGNITE3_ALL_PUBLIC_HEADERS is empty. "
+                    "Check ignite_collect_public_headers() calls in module CMakeLists.txt files.")
 else()
-    set(CPH_DIR "${CMAKE_BINARY_DIR}/compile-public-headers")
+    set(CPH_DIR "${CMAKE_BINARY_DIR}/cph")
 
     # Write the list of public headers to a cmake file that the
     # sub-project will include. This avoids command-line quoting
     # issues when passing a list with semicolons.
     set(CPH_LIST_FILE "${CPH_DIR}/headers_list.cmake")
     set(CPH_LIST_CONTENT "set(IGNITE_PUBLIC_HEADERS\n")
-    foreach(H IN LISTS IGNITE3_CLIENT_PUBLIC_HEADERS)
+    foreach(H IN LISTS IGNITE3_ALL_PUBLIC_HEADERS)
         string(APPEND CPH_LIST_CONTENT "    \"${H}\"\n")
     endforeach()
     string(APPEND CPH_LIST_CONTENT ")\n")
@@ -65,8 +68,17 @@ else()
         list(APPEND CPH_GENERATOR_ARGS -A "${CMAKE_GENERATOR_PLATFORM}")
     endif()
 
-    # Use add_custom_command so the check is skipped when ignite3-client has
-    # not been rebuilt since the last successful run (stamp file is up-to-date).
+    # Build the list of absolute source paths for all public headers so that
+    # the stamp is invalidated whenever any header file is edited, not only
+    # when the ignite3-client target is rebuilt (which may not recompile a
+    # header-only change in common/tuple that is not included by any TU).
+    set(CPH_HEADER_SOURCES)
+    foreach(H IN LISTS IGNITE3_ALL_PUBLIC_HEADERS)
+        list(APPEND CPH_HEADER_SOURCES "${CMAKE_SOURCE_DIR}/${H}")
+    endforeach()
+
+    # Use add_custom_command so the check is skipped when neither
+    # ignite3-client nor any public header has changed since the last run.
     add_custom_command(
         OUTPUT  "${CPH_STAMP}"
         # Install the already-built client to a temp prefix.
@@ -88,7 +100,7 @@ else()
                     "-B${CPH_SUB_BIN}"
         COMMAND ${CMAKE_COMMAND} --build "${CPH_SUB_BIN}"
         COMMAND ${CMAKE_COMMAND} -E touch "${CPH_STAMP}"
-        DEPENDS ignite3-client
+        DEPENDS ignite3-client ${CPH_HEADER_SOURCES}
         COMMENT "compile-public-headers: compiling each public header against installed package"
         VERBATIM
     )

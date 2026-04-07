@@ -18,6 +18,9 @@
 package org.apache.ignite.lang;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
@@ -69,6 +72,8 @@ final class CancelHandleImpl implements CancelHandle {
 
         private final ArrayDeque<Cancellation> cancellations = new ArrayDeque<>();
 
+        private final List<Runnable> listeners = new ArrayList<>();
+
         private final CancelHandleImpl handle;
 
         private final Object mux = new Object();
@@ -96,12 +101,47 @@ final class CancelHandleImpl implements CancelHandle {
             }
         }
 
-        boolean isCancelled() {
+        @Override
+        public boolean isCancelled() {
             return cancelFut != null;
+        }
+
+        @Override
+        public AutoCloseable addListener(Runnable callback) {
+            Objects.requireNonNull(callback, "callback");
+
+            if (cancelFut != null) {
+                runListener(callback);
+                return () -> { };
+            }
+
+            synchronized (mux) {
+                if (cancelFut == null) {
+                    listeners.add(callback);
+                    return () -> {
+                        synchronized (mux) {
+                            listeners.remove(callback);
+                        }
+                    };
+                }
+            }
+
+            runListener(callback);
+            return () -> { };
+        }
+
+        private static void runListener(Runnable callback) {
+            try {
+                callback.run();
+            } catch (Throwable t) {
+                throw new IgniteException(Common.INTERNAL_ERR, "Failed to cancel an operation", t);
+            }
         }
 
         @SuppressWarnings("rawtypes")
         void cancel() {
+            List<Runnable> listenersCopy;
+
             if (cancelFut != null) {
                 return;
             }
@@ -120,6 +160,9 @@ final class CancelHandleImpl implements CancelHandle {
                 cancelFut = CompletableFuture.allOf(futures).whenComplete((r, t) -> {
                     handle.cancelFut.complete(null);
                 });
+
+                listenersCopy = new ArrayList<>(listeners);
+                listeners.clear();
             }
 
             IgniteException error = null;
@@ -128,6 +171,21 @@ final class CancelHandleImpl implements CancelHandle {
             for (Cancellation cancellation : cancellations) {
                 try {
                     cancellation.run();
+                } catch (Throwable t) {
+                    if (error == null) {
+                        error = new IgniteException(Common.INTERNAL_ERR, "Failed to cancel an operation");
+                    }
+                    error.addSuppressed(t);
+                }
+            }
+
+            // Release references to cancellation actions after execution
+            cancellations.clear();
+
+            // Run listener callbacks outside of lock
+            for (Runnable listener : listenersCopy) {
+                try {
+                    listener.run();
                 } catch (Throwable t) {
                     if (error == null) {
                         error = new IgniteException(Common.INTERNAL_ERR, "Failed to cancel an operation");

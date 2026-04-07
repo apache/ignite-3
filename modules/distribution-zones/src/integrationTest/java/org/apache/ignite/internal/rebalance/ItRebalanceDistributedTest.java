@@ -232,6 +232,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.DefaultMvTableStorageFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
@@ -1564,13 +1565,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             tableManager = new TableManager(
-                    name,
+                    clusterService.staticLocalNode(),
                     registry,
                     gcConfig,
                     replicationConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
-                    clusterService.staticLocalNode(),
                     mock(LockManager.class),
                     replicaSvc,
                     txManager,
@@ -1596,7 +1596,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     minTimeCollectorService,
                     systemDistributedConfiguration,
                     metricManager,
-                    TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
+                    TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY,
+                    new DefaultMvTableStorageFactory(dataStorageMgr, catalogManager, lowWatermark)
             );
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));

@@ -60,6 +60,8 @@ set(PRIVATE_HEADERS
 
 ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
 
+ignite_collect_public_headers(network PUBLIC_HEADERS)
+
 find_package(OpenSSL)
 if (EXISTS ${OPENSSL_INCLUDE_DIR})
     message(STATUS "OPENSSL_INCLUDE_DIR: " ${OPENSSL_INCLUDE_DIR})

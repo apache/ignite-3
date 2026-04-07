@@ -25,20 +25,25 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Lock state structure is as follows.
  * <pre>
- *     +----------------+---------------+---------+----------+
- *     | WRITE WAIT CNT | READ WAIT CNT |   TAG   | LOCK CNT |
- *     +----------------+---------------+---------+----------+
- *     |     2 bytes    |     2 bytes   | 2 bytes |  2 bytes |
- *     +----------------+---------------+---------+----------+
+ *     +----------------+---------------+---------+----------+----------+
+ *     | WRITE WAIT CNT | READ WAIT CNT |   TAG   | LOCK CNT | OWNER ID |
+ *     +----------------+---------------+---------+----------+----------+
+ *     |     2 bytes    |     2 bytes   | 2 bytes |  2 bytes |  8 bytes |
+ *     +----------------+---------------+---------+----------+----------+
  * </pre>
  */
 public class OffheapReadWriteLock {
+    private final IgniteLogger log = Loggers.forClass(OffheapReadWriteLock.class);
+
     /** Default concurrency level for the lock. */
     public static final int DEFAULT_CONCURRENCY_LEVEL = 128;
 
@@ -59,10 +64,16 @@ public class OffheapReadWriteLock {
     public static final int TAG_LOCK_ALWAYS = -1;
 
     /** Lock size. */
-    public static final int LOCK_SIZE = 8;
+    public static final int LOCK_SIZE = Long.BYTES * 2;
+
+    /** Offset to the thread ID of a thread that currently holds write lock. */
+    private static final int OWNER_ID_OFFSET = Long.BYTES;
+
+    /** Placeholder value for when no one holds a write lock. See {@link #OWNER_ID_OFFSET}. */
+    private static final long NO_OWNER_ID = -1L;
 
     /** Maximum number of waiting threads, read or write. */
-    public static final int MAX_WAITERS = 0xFFFF;
+    private static final int MAX_WAITERS = 0xFFFF;
 
     /** Striped locks array. */
     private final ReentrantLock[] locks;
@@ -142,6 +153,7 @@ public class OffheapReadWriteLock {
         assert tag != 0;
 
         GridUnsafe.putLong(lock, (long) tag << 16);
+        GridUnsafe.putLong(lock + OWNER_ID_OFFSET, NO_OWNER_ID);
     }
 
     /**
@@ -241,8 +253,14 @@ public class OffheapReadWriteLock {
     public boolean tryWriteLock(long lock, int tag) {
         long state = GridUnsafe.getLongVolatile(null, lock);
 
-        return checkTag(state, tag) && canWriteLock(state)
+        boolean success = checkTag(state, tag) && canWriteLock(state)
                 && GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, -1, 0, 0));
+
+        if (success) {
+            setOwnerId(lock);
+        }
+
+        return success;
     }
 
     /**
@@ -265,6 +283,8 @@ public class OffheapReadWriteLock {
 
             if (canWriteLock(state)) {
                 if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, -1, 0, 0))) {
+                    setOwnerId(lock);
+
                     return true;
                 } else {
                     // Retry CAS, do not count as spin cycle.
@@ -321,10 +341,13 @@ public class OffheapReadWriteLock {
         while (true) {
             long state = GridUnsafe.getLongVolatile(null, lock);
 
-            if (lockCount(state) != -1) {
+            long ownerId = getOwnerId(lock);
+            if (lockCount(state) != -1 || ownerId != NO_OWNER_ID && ownerId != Thread.currentThread().getId()) {
                 throw new IllegalMonitorStateException("Attempted to release write lock while not holding it "
                         + "[lock=" + hexLong(lock) + ", state=" + hexLong(state) + ']');
             }
+
+            clearOwnerId(lock);
 
             updated = releaseWithTag(state, tag);
 
@@ -399,6 +422,8 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) == 1) {
                 if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, -2, 0, 0))) {
+                    setOwnerId(lock);
+
                     return true;
                 } else {
                     // Retry CAS, do not count as spin cycle.
@@ -424,6 +449,8 @@ public class OffheapReadWriteLock {
 
                 if (lockCount(state) == 1) {
                     if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, -2, 0, 0))) {
+                        setOwnerId(lock);
+
                         return true;
                     } else {
                         continue;
@@ -520,6 +547,8 @@ public class OffheapReadWriteLock {
                         long updated = updateState(state, -1, 0, -1);
 
                         if (GridUnsafe.compareAndSwapLong(null, lock, state, updated)) {
+                            setOwnerId(lock);
+
                             return true;
                         }
                     } else {
@@ -560,6 +589,10 @@ public class OffheapReadWriteLock {
             long passedNanos = System.nanoTime() - startTimeNanos;
 
             if (passedNanos >= timeoutNanos) {
+                long ownerId = getOwnerId(lock);
+
+                ThreadUtils.dumpThread(log, ownerId, true);
+
                 //noinspection InfiniteLoopStatement
                 while (true) {
                     long state = GridUnsafe.getLongVolatile(null, lock);
@@ -571,7 +604,8 @@ public class OffheapReadWriteLock {
                                 "tag", hexInt(tag), false,
                                 "idx", lockIdx, false,
                                 "cond", waitCond.toString(), false,
-                                "timeout", TimeUnit.NANOSECONDS.toMillis(timeoutNanos) + "ms", false
+                                "timeout", TimeUnit.NANOSECONDS.toMillis(timeoutNanos) + "ms", false,
+                                "ownerId", ownerId, false
                         ));
                     }
                 }
@@ -771,5 +805,17 @@ public class OffheapReadWriteLock {
                 return;
             }
         }
+    }
+
+    private static void setOwnerId(long lock) {
+        GridUnsafe.putLongVolatile(null, lock + OWNER_ID_OFFSET, Thread.currentThread().getId());
+    }
+
+    private static void clearOwnerId(long lock) {
+        GridUnsafe.putLongVolatile(null, lock + OWNER_ID_OFFSET, NO_OWNER_ID);
+    }
+
+    private static long getOwnerId(long lock) {
+        return GridUnsafe.getLongVolatile(null, lock + OWNER_ID_OFFSET);
     }
 }
