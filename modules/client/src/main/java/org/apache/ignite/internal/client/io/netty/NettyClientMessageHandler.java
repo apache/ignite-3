@@ -37,13 +37,22 @@ public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        connection(ctx).onDisconnected(null);
+        NettyClientConnection conn = connection(ctx);
+
+        if (conn != null) {
+            conn.onDisconnected(null);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        connection(ctx).onDisconnected(cause);
+        NettyClientConnection conn = connection(ctx);
+
+        if (conn != null) {
+            conn.onDisconnected(cause);
+        }
+
         ctx.channel().close();
     }
 
