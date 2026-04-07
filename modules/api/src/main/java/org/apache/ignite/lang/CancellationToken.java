@@ -22,4 +22,24 @@ package org.apache.ignite.lang;
  * to terminate it.
  */
 public interface CancellationToken {
+    /**
+     * Flag indicating whether cancellation was requested or not.
+     *
+     * <p>This method will return {@code true} even if cancellation has not been completed yet.
+     *
+     * @return {@code true} when cancellation was requested.
+     */
+    boolean isCancelled();
+
+    /**
+     * Registers a callback to be executed when cancellation is requested. If cancellation has already been requested,
+     * the callback is executed immediately.
+     *
+     * <p>The returned handle can be used to stop listening for cancellation requests. It is important to close the handle
+     * when the callback is no longer needed to avoid memory leaks.
+     *
+     * @param callback Callback to execute when cancellation is requested.
+     * @return A handle which can be used to stop listening for cancellation requests.
+     */
+    AutoCloseable addListener(Runnable callback);
 }

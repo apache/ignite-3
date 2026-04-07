@@ -37,6 +37,8 @@ set(PRIVATE_HEADERS
 
 ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
 
+ignite_collect_public_headers(protocol PUBLIC_HEADERS)
+
 set(SOURCES
     sql/column_meta.cpp sql/column_meta.h
     bitset_span.h
