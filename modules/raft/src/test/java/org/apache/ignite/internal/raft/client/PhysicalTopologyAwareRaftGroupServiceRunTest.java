@@ -47,6 +47,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -362,22 +363,38 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      * The GetLeaderRequest retries until leader is discovered, then the WriteActionRequest is sent.
      */
     @Test
-    void testInfiniteTimeoutWaitsForLeaderAndSucceeds() throws Exception {
+    void testInfiniteTimeoutWaitsForLeaderAndSucceeds() {
         // WriteActionRequest always succeeds (sent after leader is discovered).
         mockUserInputSuccess();
 
+        AtomicBoolean leaderAvailable = new AtomicBoolean(false);
+
+        when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    if (leaderAvailable.get()) {
+                        return completedFuture(FACTORY.getLeaderResponse()
+                                .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
+                                .currentTerm(CURRENT_TERM)
+                                .build());
+                    }
+                    // EBUSY keeps retry loop on same peer; EPERM marks unavailable, exhausting all peers.
+                    return completedFuture(FACTORY.errorResponse()
+                            .errorCode(RaftError.EBUSY.getNumber())
+                            .build());
+                });
+
         PhysicalTopologyAwareRaftGroupService svc = startService();
 
-        // Start the command - refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest
-        // (default mock returns EPERM). The result should not complete yet.
+        // Start the command - refreshAndGetLeaderWithTerm() will keep retrying GetLeaderRequest.
+        // The result should not complete yet.
         CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
 
         // Initially not complete (GetLeaderRequest is retrying).
         assertThat(result.isDone(), is(false));
 
-        // Update the GetLeaderRequest mock to return leader, and simulate leader election.
+        // Signal leader availability and simulate leader election.
         executor.schedule(() -> {
-            mockGetLeaderResponse(NODES.get(0), CURRENT_TERM);
+            leaderAvailable.set(true);
             simulateLeaderElection(NODES.get(0), CURRENT_TERM);
         }, 100, TimeUnit.MILLISECONDS);
 
