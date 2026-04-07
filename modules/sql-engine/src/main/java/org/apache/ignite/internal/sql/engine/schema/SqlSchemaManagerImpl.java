@@ -210,7 +210,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         // Indexes included because ScannableTable contains index-related meta, hence we need to create
         // new instance as soon as any indexes has changed or new index has been added. Such kind of 
         // consolidation doesn't account for DROP, but in case of indexes this should not be a big deal
-        // because index DROP is infrequent operation.
+        // because it's rather infrequent operation.
         HybridTimestamp time = table.updateTimestamp();
         for (CatalogIndexDescriptor index : catalog.indexes(table.id())) {
             if (index.updateTimestamp().compareTo(time) > 0) {
