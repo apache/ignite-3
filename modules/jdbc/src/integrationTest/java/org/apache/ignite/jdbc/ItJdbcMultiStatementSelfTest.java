@@ -795,7 +795,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         return size;
     }
 
-    /** Verifies that after query execution statement returns results that satisfy provided assertions */
+    /** Verifies that after query execution statement returns results that satisfy provided assertions. */
     private void assertStatementResults(String query, StatementResultCheck... resultCheck) throws SQLException {
         List<StatementResultCheck> checks = List.of(resultCheck);
 
