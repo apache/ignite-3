@@ -58,11 +58,11 @@ public final class ExceptionUtils {
      * @param throwable The {@code Throwable} to be examined.
      * @return The nested stack trace, with the root cause first.
      */
-    public static String getFullStackTrace(Throwable throwable) {
+    public static CharSequence getFullStackTrace(Throwable throwable) {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw, true);
         throwable.printStackTrace(pw);
-        return sw.getBuffer().toString();
+        return sw.getBuffer();
     }
 
     /**
