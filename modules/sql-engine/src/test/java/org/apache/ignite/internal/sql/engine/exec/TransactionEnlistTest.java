@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
 import java.util.List;
@@ -91,8 +92,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> List.of("N1"))
                 .collect(Collectors.toList()));
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of())));
-        CLUSTER.setDataProvider("EMPTY_TABLE_FOR_UPDATE", TestBuilders.indexLookup(DataProvider.fromCollection(List.of())));
-        CLUSTER.setUpdatableTable("EMPTY_TABLE_FOR_UPDATE", new UpdatableTable() {
+        CLUSTER.setUpdatableTable("T1", new UpdatableTable() {
             @Override
             public TableDescriptor descriptor() {
                 return null;
@@ -124,9 +124,6 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
                 return nullCompletedFuture();
             }
         });
-        CLUSTER.setAssignmentsProvider("EMPTY_TABLE_FOR_UPDATE", (partitionCount, b) -> IntStream.range(0, partitionCount)
-                .mapToObj(i -> List.of("N1"))
-                .collect(Collectors.toList()));
     }
 
     @AfterAll
@@ -159,16 +156,31 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
 
         NoOpTransaction spiedTx = Mockito.spy(tx);
 
-        assertQuery("UPDATE empty_table_for_update SET val = 42 WHERE id = ?", spiedTx)
+        assertQuery("UPDATE t1 /*+ no_index */ SET val = 42 WHERE id = ?", spiedTx)
                 .withParam(id)
                 .check();
 
         int expectedPartition = expectedPartition(id);
-        ArgumentMatcher<ZonePartitionId> partitionIdMatcher = zonePartitionId -> zonePartitionId.partitionId() == expectedPartition;
-        Mockito.verify(spiedTx, times(2))
-                .assignCommitPartition(argThat(partitionIdMatcher));
-        Mockito.verify(spiedTx, times(2))
-                .enlist(argThat(partitionIdMatcher), anyInt(), any(), anyLong());
+        {
+            ArgumentMatcher<ZonePartitionId> partitionIdMatch = zonePartitionId -> zonePartitionId.partitionId() == expectedPartition;
+            // We expect commit partitions to be assigned once for given transaction.
+            Mockito.verify(spiedTx, times(1))
+                    .assignCommitPartition(argThat(partitionIdMatch));
+            // Individual partition on the other hand will be enlisted for every source.
+            // In this particular case -- first time for scan and second for Modify node.
+            Mockito.verify(spiedTx, times(2))
+                    .enlist(argThat(partitionIdMatch), anyInt(), any(), anyLong());
+        }
+
+        {
+            // Due to partition pruning we don't expect any more enlistment.
+            // We should not try to assign other partition as commit partition as well.
+            ArgumentMatcher<ZonePartitionId> partitionIdMismatch = zonePartitionId -> zonePartitionId.partitionId() != expectedPartition;
+            Mockito.verify(spiedTx, never())
+                    .assignCommitPartition(argThat(partitionIdMismatch));
+            Mockito.verify(spiedTx, never())
+                    .enlist(argThat(partitionIdMismatch), anyInt(), any(), anyLong());
+        }
     }
 
     private static QueryChecker assertQuery(String qry, InternalTransaction tx) {
