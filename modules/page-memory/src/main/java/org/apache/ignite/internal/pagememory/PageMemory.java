@@ -50,6 +50,9 @@ public interface PageMemory {
 
     /**
      * Creates a new instance of {@link PartitionPageMemory} for a specified partition.
+     *
+     * @param groupId Group ID for the specific partition.
+     * @param partitionId Partition ID of the specific partition.
      */
     PartitionPageMemory createPartitionPageMemory(int groupId, int partitionId);
 }

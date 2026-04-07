@@ -31,7 +31,6 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
@@ -42,7 +41,7 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Base class for all the data structures based on {@link PageMemory}.
+ * Base class for all the data structures based on {@link PartitionPageMemory}.
  */
 public abstract class DataStructure implements ManuallyCloseable {
     /** For tests. */

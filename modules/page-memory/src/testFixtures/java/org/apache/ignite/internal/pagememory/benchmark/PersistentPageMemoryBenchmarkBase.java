@@ -76,7 +76,7 @@ public class PersistentPageMemoryBenchmarkBase {
     }
 
     protected PartitionPageMemory partitionPageMemory(int partitionId) {
-        return partitionPageMemoryMap.get(new  GroupPartitionId(GROUP_ID, partitionId));
+        return partitionPageMemoryMap.get(new GroupPartitionId(GROUP_ID, partitionId));
     }
 
     protected CheckpointManager checkpointManager() {
