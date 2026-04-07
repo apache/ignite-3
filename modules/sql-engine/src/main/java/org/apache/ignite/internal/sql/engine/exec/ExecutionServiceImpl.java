@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -49,7 +50,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -114,15 +114,10 @@ import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
-import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -1292,65 +1287,39 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         }
 
         private void enlistPartitions(MappedFragment mappedFragment, InternalTransaction tx) {
-            // no need to traverse the tree if fragment has no tables
-            if (mappedFragment.fragment().tables().isEmpty()) {
-                return;
+            boolean shouldAssignCommitPartition = tx.commitPartition() == null;
+            for (Long2ObjectMap.Entry<IgniteTable> entry : mappedFragment.fragment().tables().long2ObjectEntrySet()) {
+                long sourceId = entry.getLongKey();
+                IgniteTable table = entry.getValue();
+
+                ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(sourceId);
+                Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
+
+                if (assignments.isEmpty()) {
+                    continue;
+                }
+
+                int tableId = table.id();
+                int zoneId = table.zoneId();
+
+                if (shouldAssignCommitPartition) {
+                    tx.assignCommitPartition(new ZonePartitionId(zoneId, assignments.keySet().iterator().nextInt()));
+                    shouldAssignCommitPartition = false;
+                }
+
+                for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                    ZonePartitionId partitionId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
+
+                    NodeWithConsistencyToken assignment = partWithToken.getValue();
+
+                    tx.enlist(
+                            partitionId,
+                            tableId,
+                            assignment.name(),
+                            assignment.enlistmentConsistencyToken()
+                    );
+                }
             }
-
-            new IgniteRelShuttle() {
-                @Override
-                public IgniteRel visit(IgniteIndexScan rel) {
-                    enlist(rel);
-
-                    return super.visit(rel);
-                }
-
-                @Override
-                public IgniteRel visit(IgniteTableScan rel) {
-                    enlist(rel);
-
-                    return super.visit(rel);
-                }
-
-                @Override
-                public IgniteRel visit(IgniteTableModify rel) {
-                    enlist(rel);
-
-                    return super.visit(rel);
-                }
-
-                private void enlist(int tableId, int zoneId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
-                    if (assignments.isEmpty()) {
-                        return;
-                    }
-
-                    int partsCnt = assignments.size();
-
-                    tx.assignCommitPartition(new ZonePartitionId(zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
-
-                    for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
-
-                        NodeWithConsistencyToken assignment = partWithToken.getValue();
-
-                        tx.enlist(
-                                replicationGroupId,
-                                tableId,
-                                assignment.name(),
-                                assignment.enlistmentConsistencyToken()
-                        );
-                    }
-                }
-
-                private void enlist(SourceAwareIgniteRel rel) {
-                    IgniteTable igniteTable = rel.getTable().unwrap(IgniteTable.class);
-
-                    ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
-                    Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
-
-                    enlist(igniteTable.id(), igniteTable.zoneId(), assignments);
-                }
-            }.visit(mappedFragment.fragment().root());
         }
 
         private CompletableFuture<Void> close(CancellationReason reason) {
