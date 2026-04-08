@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
+import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.awaits;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,7 +30,7 @@ import org.hamcrest.Matcher;
 public class WoundWaitDeadlockPreventionNoOpFailActionTest extends AbstractDeadlockPreventionTest {
     @Override
     protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
-        return waitsFor(txId);
+        return awaits();
     }
 
     @Override

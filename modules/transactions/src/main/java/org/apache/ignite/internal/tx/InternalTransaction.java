@@ -192,6 +192,6 @@ public interface InternalTransaction extends Transaction {
     }
 
     default RuntimeException enlistFailedException() {
-        return null;
+        return new IllegalStateException("Unexpected call");
     }
 }

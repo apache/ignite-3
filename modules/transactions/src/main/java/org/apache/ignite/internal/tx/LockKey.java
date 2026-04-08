@@ -94,7 +94,10 @@ public class LockKey {
 
     private static String dump(Object key) {
         if (key instanceof ByteBuffer) {
-            return Arrays.toString(((ByteBuffer) key).array());
+            ByteBuffer key0 = (ByteBuffer) key;
+            if (key0.hasArray()) {
+                return Arrays.toString(((ByteBuffer) key).array());
+            }
         }
 
         return key.toString();

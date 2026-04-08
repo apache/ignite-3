@@ -70,10 +70,4 @@ public class ReversedWaitDieDeadlockPreventionTest extends AbstractDeadlockPreve
 
         assertThat(xlock(tx2, key1), willThrow(LockException.class));
     }
-
-    @Override
-    @Test
-    public void testNonFair() {
-        super.testNonFair();
-    }
 }

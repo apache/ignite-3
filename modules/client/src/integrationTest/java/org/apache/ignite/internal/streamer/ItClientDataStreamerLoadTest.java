@@ -171,7 +171,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
             streamerFut.orTimeout(10, TimeUnit.SECONDS).join();
             LOG.info("Done streaming");
         } catch (Exception e) {
-            // Don't expecting errors here with proper retries TODO https://issues.apache.org/jira/browse/IGNITE-28365
+            // TODO IGNITE-28365 Don't expecting errors here with proper retries
             LOG.warn("Done streaming with error", e);
         }
     }

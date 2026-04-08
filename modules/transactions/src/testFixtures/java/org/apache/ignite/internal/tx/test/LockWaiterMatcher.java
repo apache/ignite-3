@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.test;
 
-import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -28,15 +27,9 @@ import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
 /**
- * Validates if a lock future will wait for expected owner.
+ * Validates if a lock future waits for an owner.
  */
 public class LockWaiterMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> {
-    private final UUID waiterId;
-
-    private LockWaiterMatcher(UUID txId) {
-        this.waiterId = txId;
-    }
-
     @Override
     protected boolean matchesSafely(CompletableFuture<Lock> item) {
         try {
@@ -56,10 +49,10 @@ public class LockWaiterMatcher extends TypeSafeMatcher<CompletableFuture<Lock>> 
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("lock future which should wait for ").appendValue(waiterId);
+        description.appendText("lock future which should wait");
     }
 
-    public static LockWaiterMatcher waitsFor(UUID... txIds) {
-        return new LockWaiterMatcher(txIds[0]);
+    public static LockWaiterMatcher awaits() {
+        return new LockWaiterMatcher();
     }
 }

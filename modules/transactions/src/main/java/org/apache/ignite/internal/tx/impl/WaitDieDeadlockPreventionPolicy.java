@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
@@ -29,8 +27,7 @@ import org.apache.ignite.internal.tx.Waiter;
  * <ul>
  *     <li>tx2 is older than tx1.</li>
  *     <li>tx2 is younger than tx1 but has a higher {@link org.apache.ignite.internal.tx.TxPriority}.</li>
- *     <li>The wait timeout is greater than 0.</li>
- * </ul>
+  * </ul>
  * If none of these conditions are met, tx2 is aborted to prevent deadlock.
  */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {

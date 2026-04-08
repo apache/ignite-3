@@ -29,7 +29,6 @@ import org.apache.ignite.internal.tx.Waiter;
  * <ul>
  *     <li>tx2 is younger than tx1.</li>
  *     <li>tx2 is older than tx1 but has a lower {@link org.apache.ignite.internal.tx.TxPriority}.</li>
- *     <li>The wait timeout is greater than 0.</li>
  * </ul>
  * If none of these conditions are met, tx1 is killed to prevent deadlock.
  */

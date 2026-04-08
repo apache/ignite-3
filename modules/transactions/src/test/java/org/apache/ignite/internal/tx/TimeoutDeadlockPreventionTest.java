@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
+import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.awaits;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -45,7 +45,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
     @Override
     protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
-        return waitsFor(txId);
+        return awaits();
     }
 
     @Test

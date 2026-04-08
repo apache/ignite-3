@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.apache.ignite.internal.tx.test.LockFutureMatcher.isGranted;
-import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.waitsFor;
+import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.awaits;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,7 +59,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         var key = lockKey("test");
 
         assertThat(xlock(tx2, key), isGranted(key, X, tx2));
-        assertThat(xlock(tx1, key), waitsFor(tx2));
+        assertThat(xlock(tx1, key), awaits());
     }
 
     @Test
@@ -72,7 +72,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(xlock(tx2, key1), willSucceedFast());
 
         var xlockFutTx1 = xlock(tx1, key1);
-        assertThat(xlockFutTx1, waitsFor(tx2));
+        assertThat(xlockFutTx1, awaits());
 
         commitTx(tx2);
         assertThat(xlockFutTx1, willSucceedFast());
@@ -102,7 +102,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(slock(tx2, key1), willSucceedFast());
 
         var xlockTx1 = xlock(tx1, key1);
-        assertThat(xlockTx1, waitsFor(tx2));
+        assertThat(xlockTx1, awaits());
 
         var xlockTx2 = xlock(tx2, key1);
         assertThat(xlockTx2, conflictMatcher(tx1));
@@ -125,10 +125,10 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(slock(tx3, k), willSucceedFast());
 
         var futTx2 = xlock(tx2, k);
-        assertThat(futTx2, waitsFor(tx3));
+        assertThat(futTx2, awaits());
 
         var futTx1 = xlock(tx1, k);
-        assertThat(futTx1, waitsFor(tx3));
+        assertThat(futTx1, awaits());
 
         commitTx(tx3);
 
@@ -153,7 +153,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(slock(tx1, k), willSucceedFast());
 
         var futTx1 = xlock(tx1, k);
-        assertThat(futTx1, waitsFor(tx2));
+        assertThat(futTx1, awaits());
 
         commitTx(tx2);
 
@@ -194,7 +194,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(slock(tx2, k), willSucceedFast());
 
         var futTx1 = xlock(tx1, k);
-        assertThat(futTx1, waitsFor(tx2));
+        assertThat(futTx1, awaits());
 
         assertThat(slock(tx3, k), willSucceedFast());
 
@@ -212,7 +212,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(slock(tx3, k), willSucceedFast());
 
         var futTx2 = xlock(tx2, k);
-        assertThat(futTx2, waitsFor(tx3));
+        assertThat(futTx2, awaits());
 
         assertThat(slock(tx1, k), willSucceedFast());
 
@@ -233,12 +233,12 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(slock(tx4, k), willSucceedFast());
 
         var futTx2 = xlock(tx2, k);
-        assertThat(futTx2, waitsFor(tx4));
+        assertThat(futTx2, awaits());
 
         assertThat(slock(tx1, k), willSucceedFast());
         assertThat(slock(tx3, k), willSucceedFast());
 
-        assertThat(futTx2, waitsFor(tx4));
+        assertThat(futTx2, awaits());
 
         commitTx(tx1);
         commitTx(tx3);
@@ -259,19 +259,19 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(xlock(tx4, k), willSucceedFast());
 
         var futTx3 = slock(tx3, k);
-        assertThat(futTx3, waitsFor(tx4));
+        assertThat(futTx3, awaits());
 
         var futTx2 = xlock(tx2, k);
-        assertThat(futTx2, waitsFor(tx4));
+        assertThat(futTx2, awaits());
 
         var futTx1 = slock(tx1, k);
-        assertThat(futTx1, waitsFor(tx4));
+        assertThat(futTx1, awaits());
 
         commitTx(tx4);
 
         assertThat(futTx3, willSucceedFast());
         assertThat(futTx1, willSucceedFast());
-        assertThat(futTx2, waitsFor(tx4));
+        assertThat(futTx2, awaits());
 
         commitTx(tx1);
         commitTx(tx3);
@@ -290,10 +290,10 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
         assertThat(xlock(tx3, k), willSucceedFast());
 
         var futTx2 = slock(tx2, k);
-        assertThat(futTx2, waitsFor(tx3));
+        assertThat(futTx2, awaits());
 
         var futTx1 = slock(tx1, k);
-        assertThat(futTx1, waitsFor(tx3));
+        assertThat(futTx1, awaits());
 
         commitTx(tx3);
 
