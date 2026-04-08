@@ -60,7 +60,7 @@ public abstract class RowsProjectionMatcher<T> extends TypeSafeMatcher<List<T>> 
         mismatch.describeTo(description);
     }
 
-    /** Matcher verifying that checked projection contains all values from provided list. */
+    /** Matcher which ensures that checked projection contains all values from provided list. */
     @SafeVarargs
     public static <T> RowsProjectionMatcher<T> hasValuesInAnyOrder(T... expectedVals) {
         return hasValues("Rows projection with following values in any order ", (projection, expectedProjection) -> {
@@ -108,7 +108,7 @@ public abstract class RowsProjectionMatcher<T> extends TypeSafeMatcher<List<T>> 
         }, expectedVals);
     }
 
-    /** Matcher verifying that checked projection satisfies provided values order. */
+    /** Matcher which ensures that checked projection contains all values from provided list in same order. */
     @SafeVarargs
     public static <T> RowsProjectionMatcher<T> hasValuesOrder(T... expectedVals) {
         return hasValues("Rows projection with following values order ", (projection, expectedProjection) -> {
