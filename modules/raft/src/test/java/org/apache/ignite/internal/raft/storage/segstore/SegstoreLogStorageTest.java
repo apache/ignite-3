@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -52,7 +53,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        segmentFileManager.close();
+        closeAllManually(segmentFileManager);
     }
 
     @Override

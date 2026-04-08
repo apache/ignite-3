@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.storage.logit;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,6 +48,7 @@ import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.HybridLogStorage;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -58,30 +60,48 @@ class HybridLogStorageTest extends BaseStorageTest {
 
     private static final String GROUP_ID = "1_part_1";
 
+    private @Nullable LogStorageManager oldStorageFactory;
+
+    private LogStorageManager newStorageFactory;
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        if (oldStorageFactory != null) {
+            oldStorageFactory.destroyLogStorage(GROUP_ID);
+            oldStorageFactory.stopAsync();
+        }
+
+        if (newStorageFactory != null) {
+            newStorageFactory.destroyLogStorage(GROUP_ID);
+            newStorageFactory.stopAsync();
+        }
+    }
+
     @Test
     public void testTransferLogStorage() {
         Path storagePath = getStoragePath();
 
-        LogStorageManager oldStorageFactory = new DefaultLogStorageManager(storagePath.resolve("old"));
-        LogStorageManager newStorageFactory = new DefaultLogStorageManager(storagePath);
+        oldStorageFactory = new DefaultLogStorageManager(storagePath.resolve("old"));
+        newStorageFactory = new DefaultLogStorageManager(storagePath);
 
-        testHybridStorage(oldStorageFactory, newStorageFactory);
+        testHybridStorage();
     }
 
     @Test
     public void testHybridStorageWithoutOldStorage() {
         Path storagePath = path.resolve(STORAGE_RELATIVE_PATH).resolve(NEW_STORAGE_RELATIVE_PATH);
 
-        LogStorageManager newStorageFactory = new DefaultLogStorageManager(storagePath);
+        oldStorageFactory = null;
+        newStorageFactory = new DefaultLogStorageManager(storagePath);
 
-        testHybridStorage(null, newStorageFactory);
+        testHybridStorage();
     }
 
     @Test
     public void testHybridStorageWithSegStore(@InjectConfiguration LogStorageConfiguration logStorageConfiguration) throws IOException {
         Path storagePath = getStoragePath();
 
-        LogStorageManager newStorageFactory = new SegmentLogStorageManager(
+        newStorageFactory = new SegmentLogStorageManager(
                 "test",
                 storagePath,
                 1,
@@ -90,24 +110,24 @@ class HybridLogStorageTest extends BaseStorageTest {
                 logStorageConfiguration
         );
 
-        assertThat(newStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        oldStorageFactory = new DefaultLogStorageManager(storagePath);
 
-        LogStorageManager oldStorageFactory = new DefaultLogStorageManager(storagePath);
-
-        testHybridStorage(oldStorageFactory, newStorageFactory);
+        testHybridStorage();
     }
 
-    private void testHybridStorage(@Nullable LogStorageManager oldStorageFactory, LogStorageManager newStorageFactory) {
+    private void testHybridStorage() {
         RaftOptions raftOptions = new RaftOptions();
         raftOptions.setStartupOldStorage(oldStorageFactory != null);
 
-        HybridLogStorage hybridLogStorage = createHybridLogStorage(raftOptions, oldStorageFactory, newStorageFactory, getStoragePath());
+        assertThat(newStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         long expectedThresholdIndex;
 
         int valueCount = 10;
 
         if (oldStorageFactory != null) {
+            assertThat(oldStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
             LogStorage oldStorage = oldStorageFactory.createLogStorage(GROUP_ID, new RaftOptions());
 
             assertTrue(oldStorage.init(logStorageOptions()));
@@ -119,17 +139,15 @@ class HybridLogStorageTest extends BaseStorageTest {
             expectedThresholdIndex = oldStorage.getLastLogIndex() + 1;
 
             oldStorage.shutdown();
-
-            assertTrue(hybridLogStorage.init(logStorageOptions()));
-
-            assertTrue(hybridLogStorage.isOldStorageExist());
         } else {
-            assertTrue(hybridLogStorage.init(logStorageOptions()));
-
-            assertFalse(hybridLogStorage.isOldStorageExist());
-
             expectedThresholdIndex = 0;
         }
+
+        HybridLogStorage hybridLogStorage = createHybridLogStorage(raftOptions, oldStorageFactory, newStorageFactory, getStoragePath());
+
+        assertTrue(hybridLogStorage.init(logStorageOptions()));
+
+        assertThat(hybridLogStorage.isOldStorageExist(), is(oldStorageFactory != null));
 
         // Checkpoint saved to disk when storage is started.
         assertTrue(Files.exists(statusCheckpointPath()));
@@ -147,6 +165,9 @@ class HybridLogStorageTest extends BaseStorageTest {
         assertFalse(hybridLogStorage.isOldStorageExist());
 
         hybridLogStorage.shutdown();
+
+        // Storages don't support restarting after shutdown, so we need to create new one.
+        hybridLogStorage = createHybridLogStorage(raftOptions, oldStorageFactory, newStorageFactory, getStoragePath());
 
         assertTrue(hybridLogStorage.init(logStorageOptions()));
         assertFalse(hybridLogStorage.isOldStorageExist());
