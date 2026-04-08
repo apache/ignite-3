@@ -763,7 +763,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             metrics.handshakesFailedIncrement();
 
             if (err instanceof TraceableException) {
-                throw sneakyThrow(err);
+                throw new IgniteClientConnectionException(((TraceableException) err).code(), "Handshake error", endpoint(), err);
             }
 
             throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
