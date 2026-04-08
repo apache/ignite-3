@@ -41,6 +41,7 @@ public class SegmentLogStorageManager implements LogStorageManager {
 
     private final SegmentFileManager fileManager;
 
+    /** Constructor. */
     public SegmentLogStorageManager(
             String nodeName,
             String storageName,
