@@ -43,13 +43,14 @@ public class SegmentLogStorageManager implements LogStorageManager {
 
     public SegmentLogStorageManager(
             String nodeName,
+            String storageName,
             Path logStoragePath,
             int stripes,
             FailureProcessor failureProcessor,
             boolean fsync,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
-        this.fileManager = new SegmentFileManager(nodeName, logStoragePath, stripes, failureProcessor, fsync, storageConfiguration);
+        this.fileManager = new SegmentFileManager(nodeName, storageName, logStoragePath, stripes, failureProcessor, fsync, storageConfiguration);
     }
 
     @Override

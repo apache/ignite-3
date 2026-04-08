@@ -103,6 +103,7 @@ class HybridLogStorageTest extends BaseStorageTest {
 
         newStorageFactory = new SegmentLogStorageManager(
                 "test",
+                "test factory",
                 storagePath,
                 1,
                 new NoOpFailureManager(),
