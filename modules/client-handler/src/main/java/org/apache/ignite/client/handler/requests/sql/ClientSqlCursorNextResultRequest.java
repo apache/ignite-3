@@ -46,7 +46,8 @@ public class ClientSqlCursorNextResultRequest {
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
-            Executor operationExecutor, ClientMessageUnpacker in,
+            Executor operationExecutor,
+            ClientMessageUnpacker in,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             HybridTimestampTracker requestTsTracker
