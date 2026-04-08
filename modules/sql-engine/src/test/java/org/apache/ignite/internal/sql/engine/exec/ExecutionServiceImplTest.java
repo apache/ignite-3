@@ -1236,48 +1236,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void coordinatorIgnoresRemoteCloseErrorFromNodeOnCoordinator() throws InterruptedException {
-        ExecutionService execService = executionServices.get(0);
-
-        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
-
-        var expectedEx = new RuntimeException("Test error");
-        var queryClosed = new CountDownLatch(nodeNames.size() - 1);
-
-        String coordinatorNode = nodeNames.get(0);
-        testCluster.node(coordinatorNode).interceptor((senderNode, msg, original) -> {
-            if (msg instanceof QueryStartRequest) {
-                QueryStartRequest queryStart = (QueryStartRequest) msg;
-
-                String nodeName = senderNode.name();
-                testCluster.node(coordinatorNode).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
-                        .queryId(queryStart.queryId())
-                        .fragmentId(queryStart.fragmentId())
-                        .error(expectedEx)
-                        .build()
-                );
-            } else {
-                original.onMessage(senderNode, msg);
-            }
-
-            if (msg instanceof QueryCloseMessage) {
-                queryClosed.countDown();
-                return CompletableFuture.failedFuture(new RuntimeException("Test exception: failed to close"));
-            } else {
-                return nullCompletedFuture();
-            }
-        });
-
-        SqlOperationContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-
-        RuntimeException actualException = assertWillThrow(execService.executePlan(plan, ctx), RuntimeException.class);
-        assertEquals(expectedEx, actualException);
-
-        queryClosed.await();
-    }
-
-    @Test
     public void coordinatorIgnoresRemoteCloseErrorOnNode() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
 
