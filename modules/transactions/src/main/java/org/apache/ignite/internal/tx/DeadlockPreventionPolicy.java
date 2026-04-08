@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Comparator;
 import java.util.UUID;
+import org.apache.ignite.internal.tx.impl.TxIdPriorityComparator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,20 +28,22 @@ import org.jetbrains.annotations.Nullable;
  * See also {@link org.apache.ignite.internal.tx.impl.HeapLockManager}.
  */
 public interface DeadlockPreventionPolicy {
+    /** Default comparator. */
+    TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
+
     /**
      * No-op policy which does nothing to prevent deadlocks.
      */
     DeadlockPreventionPolicy NO_OP = new DeadlockPreventionPolicy() {};
 
     /**
-     * Comparator for transaction ids that allows to set transaction priority, if deadlock prevention policy requires this priority.
-     * The transaction with higher id has lower priority. If this comparator is {@code null} then behavior of any transaction
-     * in case of conflict depends only on whether this transaction holds a lock or makes a request for lock acquisition.
+     * A comparator for transaction ids that orders transactions according to their priority. Transactions with higher priority
+     * will acquire locks first. Also, the priority is used to prevent deadlocks, if a policy supports deadlock prevention.
      *
      * @return Transaction id comparator.
      */
     @Nullable default Comparator<UUID> txIdComparator() {
-        return null;
+        return TX_ID_PRIORITY_COMPARATOR;
     }
 
     /**

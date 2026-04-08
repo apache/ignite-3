@@ -335,7 +335,7 @@ public class TxMessageSender {
     }
 
     /**
-     * Sends a message to kill a transaction to it's coordinator.
+     * Sends a message to kill a transaction to its coordinator.
      *
      * @param coordinator The coordinator.
      * @param txId The id.

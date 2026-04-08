@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
@@ -26,12 +24,6 @@ import org.apache.ignite.internal.tx.Waiter;
  * Nowait deadlock prevention policy.
  */
 public class NoWaitDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
-    /** {@inheritDoc} */
-    @Override
-    public Comparator<UUID> txIdComparator() {
-        return null;
-    }
-
     /** {@inheritDoc} */
     @Override
     public long waitTimeout() {

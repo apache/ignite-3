@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllRes
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -135,7 +135,7 @@ public class TpccBenchmarkNodeRunner {
     }
 
     protected Path workDir() throws Exception {
-        return new File("c:/work/tpcc").toPath();
+        return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
     }
 
     protected int pageMemorySize() {

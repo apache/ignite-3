@@ -849,8 +849,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private volatile LockKey key;
 
         LockState() {
-            Comparator<UUID> txComparator =
-                    deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
+            Comparator<UUID> txComparator = deadlockPreventionPolicy.txIdComparator();
 
             // Keep ordered event store for non-priority based policies to avoid starvation.
             var waitersStore = new TreeMap<UUID, WaiterImpl>(txComparator);
