@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.GROUP_DESTROY_LOG_INDEX;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 import static org.apache.ignite.internal.util.IgniteUtils.fsyncFile;
 
@@ -137,7 +138,6 @@ class IndexFileManager {
     /**
      * Index file metadata grouped by Raft Group ID.
      */
-    // FIXME: This map is never cleaned up, see https://issues.apache.org/jira/browse/IGNITE-27926.
     private final Map<Long, GroupIndexMeta> groupIndexMetas = new ConcurrentHashMap<>();
 
     IndexFileManager(Path baseDir) throws IOException {
@@ -450,6 +450,12 @@ class IndexFileManager {
         Long groupId = metaSpec.groupId();
 
         long firstIndexKept = metaSpec.firstIndexKept();
+
+        if (firstIndexKept == GROUP_DESTROY_LOG_INDEX) {
+            groupIndexMetas.remove(groupId);
+
+            return;
+        }
 
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 

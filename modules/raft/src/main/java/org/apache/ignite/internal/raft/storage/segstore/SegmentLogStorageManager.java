@@ -70,7 +70,7 @@ public class SegmentLogStorageManager implements LogStorageManager {
     @Override
     public void destroyLogStorage(String groupId) {
         try {
-            fileManager.reset(convertGroupId(groupId), 1);
+            fileManager.destroyGroup(convertGroupId(groupId));
         } catch (IOException e) {
             throw new LogStorageException("Failed to destroy log storage for group " + groupId, e);
         }

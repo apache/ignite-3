@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.GROUP_DESTROY_LOG_INDEX;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -643,5 +644,55 @@ class IndexFileManagerTest extends IgniteAbstractTest {
         indexFileManager.saveNewIndexMemtable(memtable);
 
         assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(nullValue()));
+    }
+
+    @Test
+    void testDestroyGroupSoleTombstoneClearsIndexMetaOnCheckpoint() throws IOException {
+        var memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 1, 10);
+        memtable.appendSegmentFileOffset(1, 1, 20);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(1L));
+
+        // Sole tombstone: the segment file had no entries for group 0, only the destroy tombstone.
+        var destroyMemtable = new SingleThreadMemTable();
+        destroyMemtable.reset(0, GROUP_DESTROY_LOG_INDEX);
+        indexFileManager.saveNewIndexMemtable(destroyMemtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(nullValue()));
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(-1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(-1L));
+
+        // Group 1 must be unaffected.
+        assertThat(indexFileManager.getSegmentFilePointer(1, 1), is(new SegmentFilePointer(new FileProperties(0), 20)));
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(1L));
+    }
+
+    @Test
+    void testDestroyGroupWithPriorDataClearsIndexMetaOnCheckpoint() throws IOException {
+        var memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 1, 10);
+        memtable.appendSegmentFileOffset(1, 1, 20);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(1L));
+
+        // Group 0 writes more entries in the next segment, then gets destroyed in the same segment.
+        var destroyMemtable = new SingleThreadMemTable();
+        destroyMemtable.appendSegmentFileOffset(0, 2, 100);
+        destroyMemtable.appendSegmentFileOffset(0, 3, 200);
+        destroyMemtable.reset(0, GROUP_DESTROY_LOG_INDEX);
+        indexFileManager.saveNewIndexMemtable(destroyMemtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(nullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(nullValue()));
+        assertThat(indexFileManager.firstLogIndexInclusive(0), is(-1L));
+        assertThat(indexFileManager.lastLogIndexExclusive(0), is(-1L));
+
+        // Group 1 must be unaffected.
+        assertThat(indexFileManager.getSegmentFilePointer(1, 1), is(new SegmentFilePointer(new FileProperties(0), 20)));
+        assertThat(indexFileManager.firstLogIndexInclusive(1), is(1L));
     }
 }
