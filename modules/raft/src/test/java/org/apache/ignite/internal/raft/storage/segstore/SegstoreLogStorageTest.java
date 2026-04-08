@@ -61,6 +61,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
         try {
             segmentFileManager = new SegmentFileManager(
                     NODE_NAME,
+                    NODE_NAME,
                     path,
                     1,
                     new NoOpFailureManager(),

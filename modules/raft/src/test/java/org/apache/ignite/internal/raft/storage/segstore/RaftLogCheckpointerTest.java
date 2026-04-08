@@ -60,7 +60,14 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        checkpointer = new RaftLogCheckpointer(NODE_NAME, indexFileManager, new NoOpFailureManager(), MAX_QUEUE_SIZE, size -> {});
+        checkpointer = new RaftLogCheckpointer(
+                NODE_NAME,
+                NODE_NAME,
+                indexFileManager,
+                new NoOpFailureManager(),
+                MAX_QUEUE_SIZE,
+                size -> {}
+        );
 
         checkpointer.start();
     }

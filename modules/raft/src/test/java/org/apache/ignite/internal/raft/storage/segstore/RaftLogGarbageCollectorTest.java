@@ -90,6 +90,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     void setUp() throws IOException {
         fileManager = new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
@@ -411,6 +412,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         fileManager.close();
 
         fileManager = new SegmentFileManager(
+                NODE_NAME,
                 NODE_NAME,
                 workDir,
                 STRIPES,
@@ -736,6 +738,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         fileManager.close();
 
         fileManager = new SegmentFileManager(
+                NODE_NAME,
                 NODE_NAME,
                 workDir,
                 STRIPES,

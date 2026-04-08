@@ -58,6 +58,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
     ) throws IOException {
         segmentFileManager = new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 1,
                 new NoOpFailureManager(),

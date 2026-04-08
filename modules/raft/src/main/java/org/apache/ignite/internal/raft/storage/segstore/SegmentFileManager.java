@@ -115,6 +115,8 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     static final byte[] SWITCH_SEGMENT_RECORD = new byte[8]; // 8 zero bytes.
 
+    private final String storageName;
+
     private final Path segmentFilesDir;
 
     /** Number of stripes used by the index memtable. Should be equal to the number of stripes in the Raft server's Disruptor. */
@@ -156,13 +158,18 @@ class SegmentFileManager implements ManuallyCloseable {
 
     SegmentFileManager(
             String nodeName,
+            String storageName,
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
             RaftConfiguration raftConfiguration,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
-        this.segmentFilesDir = baseDir.resolve("segments");
+        this.storageName = storageName;
+
+        Path storageDir = baseDir.resolve(storageName);
+
+        this.segmentFilesDir = storageDir.resolve("segments");
         this.stripes = stripes;
         this.isSync = raftConfiguration.fsync().value();
 
@@ -174,10 +181,11 @@ class SegmentFileManager implements ManuallyCloseable {
 
         maxLogEntrySize = maxLogEntrySize(logStorageView);
 
-        indexFileManager = new IndexFileManager(baseDir);
+        indexFileManager = new IndexFileManager(storageDir);
 
         garbageCollector = new RaftLogGarbageCollector(
                 nodeName,
+                storageName,
                 segmentFilesDir,
                 indexFileManager,
                 logStorageView.softLogSizeLimitBytes(),
@@ -187,6 +195,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         checkpointer = new RaftLogCheckpointer(
                 nodeName,
+                storageName,
                 indexFileManager,
                 failureProcessor,
                 logStorageView.maxCheckpointQueueSize(),
@@ -195,7 +204,10 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     void start() throws IOException {
-        LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, segmentFileSize);
+        LOG.info(
+                "Starting segment file manager [storageName={}, segmentFilesDir={}, fileSize={}].",
+                storageName, segmentFilesDir, segmentFileSize
+        );
 
         indexFileManager.cleanupLeftoverFiles();
         garbageCollector.cleanupLeftoverFiles();

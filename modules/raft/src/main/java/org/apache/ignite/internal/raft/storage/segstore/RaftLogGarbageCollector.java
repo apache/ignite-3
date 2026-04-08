@@ -98,6 +98,7 @@ class RaftLogGarbageCollector {
 
     RaftLogGarbageCollector(
             String nodeName,
+            String storageName,
             Path segmentFilesDir,
             IndexFileManager indexFileManager,
             long softLimitBytes,
@@ -110,7 +111,7 @@ class RaftLogGarbageCollector {
         this.strategy = strategy;
         this.failureProcessor = failureProcessor;
 
-        gcThread = new IgniteThread(nodeName, "segstore-gc", new GcTask());
+        gcThread = new IgniteThread(nodeName, "segstore-gc-" + storageName, new GcTask());
     }
 
     void start() throws IOException {
