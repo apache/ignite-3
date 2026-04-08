@@ -59,6 +59,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.binarytuple.BinaryTuple;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefix;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.StructNativeType;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
@@ -220,7 +222,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         for (Bound leftBound : Bound.values()) {
             for (Bound rightBound : Bound.values()) {
                 params.add(Arguments.of(NoOpTransaction.readOnly("RO", false), leftBound, rightBound));
-                params.add(Arguments.of(NoOpTransaction.readWrite("RW", false), leftBound, rightBound));
+                params.add(Arguments.of(rwWithCommitPartition(), leftBound, rightBound));
             }
         }
 
@@ -483,8 +485,14 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
     private static Stream<Arguments> transactions() {
         return Stream.of(
                 Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO", false))),
-                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW", false)))
+                Arguments.of(Named.of("Read-write transaction", rwWithCommitPartition()))
         );
+    }
+
+    private static Transaction rwWithCommitPartition() {
+        NoOpTransaction tx = NoOpTransaction.readWrite("RW", false);
+        tx.assignCommitPartition(new ZonePartitionId(1, 1));
+        return tx;
     }
 
     private class Tester {

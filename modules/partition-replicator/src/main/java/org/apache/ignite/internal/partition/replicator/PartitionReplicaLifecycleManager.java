@@ -1891,7 +1891,9 @@ public class PartitionReplicaLifecycleManager extends
                 TrackerClosedException.class,
                 CancellationException.class,
                 // Is possible during cluster stop due to "stale" nodes (nodes that already left the cluster).
-                RecipientLeftException.class
+                RecipientLeftException.class,
+                // May be thrown due to future interruption on component stop.
+                InterruptedException.class
         );
     }
 

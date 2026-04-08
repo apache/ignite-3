@@ -61,24 +61,25 @@ class ReplicaStateManager {
 
     private final FailureProcessor failureProcessor;
 
-    private volatile UUID localNodeId;
+    private final UUID localNodeId;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     ReplicaStateManager(
+            UUID localNodeId,
             Executor replicaStartStopExecutor,
             PlacementDriver placementDriver,
             ReplicaManager replicaManager,
             FailureProcessor failureProcessor
     ) {
+        this.localNodeId = localNodeId;
         this.replicaStartStopExecutor = replicaStartStopExecutor;
         this.placementDriver = placementDriver;
         this.replicaManager = replicaManager;
         this.failureProcessor = failureProcessor;
     }
 
-    void start(UUID localNodeId) {
-        this.localNodeId = localNodeId;
+    void start() {
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }

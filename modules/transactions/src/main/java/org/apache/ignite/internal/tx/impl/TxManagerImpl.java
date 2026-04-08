@@ -195,9 +195,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** Messaging service. */
     private final MessagingService messagingService;
 
-    /** Local node network identity. This id is available only after the network has started. */
-    private volatile UUID localNodeId;
-
     /** Server cleanup processor. */
     private final TxCleanupRequestHandler txCleanupRequestHandler;
 
@@ -422,7 +419,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return txMetrics;
     }
 
-    private CompletableFuture<Boolean> primaryReplicaEventListener(
+    private static CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
             Consumer<ZonePartitionId> action
     ) {
@@ -436,7 +433,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
         return primaryReplicaEventListener(eventParameters, groupId -> {
-            if (localNodeId.equals(eventParameters.leaseholderId())) {
+            if (localNode.id().equals(eventParameters.leaseholderId())) {
                 txMessageSender.sendRecoveryCleanup(localNode.name(), groupId);
             }
         });
@@ -497,7 +494,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 this,
                 timestampTracker,
                 txId,
-                localNodeId,
+                localNode.id(),
                 implicit,
                 timeout,
                 options.killClosure()
@@ -555,7 +552,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
-                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture
+                    this, timestampTracker, txId, localNode.id(), timeout, readTimestamp, txFuture
             );
 
             transactionExpirationRegistry.register(transaction);
@@ -666,7 +663,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> builder(old, commitIntent ? COMMITTED : ABORTED)
-                    .txCoordinatorId(localNodeId)
+                    .txCoordinatorId(localNode.id())
                     .commitPartitionId(commitPartition)
                     .commitTimestamp(commitTimestamp(commitIntent))
                     .finishedDueToTimeout(finishedDueToTimeout(old, finishReason))
@@ -731,7 +728,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         txContext.isNoWrites() && noRemoteWrites && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
-            if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
+            if (localNode.id().equals(finishingStateMeta.txCoordinatorId())) {
                 txMetrics.onReadWriteTransactionFinished(txId, commitIntent && throwable == null);
 
                 decrementRwTxCount(txId);
@@ -784,7 +781,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             txStateVolatileStorage.updateMeta(txId, old -> null);
 
                                             TxStateMeta meta = builder(verifiedCommit ? COMMITTED : ABORTED)
-                                                    .txCoordinatorId(localNodeId)
+                                                    .txCoordinatorId(localNode.id())
                                                     .commitTimestamp(commitTimestamp)
                                                     .cleanupCompletionTimestamp(System.currentTimeMillis())
                                                     .txLabel(previous == null ? null : previous.txLabel())
@@ -921,7 +918,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     validateTxFinishedAsExpected(commit, txId, txResult);
 
                     TxStateMeta updatedMeta = updateTxMeta(txId, old -> builder(old, txResult.transactionState())
-                            .txCoordinatorId(localNodeId)
+                            .txCoordinatorId(localNode.id())
                             .commitTimestamp(txResult.commitTimestamp())
                             .build()
                     );
@@ -1040,8 +1037,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         // TODO https://issues.apache.org/jira/browse/IGNITE-23539
         lockManager.start(deadlockPreventionPolicy);
 
-        localNodeId = localNode.id();
-
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
         persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
@@ -1051,7 +1046,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 placementDriver
         );
 
-        txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
+        txViewProvider.init(localNode.id(), txStateVolatileStorage.statesMap());
 
         orphanDetector.start(txStateVolatileStorage,
                 () -> longProperty(systemCfg, ABANDONED_CHECK_TS_PROP, ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE));
