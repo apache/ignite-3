@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomByt
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -125,7 +126,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        fileManager.close();
+        closeAllManually(fileManager);
     }
 
     @Test

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -95,7 +96,7 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        fileManager.close();
+        closeAllManually(fileManager);
     }
 
     @Test
