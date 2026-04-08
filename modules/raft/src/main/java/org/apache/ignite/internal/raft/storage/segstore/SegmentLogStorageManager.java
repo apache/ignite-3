@@ -50,7 +50,15 @@ public class SegmentLogStorageManager implements LogStorageManager {
             boolean fsync,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
-        this.fileManager = new SegmentFileManager(nodeName, storageName, logStoragePath, stripes, failureProcessor, fsync, storageConfiguration);
+        this.fileManager = new SegmentFileManager(
+                nodeName,
+                storageName,
+                logStoragePath,
+                stripes,
+                failureProcessor,
+                fsync,
+                storageConfiguration
+        );
     }
 
     @Override
