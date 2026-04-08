@@ -74,6 +74,7 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -1498,7 +1499,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
         } else {
             assertThat(ctx.put.apply(client(), olderTxProxy, key2), willSucceedFast()); // Will invalidate younger tx.
-            assertThat(youngerTxProxy.commitAsync(), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+            assertThat(youngerTxProxy.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
         }
 
         olderTxProxy.commit();
@@ -1630,7 +1631,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     private static Stream<Arguments> killTestContextFactory() {
         return Stream.of(
                 argumentSet("kv", new KillTestContext(TransactionException.class, ItThinClientTransactionsTest::putKv)),
-                argumentSet("sql", new KillTestContext(IgniteException.class, ItThinClientTransactionsTest::putSql))
+                argumentSet("sql", new KillTestContext(SqlException.class, ItThinClientTransactionsTest::putSql))
         );
     }
 
