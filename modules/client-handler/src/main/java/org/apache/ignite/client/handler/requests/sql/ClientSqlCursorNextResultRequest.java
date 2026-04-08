@@ -38,8 +38,11 @@ public class ClientSqlCursorNextResultRequest {
     /**
      * Processes the request.
      *
+     * @param operationExecutor Operation executor.
      * @param in Unpacker.
-     * @param requestTsTracker TS tracker attached to request processing
+     * @param resources Resource bundle.
+     * @param metrics Client metrics.
+     * @param requestTsTracker TS tracker attached to current request processing.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
