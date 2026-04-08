@@ -37,7 +37,7 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
  * Log storage manager for {@link SegstoreLogStorage} instances.
  */
 public class SegmentLogStorageManager implements LogStorageManager {
-    private static final Pattern GROUP_ID_PATTERN = Pattern.compile("_part_");
+    private static final Pattern PARTITION_GROUP_ID_PATTERN = Pattern.compile("_part_");
 
     private final SegmentFileManager fileManager;
 
@@ -107,10 +107,10 @@ public class SegmentLogStorageManager implements LogStorageManager {
             return 2;
         }
 
-        String[] groupIdParts = GROUP_ID_PATTERN.split(groupId);
+        String[] partitionGroupIdArray = PARTITION_GROUP_ID_PATTERN.split(groupId);
 
-        if (groupIdParts.length == 2) {
-            return Long.parseLong(groupIdParts[0]) << 32 | Long.parseLong(groupIdParts[1]);
+        if (partitionGroupIdArray.length == 2) {
+            return Long.parseLong(partitionGroupIdArray[0]) << 32 | Long.parseLong(partitionGroupIdArray[1]);
         } else {
             throw new IllegalArgumentException("Invalid groupId: " + groupId);
         }
