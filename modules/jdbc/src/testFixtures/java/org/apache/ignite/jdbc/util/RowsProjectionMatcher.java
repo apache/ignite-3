@@ -75,7 +75,7 @@ public abstract class RowsProjectionMatcher<T> extends TypeSafeMatcher<List<T>> 
 
             for (int index = 0; index < actualSize; index++) {
 
-                if (index > expectedSize) {
+                if (index >= expectedSize) {
                     throw MismatchException.tooManyRecords(actualSize, expectedSize,
                             projection.subList(index, actualSize)
                     );
@@ -85,9 +85,10 @@ public abstract class RowsProjectionMatcher<T> extends TypeSafeMatcher<List<T>> 
                 Integer count = remaining.get(actual);
 
                 if (count == null) {
-                    throw MismatchException.unexpectedValue(actual, index, remaining.entrySet().stream()
-                            .flatMap(e -> Collections.nCopies(e.getValue(), e.getKey()).stream())
-                            .collect(Collectors.toList()));
+                    throw MismatchException.unexpectedValue(actual, index,
+                            remaining.entrySet().stream()
+                                    .flatMap(e -> Collections.nCopies(e.getValue(), e.getKey()).stream())
+                                    .collect(Collectors.toList()));
                 }
 
                 if (count == 1) {
@@ -119,7 +120,7 @@ public abstract class RowsProjectionMatcher<T> extends TypeSafeMatcher<List<T>> 
 
             for (index = 0; index < actualSize; index++) {
 
-                if (index > expectedSize) {
+                if (index >= expectedSize) {
                     throw MismatchException.tooManyRecords(actualSize, expectedSize,
                             projection.subList(index, actualSize)
                     );
