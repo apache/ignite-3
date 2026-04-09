@@ -157,6 +157,8 @@ public:
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
             get_and_remove_handler(req_id);
+            /*m_logger->log_error(*/auto str= "Connection id=" + std::to_string(id()) + " req_id=" + std::to_string(req_id) + " failed";//);
+            std::cout << str << std::endl;
             return {};
         }
 

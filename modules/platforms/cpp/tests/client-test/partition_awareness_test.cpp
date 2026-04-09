@@ -152,7 +152,7 @@ protected:
                 }
             }
 
-            get_logger()->log_debug("key=" + std::to_string(key) + "; endpoint=" + endpoint);
+            // get_logger()->log_debug("key=" + std::to_string(key) + "; endpoint=" + endpoint);
         }
 
         clear_table();
@@ -201,6 +201,7 @@ protected:
 
         ignite_client_configuration client_cfg;
         client_cfg.set_endpoints(proxy_endpoints);
+        // client_cfg.set_logger(get_logger());
 
         m_client = ignite_client::start(client_cfg, 5s);
 
@@ -257,30 +258,37 @@ protected:
     std::map<uuid, std::shared_ptr<proxy::message_listener>> m_out_listeners;
 };
 
-TEST_F(partition_awareness_test, foo) {
-    auto x = m_client.get_cluster_nodes();
-
-    std::cout << "|\n";
-}
-
 TEST_F(partition_awareness_test, get_by_key) {
     populate_table();
 
-    for (key_type key = MIN_KEY; key < MIN_KEY + 1; ++key) {
+    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
 
-        auto node_id = m_key_distribution.at(key);
+        auto this_node_id = m_key_distribution.at(key);
 
         // check if client connected to this node
-        bool connected_to_this_node = m_in_listeners.count(node_id);
+        bool connected_to_this_node = m_in_listeners.count(this_node_id);
 
         auto val = m_kv_view.get(nullptr, get_tuple(key));
 
         EXPECT_TRUE(val.has_value());
 
-        if (connected_to_this_node) {
+        int total = 0;
+        for (auto& [ep, node_id] : m_endpoint_to_node_id) {
             auto cnt = count_op_by_node_id(node_id, protocol::client_operation::TUPLE_GET);
 
-            EXPECT_EQ(1, cnt) << "Key " << key << " was not found among messages to correct node";
+            total += cnt;
+            if (connected_to_this_node) {
+                if (this_node_id == node_id) {
+                    EXPECT_EQ(1, cnt) << "Key " << key << " was not found among messages to correct node";
+                } else if (this_node_id != node_id) {
+                    EXPECT_EQ(0, cnt) << "Key " << key << " was found among messages to incorrect node";
+                }
+            }
+        }
+
+        if (!connected_to_this_node) {
+            EXPECT_EQ(1, total) << "Key " << key
+                << " was not found among messages to connected nodes or message was duplicated";
         }
     }
 }
