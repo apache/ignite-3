@@ -298,10 +298,12 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         assertPlan(sql, publicSchema, hasEmptyValuesOnly);
 
         sql = "SELECT a, c FROM (SELECT a, c FROM tbl WHERE a > 1) WHERE c = 1 AND c IS NULL";
-        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
+        assertPlan(sql, publicSchema, hasEmptyValuesOnly,
+                "ProjectFilterTransposeRule", "FilterProjectTransposeRule");
 
         sql = "SELECT a, c FROM (SELECT a, c FROM tbl WHERE a > 1) WHERE a < 0";
-        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
+        assertPlan(sql, publicSchema, hasEmptyValuesOnly,
+                "ProjectFilterTransposeRule", "FilterProjectTransposeRule");
 
         // JOIN branch elimination.
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 LEFT JOIN tbl AS t2 ON t1.a = t2.a WHERE t2.a = 1 AND t2.a IS NULL AND t1.c = 1";
