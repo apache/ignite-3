@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -52,7 +53,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
-import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.BrokenHandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -221,11 +222,12 @@ class ItNodeRestartsTest {
         AtomicBoolean sending = new AtomicBoolean(true);
 
         int receiverIndex = 1;
+        AtomicReference<InternalClusterNode> receiverNodeRef = new AtomicReference<>(services.get(receiverIndex).staticLocalNode());
 
         CompletableFuture<Void> sendingFuture = runAsync(() -> {
-            InternalClusterNode receiverNode = services.get(receiverIndex).staticLocalNode();
-
             while (sending.get()) {
+                InternalClusterNode receiverNode = receiverNodeRef.get();
+
                 TestMessage message = new TestMessagesFactory().testMessage().build();
                 CompletableFuture<Void> future = operation.send(sender.messagingService(), receiverNode, message);
 
@@ -246,6 +248,7 @@ class ItNodeRestartsTest {
 
             ClusterService restartedReceiver = startNetwork(testInfo, addresses.get(receiverIndex), nodeFinder);
             services.set(receiverIndex, restartedReceiver);
+            receiverNodeRef.set(restartedReceiver.staticLocalNode());
         }
 
         sending.set(false);
@@ -267,8 +270,14 @@ class ItNodeRestartsTest {
             @Override
             boolean isAllowed(ExecutionException ex) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException.
-                return hasCause(ex, RecipientLeftException.class, ConnectException.class, SocketException.class, IOException.class)
-                        || hasCause(ex, "Channel has been closed before handshake has finished", HandshakeException.class);
+                return hasCause(
+                        ex,
+                        RecipientLeftException.class,
+                        ConnectException.class,
+                        SocketException.class,
+                        IOException.class,
+                        BrokenHandshakeException.class
+                );
             }
         },
         INVOKE_BY_NODE {
@@ -279,7 +288,17 @@ class ItNodeRestartsTest {
 
             @Override
             boolean isAllowed(ExecutionException ex) {
-                return hasCause(ex, RecipientLeftException.class, TimeoutException.class);
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException
+                // and TimeoutException.
+                return hasCause(
+                        ex,
+                        RecipientLeftException.class,
+                        TimeoutException.class,
+                        ConnectException.class,
+                        SocketException.class,
+                        IOException.class,
+                        BrokenHandshakeException.class
+                );
             }
         },
         SEND_BY_NAME {
