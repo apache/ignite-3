@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
@@ -278,7 +279,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void testAlwaysTrueFilterMerge() throws Exception {
+    public void testAlwaysTrueFilterPruning() throws Exception {
         String sql = "SELECT a, c FROM tbl WHERE a > 1 OR a < 3 OR a IS NULL";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteTableScan.class)
@@ -289,8 +290,8 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void testAlwaysFalseFilterMerge() throws Exception {
-        Predicate<IgniteValues> hasEmptyValuesOnly = isInstanceOf(IgniteValues.class).and(values -> values.getTuples().isEmpty());
+    public void testAlwaysFalseFilterPruning() throws Exception {
+        Predicate<IgniteValues> hasEmptyValuesOnly = hasEmptyValuesOnlyPredicate();
 
         // Table scan elimination.
         String sql = "SELECT a, c FROM tbl WHERE a > 1 AND a < 0";
@@ -308,22 +309,42 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 LEFT JOIN tbl AS t2 ON t1.a = t2.a WHERE t2.a = 1 AND t2.a IS NULL AND t1.c = 1";
         assertPlan(sql, publicSchema, hasEmptyValuesOnly);
 
-        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 LEFT JOIN tbl AS t2 ON (t1.a = t2.a AND t2.a = 1 AND t2.a = 2) WHERE t1.c = 1";
+        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t2.a = 1 AND t2.a IS NULL";
+        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
+
+        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t1.a = 1 AND t2.a = 2";
+        assertPlan(sql, publicSchema, hasEmptyValuesOnlyPredicate());
+    }
+
+    @Test
+    public void testJoinWithAlwaysFalseConditionPruning() throws Exception {
+        String sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 LEFT JOIN tbl AS t2 ON (t1.a = t2.a AND t2.a = 1 AND t2.a = 2) WHERE t1.c = 1";
         assertPlan(sql, publicSchema, isInstanceOf(IgniteTableScan.class)
                 .and(scan -> scan.projects() != null)
                 .and(scan -> scan.condition() != null)
                 .and(scan -> "=($t1, 1)".equals(scan.condition().toString()))
         );
 
-        // JOIN elimination.
-        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t2.a = 1 AND t2.a IS NULL";
-        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
-
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a AND t2.a = 1 AND t2.a = 2";
-        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
+        assertPlan(sql, publicSchema, hasEmptyValuesOnlyPredicate());
+    }
 
-        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t1.a = 1 AND t2.a = 2";
-        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
+    @Test
+    public void testAlwaysFalseFilterPruningWithDml() throws Exception {
+        Predicate<IgniteValues> zeroDmlResultPredicate = isInstanceOf(IgniteValues.class)
+                .and(values -> values.getTuples().size() == 1) // single row
+                .and(values -> values.getTuples().get(0).size() == 1) // row of single column
+                .and(values -> RexLiteral.longValue(values.getTuples().get(0).get(0)) == 0L);
+
+        String sql = "INSERT INTO tbl (a, c) SELECT a, b FROM tbl WHERE a > 1 AND a < 0";
+        assertPlan(sql, publicSchema, zeroDmlResultPredicate);
+
+        sql = "INSERT INTO tbl (a, c) (SELECT a, c FROM (SELECT a, c FROM tbl WHERE a > 1) WHERE a < 0)";
+        assertPlan(sql, publicSchema, zeroDmlResultPredicate);
+    }
+
+    private Predicate<IgniteValues> hasEmptyValuesOnlyPredicate() {
+        return isInstanceOf(IgniteValues.class).and(values -> values.getTuples().isEmpty());
     }
 
     /**

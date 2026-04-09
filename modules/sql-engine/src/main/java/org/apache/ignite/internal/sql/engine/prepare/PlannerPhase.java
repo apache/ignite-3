@@ -78,6 +78,7 @@ import org.apache.ignite.internal.sql.engine.rule.logical.IgniteMultiJoinOptimiz
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteProjectCorrelateTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.PruneTableModifyRule;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -278,6 +279,7 @@ public enum PlannerPhase {
 
             PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
             PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,
+            PruneTableModifyRule.INSTANCE,
 
             // Useful of this rule is not clear now.
             // CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
