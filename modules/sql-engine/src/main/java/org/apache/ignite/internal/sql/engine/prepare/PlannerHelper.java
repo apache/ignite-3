@@ -181,7 +181,7 @@ public final class PlannerHelper {
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
-            
+
             rel = planner.transform(PlannerPhase.HEP_EMPTY_NODES_ELIMINATION, rel.getTraitSet(), rel);
 
             if (fastQueryOptimizationEnabled()) {

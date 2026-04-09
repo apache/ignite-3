@@ -229,7 +229,7 @@ public enum PlannerPhase {
             PruneEmptyRules.AGGREGATE_INSTANCE,
             PruneEmptyRules.JOIN_LEFT_INSTANCE,
             PruneEmptyRules.JOIN_RIGHT_INSTANCE,
-            
+
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
                             b0.operand(LogicalFilter.class).oneInput(b1 ->
