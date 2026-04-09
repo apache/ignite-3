@@ -516,7 +516,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             int attemptOrdinal
     ) {
         if (attemptOrdinal >= 1000) {
-            throw new IllegalStateException("Too many channel creation attempts [attempts=" + attemptOrdinal + ", nodeId=" + nodeId + "].");
+            return OrderingFuture.failedFuture(new IllegalStateException(
+                    "Too many channel creation attempts [attempts=" + attemptOrdinal + ", nodeId=" + nodeId + "]."
+            ));
         }
 
         return connectionManager.channel(nodeId, type, addr)
@@ -583,14 +585,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
         // and the corresponding callbacks will be added to a future we return from here, so ordering of message sends will be maintained.
 
         connectionRetryExecutor.execute(() -> {
-            openChannelWithRetriesInternal(nodeId, type, addr, retryStrategy, deadlineNanos, attemptOrdinal)
-                    .whenComplete((nextRes, nextEx) -> {
-                        if (nextEx != null) {
-                            nextAttemptFuture.completeExceptionally(nextEx);
-                        } else {
-                            nextAttemptFuture.complete(nextRes);
-                        }
-                    });
+            try {
+                openChannelWithRetriesInternal(nodeId, type, addr, retryStrategy, deadlineNanos, attemptOrdinal)
+                        .whenComplete((nextRes, nextEx) -> {
+                            if (nextEx != null) {
+                                nextAttemptFuture.completeExceptionally(nextEx);
+                            } else {
+                                nextAttemptFuture.complete(nextRes);
+                            }
+                        });
+            } catch (Throwable e) {
+                nextAttemptFuture.completeExceptionally(e);
+
+                if (e instanceof Error) {
+                    throw e;
+                }
+            }
         });
 
         return nextAttemptFuture;
