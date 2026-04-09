@@ -549,7 +549,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                         );
                     }
 
-                    // We always retry 'temporary I/O failures' (those that are not ConnectionException or NoRouteToHostException).
+                    // We always retry 'temporary I/O failures' (those that are not ConnectException or NoRouteToHostException).
                     boolean temporaryFailure = !recipientIsNotThere(ex);
 
                     if (!temporaryFailure && !retryStrategy.stillRetriable()) {
