@@ -242,12 +242,15 @@ public class HeapLockManagerTest extends AbstractLockingTest {
         expectConflict(fut2);
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, S);
-        fut1.join();
+        Lock lock1 = fut1.join();
 
         assertFalse(fut0.isDone());
 
         lockManager.release(lock);
         fut0.thenAccept(l -> lockManager.release(l));
+        lockManager.release(lock1);
+
+        assertThat(fut0, willCompleteSuccessfully());
     }
 
     @Test
@@ -347,13 +350,7 @@ public class HeapLockManagerTest extends AbstractLockingTest {
         fut0 = lockManager.acquire(txId0, key, S);
         assertTrue(fut0.isDone());
 
-        try {
-            lockManager.acquire(txId1, key, X).join();
-
-            fail();
-        } catch (CompletionException e) {
-            // Expected.
-        }
+        assertThat(lockManager.acquire(txId1, key, X), willThrow(LockException.class));
     }
 
     @Test

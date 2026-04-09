@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpd
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -133,9 +134,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             Thread.sleep(1000);
 
             long tmp = ops.sum();
-            if (tmp == curOps) {
-                throw new AssertionError("Test doesn't make progress");
-            }
+            assertNotEquals(tmp, curOps, "Test doesn't make progress");
             log.info("Running... ops={} restarts={} fails={} readOps={} readFails={}",
                     tmp, restarts.sum(), fails.sum(), readOps.sum(), readFails.sum());
             curOps = tmp;

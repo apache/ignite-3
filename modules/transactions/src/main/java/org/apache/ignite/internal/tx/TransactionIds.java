@@ -88,7 +88,7 @@ public class TransactionIds {
     }
 
     public static int hash(UUID txId, int divisor) {
-        return Math.floorMod(spread(txId.hashCode()), divisor);
+        return spread(txId.hashCode()) % divisor;
     }
 
     private static int spread(int h) {

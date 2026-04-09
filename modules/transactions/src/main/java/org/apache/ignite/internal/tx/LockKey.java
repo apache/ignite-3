@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.tostring.S;
@@ -94,10 +96,7 @@ public class LockKey {
 
     private static String dump(Object key) {
         if (key instanceof ByteBuffer) {
-            ByteBuffer key0 = (ByteBuffer) key;
-            if (key0.hasArray()) {
-                return Arrays.toString(((ByteBuffer) key).array());
-            }
+            return Arrays.toString(byteBufferToByteArray((ByteBuffer) key));
         }
 
         return key.toString();

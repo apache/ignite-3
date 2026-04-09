@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllRes
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
@@ -34,6 +35,8 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -59,25 +62,25 @@ public class TpccBenchmarkNodeRunner {
 
     public static void main(String[] args) throws Exception {
         TpccBenchmarkNodeRunner runner = new TpccBenchmarkNodeRunner();
-        runner.startCluster();
+        runner.startCluster(args.length == 0 ? null : args[0]);
     }
 
     public IgniteImpl node(int idx) {
         return unwrapIgniteImpl(igniteServers.get(idx).api());
     }
 
-    private void startCluster() throws Exception {
-        Path workDir = workDir();
+    private void startCluster(@Nullable String pathToWorkDir) throws Exception {
+        Path workDir = workDir(pathToWorkDir);
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         @Language("HOCON")
         String configTemplate = "ignite {\n"
-                + "  \"network\": {\n"
-                + "    \"port\":{},\n"
-                + "    \"nodeFinder\":{\n"
-                + "      \"netClusterNodes\": [ {} ]\n"
-                + "    }\n"
+                + "  network: {\n"
+                + "      port:{},\n"
+                + "      nodeFinder:{\n"
+                + "          netClusterNodes: [ {} ]\n"
+                + "      }\n"
                 + "  },\n"
                 + "  storage.profiles: {"
                 + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
@@ -134,8 +137,12 @@ public class TpccBenchmarkNodeRunner {
         return "node_" + port;
     }
 
-    protected Path workDir() throws Exception {
-        return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+    protected static Path workDir(@Nullable String pathToWorkDir) throws Exception {
+        if (pathToWorkDir == null) {
+            return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+        } else {
+            return new File(pathToWorkDir).toPath();
+        }
     }
 
     protected int pageMemorySize() {
