@@ -80,11 +80,15 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Returns the order, in which the first conflicting waiter is searched.
+     * Returns {@code true}, if wait order is inverted: high priority (older) transactions are allowed to wait for low priority (younger)
+     * transactions.
      *
-     * @return If {@code true}, searches for older first.
+     * <p>Must be consistent with {@code allowWait} implementation: for example, if higher priority is allowed to wait for lower priority,
+     * a search should start from low priority first, to have a chance of finding a valid waiter-owner pair.
+     *
+     * @return If {@code true} for inverted wait order.
      */
-    default boolean reverse() {
+    default boolean invertedWaitOrder() {
         return false;
     }
 }

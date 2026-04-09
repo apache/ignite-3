@@ -222,12 +222,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         IgniteTransactions transactions = igniteTx();
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
         InternalTransaction waiterTx;
         InternalTransaction lockerTx;
 
-        if (reversed) {
+        if (invertedWaitOrder) {
             waiterTx = (InternalTransaction) transactions.begin();
             lockerTx = startTxWithEnlistedPartition(PART_ID, false);
         } else {
@@ -549,9 +549,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         assertFalse(scanned.isDone());
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
-        if (reversed) {
+        if (invertedWaitOrder) {
             assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
                     () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"))
             );
@@ -625,9 +625,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         assertEquals(3, scannedRows.size());
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
-        if (reversed) {
+        if (invertedWaitOrder) {
             assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
                     () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"))
             );

@@ -106,8 +106,8 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testLockExceptionRetry() {
         IgniteImpl ignite = node0();
-        if (!ignite.txManager().lockManager().policy().reverse()) {
-            return; // This test scenario is only applicable to reversed policy.
+        if (!ignite.txManager().lockManager().policy().invertedWaitOrder()) {
+            return; // Not compatible with inverted wait order.
         }
 
         IgniteImpl leaseholderNode = findLeaseholderNode(testPartitionGroupId());
@@ -233,8 +233,8 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     @Test
     public void retryAfterLockFailureInSameTransaction() {
         IgniteImpl ignite = node0();
-        if (!ignite.txManager().lockManager().policy().reverse()) {
-            return; // This test scenario is only applicable to reversed policy.
+        if (!ignite.txManager().lockManager().policy().invertedWaitOrder()) {
+            return; // Not compatible with inverted wait order.
         }
 
         Transaction tx1 = node(0).transactions().begin();

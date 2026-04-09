@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema;
@@ -52,16 +51,13 @@ public class InternalTxOptions {
     /** Transaction kill closure. Defines context specific action on tx kill. */
     private final @Nullable Consumer<InternalTransaction> killClosure;
 
-    private final @Nullable UUID retryId;
-
     private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel,
-            @Nullable Consumer<InternalTransaction> killClosure, @Nullable UUID retryId) {
+            @Nullable Consumer<InternalTransaction> killClosure) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;
         this.txLabel = txLabel;
         this.killClosure = killClosure;
-        this.retryId = retryId;
     }
 
     public static Builder builder() {
@@ -96,10 +92,6 @@ public class InternalTxOptions {
         return killClosure;
     }
 
-    public @Nullable UUID retryId() {
-        return retryId;
-    }
-
     /** Builder for InternalTxOptions. */
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
@@ -115,8 +107,6 @@ public class InternalTxOptions {
 
         @Nullable
         private String txLabel = null;
-
-        private UUID retryId;
 
         private Consumer<InternalTransaction> killClosure;
 
@@ -145,13 +135,8 @@ public class InternalTxOptions {
             return this;
         }
 
-        public Builder retryId(UUID id) {
-            this.retryId = id;
-            return this;
-        }
-
         public InternalTxOptions build() {
-            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, txLabel, killClosure, retryId);
+            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, txLabel, killClosure);
         }
     }
 }

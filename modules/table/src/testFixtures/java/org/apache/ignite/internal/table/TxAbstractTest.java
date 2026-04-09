@@ -420,8 +420,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertTrue(tx2.id().compareTo(tx3.id()) < 0);
         assertTrue(tx1.id().compareTo(tx2.id()) < 0);
 
-        boolean reversed = txManager(accounts).lockManager().policy().reverse();
-        if (reversed) {
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
+        if (invertedWaitOrder) {
             InternalTransaction tmp = tx1;
             tx1 = tx4;
             tx4 = tmp;
@@ -594,10 +594,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
-        boolean reversed = txManager(accounts).lockManager().policy().reverse();
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
 
-        Transaction owner = reversed ? tx2 : tx1;
-        Transaction waiter = reversed ? tx1 : tx2;
+        Transaction owner = invertedWaitOrder ? tx2 : tx1;
+        Transaction waiter = invertedWaitOrder ? tx1 : tx2;
 
         log.info("Tx " + tx2);
         log.info("Tx2 " + tx1);
@@ -627,10 +627,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
-        boolean reversed = txManager(accounts).lockManager().policy().reverse();
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
 
-        InternalTransaction owner = reversed ? tx2 : tx1;
-        InternalTransaction waiter = reversed ? tx1 : tx2;
+        InternalTransaction owner = invertedWaitOrder ? tx2 : tx1;
+        InternalTransaction waiter = invertedWaitOrder ? tx1 : tx2;
 
         log.info("Tx1 " + tx1);
         log.info("Tx2 " + tx2);
@@ -814,10 +814,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
-        boolean reversed = txManager(accounts).lockManager().policy().reverse();
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
 
-        Transaction owner = reversed ? tx2 : tx1;
-        Transaction waiter = reversed ? tx1 : tx2;
+        Transaction owner = invertedWaitOrder ? tx2 : tx1;
+        Transaction waiter = invertedWaitOrder ? tx1 : tx2;
 
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
@@ -989,7 +989,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         InternalTransaction older = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction younger = (InternalTransaction) igniteTransactions.begin();
 
-        boolean reversed = txManager(accounts).lockManager().policy().reverse();
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
 
         RecordView<Tuple> txAcc = accounts.recordView();
         RecordView<Tuple> txAcc2 = accounts.recordView();
@@ -998,7 +998,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         txAcc.upsert(younger, makeValue(2, 400.));
 
         // Triggers a conflict, which invalidates younger transaction.
-        txAcc.getAllAsync(reversed ? younger : older, List.of(makeKey(2), makeKey(1)));
+        txAcc.getAllAsync(invertedWaitOrder ? younger : older, List.of(makeKey(2), makeKey(1)));
         assertTrue(waitForCondition(() -> TxState.ABORTED == younger.state(), 5_000), younger.state().toString());
 
         validateBalance(txAcc2.getAll(older, List.of(makeKey(2), makeKey(1))), 200., 300.);
@@ -2126,9 +2126,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     @ParameterizedTest
     @EnumSource(TxPriority.class)
     public void testYoungerTransactionThrowsExceptionIfKeyLockedByOlderTransactionWithSamePriority(TxPriority priority) {
-        boolean reversed = txManager(accounts).lockManager().policy().reverse();
-        if (!reversed) {
-            return; // This test scenario is applicable only to reversed priority.
+        if (!txManager(accounts).lockManager().policy().invertedWaitOrder()) {
+            return; // Not compatible with inverted wait order.
         }
 
         IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;

@@ -203,8 +203,8 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
 
     @Test
     public void testImplicitTransactionTimeout() {
-        if (!txManager(accounts).lockManager().policy().reverse()) {
-            return; // This test scenario is only applicable to WaitDie.
+        if (!txManager(accounts).lockManager().policy().invertedWaitOrder()) {
+            return; // Not compatible with inverted wait order.
         }
 
         var rv = accounts.recordView();

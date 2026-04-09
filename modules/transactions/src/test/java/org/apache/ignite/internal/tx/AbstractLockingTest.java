@@ -82,8 +82,8 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
         lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         DeadlockPreventionPolicy policy = deadlockPreventionPolicy();
         lockManager.start(policy);
-        if (!policy.reverse()) {
-            // Test are written for reversed policy. Sort according to that.
+        if (!policy.invertedWaitOrder()) {
+            // Tests are written for inverted wait order first, so ids are reversed. Need to fix that to make test logic reusable.
             Arrays.sort(txns, Comparator.reverseOrder());
         }
     }

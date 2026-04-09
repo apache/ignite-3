@@ -85,7 +85,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -3790,107 +3789,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     private static ZonePartitionIdMessage replicationGroupIdMessage(ZonePartitionId groupId) {
         return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, groupId);
-    }
-
-    /**
-     * Class that stores a counter of inflight operations for a transaction.
-     *
-     * <p>Synchronization model:
-     * <ul>
-     *     <li>{@code hadAnyOperations}, {@code hadWrites} — plain fields, only accessed inside {@code compute()} critical section.</li>
-     *     <li>{@code inflightOperationsCount} — {@link AtomicInteger}, cross-thread safe.</li>
-     *     <li>{@code completionFuture} — volatile, written from {@code compute()}, read cross-thread.
-     *         Non-null value also serves as the "locked" indicator (no new inflights accepted).</li>
-     * </ul>
-     */
-    private static class TxCleanupReadyState {
-        // Only accessed inside compute() critical section.
-        boolean hadAnyOperations = false;
-        boolean hadWrites = false;
-
-        final AtomicInteger inflightOperationsCount = new AtomicInteger(0);
-
-        // Non-null means locked (no new inflights accepted). Written from compute(), read cross-thread.
-        volatile CompletableFuture<Void> completionFuture = null;
-
-        // Should be called inside critical section on transaction.
-        boolean hadAnyOperations() {
-            return hadAnyOperations;
-        }
-
-        // Should be called inside critical section on transaction.
-        boolean hadWrites() {
-            return hadWrites;
-        }
-
-        // Should be called inside critical section on transaction.
-        CompletableFuture<Void> lockAndAwaitInflights() {
-            CompletableFuture<Void> f = completionFuture;
-
-            if (f != null) {
-                return f; // Already locked.
-            }
-
-            if (inflightOperationsCount.get() == 0) {
-                f = nullCompletedFuture();
-                completionFuture = f;
-                return f;
-            }
-
-            f = new CompletableFuture<>();
-            completionFuture = f;
-
-            // Recheck: a cross-thread completeInflight() may have decremented to 0
-            // before seeing completionFuture != null.
-            if (inflightOperationsCount.get() == 0) {
-                f.complete(null);
-            }
-
-            return f;
-        }
-
-        // Should be called inside critical section on transaction.
-        boolean startInflight(RequestType requestType) {
-            if (completionFuture != null) {
-                return false;
-            }
-
-            hadAnyOperations = true;
-
-            if (requestType.isWrite()) {
-                hadWrites = true;
-            }
-
-            inflightOperationsCount.incrementAndGet();
-
-            return true;
-        }
-
-        // Cross-thread.
-        void completeInflight(UUID txId) {
-            int remaining = inflightOperationsCount.decrementAndGet();
-
-            if (remaining < 0) {
-                LOG.error("Removed inflight when there were no inflights [txId={}]", txId);
-            }
-
-            if (remaining == 0) {
-                completeFutureIfAny();
-            }
-        }
-
-        private void completeFutureIfAny() {
-            CompletableFuture<Void> f = completionFuture;
-
-            if (f == null || f.isDone()) {
-                return;
-            }
-
-            // Double check inflightOperationsCount after locked, because we are outside of critical section.
-            if (inflightOperationsCount.get() == 0) {
-                f.complete(null);
-            }
-        }
     }
 
     @Override

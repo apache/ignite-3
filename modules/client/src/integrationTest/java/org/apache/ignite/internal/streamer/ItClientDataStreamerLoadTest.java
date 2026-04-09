@@ -99,7 +99,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     public void testHighLoad() throws InterruptedException {
         IgniteImpl ignite = TestWrappers.unwrapIgniteImpl(node(0));
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
         Thread[] threads = new Thread[CLIENT_COUNT];
 
@@ -135,7 +135,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
             // batch 1 is concurrently mapped to partition K, streamer 0 wins the conflict
             // batch 2 is concurrently mapped to partition N, streamer 1 wins the conflict
             // Both streamers become invalidated without proper implicit retries and stop.
-            if (res == null && !reversed) {
+            if (res == null && !invertedWaitOrder) {
                 continue;
             }
 

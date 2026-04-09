@@ -75,12 +75,13 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
  *
- * <p>Lock waiters are placed in the queue, ordered according to transaction priority: older transactions are first.
+ * <p>Lock waiters are placed in the queue, ordered according to transaction priority: higher priority transactions go first.
  * When a new waiter is placed in the queue, it's validated against current lock owners: if a waiter is not allowed to wait,
  * according to the {@link HeapLockManager#deadlockPreventionPolicy}, lock request is denied or current owner is invalidated.
  *
- * <p>When an owner is removed from the queue (on lock release), first try locking anything possible.
- * In the second conflicts, which can appear on first path, are resolved.
+ * <p>When an owner is removed from the queue (when a lock is released), the lock queue is processed twice.
+ * In the first iteration, we attempt to acquire all possible locks.
+ * In the second iteration, any existing lock conflicts are resolved.
  *
  * <p>Lock table size is limited and implicitly defines the maximum size of a transaction.
  */
@@ -119,7 +120,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Tx state required to present tx labels in logs and exceptions. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
 
+    /**
+     * A {@link Releasable} queue with "sealing" semantics.
+     * When a transaction is rolled back, it rises {@code sealed} flag to avoid a data race with concurrent enlistment operation.
+     */
     private static class SealableQueue extends ConcurrentLinkedQueue<Releasable> {
+        /** When {@code true}, prevent enlisting a lock in a transaction. */
         boolean sealed;
     }
 
@@ -851,10 +857,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         LockState() {
             Comparator<UUID> txComparator = deadlockPreventionPolicy.txIdComparator();
 
-            // Keep ordered event store for non-priority based policies to avoid starvation.
+            // Keep ordered event store for non-priority based policies to avoid starvation: higher priority transactions will acquire
+            // locks sooner.
             var waitersStore = new TreeMap<UUID, WaiterImpl>(txComparator);
             this.waiters = waitersStore;
-            this.conflictsView = deadlockPreventionPolicy.reverse() ? waitersStore.descendingMap() : waitersStore;
+            this.conflictsView = deadlockPreventionPolicy.invertedWaitOrder() ? waitersStore.descendingMap() : waitersStore;
         }
 
         /**

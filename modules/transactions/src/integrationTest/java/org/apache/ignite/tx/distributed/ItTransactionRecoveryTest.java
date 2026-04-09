@@ -153,7 +153,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testMultipleAbandonedTxsAreAborted() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        boolean reversed = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().invertedWaitOrder();
 
         var partitionGroupId = new ZonePartitionId(tbl.zoneId(), PART_ID);
 
@@ -172,7 +172,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         List<InternalTransaction> txns = new ArrayList<>();
 
-        Transaction waiterTx = reversed ? node(0).transactions().begin() : null; // Older is allowed to wait in WD.
+        Transaction waiterTx = invertedWaitOrder ? node(0).transactions().begin() : null; // Older is allowed to wait in WD.
 
         for (int i = 0; i < 10; i++) {
             InternalTransaction tx = (InternalTransaction) txCrdNode.transactions().begin();
@@ -193,7 +193,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 () -> node(0).cluster().nodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
                 10_000));
 
-        if (!reversed) {
+        if (!invertedWaitOrder) {
             waiterTx = node(0).transactions().begin(); // Younger allowed to wait in WW.
         }
 
@@ -262,7 +262,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        boolean reversed = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().invertedWaitOrder();
 
         var partitionGroupId = new ZonePartitionId(tbl.zoneId(), PART_ID);
 
@@ -276,7 +276,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
-        Transaction waiterTx = reversed ? node(0).transactions().begin() : null; // Older is allowed to wait in WD.
+        Transaction waiterTx = invertedWaitOrder ? node(0).transactions().begin() : null; // Older is allowed to wait in WD.
 
         UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
 
@@ -295,7 +295,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        if (!reversed) {
+        if (!invertedWaitOrder) {
             waiterTx = node(0).transactions().begin(); // Younger allowed to wait in WW.
         }
         runConflictingTransaction(node(0), waiterTx);
@@ -571,7 +571,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCommitAndDieRecoveryFirst() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        boolean reversed = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().invertedWaitOrder();
 
         var partitionGroupId = new ZonePartitionId(tbl.zoneId(), PART_ID);
 
@@ -585,7 +585,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
-        Transaction waiterTx = reversed ? node(0).transactions().begin() : null; // Older is allowed to wait in WD.
+        Transaction waiterTx = invertedWaitOrder ? node(0).transactions().begin() : null; // Older is allowed to wait in WD.
 
         InternalTransaction orphanTx = (InternalTransaction) createRwTransaction(txCrdNode);
 
@@ -624,7 +624,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         // The state on the commit partition is still PENDING.
         assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
 
-        if (!reversed) {
+        if (!invertedWaitOrder) {
             waiterTx = commitPartNode.transactions().begin();
         }
 
@@ -652,7 +652,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testRecoveryIsTriggeredOnce() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        boolean reversed = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = unwrapIgniteImpl(node(0)).txManager().lockManager().policy().invertedWaitOrder();
 
         var partitionGroupId = new ZonePartitionId(tbl.zoneId(), PART_ID);
 
@@ -666,7 +666,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
-        Transaction rwTx1 = reversed ? commitPartNode.transactions().begin() : null;
+        Transaction rwTx1 = invertedWaitOrder ? commitPartNode.transactions().begin() : null;
 
         UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
 
@@ -692,7 +692,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         log.info("New transaction coordinator is chosen [node={}].", newCoordNode.name());
 
         // Run RW transaction.
-        if (!reversed) {
+        if (!invertedWaitOrder) {
             rwTx1 = commitPartNode.transactions().begin();
         }
 

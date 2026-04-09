@@ -42,13 +42,12 @@ public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy
         int res = txIdComparator().compare(waiter.txId(), owner.txId());
         assert res != 0;
 
-        // Waiter is allowed to wait for owner if it's older.
-        // IDs are sorted for older to younger.
+        // Waiter is allowed to wait for owner if it has higher priority.
         return res < 0 ? null : waiter;
     }
 
     @Override
-    public final boolean reverse() {
+    public final boolean invertedWaitOrder() {
         return true;
     }
 }

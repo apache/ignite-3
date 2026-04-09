@@ -259,10 +259,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx2 = client().transactions().begin();
 
         IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        boolean reversed = server0.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = server0.txManager().lockManager().policy().invertedWaitOrder();
 
-        Transaction owner = reversed ? tx2 : tx1;
-        Transaction waiter = reversed ? tx1 : tx2;
+        Transaction owner = invertedWaitOrder ? tx2 : tx1;
+        Transaction waiter = invertedWaitOrder ? tx1 : tx2;
 
         try {
             kvView.put(owner, -100, "1");
@@ -1381,12 +1381,12 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
 
         IgniteImpl ignite = unwrapIgniteImpl(server);
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
-        ClientLazyTransaction owner = reversed ? youngerTxProxy : olderTxProxy;
-        ClientLazyTransaction waiter = reversed ? olderTxProxy : youngerTxProxy;
+        ClientLazyTransaction owner = invertedWaitOrder ? youngerTxProxy : olderTxProxy;
+        ClientLazyTransaction waiter = invertedWaitOrder ? olderTxProxy : youngerTxProxy;
 
-        CompletableFuture<?> fut = reversed ? ctx.put.apply(client(), olderTxProxy, key2) : ctx.put.apply(client(), youngerTxProxy, key);
+        CompletableFuture<?> fut = invertedWaitOrder ? ctx.put.apply(client(), olderTxProxy, key2) : ctx.put.apply(client(), youngerTxProxy, key);
         assertFalse(fut.isDone());
 
         await().atMost(2, TimeUnit.SECONDS).until(() -> {
@@ -1492,10 +1492,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(ctx.put.apply(client(), olderTxProxy, key4), willSucceedFast());
 
         IgniteImpl server0 = unwrapIgniteImpl(server(0));
-        boolean reversed = server0.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = server0.txManager().lockManager().policy().invertedWaitOrder();
 
         // Force wrong order.
-        if (reversed) {
+        if (invertedWaitOrder) {
             assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
         } else {
             assertThat(ctx.put.apply(client(), olderTxProxy, key2), willSucceedFast()); // Will invalidate younger tx.

@@ -46,7 +46,7 @@ public class WoundWaitDeadlockPreventionPolicy implements DeadlockPreventionPoli
         int res = txIdComparator().compare(waiter.txId(), owner.txId());
         assert res != 0;
 
-        // Waiter is allowed to wait for owner if it's younger.
+        // Waiter is allowed to wait for owner if it has lower priority.
         // Otherwise we have to fail owner.
         return res > 0 ? null : owner;
     }

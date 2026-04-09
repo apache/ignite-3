@@ -126,7 +126,7 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
     @Test
     void testLocksViewWorksCorrectlyWhenTxConflict() {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
         ignite.sql().executeScript("CREATE TABLE testTable (accountNumber INT PRIMARY KEY, balance DOUBLE)");
 
@@ -139,7 +139,7 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
         InternalTransaction owner = unwrapInternalTransaction(igniteTransactions.begin());
         InternalTransaction waiter = unwrapInternalTransaction(igniteTransactions.begin());
 
-        if (reversed) {
+        if (invertedWaitOrder) {
             InternalTransaction tmp = owner;
             owner = waiter;
             waiter = tmp;

@@ -94,7 +94,7 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
         AtomicInteger cnt = new AtomicInteger();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
         Phaser phaser = new Phaser(2);
 
@@ -109,7 +109,7 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
 
                 phaser.arriveAndAwaitAdvance();
 
-                if (reversed) {
+                if (invertedWaitOrder) {
                     // Younger is not allowed to wait for older.
                     ctx.put.apply(ignite(), youngerTx, key);
                 } else {
@@ -120,7 +120,7 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
 
         phaser.arriveAndAwaitAdvance();
 
-        if (!reversed) {
+        if (!invertedWaitOrder) {
             // Older will invalidate younger, so commit fails.
             ctx.put.apply(ignite(), olderTx, key2);
             phaser.arriveAndAwaitAdvance();
@@ -147,7 +147,7 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
         AtomicInteger cnt = new AtomicInteger();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        boolean reversed = ignite.txManager().lockManager().policy().reverse();
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
         Phaser phaser = new Phaser(2);
 
@@ -162,7 +162,7 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
                 // Younger is not allowed to wait for older.
                 phaser.arriveAndAwaitAdvance();
 
-                if (reversed) {
+                if (invertedWaitOrder) {
                     // Younger is not allowed to wait for older.
                     return ctx.put.apply(ignite(), youngerTx, key);
                 } else {
@@ -174,7 +174,7 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
 
         phaser.arriveAndAwaitAdvance();
 
-        if (!reversed) {
+        if (!invertedWaitOrder) {
             // Older will invalidate younger, so commit fails.
             ctx.put.apply(ignite(), olderTx, key2).join();
             phaser.arriveAndAwaitAdvance();

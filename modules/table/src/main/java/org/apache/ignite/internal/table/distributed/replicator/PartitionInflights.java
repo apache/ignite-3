@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Client transaction inflights tracker.
+ * Partition inflights tracker.
  */
 public class PartitionInflights {
     /** Hint for maximum concurrent txns. */
