@@ -161,6 +161,22 @@ public enum PlannerPhase {
         }
     },
 
+    HEP_EMPTY_NODES_ELIMINATION(
+            "Heuristic phase to eliminate empty nodes",
+            PruneEmptyRules.PROJECT_INSTANCE,
+            PruneEmptyRules.FILTER_INSTANCE,
+            PruneEmptyRules.SORT_INSTANCE,
+            PruneEmptyRules.AGGREGATE_INSTANCE,
+            PruneEmptyRules.JOIN_LEFT_INSTANCE,
+            PruneEmptyRules.JOIN_RIGHT_INSTANCE
+    ) {
+        /** {@inheritDoc} */
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return hep(getRules(ctx));
+        }
+    },
+
     HEP_OPTIMIZE_JOIN_ORDER(
             "Heuristic phase to optimize join order"
     ) {
@@ -206,7 +222,7 @@ public enum PlannerPhase {
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             IgniteJoinConditionPushRule.INSTANCE,
             CoreRules.JOIN_PUSH_TRANSITIVE_PREDICATES,
-
+            
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
                             b0.operand(LogicalFilter.class).oneInput(b1 ->

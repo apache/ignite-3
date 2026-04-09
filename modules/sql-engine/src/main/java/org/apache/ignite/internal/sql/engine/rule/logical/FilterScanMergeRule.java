@@ -104,6 +104,7 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         if (condition.isAlwaysFalse()) {
             call.transformTo(LogicalValues.createEmpty(cluster, scan.getRowType()));
             call.getPlanner().prune(filter);
+            call.getPlanner().prune(scan);
             return;
         }
 
