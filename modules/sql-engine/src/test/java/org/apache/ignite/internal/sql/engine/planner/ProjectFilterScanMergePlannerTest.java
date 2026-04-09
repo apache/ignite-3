@@ -28,7 +28,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -311,10 +310,10 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
 
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 LEFT JOIN tbl AS t2 ON (t1.a = t2.a AND t2.a = 1 AND t2.a = 2) WHERE t1.c = 1";
         assertPlan(sql, publicSchema, isInstanceOf(IgniteTableScan.class)
-                                .and(scan -> scan.projects() != null)
-                                .and(scan -> scan.condition() != null)
-                                .and(scan -> "=($t1, 1)".equals(scan.condition().toString()))
-                        );
+                .and(scan -> scan.projects() != null)
+                .and(scan -> scan.condition() != null)
+                .and(scan -> "=($t1, 1)".equals(scan.condition().toString()))
+        );
 
         // JOIN elimination.
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t2.a = 1 AND t2.a IS NULL";
