@@ -337,6 +337,9 @@ private:
 
     /** Node id. */
     uuid m_node_id{};
+
+    /** Node name. */
+    std::string m_node_name{};
 };
 
 } // namespace ignite::detail

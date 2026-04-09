@@ -17,6 +17,7 @@
 
 #include "table_impl.h"
 
+#include "detail/hash_calculator.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"
@@ -149,6 +150,8 @@ void table_impl::load_schema_async(
 void table_impl::get_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback) {
 
+    update_partition_assignment();
+
     with_proper_schema_async<std::optional<ignite_tuple>>(std::move(callback),
         [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
@@ -165,8 +168,15 @@ void table_impl::get_async(
                     callback(read_tuple_opt(reader, &sch));
                 });
 
+            auto preferred_node = self->get_preferred_node_name(*key, sch);
+
             self->m_connection->perform_request_raw(
-                protocol::client_operation::TUPLE_GET, tx0.get(), writer_func, std::move(handle_func));
+                protocol::client_operation::TUPLE_GET,
+                tx0.get(),
+                writer_func,
+                std::move(handle_func),
+                preferred_node
+            );
         });
 }
 
@@ -472,12 +482,19 @@ std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
     return tb.m_impl;
 }
 
+void table_impl::update_partition_assignment() {
+    ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback = [self=shared_from_this()](auto pa) {
+        self->m_partition_assignment = pa.value();
+    };
+
+    load_partition_assignment_async(std::move(callback));
+}
+
 void table_impl::load_partition_assignment_async(ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback) {
     std::int64_t timestamp = m_connection->get_assignment_timestamp();
 
     {
-        std::unique_lock<std::recursive_mutex> guard(m_partitions_mutex);
-        auto pa = m_partition_assignment;
+        auto pa = get_partition_assignment();
         if (pa && !pa->is_outdated(timestamp)) {
             m_connection->get_logger()->log_debug("Partition assignment for table " + get_name() + " is up to date.");
 
@@ -500,6 +517,28 @@ void table_impl::load_partition_assignment_async(ignite_callback<std::shared_ptr
         writer_func,
         std::move(reader_func),
         std::move(callback));
+}
+
+std::optional<std::string> table_impl::get_preferred_node_name(const ignite_tuple &key, const schema &sch) {
+    auto pa = get_partition_assignment();
+
+    if (!pa) {
+        return {};
+    }
+
+    hash_calculator hc;
+
+    for (auto column : sch.collocated_columns) {
+        auto val = key.get(column->key_index);
+        hc.append(val, column->scale, column->precision);
+    }
+
+    auto hash = hc.result_hash();
+
+
+    auto part_id = std::abs(hash % static_cast<int32_t>(pa->partitions.size()));
+
+    return pa->partitions[part_id];
 }
 
 } // namespace ignite::detail

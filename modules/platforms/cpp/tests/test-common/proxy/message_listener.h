@@ -15,24 +15,150 @@
 //
 
 #pragma once
+
+#include "ignite/network/length_prefix_codec.h"
+#include "ignite/protocol/client_operation.h"
+#include "ignite/protocol/reader.h"
+
 #include <queue>
+#include <shared_mutex>
 #include <utility>
 
 namespace ignite::proxy {
 
-using message = std::vector<char>;
+using raw_message = std::vector<char>;
 
+class structured_message {
+public:
+    structured_message() = default;
+
+    structured_message(const structured_message& structured_message) = default;
+
+    explicit structured_message(std::vector<std::byte> data)
+        :m_data(std::move(data)) { }
+
+    [[nodiscard]] protocol::reader payload_reader() const {
+        return protocol::reader{{m_data.data() + m_payload_pos, m_data.size() - m_payload_pos}};
+    }
+protected:
+    std::vector<std::byte> m_data{};
+    size_t m_payload_pos{};
+};
+
+/**
+ * Message which clients sends to server.
+ */
+class client_message: public structured_message{
+public:
+    client_message() = default;
+
+    client_message(const client_message& msg) = default;
+
+    explicit client_message(std::vector<std::byte> data)
+        : structured_message(std::move(data))
+    {
+        protocol::reader rd{{m_data.data(), m_data.size()}};
+
+        m_op = static_cast<protocol::client_operation>(rd.read_int32());
+        m_req_id = rd.read_int64();
+
+        m_payload_pos = rd.position();
+
+        assert(m_payload_pos < m_data.size());
+    }
+
+    [[nodiscard]] protocol::client_operation get_op() const { return m_op; }
+
+    [[nodiscard]] int64_t get_req_id() const { return m_req_id; }
+
+private:
+    protocol::client_operation m_op{};
+    int64_t m_req_id{};
+};
+
+/**
+ * Message which server sends to client.
+ */
+class server_message : public structured_message {
+public:
+    server_message() = default;
+
+    server_message(const server_message&) = default;
+
+    explicit server_message(std::vector<std::byte> data)
+        : structured_message(std::move(data))
+    {
+        protocol::reader rd{{m_data.data(), m_data.size()}};
+
+        m_req_id = rd.read_int64();
+        m_flags = rd.read_int32();
+        m_obs_ts = rd.read_int64();
+
+        m_payload_pos = rd.position();
+
+        assert(m_payload_pos < m_data.size());
+    }
+
+    [[nodiscard]] int64_t get_req_id() const { return m_req_id; }
+
+    [[nodiscard]] int32_t get_flags() const { return m_flags; }
+
+    [[nodiscard]] int64_t get_obs_ts() const { return m_obs_ts; }
+
+private:
+    int64_t m_req_id{};
+    int32_t m_flags{};
+    int64_t m_obs_ts{};
+};
+
+/**
+ * Intercepts messages which go through @c asio_proxy.
+ */
 class message_listener {
 public:
-    void register_message(message msg) {
+    void register_message(raw_message msg) {
+        std::unique_lock lock(m_mutex);
         m_queue.push(std::move(msg));
     }
 
-    const std::queue<message>& get_msg_queue() const {
+    [[nodiscard]] std::queue<raw_message> get_msg_queue() const {
+        std::shared_lock lock(m_mutex);
         return m_queue;
     }
 
+    template<typename MESSAGE_TYPE>
+    std::vector<MESSAGE_TYPE> get_next() {
+        std::unique_lock lock(m_mutex);
+
+        std::vector<MESSAGE_TYPE> res;
+
+        while (!m_queue.empty() && res.empty()) {
+            auto chunk = m_queue.front();
+            m_queue.pop();
+
+            network::data_buffer_ref buf{{chunk.data(), chunk.size()}};
+
+            while (true) {
+                auto out  = codec.decode(buf);
+
+                if (out.empty()) {
+                    break;
+                }
+
+                auto out_bv = out.get_bytes_view();
+                std::vector<std::byte> data{out_bv.begin(), out_bv.end()};
+                res.emplace_back(std::move(data));
+            }
+        }
+
+        return res;
+    }
+
 private:
-    std::queue<message> m_queue{};
+    std::queue<raw_message> m_queue{};
+
+    mutable std::shared_mutex m_mutex;
+
+    network::length_prefix_codec codec;
 };
 } // namespace ignite::proxy

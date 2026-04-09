@@ -57,9 +57,11 @@ public:
     inline static const std::string ERROR_JOB = JOBS + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = JOBS + "$EchoJob";
     inline static const std::string RETURN_NULL_JOB = JOBS + "$ReturnNullJob";
+    inline static const std::string GET_PART_DISTRIBUTION_JOB = JOBS + "$GetPartitionDistributionByTableCppJob";
 
     static constexpr const char *KEY_COLUMN = "KEY";
     static constexpr const char *VAL_COLUMN = "VAL";
+    static constexpr const char *PART_PSEUDOCOLUMN = "__partition_id";
 
     /**
      * Get logger.
