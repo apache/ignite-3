@@ -562,10 +562,20 @@ public class ErrorGroups {
         /** Address or port bind error. */
         public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** File transfer error. */
+        /**
+         * File transfer error.
+         *
+         * @deprecated This error is no longer used.
+         */
+        @Deprecated
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
 
-        /** File validation error. */
+        /**
+         * File validation error.
+         *
+         * @deprecated This error is no longer used.
+         */
+        @Deprecated
         public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Recipient node has left the physical topology. */
