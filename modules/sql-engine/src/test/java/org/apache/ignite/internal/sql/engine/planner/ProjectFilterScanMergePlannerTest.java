@@ -308,13 +308,11 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         assertPlan(sql, publicSchema, hasEmptyValuesOnly);
 
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 LEFT JOIN tbl AS t2 ON (t1.a = t2.a AND t2.a = 1 AND t2.a = 2) WHERE t1.c = 1";
-        assertPlan(sql, publicSchema, isInstanceOf(IgniteProject.class)
-                        .and(project -> project.getProjects().size() == 3)
-                        .and(hasChildThat(isInstanceOf(IgniteTableScan.class)
-                                .and(scan -> scan.projects() == null)
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteTableScan.class)
+                                .and(scan -> scan.projects() != null)
+                                .and(scan -> scan.condition() != null)
                                 .and(scan -> "=($t1, 1)".equals(scan.condition().toString()))
-                        )),
-                "ProjectFilterTransposeRule", "FilterProjectTransposeRule");
+                        );
 
         // JOIN elimination.
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t2.a = 1 AND t2.a IS NULL";
@@ -323,8 +321,8 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a AND t2.a = 1 AND t2.a = 2";
         assertPlan(sql, publicSchema, hasEmptyValuesOnly);
 
-//        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t1.a = 1 AND t2.a = 2";
-//        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
+        sql = "SELECT t1.a, t2.a, t1.c FROM tbl AS t1 INNER JOIN tbl AS t2 ON t1.a = t2.a WHERE t1.a = 1 AND t2.a = 2";
+        assertPlan(sql, publicSchema, hasEmptyValuesOnly);
     }
 
     /**

@@ -222,6 +222,13 @@ public enum PlannerPhase {
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             IgniteJoinConditionPushRule.INSTANCE,
             CoreRules.JOIN_PUSH_TRANSITIVE_PREDICATES,
+
+            PruneEmptyRules.PROJECT_INSTANCE,
+            PruneEmptyRules.FILTER_INSTANCE,
+            PruneEmptyRules.SORT_INSTANCE,
+            PruneEmptyRules.AGGREGATE_INSTANCE,
+            PruneEmptyRules.JOIN_LEFT_INSTANCE,
+            PruneEmptyRules.JOIN_RIGHT_INSTANCE,
             
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
