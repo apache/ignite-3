@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.handshake;
 
 /**
- * Exception that notifies of handshake that failed because a channel was closed or handshake has failed.
+ * Exception that notifies of handshake that failed because a channel was closed or some internal error happened.
  */
 public class BrokenHandshakeException extends HandshakeException {
     private static final long serialVersionUID = 0L;
