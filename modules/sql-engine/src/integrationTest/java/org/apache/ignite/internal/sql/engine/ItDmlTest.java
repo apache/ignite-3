@@ -1187,7 +1187,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         assertQuery("INSERT INTO test2 SELECT id, val FROM test WHERE val > 1 AND val < 0")
                 .matches(Matchers.not(containsSubPlan("TableModify")))
-                .returns(0) // TODO https://issues.apache.org/jira/browse/IGNITE-23512: Long value is expected here.
+                .returns(0L)
                 .check();
     }
 

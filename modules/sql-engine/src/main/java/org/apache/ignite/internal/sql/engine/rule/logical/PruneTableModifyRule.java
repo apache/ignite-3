@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import java.util.Collections;
+import java.util.List;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
@@ -26,6 +27,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.rules.SubstitutionRule;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.rule.logical.PruneTableModifyRule.Config;
 import org.immutables.value.Value;
 
@@ -48,7 +51,12 @@ public class PruneTableModifyRule extends RelRule<Config> implements Substitutio
     @Override public void onMatch(RelOptRuleCall call) {
         TableModify singleRel = call.rel(0);
 
-        RelNode singleValue = call.builder().values(singleRel.getRowType(), 0L).build();
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23512: Default Calcite RexBuilder ignores field type and extract type from 
+        //  the given value. E.g. for zero value RexBuilder creates INT literal. Use simple way create `singleValue` after fixing the issue.
+        // RelNode singleValue = call.builder().values(singleRel.getRowType(), 0L).build();
+        RexLiteral zeroLiteral = IgniteRexBuilder.INSTANCE.makeLiteral(0L, singleRel.getRowType().getFieldList().get(0).getType());
+        RelNode singleValue = call.builder().values(List.of(List.of(zeroLiteral)), singleRel.getRowType()).build();
+                
         RelTraitSet traits = singleRel.getTraitSet();
         // propagate all traits (except convention) from the original singleRel
         if (singleValue.getConvention() != null) {
