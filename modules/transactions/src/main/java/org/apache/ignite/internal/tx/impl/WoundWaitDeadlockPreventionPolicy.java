@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
@@ -33,14 +31,6 @@ import org.apache.ignite.internal.tx.Waiter;
  * If none of these conditions are met, tx1 is killed to prevent deadlock.
  */
 public class WoundWaitDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
-    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
-
-    /** {@inheritDoc} */
-    @Override
-    public Comparator<UUID> txIdComparator() {
-        return TX_ID_PRIORITY_COMPARATOR;
-    }
-
     @Override
     public Waiter allowWait(Waiter waiter, Waiter owner) {
         int res = txIdComparator().compare(waiter.txId(), owner.txId());

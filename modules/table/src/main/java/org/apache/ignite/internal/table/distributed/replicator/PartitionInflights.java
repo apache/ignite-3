@@ -32,9 +32,11 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * The class is responsible to track partition enlistment operations in a thread safe way.
  * Its main purpose is to ensure absence of data races in case of concurrent transaction rollback and partition enlistment operation.
- * Partition operations register itself using {@link #addInflight(UUID, Predicate, RequestType) method.
- * Before transaction cleanup {@link #lockForCleanup(UUID)} is called, which prevents enlistment of new operations and ensures all current
- * operations are completed.
+ *
+ * <p>Partition operations register itself using {@link #addInflight(UUID, Predicate, RequestType)} method.
+ *
+ * <p>Before transaction cleanup {@link #lockForCleanup(UUID)} is called, which prevents enlistment of new operations and ensures all
+ * current operations are completed.
  */
 public class PartitionInflights {
     /** Hint for maximum concurrent txns. */

@@ -46,7 +46,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.RetriableTransactionException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
-import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;

@@ -914,7 +914,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             assert lockMode != null : "Lock mode is null";
 
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
-            List<Runnable> notifications; // Called after exiting the waiters monitor.
+            List<Notification> notifications; // Called after exiting the waiters monitor.
 
             synchronized (waiters) {
                 if (!isUsed()) {
@@ -948,14 +948,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
 
             // Callback outside the monitor.
-            for (Runnable r : notifications) {
+            for (Notification r : notifications) {
                 r.run();
             }
 
             return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
         }
 
-        private void failWaiter(WaiterImpl waiter, List<Runnable> notifications, Exception exception) {
+        private void failWaiter(WaiterImpl waiter, List<Notification> notifications, Exception exception) {
             if (!waiter.locked()) {
                 waiters.remove(waiter.txId());
             } else if (waiter.hasLockIntent()) {
@@ -965,8 +965,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             notifications.add(waiter::notifyLocked);
         }
 
-        private List<Runnable> tryAcquireInternal(WaiterImpl waiter, boolean track, boolean unlock) {
-            List<Runnable> notifications = new ArrayList<>();
+        private List<Notification> tryAcquireInternal(WaiterImpl waiter, boolean track, boolean unlock) {
+            List<Notification> notifications = new ArrayList<>();
 
             if (sealed(waiter.txId)) {
                 failWaiter(waiter, notifications, resolveTransactionSealedException(waiter.txId));
@@ -978,7 +978,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             findConflicts(waiter, owner -> {
                 assert !waiter.txId.equals(owner.txId);
-                @Nullable WaiterImpl toFail = (WaiterImpl) deadlockPreventionPolicy.allowWait(waiter, owner);
+                @Nullable Waiter toFail = deadlockPreventionPolicy.allowWait(waiter, owner);
 
                 if (!notified[0]) {
                     // Notify once on first found conflict.
@@ -1026,7 +1026,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                         }
 
                         // We need to fail the owner. Call fail action outside the lock.
-                        notifications.add(() -> deadlockPreventionPolicy.failAction(toFail.txId));
+                        notifications.add(() -> deadlockPreventionPolicy.failAction(toFail.txId()));
 
                         // Iterate all owners in search of conflict.
                         return false;
@@ -1106,14 +1106,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          */
         @Override
         public boolean tryRelease(UUID txId) {
-            Collection<Runnable> toNotify;
+            Collection<Notification> toNotify;
 
             synchronized (waiters) {
                 toNotify = release(txId);
             }
 
             // Notify outside the monitor.
-            for (Runnable runnable : toNotify) {
+            for (Notification runnable : toNotify) {
                 runnable.run();
             }
 
@@ -1130,7 +1130,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         boolean tryRelease(UUID txId, LockMode lockMode) {
             assert lockMode != null : "Lock mode is null";
 
-            List<Runnable> toNotify = emptyList();
+            List<Notification> toNotify = emptyList();
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
 
@@ -1153,7 +1153,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
 
             // Notify outside the monitor.
-            for (Runnable waiter : toNotify) {
+            for (Notification waiter : toNotify) {
                 waiter.run();
             }
 
@@ -1166,7 +1166,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @param txId Transaction id.
          * @return List of waiters to notify.
          */
-        private List<Runnable> release(UUID txId) {
+        private List<Notification> release(UUID txId) {
             WaiterImpl removed = waiters.remove(txId);
 
             // Removing incomplete waiter doesn't affect lock state.
@@ -1182,12 +1182,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          *
          * @return List of waiters to notify.
          */
-        private List<Runnable> unlockCompatibleWaiters() {
+        private List<Notification> unlockCompatibleWaiters() {
             if (waiters.isEmpty()) {
                 return emptyList();
             }
 
-            ArrayList<Runnable> toNotify = new ArrayList<>();
+            List<Notification> toNotify = new ArrayList<>();
 
             // Current implementation involves copying and quadratic iteration complexity.
             // Can try to avoid it by splitting waiters and owners in two separate collections.
@@ -1218,7 +1218,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (!tmp.hasLockIntent()) {
                     continue; // Ignore waiters which become owners on previous iteration.
                 }
-                List<Runnable> notifications = tryAcquireInternal(tmp, false, true);
+                List<Notification> notifications = tryAcquireInternal(tmp, false, true);
                 toNotify.addAll(notifications);
             }
 
@@ -1519,6 +1519,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         public String toString() {
             return S.toString(WaiterImpl.class, this, "notified", fut.isDone(), "failed", fut.isDone() && fut.isCompletedExceptionally());
         }
+    }
+
+    @FunctionalInterface
+    private interface Notification {
+        void run();
     }
 
     @TestOnly

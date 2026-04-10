@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Waiter;
 
@@ -27,14 +25,6 @@ import org.apache.ignite.internal.tx.Waiter;
  * if conflicts with younger.
  */
 public class ReversedWaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
-    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
-
-    /** {@inheritDoc} */
-    @Override
-    public final Comparator<UUID> txIdComparator() {
-        return TX_ID_PRIORITY_COMPARATOR;
-    }
-
     @Override
     public Waiter allowWait(Waiter waiter, Waiter owner) {
         int res = txIdComparator().compare(waiter.txId(), owner.txId());

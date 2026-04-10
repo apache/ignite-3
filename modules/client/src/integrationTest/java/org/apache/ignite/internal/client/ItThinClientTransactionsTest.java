@@ -1386,7 +1386,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         ClientLazyTransaction owner = invertedWaitOrder ? youngerTxProxy : olderTxProxy;
         ClientLazyTransaction waiter = invertedWaitOrder ? olderTxProxy : youngerTxProxy;
 
-        CompletableFuture<?> fut = invertedWaitOrder ? ctx.put.apply(client(), olderTxProxy, key2) : ctx.put.apply(client(), youngerTxProxy, key);
+        CompletableFuture<?> fut =
+                invertedWaitOrder ? ctx.put.apply(client(), olderTxProxy, key2) : ctx.put.apply(client(), youngerTxProxy, key);
         assertFalse(fut.isDone());
 
         await().atMost(2, TimeUnit.SECONDS).until(() -> {
