@@ -604,6 +604,34 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * If the acceptor thinks we are stale, a send()/invoke() call at initiator side should get a {@link RecipientLeftException}
+     * (as the initiator will not be able to send anything to it before one of the nodes gets restarted).
+     */
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByClusterNodeToNodeThinkingSenderIsStale(AsyncSendOperation operation) throws Exception {
+        var receiverSideStaleIdDetector = new InMemoryStaleIds();
+        receiverSideStaleIdDetector.markAsStale(senderNode.id());
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(
+                        receiverNode,
+                        receiverNetworkConfig,
+                        () -> {},
+                        messageSerializationRegistry,
+                        receiverSideStaleIdDetector
+                )
+        ) {
+            assertThat(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    willThrow(RecipientLeftException.class)
+            );
+        }
+    }
+
     private ClusterNodeImpl copyWithDifferentId() {
         return new ClusterNodeImpl(
                 randomUUID(),
@@ -906,12 +934,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    private interface AsyncSendOperation {
+        CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient);
+    }
+
     @FunctionalInterface
     private interface AsyncSendAction {
         CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient);
     }
 
-    private enum SendByClusterNodeOperation {
+    private enum SendByClusterNodeOperation implements AsyncSendOperation {
         SEND_DEFAULT_CHANNEL((service, message, to) -> service.send(to, message)),
         SEND_SPECIFIC_CHANNEL((service, message, to) -> service.send(to, TEST_CHANNEL, message)),
         RESPOND_DEFAULT_CHANNEL((service, message, to) -> service.respond(to, message, 123L)),
@@ -924,9 +956,14 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         SendByClusterNodeOperation(AsyncSendAction sendAction) {
             this.sendAction = sendAction;
         }
+
+        @Override
+        public CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient) {
+            return sendAction.send(service, message, recipient);
+        }
     }
 
-    private enum SendByConsistentCoordinateOperation {
+    private enum SendByConsistentCoordinateOperation implements AsyncSendOperation {
         SEND_BY_CONSISTENT_ID((service, message, to) -> service.send(to.name(), ChannelType.DEFAULT, message)),
         SEND_BY_ADDRESS((service, message, to) -> service.send(to.address(), ChannelType.DEFAULT, message)),
         RESPOND_BY_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to) -> service.respond(to.name(), message, 123L)),
@@ -938,6 +975,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         SendByConsistentCoordinateOperation(AsyncSendAction sendAction) {
             this.sendAction = sendAction;
+        }
+
+        @Override
+        public CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient) {
+            return sendAction.send(service, message, recipient);
         }
 
         private boolean notRespondOperation() {
