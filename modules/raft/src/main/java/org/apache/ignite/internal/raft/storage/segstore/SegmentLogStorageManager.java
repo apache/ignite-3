@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Long.parseLong;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -125,10 +126,10 @@ public class SegmentLogStorageManager implements LogStorageManager {
         String[] partitionGroupIdArray = PARTITION_GROUP_ID_PATTERN.split(raftNodeId.groupIdName());
 
         if (partitionGroupIdArray.length == 2) {
-            return 1 + Long.parseLong(partitionGroupIdArray[0]) << 32 | Long.parseLong(partitionGroupIdArray[1]);
+            return (parseLong(partitionGroupIdArray[0]) << 32 | parseLong(partitionGroupIdArray[1])) + 100000 + raftNodeId.peer().idx();
         } else {
             // For tests using invalid group IDs.
-            return nodeId.hashCode();
+            return 1 + nodeId.hashCode();
         }
     }
 }
