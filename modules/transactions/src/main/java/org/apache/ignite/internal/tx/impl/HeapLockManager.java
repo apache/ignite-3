@@ -126,7 +126,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private static class SealableQueue extends ConcurrentLinkedQueue<Releasable> {
         /** When {@code true}, prevent enlisting a lock in a transaction. */
-        boolean sealed;
+        volatile boolean sealed;
     }
 
     /**
@@ -162,6 +162,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     private Exception resolveTransactionSealedException(UUID txId) {
+        // TODO IGNITE-28506 reduce copy paste.
         TxStateMeta meta = txStateVolatileStorage.state(txId);
         Throwable cause = meta == null ? null : meta.lastException();
         boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
@@ -417,20 +418,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     private boolean sealed(UUID txId) {
-        boolean[] ret = {false};
-        txMap.compute(txId, (k, v) -> {
-            if (v == null) {
-                return null;
-            }
-
-            if (v.sealed) {
-                ret[0] = true;
-            }
-
-            return v;
-        });
-
-        return ret[0];
+        SealableQueue queue = txMap.get(txId);
+        return queue != null && queue.sealed;
     }
 
     private boolean track(UUID txId, Releasable val) {

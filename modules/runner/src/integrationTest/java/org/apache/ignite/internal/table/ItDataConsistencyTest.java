@@ -201,12 +201,8 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
         for (int i = 0; i < initialNodes(); i++) {
             IgniteImpl ignite = unwrapIgniteImpl(node(i));
-            try {
-                await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
-                        .until(() -> ignite.txManager().lockManager().isEmpty());
-            } catch (ConditionTimeoutException e) {
-                throw e;
-            }
+            await("node " + i + " should release all locks").atMost(3, TimeUnit.SECONDS)
+                    .until(() -> ignite.txManager().lockManager().isEmpty());
         }
     }
 

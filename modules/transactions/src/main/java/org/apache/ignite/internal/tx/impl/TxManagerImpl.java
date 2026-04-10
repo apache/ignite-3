@@ -488,8 +488,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
             boolean implicit,
             InternalTxOptions options
     ) {
-        UUID txId = options.retryId() != null ? options.retryId()
-                : transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
         long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
 

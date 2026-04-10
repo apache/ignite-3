@@ -1539,7 +1539,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId) {
-        CleanupContext cleanupContext = partitionInflights.finishFuture(txId);
+        CleanupContext cleanupContext = partitionInflights.lockForCleanup(txId);
 
         TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
@@ -2929,7 +2929,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 });
             }
             case RW_UPSERT: {
-                // TODO IGNITE-28450
+                // TODO IGNITE-28450 Acquire an X lock for PK.
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 

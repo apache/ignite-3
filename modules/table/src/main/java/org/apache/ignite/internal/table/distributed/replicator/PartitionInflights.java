@@ -30,14 +30,18 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Partition inflights tracker.
+ * The class is responsible to track partition enlistment operations in a thread safe way.
+ * Its main purpose is to ensure absence of data races in case of concurrent transaction rollback and partition enlistment operation.
+ * Partition operations register itself using {@link #addInflight(UUID, Predicate, RequestType) method.
+ * Before transaction cleanup {@link #lockForCleanup(UUID)} is called, which prevents enlistment of new operations and ensures all current
+ * operations are completed.
  */
 public class PartitionInflights {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS_HINT = 1024;
 
     /** Field updater for inflights. */
-    private static final AtomicLongFieldUpdater<CleanupContext> UPDATER = newUpdater(CleanupContext.class, "inflights");
+    private static final AtomicLongFieldUpdater<CleanupContext> INFLIGHTS_UPDATER = newUpdater(CleanupContext.class, "inflights");
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, CleanupContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
@@ -46,12 +50,12 @@ public class PartitionInflights {
      * Registers the inflight for a transaction.
      *
      * @param txId The transaction id.
-     * @param testPred Test predicate.
+     * @param enlistPred A predicate to test enlistment possibility under a transaction lock.
      * @param requestType Request type.
      *
      * @return Cleanup context.
      */
-    @Nullable CleanupContext addInflight(UUID txId, Predicate<UUID> testPred, RequestType requestType) {
+    @Nullable CleanupContext addInflight(UUID txId, Predicate<UUID> enlistPred, RequestType requestType) {
         boolean[] res = {true};
 
         CleanupContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
@@ -59,10 +63,10 @@ public class PartitionInflights {
                 ctx = new CleanupContext();
             }
 
-            if (ctx.finishFut != null || testPred.test(txId)) {
+            if (ctx.finishFut != null || enlistPred.test(txId)) {
                 res[0] = false;
             } else {
-                UPDATER.incrementAndGet(ctx);
+                INFLIGHTS_UPDATER.incrementAndGet(ctx);
                 if (requestType.isWrite()) {
                     ctx.hasWrites = true;
                 }
@@ -80,7 +84,7 @@ public class PartitionInflights {
      * @param txId Transaction id.
      * @param r Runnable.
      */
-    public void runClosure(UUID txId, Runnable r) {
+    void runClosure(UUID txId, Runnable r) {
         txCtxMap.compute(txId, (uuid, ctx) -> {
             r.run();
 
@@ -94,32 +98,33 @@ public class PartitionInflights {
      * @param ctx Cleanup context.
      */
     static void removeInflight(CleanupContext ctx) {
-        long val = UPDATER.decrementAndGet(ctx);
+        long val = INFLIGHTS_UPDATER.decrementAndGet(ctx);
 
         if (ctx.finishFut != null && val == 0) {
+            // If finishFut is null, counter can only go down.
             ctx.finishFut.complete(null);
         }
     }
 
     /**
-     * Get finish future.
+     * Locks a transaction for cleanup. This prevents new enlistments into the transaction.
      *
      * @param txId Transaction id.
-     * @return The future.
+     * @return The context.
      */
-    public @Nullable CleanupContext finishFuture(UUID txId) {
+    @Nullable CleanupContext lockForCleanup(UUID txId) {
         return txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
                 return null;
             }
 
             if (ctx.finishFut == null) {
-                ctx.finishFut = UPDATER.get(ctx) == 0 ? nullCompletedFuture() : new CompletableFuture<>();
-            }
+                ctx.finishFut = INFLIGHTS_UPDATER.get(ctx) == 0 ? nullCompletedFuture() : new CompletableFuture<>();
 
-            // Avoiding a data race with a concurrent decrementing thread, which might not see finishFut publication.
-            if (UPDATER.get(ctx) == 0 && !ctx.finishFut.isDone()) {
-                ctx.finishFut = nullCompletedFuture();
+                // Avoiding a data race with a concurrent decrementing thread, which might not see finishFut publication.
+                if (INFLIGHTS_UPDATER.get(ctx) == 0 && !ctx.finishFut.isDone()) {
+                    ctx.finishFut = nullCompletedFuture();
+                }
             }
 
             return ctx;
@@ -131,7 +136,7 @@ public class PartitionInflights {
      *
      * @param uuid Tx id.
      */
-    public void erase(UUID uuid) {
+    void erase(UUID uuid) {
         txCtxMap.remove(uuid);
     }
 
@@ -146,11 +151,14 @@ public class PartitionInflights {
     }
 
     /**
-     * Shared Cleanup context.
+     * Shared cleanup context.
      */
     public static class CleanupContext {
+        /** An enlistment guard. Not null value means enlistments are not allowed any more. */
         volatile CompletableFuture<Void> finishFut;
+        /** Inflights counter. */
         volatile long inflights = 0;
+        /** Flag to test if a transaction has writes. If no writes, cleanup message will be skipped. */
         volatile boolean hasWrites = false;
     }
 
