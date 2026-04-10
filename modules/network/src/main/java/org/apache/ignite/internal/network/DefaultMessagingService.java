@@ -564,7 +564,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
                         );
                     }
 
-                    return attemptToOpenChannelAfterDelay(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineNanos, attemptOrdinal + 1);
+                    return attemptToOpenChannelAfterDelay(
+                            nodeId,
+                            type,
+                            addr,
+                            strictIdCheck,
+                            retryStrategy,
+                            deadlineNanos,
+                            attemptOrdinal + 1
+                    );
                 })
                 .thenCompose(identity());
     }
