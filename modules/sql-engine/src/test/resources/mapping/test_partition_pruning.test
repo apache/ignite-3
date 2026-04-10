@@ -173,7 +173,7 @@ Fragment#1 root
   distribution: broadcast
   executionNodes: [N1]
   colocationGroup[-1]: {nodes=[N1], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
-  tree:
+  tree: 
     Values
         fieldNames: [ID, C1, C2, ID0, C10, C20]
         tuples: []
