@@ -206,6 +206,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageExtensionConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
@@ -214,6 +215,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageOptions;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -664,19 +666,30 @@ public class IgniteImpl implements Ignite {
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
 
+        LogStorageExtensionConfiguration logStorageConfig = nodeConfigRegistry.getConfiguration(LogStorageExtensionConfiguration.KEY);
+
+        SegmentLogStorageOptions segstoreSpecificOptions = null;
+        if (logStorageConfig != null) {
+            segstoreSpecificOptions = new SegmentLogStorageOptions(
+                    raftConfiguration.disruptor().logManagerStripes().value(),
+                    logStorageConfig.logStorage(),
+                    failureManager
+            );
+        }
+
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
         partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
         InternalClusterNode localNode = clusterSvc.staticLocalNode();
-
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 "table data log",
                 localNode.name(),
                 partitionsWorkDir.raftLogPath(),
                 raftConfiguration.fsync().value(),
-                RocksDbLogStorageOptions.forPartitions(systemConfiguration.value())
+                RocksDbLogStorageOptions.forPartitions(systemConfiguration.value()),
+                segstoreSpecificOptions
         );
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
@@ -688,14 +701,18 @@ public class IgniteImpl implements Ignite {
                 localNode.name(),
                 metastorageWorkDir.raftLogPath(),
                 // If it changes, then it will be necessary to set LogSyncer to RocksDbKeyValueStorage.
-                true
+                true,
+                RocksDbLogStorageOptions.defaults(),
+                segstoreSpecificOptions
         );
 
         cmgLogStorageManager = SharedLogStorageManagerUtils.create(
                 "cluster-management-group log",
                 localNode.name(),
                 cmgWorkDir.raftLogPath(),
-                true
+                true,
+                RocksDbLogStorageOptions.defaults(),
+                segstoreSpecificOptions
         );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =

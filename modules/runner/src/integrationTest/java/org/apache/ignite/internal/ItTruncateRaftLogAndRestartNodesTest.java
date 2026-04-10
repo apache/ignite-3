@@ -52,6 +52,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.configuration.LogStorageExtensionConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -206,7 +207,8 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 ignite.name(),
-                ignite.partitionsWorkDir().raftLogPath()
+                ignite.partitionsWorkDir().raftLogPath(),
+                ignite.nodeConfiguration().getConfiguration(LogStorageExtensionConfiguration.KEY).logStorage()
         );
 
         NodeImpl nodeImpl = raftNodeImpl(nodeIndex, replicationGroupId);

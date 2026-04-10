@@ -35,6 +35,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -65,6 +66,9 @@ public class LozaTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     /**
      * Checks that the all API methods throw the exception ({@link NodeStoppingException})
      * when Loza is closed.
@@ -79,7 +83,8 @@ public class LozaTest extends IgniteAbstractTest {
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 clusterNetSvc.staticLocalNode().name(),
-                workDir.resolve("partitions/log")
+                workDir.resolve("partitions/log"),
+                logStorageConfiguration
         );
 
         assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

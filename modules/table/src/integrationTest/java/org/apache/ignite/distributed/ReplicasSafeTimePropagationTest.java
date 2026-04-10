@@ -70,6 +70,7 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -101,6 +102,9 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
@@ -359,7 +363,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     "test",
                     clusterService.staticLocalNode().name(),
                     workingDir.raftLogPath(),
-                    raftConfiguration.fsync().value()
+                    raftConfiguration.fsync().value(),
+                    logStorageConfiguration
             );
 
             assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

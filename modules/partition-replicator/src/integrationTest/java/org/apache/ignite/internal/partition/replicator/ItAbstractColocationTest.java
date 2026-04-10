@@ -50,6 +50,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -122,6 +123,9 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private SqlDistributedConfiguration sqlDistributedConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     final List<Node> cluster = new CopyOnWriteArrayList<>();
 
@@ -238,6 +242,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
+                logStorageConfiguration,
                 invokeInterceptor,
                 gcConfiguration,
                 sqlLocalConfiguration,

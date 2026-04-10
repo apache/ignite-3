@@ -88,6 +88,7 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -131,6 +132,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -159,7 +163,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             String nodeName = clusterService.staticLocalNode().name();
 
-            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath(),
+                    logStorageConfiguration);
 
             components.add(partitionsLogStorageManager);
 
@@ -191,7 +196,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 
-            LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
+            LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath(),
+                    logStorageConfiguration);
 
             components.add(cmgLogStorageManager);
 
@@ -232,7 +238,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(
                     nodeName,
-                    metastorageWorkDir.raftLogPath()
+                    metastorageWorkDir.raftLogPath(),
+                    logStorageConfiguration
             );
 
             components.add(msLogStorageManager);

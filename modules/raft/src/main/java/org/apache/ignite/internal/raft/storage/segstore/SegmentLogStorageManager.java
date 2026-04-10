@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.StoredRaftNodeId;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
@@ -63,16 +65,16 @@ public class SegmentLogStorageManager implements LogStorageManager {
     }
 
     @Override
-    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new SegstoreLogStorage(convertGroupId(groupId), fileManager);
+    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
+        return new SegstoreLogStorage(convertNodeId(raftNodeStorageId), fileManager);
     }
 
     @Override
-    public void destroyLogStorage(String groupId) {
+    public void destroyLogStorage(String raftNodeStorageId) {
         try {
-            fileManager.reset(convertGroupId(groupId), 1);
+            fileManager.reset(convertNodeId(raftNodeStorageId), 1);
         } catch (IOException e) {
-            throw new LogStorageException("Failed to destroy log storage for group " + groupId, e);
+            throw new LogStorageException("Failed to destroy log storage for group " + raftNodeStorageId, e);
         }
     }
 
@@ -108,21 +110,25 @@ public class SegmentLogStorageManager implements LogStorageManager {
         }
     }
 
-    private static long convertGroupId(String groupId) {
-        if ("metastorage_group".equals(groupId)) {
-            return 1;
+    private static long convertNodeId(String nodeId) {
+        // Temporary approach, will be revised after changing partition ID from int to long.
+
+        StoredRaftNodeId raftNodeId = RaftNodeId.fromNodeIdStringForStorage(nodeId, "");
+        if ("metastorage_group".equals(raftNodeId.groupIdName())) {
+            return 1 + raftNodeId.peer().idx();
         }
 
-        if ("cmg_group".equals(groupId)) {
-            return 2;
+        if (nodeId.contains("cmg_group")) {
+            return raftNodeId.peer().idx() + 1000;
         }
 
-        String[] partitionGroupIdArray = PARTITION_GROUP_ID_PATTERN.split(groupId);
+        String[] partitionGroupIdArray = PARTITION_GROUP_ID_PATTERN.split(raftNodeId.groupIdName());
 
         if (partitionGroupIdArray.length == 2) {
-            return Long.parseLong(partitionGroupIdArray[0]) << 32 | Long.parseLong(partitionGroupIdArray[1]);
+            return 1 + Long.parseLong(partitionGroupIdArray[0]) << 32 | Long.parseLong(partitionGroupIdArray[1]);
         } else {
-            throw new IllegalArgumentException("Invalid groupId: " + groupId);
+            // For tests using invalid group IDs.
+            return nodeId.hashCode();
         }
     }
 }

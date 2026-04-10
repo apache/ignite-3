@@ -73,6 +73,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -106,6 +107,9 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -178,7 +182,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             String nodeName = clusterService.staticLocalNode().name();
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath(), logStorageConfiguration);
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -201,7 +205,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
-            cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
+            cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath(), logStorageConfiguration);
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -234,7 +238,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
+            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(), logStorageConfiguration);
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());

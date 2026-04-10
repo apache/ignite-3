@@ -93,6 +93,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -148,6 +149,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
     @BeforeEach
@@ -169,7 +173,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 nodeName,
-                workingDir.raftLogPath()
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         raftManager = TestLozaFactory.create(
@@ -199,7 +204,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
+        msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(), logStorageConfiguration);
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());

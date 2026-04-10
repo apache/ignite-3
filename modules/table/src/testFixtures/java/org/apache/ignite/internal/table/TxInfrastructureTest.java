@@ -44,6 +44,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -117,6 +118,9 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     protected RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
+    @InjectConfiguration
     protected SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
@@ -177,6 +181,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                logStorageConfiguration,
                 txConfiguration,
                 systemLocalConfiguration,
                 systemDistributedConfiguration,

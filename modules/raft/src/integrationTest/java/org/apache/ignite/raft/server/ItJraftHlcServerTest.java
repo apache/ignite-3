@@ -147,7 +147,8 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 service.staticLocalNode().name(),
-                workingDir.raftLogPath()
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

@@ -25,12 +25,17 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-raft.
  */
 @AutoService(ConfigurationModule.class)
 public class RaftConfigurationModule implements ConfigurationModule {
+    private static final String SEGSTORE_ENABLED_PROPERTY = "SEGSTORE_ENABLED";
+
+    private static final boolean SEGSTORE_ENABLED_PROPERTY_DEFAULT = true;
+
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;
@@ -38,7 +43,11 @@ public class RaftConfigurationModule implements ConfigurationModule {
 
     @Override
     public Collection<Class<?>> schemaExtensions() {
-        return List.of(RaftExtensionConfigurationSchema.class);
+        if (IgniteSystemProperties.getBoolean(SEGSTORE_ENABLED_PROPERTY, SEGSTORE_ENABLED_PROPERTY_DEFAULT)) {
+            return List.of(RaftExtensionConfigurationSchema.class, LogStorageExtensionConfigurationSchema.class);
+        } else {
+            return List.of(RaftExtensionConfigurationSchema.class);
+        }
     }
 
     @Override

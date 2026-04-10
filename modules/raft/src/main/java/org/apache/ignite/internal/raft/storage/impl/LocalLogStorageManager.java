@@ -42,12 +42,12 @@ public class LocalLogStorageManager implements LogStorageManager {
     }
 
     @Override
-    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
+    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
         return new LocalLogStorage(raftOptions);
     }
 
     @Override
-    public void destroyLogStorage(String uri) {
+    public void destroyLogStorage(String raftNodeStorageId) {
         // This creates on-heap storages, nothing to destroy.
     }
 

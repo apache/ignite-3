@@ -120,6 +120,7 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -214,6 +215,8 @@ public class ItTxTestCluster {
     private final NodeFinder nodeFinder;
 
     private final RaftConfiguration raftConfig;
+
+    private final LogStorageConfiguration logStorageConfiguration;
 
     private final TransactionConfiguration txConfiguration;
 
@@ -352,6 +355,7 @@ public class ItTxTestCluster {
     public ItTxTestCluster(
             TestInfo testInfo,
             RaftConfiguration raftConfig,
+            LogStorageConfiguration logStorageConfiguration,
             TransactionConfiguration txConfiguration,
             SystemLocalConfiguration systemLocalConfig,
             SystemDistributedConfiguration systemDistributedConfig,
@@ -363,6 +367,7 @@ public class ItTxTestCluster {
             ReplicationConfiguration replicationConfiguration
     ) {
         this.raftConfig = raftConfig;
+        this.logStorageConfiguration = logStorageConfiguration;
         this.txConfiguration = txConfiguration;
         this.systemLocalConfig = systemLocalConfig;
         this.systemDistributedConfig = systemDistributedConfig;
@@ -458,7 +463,8 @@ public class ItTxTestCluster {
                     "test",
                     clusterService.staticLocalNode().name(),
                     partitionsWorkDir.resolve("log"),
-                    raftConfig.fsync().value()
+                    raftConfig.fsync().value(),
+                    logStorageConfiguration
             );
 
             logStorageFactories.put(nodeName, partitionsLogStorageManager);
