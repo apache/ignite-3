@@ -94,7 +94,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static final long NO_TIMEOUT = -1;
 
-    private static final RetryStrategy NEVER_RETRY = new NeverRetryStrategy();
+    private static final TerminalIoErrorRetryStrategy NEVER_RETRY = new NeverRetryStrategy();
 
     private static final long CONNECTION_RETRY_DELAY_MS = 100;
 
@@ -325,7 +325,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             NetworkMessage msg,
             @Nullable Long correlationId,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy
+            TerminalIoErrorRetryStrategy retryStrategy
     ) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
@@ -396,7 +396,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             NetworkMessage msg,
             long timeout,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy
+            TerminalIoErrorRetryStrategy retryStrategy
     ) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
@@ -458,7 +458,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             NetworkMessage message,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy,
+            TerminalIoErrorRetryStrategy retryStrategy,
             long channelTimeoutMillis
     ) {
         if (isInNetworkThread()) {
@@ -507,7 +507,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ChannelType type,
             InetSocketAddress addr,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy,
+            TerminalIoErrorRetryStrategy retryStrategy,
             long timeoutMillis
     ) {
         Long deadlineNanos = timeoutMillis == NO_TIMEOUT ? null : System.nanoTime() + MILLISECONDS.toNanos(timeoutMillis);
@@ -520,7 +520,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ChannelType type,
             InetSocketAddress addr,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy,
+            TerminalIoErrorRetryStrategy retryStrategy,
             @Nullable Long deadlineNanos,
             int attemptOrdinal
     ) {
@@ -553,7 +553,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     boolean temporaryFailure = !recipientIsNotThere(ex);
 
                     if (!temporaryFailure && !retryStrategy.stillRetriable()) {
-                        Throwable exToReturn = retryStrategy.terminalToRecipientLeft()
+                        Throwable exToReturn = retryStrategy.retriesExhaustedMeansRecipientLeft()
                                 ? new RecipientLeftException("Recipient left [id=" + nodeId + "].") : ex;
                         return OrderingFuture.<NettySender>failedFuture(exToReturn);
                     }
@@ -594,7 +594,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ChannelType type,
             InetSocketAddress addr,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy,
+            TerminalIoErrorRetryStrategy retryStrategy,
             @Nullable Long deadlineNanos,
             int attemptOrdinal
     ) {
@@ -647,7 +647,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ChannelType type,
             InetSocketAddress addr,
             boolean strictIdCheck,
-            RetryStrategy retryStrategy,
+            TerminalIoErrorRetryStrategy retryStrategy,
             long timeoutMillis
     ) {
         openChannelWithRetries(nodeId, type, addr, strictIdCheck, retryStrategy, timeoutMillis);
@@ -1081,13 +1081,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return address.address();
     }
 
-    private interface RetryStrategy {
+    private interface TerminalIoErrorRetryStrategy {
         boolean stillRetriable();
 
-        boolean terminalToRecipientLeft();
+        boolean retriesExhaustedMeansRecipientLeft();
     }
 
-    private static class ByEphemeralIdRetryStrategy implements RetryStrategy {
+    private static class ByEphemeralIdRetryStrategy implements TerminalIoErrorRetryStrategy {
         @Override
         public boolean stillRetriable() {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-28225 - make retriable.
@@ -1095,12 +1095,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         @Override
-        public boolean terminalToRecipientLeft() {
+        public boolean retriesExhaustedMeansRecipientLeft() {
             return false;
         }
     }
 
-    private class ByConsistentIdRetryStrategy implements RetryStrategy {
+    private class ByConsistentIdRetryStrategy implements TerminalIoErrorRetryStrategy {
         private final String consistentId;
 
         private ByConsistentIdRetryStrategy(String consistentId) {
@@ -1113,19 +1113,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         @Override
-        public boolean terminalToRecipientLeft() {
+        public boolean retriesExhaustedMeansRecipientLeft() {
             return true;
         }
     }
 
-    private static class NeverRetryStrategy implements RetryStrategy {
+    private static class NeverRetryStrategy implements TerminalIoErrorRetryStrategy {
         @Override
         public boolean stillRetriable() {
             return false;
         }
 
         @Override
-        public boolean terminalToRecipientLeft() {
+        public boolean retriesExhaustedMeansRecipientLeft() {
             return false;
         }
     }
