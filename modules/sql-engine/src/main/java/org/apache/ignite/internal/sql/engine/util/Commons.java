@@ -56,7 +56,10 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinInfo;
+import org.apache.calcite.rel.hint.HintPredicate;
+import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.hint.Hintable;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -164,8 +167,8 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), JOIN)
                                     .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
-                                    .hintStrategy(IgniteHint.NO_INDEX.name(), TABLE_SCAN)
-                                    .hintStrategy(IgniteHint.FORCE_INDEX.name(), TABLE_SCAN)
+                                    .hintStrategy(IgniteHint.NO_INDEX.name(), indexHintPropagationStrategy())
+                                    .hintStrategy(IgniteHint.FORCE_INDEX.name(), indexHintPropagationStrategy())
                                     .hintStrategy(IgniteHint.DISABLE_DECORRELATION.name(), (hint, rel) -> true)
                                     .build()
                     )
@@ -187,6 +190,18 @@ public final class Commons {
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
+
+    private static HintPredicate indexHintPropagationStrategy() {
+        return HintPredicates.and(
+                TABLE_SCAN,
+                (hint, rel) -> ((Hintable) rel).getHints().stream()
+                        .filter(h -> h.hintName.equals(IgniteHint.FORCE_INDEX.name())
+                                || h.hintName.equals(IgniteHint.NO_INDEX.name()))
+                        // Ignore all that overlaps existed hint.
+                        // See RelHint javadoc.
+                        .filter(h -> h.inheritPath.size() < hint.inheritPath.size())
+                        .findAny().isEmpty());
+    }
 
     private static volatile @Nullable Boolean fastOptimizationsEnabled = null;
 
@@ -330,7 +345,7 @@ public final class Commons {
     /**
      * Flattens a list of lists into a single list containing all elements from the nested lists.
      *
-     * <p>This method takes a source list where each element is itself a list and combines 
+     * <p>This method takes a source list where each element is itself a list and combines
      * all the nested lists into a single list containing all their elements in order.
      *
      * <p>For example:

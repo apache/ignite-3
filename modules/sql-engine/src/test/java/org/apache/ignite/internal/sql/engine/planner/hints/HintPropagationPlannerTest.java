@@ -11,7 +11,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-public class HintOverridingPlannerTest extends AbstractPlannerTest {
+public class HintPropagationPlannerTest extends AbstractPlannerTest {
     private static IgniteSchema SCHEMA;
 
     private static final String TBL1 = "TBL1";
@@ -54,11 +54,8 @@ public class HintOverridingPlannerTest extends AbstractPlannerTest {
                         .and(scan -> "<($t3, _UTF-8'a')".equals(scan.condition().toString()))
                 )))
         );
-    }
 
-    @Test
-    public void testHintOverriding() throws Exception {
-        var sql = "SELECT * FROM"
+        sql = "SELECT * FROM"
                 + " (SELECT /*+ NO_INDEX */ t1.val1, t1.val2, t1.val3 FROM tbl1 as t1 LEFT JOIN tbl2 as t2 ON (t1.val2 = t2.val2)) as t"
                 + " LEFT JOIN tbl2 /*+ FORCE_INDEX(idx_val2) */ as t3 ON (t.val3 = t3.val3)";
 
@@ -69,18 +66,33 @@ public class HintOverridingPlannerTest extends AbstractPlannerTest {
                 )))
                 .and(input(1, nodeOrAnyChild(isIndexScan(TBL2, "IDX_VAL2"))))
         );
+    }
 
-        sql = "SELECT * FROM"
-                + " (SELECT /*+ FORCE_INDEX(idx_val2) */ t1.val1, t1.val2, t1.val3 FROM tbl1 /*+ NO_INDEX */ as t1 "
-                + " LEFT JOIN tbl2 as t2 ON (t1.val2 = t2.val2)) as t"
-                + " LEFT JOIN tbl2 /*+ NO_INDEX */ as t3 ON (t.val3 = t3.val3)";
+    @Test
+    public void testHintOverriding() throws Exception {
+        var sql = "SELECT /*+ NO_INDEX */ * FROM"
+                + " (SELECT t1.val1, t1.val2, t1.val3 FROM tbl1 as t1 LEFT JOIN tbl2 as t2 ON (t1.val2 = t2.val2)) as t"
+                + " LEFT JOIN tbl2 /*+ FORCE_INDEX(idx_val2_val3) */ as t3 ON (t.val3 = t3.val3)";
 
         assertPlan(sql, SCHEMA, isInstanceOf(AbstractIgniteJoin.class)
                 .and(input(0, nodeOrAnyChild(isInstanceOf(AbstractIgniteJoin.class)
                         .and(input(0, nodeOrAnyChild(isInstanceOf(IgniteTableScan.class))))
-                        .and(input(1, nodeOrAnyChild(isIndexScan(TBL2, "IDX_VAL2"))))
+                        .and(input(1, nodeOrAnyChild(isInstanceOf(IgniteTableScan.class))))
                 )))
-                .and(input(1, nodeOrAnyChild(isInstanceOf(IgniteTableScan.class))))
+                .and(input(1, nodeOrAnyChild(isIndexScan(TBL2, "idx_val3"))))
+        );
+
+        sql = "SELECT /*+ FORCE_INDEX(idx_val3) */ * FROM"
+                + " (SELECT t1.val1, t1.val2, t1.val3 FROM tbl1 /*+ NO_INDEX */ as t1 "
+                + " LEFT JOIN tbl2 as t2 ON (t1.val2 = t2.val2)) as t"
+                + " LEFT JOIN tbl2 /*+ FORCE_INDEX(idx_val2) */as t3 ON (t.val3 = t3.val3)";
+
+        assertPlan(sql, SCHEMA, isInstanceOf(AbstractIgniteJoin.class)
+                .and(input(0, nodeOrAnyChild(isInstanceOf(AbstractIgniteJoin.class)
+                        .and(input(0, nodeOrAnyChild(isInstanceOf(IgniteTableScan.class))))
+                        .and(input(1, nodeOrAnyChild(isIndexScan(TBL2, "IDX_VAL3"))))
+                )))
+                .and(input(1, nodeOrAnyChild(isIndexScan(TBL2, "IDX_VAL2"))))
         );
     }
 
