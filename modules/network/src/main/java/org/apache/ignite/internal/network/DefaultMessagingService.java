@@ -419,7 +419,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<>();
 
-        requestsMap.put(correlationId, new TimeoutObjectImpl(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture, msg));
+        requestsMap.put(
+                correlationId,
+                new TimeoutObjectImpl(timeoutDefined(timeout) ? coarseCurrentTimeMillis() + timeout : 0, responseFuture, msg)
+        );
 
         InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
@@ -437,6 +440,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck, retryStrategy, timeout)
                 .thenCompose(unused -> responseFuture);
+    }
+
+    private static boolean timeoutDefined(long timeout) {
+        return timeout > 0;
     }
 
     /**
@@ -510,9 +517,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
             TerminalIoErrorRetryStrategy retryStrategy,
             long timeoutMillis
     ) {
-        Long deadlineNanos = timeoutMillis == NO_TIMEOUT ? null : System.nanoTime() + MILLISECONDS.toNanos(timeoutMillis);
+        Long deadlineMillis = timeoutMillis == NO_TIMEOUT || !timeoutDefined(timeoutMillis) ? null
+                : coarseCurrentTimeMillis() + timeoutMillis;
+        if (deadlineMillis != null && deadlineMillis < 0) {
+            deadlineMillis = Long.MAX_VALUE;
+        }
 
-        return openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineNanos, 0);
+        return openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineMillis, 0);
     }
 
     private OrderingFuture<NettySender> openChannelWithRetriesInternal(
@@ -521,7 +532,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
-            @Nullable Long deadlineNanos,
+            @Nullable Long deadlineMillis,
             int attemptOrdinal
     ) {
         if (attemptOrdinal >= 1000) {
@@ -558,7 +569,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                         return OrderingFuture.<NettySender>failedFuture(exToReturn);
                     }
 
-                    if (deadlineReached(deadlineNanos)) {
+                    if (deadlineReached(deadlineMillis)) {
                         return OrderingFuture.<NettySender>failedFuture(
                                 new TimeoutException("Channel creation timed out [id=" + nodeId + "].")
                         );
@@ -570,7 +581,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             addr,
                             strictIdCheck,
                             retryStrategy,
-                            deadlineNanos,
+                            deadlineMillis,
                             attemptOrdinal + 1
                     );
                 })
@@ -585,8 +596,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return hasCause(ex, ConnectException.class, NoRouteToHostException.class);
     }
 
-    private static boolean deadlineReached(@Nullable Long deadlineNanos) {
-        return deadlineNanos != null && System.nanoTime() >= deadlineNanos;
+    private static boolean deadlineReached(@Nullable Long deadlineMillis) {
+        return deadlineMillis != null && coarseCurrentTimeMillis() >= deadlineMillis;
     }
 
     private OrderingFuture<NettySender> attemptToOpenChannelAfterDelay(
@@ -595,7 +606,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
-            @Nullable Long deadlineNanos,
+            @Nullable Long deadlineMillis,
             int attemptOrdinal
     ) {
         OrderingFuture<NettySender> nextAttemptFuture = new OrderingFuture<>();
@@ -605,7 +616,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         connectionRetryExecutor.execute(() -> {
             try {
-                openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineNanos, attemptOrdinal)
+                openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineMillis, attemptOrdinal)
                         .whenComplete((nextRes, nextEx) -> {
                             if (nextEx != null) {
                                 nextAttemptFuture.completeExceptionally(nextEx);
