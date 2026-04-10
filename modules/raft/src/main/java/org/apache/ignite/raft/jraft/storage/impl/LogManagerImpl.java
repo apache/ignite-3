@@ -1050,11 +1050,25 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
-    private void unsafeTruncateSuffix(final long lastIndexKept, final Lock lock) {
+    /**
+     * Truncates log entries after {@code lastIndexKept}.
+     *
+     * @return {@code true} on success, {@code false} if truncation would discard applied entries (node moves to error state).
+     */
+    private boolean unsafeTruncateSuffix(final long lastIndexKept, final Lock lock) {
         if (lastIndexKept < this.appliedId.getIndex()) {
-            LOG.error("FATAL ERROR: Can't truncate logs before appliedId={}, lastIndexKept={}", this.appliedId,
-                lastIndexKept);
-            return;
+            LOG.error("Raft log suffix conflict: cannot truncate entries that have been applied to the state machine. "
+                    + "The partition will be moved to error state [nodeId={}, appliedId={}, lastIndexKept={}]",
+                    this.nodeId, this.appliedId, lastIndexKept);
+            lock.unlock();
+            try {
+                reportError(RaftError.EINVAL.getNumber(),
+                        "Raft log suffix conflict: attempted to truncate applied entries, appliedId=%s, lastIndexKept=%d",
+                        this.appliedId, lastIndexKept);
+            } finally {
+                lock.lock();
+            }
+            return false;
         }
 
         this.logsInMemory.removeFromLastWhen(entry -> entry.getId().getIndex() > lastIndexKept);
@@ -1069,6 +1083,7 @@ public class LogManagerImpl implements LogManager {
         final TruncateSuffixClosure c = new TruncateSuffixClosure(lastIndexKept, lastTermKept);
         offerEvent(c, EventType.TRUNCATE_SUFFIX);
         lock.lock();
+        return true;
     }
 
     @SuppressWarnings("NonAtomicOperationOnVolatileField")
@@ -1122,7 +1137,11 @@ public class LogManagerImpl implements LogManager {
                     if (entries.get(conflictingIndex).getId().getIndex() <= this.lastLogIndex) {
                         // Truncate all the conflicting entries to make local logs
                         // consensus with the leader.
-                        unsafeTruncateSuffix(entries.get(conflictingIndex).getId().getIndex() - 1, lock);
+                        if (!unsafeTruncateSuffix(entries.get(conflictingIndex).getId().getIndex() - 1, lock)) {
+                            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done,
+                                new Status(RaftError.EINVAL, "Raft log suffix conflict with applied entries"));
+                            return false;
+                        }
                     }
                     this.lastLogIndex = lastLogEntry.getId().getIndex();
                 } // else this is a duplicated AppendEntriesRequest, we have
