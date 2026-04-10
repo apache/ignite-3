@@ -57,7 +57,11 @@ std::map<int64_t, uuid> parse_partition_distribution(const std::string& encoded)
     while ((rhs = encoded.find(';', lhs)) != std::string::npos) {
         std::string chunk= encoded.substr(lhs, rhs - lhs);
 
-        char eq_pos = chunk.find('=');
+        auto eq_pos = chunk.find('=');
+
+        if (eq_pos == std::string::npos) {
+            throw std::runtime_error("Incorrect partition distribution text:" + encoded);
+        }
 
         auto node_id = uuid::from_string(chunk.substr(0, eq_pos));
 

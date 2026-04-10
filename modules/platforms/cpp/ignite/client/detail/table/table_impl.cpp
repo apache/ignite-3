@@ -484,7 +484,15 @@ std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
 
 void table_impl::update_partition_assignment() {
     ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback = [self=shared_from_this()](auto pa) {
-        self->m_partition_assignment = pa.value();
+        if (pa.has_error()) {
+            self->m_connection->get_logger()->log_error("Error while updating partition assignment for table"
+            + self->get_name() + "error " + pa.error().what_str());
+
+            return;
+        }
+
+        std::lock_guard lock(self->m_partitions_mutex);
+        self->m_partition_assignment = std::move(pa).value();
     };
 
     load_partition_assignment_async(std::move(callback));
@@ -522,12 +530,11 @@ void table_impl::load_partition_assignment_async(ignite_callback<std::shared_ptr
 std::optional<std::string> table_impl::get_preferred_node_name(const ignite_tuple &key, const schema &sch) {
     auto pa = get_partition_assignment();
 
-    if (!pa) {
+    if (!pa || pa->get_partitions().empty()) {
         return {};
     }
 
     hash_calculator hc;
-
     for (auto column : sch.collocated_columns) {
         auto val = key.get(column->key_index);
         hc.append(val, column->scale, column->precision);
@@ -535,10 +542,9 @@ std::optional<std::string> table_impl::get_preferred_node_name(const ignite_tupl
 
     auto hash = hc.result_hash();
 
+    auto part_id = std::abs(hash % static_cast<int32_t>(pa->get_partitions().size()));
 
-    auto part_id = std::abs(hash % static_cast<int32_t>(pa->partitions.size()));
-
-    return pa->partitions[part_id];
+    return pa->get_partitions()[part_id];
 }
 
 } // namespace ignite::detail

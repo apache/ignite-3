@@ -277,7 +277,7 @@ std::shared_ptr<node_connection> cluster_connection::get_random_connected_channe
 std::shared_ptr<node_connection> cluster_connection::get_preferred_channel(const std::string& preferred_node_name) {
     std::unique_lock lock(m_connections_mutex);
     for (auto& [id, conn] : m_connections) {
-        if (conn->m_node_name == preferred_node_name) {
+        if (conn->get_node_name() == preferred_node_name) {
             return conn;
         }
     }

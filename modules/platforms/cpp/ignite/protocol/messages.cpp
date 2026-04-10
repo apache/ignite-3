@@ -106,37 +106,33 @@ void write_partition_assignment_request(writer &writer, std::int32_t table_id, s
 }
 
 std::shared_ptr<partition_assignment> read_partition_assignment_response(reader &reader, std::int64_t timestamp) {
-    auto new_assignment = std::make_shared<partition_assignment>();
-    new_assignment->timestamp = timestamp;
-
     auto cnt = reader.read_int32();
     if (cnt < 0)
         throw ignite_error("Invalid partition count: " + std::to_string(cnt));
 
-    new_assignment->partitions.reserve(cnt);
+    std::vector<std::optional<std::string>> partitions;
+    partitions.reserve(cnt);
 
     bool assignment_available = reader.read_bool();
     if (!assignment_available) {
         // Invalidate the current assignment so that we can retry on the next call.
         // Return an empty array so that per-partition batches can be initialized.
         // We'll get the actual assignment on the next call.
-        new_assignment->timestamp = 0;
-        new_assignment->partitions.insert(new_assignment->partitions.end(), cnt, std::nullopt);
-    } else {
-        // Returned timestamp can be newer than requested.
-        std::int64_t ts = reader.read_int64();
-        if (ts < timestamp)
-            throw ignite_error("Returned timestamp is older than requested: " + std::to_string(ts) + " < "
-                + std::to_string(timestamp));
-
-        new_assignment->timestamp = ts;
-
-        for (std::int32_t i = 0; i < cnt; ++i) {
-            new_assignment->partitions.emplace_back(reader.read_string_nullable());
-        }
+        partitions.insert(partitions.end(), cnt, std::nullopt);
+        return std::make_shared<partition_assignment>(0, std::move(partitions));
     }
 
-    return new_assignment;
+    // Returned timestamp can be newer than requested.
+    std::int64_t ts = reader.read_int64();
+    if (ts < timestamp)
+        throw ignite_error("Returned timestamp is older than requested: " + std::to_string(ts) + " < "
+            + std::to_string(timestamp));
+
+    for (std::int32_t i = 0; i < cnt; ++i) {
+        partitions.emplace_back(reader.read_string_nullable());
+    }
+
+    return std::make_shared<partition_assignment>(ts, std::move(partitions));
 }
 
 } // namespace ignite::protocol

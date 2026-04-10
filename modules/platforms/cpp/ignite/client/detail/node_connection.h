@@ -157,8 +157,6 @@ public:
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
             get_and_remove_handler(req_id);
-            /*m_logger->log_error(*/auto str= "Connection id=" + std::to_string(id()) + " req_id=" + std::to_string(req_id) + " failed";//);
-            std::cout << str << std::endl;
             return {};
         }
 
@@ -234,7 +232,14 @@ public:
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
 
-    void handle_timeouts();
+    /**
+     * Cancels waiting for over-due responses.
+     */
+     void handle_timeouts();
+
+    const std::string& get_node_name() const {
+        return m_node_name;
+    }
 
 private:
     /**

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cerrno>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
@@ -63,6 +64,11 @@ public:
 
         auto parse_chunk = [str](size_t beg, size_t end, int64_t& out) -> bool {
             char* p;
+
+            if (errno != 0) {
+                errno = 0;
+            }
+
             out = std::strtoll(str + beg, &p, 16);
 
             if (p != str + end || (*p != '-' && *p != '\0') || errno == ERANGE) {

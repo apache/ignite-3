@@ -64,7 +64,7 @@ public:
 
         m_payload_pos = rd.position();
 
-        assert(m_payload_pos < m_data.size());
+        assert(m_payload_pos == 0 || m_payload_pos < m_data.size());
     }
 
     [[nodiscard]] protocol::client_operation get_op() const { return m_op; }
@@ -96,7 +96,7 @@ public:
 
         m_payload_pos = rd.position();
 
-        assert(m_payload_pos < m_data.size());
+        assert(m_payload_pos == 0 || m_payload_pos < m_data.size());
     }
 
     [[nodiscard]] int64_t get_req_id() const { return m_req_id; }
@@ -133,8 +133,7 @@ public:
         std::vector<MESSAGE_TYPE> res;
 
         while (!m_queue.empty() && res.empty()) {
-            auto chunk = m_queue.front();
-            m_queue.pop();
+            auto& chunk = m_queue.front();
 
             network::data_buffer_ref buf{{chunk.data(), chunk.size()}};
 
@@ -149,6 +148,7 @@ public:
                 std::vector<std::byte> data{out_bv.begin(), out_bv.end()};
                 res.emplace_back(std::move(data));
             }
+            m_queue.pop();
         }
 
         return res;

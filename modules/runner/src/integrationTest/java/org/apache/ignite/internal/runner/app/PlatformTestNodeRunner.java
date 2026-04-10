@@ -120,7 +120,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.table.partition.PartitionDistribution;
 import org.jetbrains.annotations.Nullable;
 
 /**
