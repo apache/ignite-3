@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.Waiter;
 
 /**
@@ -39,7 +40,7 @@ public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy
 
     @Override
     public final Waiter allowWait(Waiter waiter, Waiter owner) {
-        int res = txIdComparator().compare(waiter.txId(), owner.txId());
+        int res = TransactionIds.compare(waiter.txId(), owner.txId());
         assert res != 0;
 
         // Waiter is allowed to wait for owner if it has higher priority.

@@ -42,7 +42,7 @@ public interface DeadlockPreventionPolicy {
      *
      * @return Transaction id comparator.
      */
-    @Nullable default Comparator<UUID> txIdComparator() {
+    default Comparator<UUID> txIdComparator() {
         return TX_ID_PRIORITY_COMPARATOR;
     }
 
@@ -51,6 +51,7 @@ public interface DeadlockPreventionPolicy {
      * of this transaction with another one on certain key. If a policy allows deadlock prevention,
      * then this timeout is applied only to a waiting transaction. If this method returns {@code 0} this means that
      * the lock attempt is aborted instantly (timeout is zero). If lesser that {@code 0}, it means that the wait time is infinite.
+     * TODO IGNITE-28507 make configurable.
      *
      * @return Timeout, in milliseconds.
      */

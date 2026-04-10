@@ -94,4 +94,28 @@ public class TransactionIds {
     private static int spread(int h) {
         return (h ^ (h >>> 16)) & 0x7fffffff;
     }
+
+    /**
+     * Compares transaction IDs based on their associated priorities and the IDs themselves.
+     * The IDs with higher priorities are sorted first.
+     * If the priorities are equal, the IDs are sorted by their natural order, based on tx begin timestamp,
+     * which implies older transactions having more priority than younger.
+     *
+     * @param id1 id1.
+     * @param id2 id2.
+     *
+     * @return The result.
+     */
+    public static int compare(UUID id1, UUID id2) {
+        TxPriority priority1 = priority(id1);
+        TxPriority priority2 = priority(id2);
+
+        int priorityComparison = priority1.compareTo(priority2);
+
+        if (priorityComparison == 0) {
+            return id1.compareTo(id2);
+        } else {
+            return priorityComparison * -1; // Reverse order.
+        }
+    }
 }

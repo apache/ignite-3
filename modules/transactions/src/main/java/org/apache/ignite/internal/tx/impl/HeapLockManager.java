@@ -625,7 +625,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                             // Prevent deadlocks by allowing only younger transactions to wait.
                             for (Lock lock : ixlockOwners.values()) {
-                                if (deadlockPreventionPolicy.txIdComparator().compare(txId, lock.txId()) < 0) {
+                                if (TransactionIds.compare(txId, lock.txId()) < 0) {
                                     return notifyAndFail(txId, lock.txId(), lockMode, lock.lockMode());
                                 }
                             }
