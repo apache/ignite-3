@@ -129,7 +129,7 @@ public class SegmentLogStorageManager implements LogStorageManager {
             return (parseLong(partitionGroupIdArray[0]) << 32 | parseLong(partitionGroupIdArray[1])) + 100000 + raftNodeId.peer().idx();
         } else {
             // For tests using invalid group IDs.
-            return 1 + nodeId.hashCode();
+            return 1 + Math.abs(nodeId.hashCode());
         }
     }
 }
