@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -72,13 +74,13 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.core.State;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -98,7 +100,6 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         return 0;
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25502")
     @Test
     void enterNodeWithIndexGreaterThanCurrentMajority() throws Exception {
         cluster.startAndInit(3);
@@ -148,12 +149,21 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             startNode(2);
 
+            // Node 2 has applied entries that the new majority (nodes 0, 1) doesn't have,
+            // so it must go to ERROR state when the leader tries to overwrite those entries.
+            await()
+                    .timeout(10, TimeUnit.SECONDS)
+                    .untilAsserted(() ->
+                            assertThat(raftNodeImpl(2, replicationGroup).getState(), equalTo(State.STATE_ERROR))
+                    );
+
+            // SQL should still work via the healthy majority.
             assertThat(
                     toPeopleFromSqlRows(executeSql(selectPeopleDml(TABLE_NAME))),
                     arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
             );
 
-            for (int nodeIndex = 0; nodeIndex < 3; nodeIndex++) {
+            for (int nodeIndex = 0; nodeIndex < 2; nodeIndex++) {
                 assertThat(
                         "nodeIndex=" + nodeIndex,
                         scanPeopleFromAllPartitions(nodeIndex, TABLE_NAME),

@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.unmodifiableMap;
+
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Holds shared mutable state for table tracking, shared between {@link TableManager} and {@link TableZoneCoordinator}.
+ * Tracks table lifecycle state shared between {@link TableManager} and {@link TableZoneCoordinator}.
  *
- * <ul>
- *   <li>{@link #tables} — all registered tables by ID.</li>
- *   <li>{@link #startedTables} — tables that are fully started (partition resources prepared).</li>
- *   <li>{@link #localPartsByTableId} — local partition sets per table.</li>
- * </ul>
+ * <p>A table progresses through: registered → started → (removed from started) → unregistered.
  */
 class TableRegistry {
     /** All registered tables by ID. */
@@ -40,15 +40,68 @@ class TableRegistry {
     /** Local partitions by table ID. */
     private final Map<Integer, PartitionSet> localPartsByTableId = new ConcurrentHashMap<>();
 
-    Map<Integer, TableViewInternal> tables() {
-        return tables;
+    /** Registers a newly created table. Does not mark it as started. */
+    void register(int tableId, TableViewInternal table) {
+        tables.put(tableId, table);
     }
 
-    Map<Integer, TableViewInternal> startedTables() {
-        return startedTables;
+    /** Promotes an already-registered table to the started. */
+    void markStarted(int tableId) {
+        TableViewInternal table = tables.get(tableId);
+
+        assert table != null : "Table must be registered before marking as started: tableId=" + tableId;
+
+        startedTables.put(tableId, table);
     }
 
-    Map<Integer, PartitionSet> localPartsByTableId() {
-        return localPartsByTableId;
+    /** Returns a registered table by ID, or null if not found. */
+    @Nullable TableViewInternal table(int tableId) {
+        return tables.get(tableId);
+    }
+
+    /** Returns a started table by ID, or null if not started. */
+    @Nullable TableViewInternal startedTable(int tableId) {
+        return startedTables.get(tableId);
+    }
+
+    /** Returns an unmodifiable view of all registered tables. */
+    Map<Integer, TableViewInternal> allRegisteredTables() {
+        return unmodifiableMap(tables);
+    }
+
+    /** Returns an unmodifiable view of all started tables. */
+    Map<Integer, TableViewInternal> allStartedTables() {
+        return unmodifiableMap(startedTables);
+    }
+
+    /** Removes the table from started tables and clears its local partitions. Returns the removed table, or null. */
+    @Nullable TableViewInternal removeStarted(int tableId) {
+        TableViewInternal removed = startedTables.remove(tableId);
+        localPartsByTableId.remove(tableId);
+        return removed;
+    }
+
+    /** Removes the table from the registry entirely. */
+    void unregister(int tableId) {
+        tables.remove(tableId);
+    }
+
+    /** Sets the local partition set for a table. */
+    void setLocalPartitions(int tableId, PartitionSet partitions) {
+        localPartsByTableId.put(tableId, partitions);
+    }
+
+    /** Atomically extends local partitions by adding a partition index. Creates a new set if absent. */
+    void extendLocalPartitions(int tableId, int partitionIndex) {
+        localPartsByTableId.compute(tableId, (id, old) -> {
+            PartitionSet set = Objects.requireNonNullElseGet(old, BitSetPartitionSet::new);
+            set.set(partitionIndex);
+            return set;
+        });
+    }
+
+    /** Returns local partitions for a table, or {@link PartitionSet#EMPTY_SET} if absent. */
+    PartitionSet localPartitions(int tableId) {
+        return localPartsByTableId.getOrDefault(tableId, PartitionSet.EMPTY_SET);
     }
 }
