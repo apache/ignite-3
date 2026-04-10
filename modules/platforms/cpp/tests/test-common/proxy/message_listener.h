@@ -117,8 +117,10 @@ private:
 class message_listener {
 public:
     void register_message(raw_message msg) {
-        std::unique_lock lock(m_mutex);
-        m_queue.push(std::move(msg));
+        if (enable_message_registration.load()) {
+            std::unique_lock lock(m_mutex);
+            m_queue.push(std::move(msg));
+        }
     }
 
     [[nodiscard]] std::queue<raw_message> get_msg_queue() const {
@@ -154,11 +156,21 @@ public:
         return res;
     }
 
+    /**
+     * Enable/disables message registration for message listeners;
+     * @param enable @c True if registration enabled, otherwise disabled.
+     */
+    void toggle_message_registration(bool enable) {
+        enable_message_registration.store(enable);
+    }
+
 private:
     std::queue<raw_message> m_queue{};
 
     mutable std::shared_mutex m_mutex;
 
     network::length_prefix_codec codec;
+
+    std::atomic_bool enable_message_registration{true};
 };
 } // namespace ignite::proxy

@@ -161,13 +161,15 @@ public:
      * @param wr Request writer function.
      * @param rd Response reader function.
      * @param callback Callback to call on a result.
+     * @param preferred_node_name Name of preferred node.
      */
     template<typename T>
     std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request(protocol::client_operation op,
         transaction_impl *tx, const writer_function_type &wr,
-        reader_function_type<T> rd, ignite_callback<T> callback) {
+        reader_function_type<T> rd, ignite_callback<T> callback,
+        const std::optional<std::string>& preferred_node_name = std::nullopt) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
-        return perform_request_handler(static_op(op), tx, wr, std::move(handler));
+        return perform_request_handler(static_op(op), tx, wr, std::move(handler), preferred_node_name);
     }
 
     /**
@@ -271,9 +273,13 @@ public:
      * @return A connection used to perform request and the request ID.
      */
     template<typename T>
-    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_wr(protocol::client_operation op,
-        transaction_impl *tx, const writer_function_type &wr, ignite_callback<T> callback) {
-        return perform_request<T>(op, tx, wr, [](protocol::reader &) {}, std::move(callback));
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_wr(
+        protocol::client_operation op,
+        transaction_impl *tx,
+        const writer_function_type &wr,
+        ignite_callback<T> callback,
+        const std::optional<std::string>& preferred_node_name = std::nullopt) {
+        return perform_request<T>(op, tx, wr, [](protocol::reader &) {}, std::move(callback), preferred_node_name);
     }
 
     /**

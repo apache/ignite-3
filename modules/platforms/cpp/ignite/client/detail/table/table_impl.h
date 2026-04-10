@@ -430,7 +430,13 @@ private:
      */
     void load_partition_assignment_async(ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback);
 
-    std::optional<std::string> get_preferred_node_name(const ignite_tuple &key, const schema &sch);
+    /**
+     * Returns name of node which should contain primary replica for partition record is belongs to.
+     * @param key_or_rec Key part of record or whole record.
+     * @param sch Schema
+     * @return Node name with replica or @c std::nullopt.
+     */
+    std::optional<std::string> get_preferred_node_name(const ignite_tuple &key_or_rec, const schema &sch);
 
     /**
      * Get impl of transaction.
