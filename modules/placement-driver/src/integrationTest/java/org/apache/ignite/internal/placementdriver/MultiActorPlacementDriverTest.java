@@ -83,6 +83,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -420,9 +421,13 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         waitForProlong(grpPart0, lease);
 
-        assertThat(msRaftClient.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
+        CompletableFuture<LeaderWithTerm> actualLeaderFut = msRaftClient.refreshAndGetLeaderWithTerm(TimeAwareRaftGroupService.NO_TIMEOUT);
 
-        assertEquals(newLeader, msRaftClient.leader());
+        assertThat(actualLeaderFut, willCompleteSuccessfully());
+
+        Peer actualLeader = actualLeaderFut.join().leader();
+
+        assertEquals(newLeader, actualLeader);
     }
 
     @Test
