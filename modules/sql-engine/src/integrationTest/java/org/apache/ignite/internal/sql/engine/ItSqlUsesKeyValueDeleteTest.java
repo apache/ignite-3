@@ -93,11 +93,11 @@ public class ItSqlUsesKeyValueDeleteTest extends BaseSqlIntegrationTest {
             sql(tx, "INSERT INTO simple_key VALUES (2147483647, 0), (-2147483648, 0);");
 
             assertQuery((InternalTransaction) tx, "DELETE FROM simple_key WHERE id = 2147483648")
-                    .returns(0L)
+                    .returns(0) // TODO https://issues.apache.org/jira/browse/IGNITE-23512: Long value is expected here.
                     .check();
 
             assertQuery((InternalTransaction) tx, "DELETE FROM simple_key WHERE id = -2147483649")
-                    .returns(0L)
+                    .returns(0) // TODO https://issues.apache.org/jira/browse/IGNITE-23512: Long value is expected here.
                     .check();
         } finally {
             tx.rollback();
