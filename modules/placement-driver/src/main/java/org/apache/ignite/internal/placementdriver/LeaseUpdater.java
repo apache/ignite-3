@@ -141,6 +141,10 @@ public class LeaseUpdater {
 
     private CompletableFuture<?> leaseUpdateFuture = nullCompletedFuture();
 
+    /**
+     * Leases cache for updating leases via {@link MetaStorageManager#invoke}. It is renewed right before the lease update, because leases
+     * in {@link LeaseTracker} may be stale a bit, which is critical for invoke.
+     */
     private volatile Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
 
     /**
@@ -427,7 +431,7 @@ public class LeaseUpdater {
 
             var entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY);
 
-            if (entry.value() != null) {
+            if (entry != null && entry.value() != null) {
                 LeaseBatch leaseBatch = LeaseBatch.fromBytes(entry.value());
                 Map<ReplicationGroupId, Lease> newLeasesMap = newHashMap(leaseBatch.leases().size());
                 for (Lease lease : leaseBatch.leases()) {
@@ -435,6 +439,8 @@ public class LeaseUpdater {
                 }
 
                 leases = new Leases(newLeasesMap, entry.value());
+            } else {
+                leases = leaseTracker.leasesLatest();
             }
         }
 
