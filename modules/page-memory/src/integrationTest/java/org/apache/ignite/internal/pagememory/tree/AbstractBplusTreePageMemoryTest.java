@@ -3024,7 +3024,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
     static class TestTreeRowClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Long expVal;
@@ -3052,7 +3052,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
     static class TestTreeFindFirstClosure implements TreeRowMapClosure<Long, Long, Long> {
         private Long val;
@@ -3069,7 +3069,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
     static class TestTreeFindFilteredClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Set<Long> vals;
