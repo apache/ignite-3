@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.tx.message;
 
-import java.util.Comparator;
+import static org.apache.ignite.internal.tx.message.TxMessageGroup.TX_KILL_MESSAGE;
+
 import java.util.UUID;
-import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Comparator for transaction IDs based on their associated priorities and the IDs themselves. The IDs with higher priorities are sorted
- * first. If the priorities are equal, the IDs are sorted by their natural order.
+ * Message for transferring a tx kill request. Doesn't imply response.
  */
-public class TxIdPriorityComparator implements Comparator<UUID> {
-    @Override
-    public int compare(UUID o1, UUID o2) {
-        return TransactionIds.compare(o1, o2);
-    }
+@Transferable(TX_KILL_MESSAGE)
+public interface TxKillMessage extends NetworkMessage {
+    /**
+     * Returns a transaction Id.
+     *
+     * @return Transaction id.
+     */
+    UUID txId();
 }

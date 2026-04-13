@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
-import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.Waiter;
 
 /**
- * Comparator for transaction IDs based on their associated priorities and the IDs themselves. The IDs with higher priorities are sorted
- * first. If the priorities are equal, the IDs are sorted by their natural order.
+ * Timeout deadlock prevention policy.
  */
-public class TxIdPriorityComparator implements Comparator<UUID> {
+public class TimeoutDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+    /** {@inheritDoc} */
     @Override
-    public int compare(UUID o1, UUID o2) {
-        return TransactionIds.compare(o1, o2);
+    public long waitTimeout() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Waiter allowWait(Waiter waiter, Waiter owner) {
+        return null;
     }
 }

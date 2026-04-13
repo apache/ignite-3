@@ -20,10 +20,13 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.tx.test.LockConflictMatcher.conflictsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -35,12 +38,17 @@ public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         return new WaitDieDeadlockPreventionPolicy();
     }
 
+    @Override
+    protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
+        return conflictsWith(txId);
+    }
+
     @Test
     public void youngNormalTxShouldWaitForOldLowTx() {
         var oldLowTx = beginTx(TxPriority.LOW);
         var youngNormalTx = beginTx(TxPriority.NORMAL);
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(xlock(oldLowTx, key1), willSucceedFast());
 
@@ -56,7 +64,7 @@ public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var oldNormalTx = beginTx(TxPriority.NORMAL);
         var youngLowTx = beginTx(TxPriority.LOW);
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(xlock(oldNormalTx, key1), willSucceedFast());
 
@@ -68,7 +76,7 @@ public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTes
         var oldNormalTx = beginTx(TxPriority.NORMAL);
         var youngNormalTx = beginTx(TxPriority.NORMAL);
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(xlock(oldNormalTx, key1), willSucceedFast());
 

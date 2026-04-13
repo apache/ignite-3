@@ -165,7 +165,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
             tx.rollback();
         }
 
-        if (read) {
+        if (read && commit) {
+            // Unlock only optimization path.
             checkLocalTxStateOnNodes(tx.id(), null);
         } else {
             checkLocalTxStateOnNodes(
@@ -179,7 +180,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         }
     }
 
-    private void checkLocalTxStateOnNodes(UUID txId, TxStateMeta expected) {
+    private void checkLocalTxStateOnNodes(UUID txId, @Nullable TxStateMeta expected) {
         checkLocalTxStateOnNodes(txId, expected, IntStream.range(0, NODES).boxed().collect(toList()));
     }
 

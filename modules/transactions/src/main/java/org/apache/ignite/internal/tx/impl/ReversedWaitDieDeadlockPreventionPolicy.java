@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.Waiter;
 
 /**
- * Comparator for transaction IDs based on their associated priorities and the IDs themselves. The IDs with higher priorities are sorted
- * first. If the priorities are equal, the IDs are sorted by their natural order.
+ * Reversed wait die implementation. Same as wait die, but reverses the wait order: younger is allowed to wait for older, older is rejected
+ * if conflicts with younger.
  */
-public class TxIdPriorityComparator implements Comparator<UUID> {
+public class ReversedWaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
     @Override
-    public int compare(UUID o1, UUID o2) {
-        return TransactionIds.compare(o1, o2);
+    public Waiter allowWait(Waiter waiter, Waiter owner) {
+        int res = TransactionIds.compare(waiter.txId(), owner.txId());
+        assert res != 0;
+
+        // Waiter is allowed to wait for owner if it's younger.
+        // Otherwise we have to fail waiter.
+        return res > 0 ? null : waiter;
     }
 }
