@@ -107,7 +107,7 @@ protected:
             << "Incorrect node names or address!"
             << "This test should be able to connect to all non-ssl nodes";
 
-        drop_table_if_exits();
+        drop_table_if_exists();
 
         create_table();
 
@@ -117,7 +117,7 @@ protected:
     }
 
     void TearDown() override {
-        drop_table_if_exits();
+        drop_table_if_exists();
     }
 
     ignite_tuple key_tup(id_type key) {
@@ -137,14 +137,14 @@ protected:
     }
 
     ignite_tuple alt_rec(id_type key) {
-        return get_tuple(tab_info.all_column_names, tab_info.get_main_rec(key));
+        return get_tuple(tab_info.all_column_names, tab_info.get_alt_rec(key));
     }
 
     void create_table() {
         m_direct_client.get_sql().execute(nullptr, nullptr, {tab_info.create_table_ddl()}, {});
     }
 
-    void drop_table_if_exits() {
+    void drop_table_if_exists() {
         m_direct_client.get_sql().execute(nullptr, nullptr, {"drop table if exists " + tab_info.table_name}, {});
     }
 

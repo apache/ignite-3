@@ -587,8 +587,8 @@ std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
 void table_impl::update_partition_assignment() {
     ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback = [self=shared_from_this()](auto pa) {
         if (pa.has_error()) {
-            self->m_connection->get_logger()->log_error("Error while updating partition assignment for table"
-            + self->get_name() + "error " + pa.error().what_str());
+            self->m_connection->get_logger()->log_error("Error while updating partition assignment for table '"
+            + self->get_name() + "': " + pa.error().what_str());
 
             return;
         }
@@ -631,7 +631,7 @@ std::optional<std::string> table_impl::get_preferred_node_name(const ignite_tupl
     auto pa = get_partition_assignment();
 
     if (!pa || pa->get_partitions().empty()) {
-        m_connection->get_logger()->log_debug("No partition distribution available, random node will called");
+        m_connection->get_logger()->log_debug("No partition distribution available, a random node will be called");
         return {};
     }
 

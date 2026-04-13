@@ -24,6 +24,7 @@
 #include <istream>
 #include <optional>
 #include <ostream>
+#include <string>
 
 namespace ignite {
 
