@@ -37,13 +37,16 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
  * Log storage manager for {@link SegstoreLogStorage} instances.
  */
 public class SegmentLogStorageManager implements LogStorageManager {
-    private static final Pattern PARTITION_GROUP_ID_PATTERN = Pattern.compile("_part_");
+    /** Group ID for metastorage. */
+    public static final long METASTORAGE_GROUP_ID = 1;
 
-    private static final long METASTORAGE_GROUP_ID = 1;
-    private static final long CMG_GROUP_ID = 2;
+    /** Group ID for CMG. */
+    public static final long CMG_GROUP_ID = 2;
 
     /** Offset so that (objectId=0, partitionId=0) maps to 3, avoiding collision with metastorage (1) and cmg (2). */
-    private static final long SPECIAL_GROUP_ID_OFFSET = 3;
+    public static final long SPECIAL_GROUP_ID_OFFSET = 3;
+
+    private static final Pattern PARTITION_GROUP_ID_PATTERN = Pattern.compile("_part_");
 
     private final SegmentFileManager fileManager;
 
@@ -121,10 +124,16 @@ public class SegmentLogStorageManager implements LogStorageManager {
      * so (objectId, partitionId) is already unique within one {@link SegmentLogStorageManager}.
      */
     // TODO IGNITE-26977 Revise after changing partition ID from int to long.
-    private static long convertNodeId(String nodeId) {
-        // {groupId}-{peerIdx}.
+    public static long convertNodeId(String nodeId) {
+        // {groupId}-{peerIdx}. Peer index suffix is mandatory for all valid raft node storage IDs.
         int lastHyphen = nodeId.lastIndexOf('-');
-        String groupName = lastHyphen > 0 ? nodeId.substring(0, lastHyphen) : nodeId;
+
+        if (lastHyphen <= 0) {
+            // TODO IGNITE-28525 Validate node IDs instead of allowing any value.
+            return Integer.toUnsignedLong(nodeId.hashCode()) + SPECIAL_GROUP_ID_OFFSET;
+        }
+
+        String groupName = nodeId.substring(0, lastHyphen);
 
         if ("metastorage_group".equals(groupName)) {
             return METASTORAGE_GROUP_ID;
