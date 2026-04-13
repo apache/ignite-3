@@ -78,7 +78,7 @@ public final class IgniteSystemProperties {
 
     /** Feature flag for segment log storage. */
     public static boolean segmentLogStorageEnabled() {
-        return getBoolean(SEGSTORE_ENABLED_PROPERTY, true);
+        return getBoolean(SEGSTORE_ENABLED_PROPERTY, false);
     }
 
     /**
