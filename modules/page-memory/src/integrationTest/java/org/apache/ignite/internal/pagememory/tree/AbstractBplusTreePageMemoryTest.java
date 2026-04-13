@@ -3043,9 +3043,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         /** {@inheritDoc} */
         @Override
         public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
-//            assertFalse(found);
-
-            found |= expVal == null || io.getLookupRow(tree, pageAddr, idx).equals(expVal);
+            if (expVal == null || io.getLookupRow(tree, pageAddr, idx).equals(expVal)) {
+                found = true;
+            }
 
             return true;
         }
