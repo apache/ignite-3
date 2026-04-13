@@ -224,12 +224,18 @@ public class TxFinishReplicaRequestHandler {
                 .map(entry -> new EnlistedPartitionGroup(entry.getKey(), entry.getValue().tableIds()))
                 .collect(toList());
         return finishTransaction(enlistedPartitionGroups, txId, commit, commitTimestamp)
-                .thenCompose(txResult -> {
+                .thenApply(txResult -> {
                     boolean actualCommit = txResult.transactionState() == COMMITTED;
                     HybridTimestamp actualCommitTs = txResult.commitTimestamp();
 
-                    return txManager.cleanup(replicationGroupId, enlistedPartitions, actualCommit, actualCommitTs, txId)
-                            .thenApply(v -> txResult);
+                    try {
+                        txManager.cleanup(replicationGroupId, enlistedPartitions, actualCommit, actualCommitTs, txId)
+                                .thenApply(v -> txResult);
+                    } catch (Exception e) {
+                        LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
+                    }
+
+                    return txResult;
                 });
     }
 
