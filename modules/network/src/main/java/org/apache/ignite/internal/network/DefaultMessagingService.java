@@ -96,6 +96,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static final TerminalIoErrorRetryStrategy NEVER_RETRY = new NeverRetryStrategy();
 
+    private static final ByEphemeralIdRetryStrategy BY_EPHEMERAL_ID_RETRY_STRATEGY = new ByEphemeralIdRetryStrategy();
+
     private static final long CONNECTION_RETRY_DELAY_MS = 100;
 
     private final boolean longHandlingLoggingEnabled = IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false);
@@ -237,7 +239,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
-        return send0(recipient, channelType, msg, null, true, new ByEphemeralIdRetryStrategy());
+        return send0(recipient, channelType, msg, null, true, BY_EPHEMERAL_ID_RETRY_STRATEGY);
     }
 
     @Override
@@ -269,7 +271,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
-        return send0(recipient, type, msg, correlationId, true, new ByEphemeralIdRetryStrategy());
+        return send0(recipient, type, msg, correlationId, true, BY_EPHEMERAL_ID_RETRY_STRATEGY);
     }
 
     @Override
@@ -289,7 +291,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
-        return invoke0(recipient, type, msg, timeout, true, new ByEphemeralIdRetryStrategy());
+        return invoke0(recipient, type, msg, timeout, true, BY_EPHEMERAL_ID_RETRY_STRATEGY);
     }
 
     /** {@inheritDoc} */
