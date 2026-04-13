@@ -17,10 +17,14 @@
 
 #pragma once
 
+#include <cerrno>
 #include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <istream>
+#include <optional>
 #include <ostream>
+#include <string>
 
 namespace ignite {
 
@@ -45,6 +49,64 @@ public:
     constexpr uuid(std::int64_t most, std::int64_t least) noexcept
         : most(most)
         , least(least) {}
+
+    /**
+     * Parses string-encoded uuid.
+     * Example of possible input value: ff979603-fb56-49e9-bc79-7c4487bbbafd.
+     * @param text String-encoded uuid.
+     * @return @c uuid object if parsing was successful, otherwise empty optional.
+     */
+    static std::optional<uuid> from_string(const std::string& text) {
+        if (text.length() != 36) {
+            return {};
+        }
+
+        auto str = text.c_str();
+
+        auto parse_chunk = [str](size_t beg, size_t end, uint64_t& out) -> bool {
+            char* p;
+
+            if (errno != 0) {
+                errno = 0;
+            }
+
+            out = std::strtoull(str + beg, &p, 16);
+
+            if (p != str + end || (*p != '-' && *p != '\0') || errno == ERANGE) {
+                return false;
+            }
+
+            return true;
+        };
+
+        uint64_t msb1, msb2, msb3;
+        uint64_t lsb1, lsb2;
+
+        if (!parse_chunk(0, 8, msb1)) {
+            return {};
+        }
+
+        if (!parse_chunk(9, 13, msb2)) {
+            return {};
+        }
+
+        if (!parse_chunk(14, 18, msb3)) {
+            return {};
+        }
+
+        if (!parse_chunk(19, 23, lsb1)) {
+            return {};
+        }
+
+        if (!parse_chunk(24, 36, lsb2)) {
+            return {};
+        }
+
+        uint64_t msb = msb1 << 32 | msb2 << 16 | msb3;
+        uint64_t lsb = lsb1 << 48 | lsb2;
+
+        return uuid{static_cast<int64_t>(msb), static_cast<int64_t>(lsb)};
+    }
 
     /**
      * Make random UUID.

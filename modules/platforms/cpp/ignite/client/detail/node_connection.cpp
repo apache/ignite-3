@@ -184,6 +184,7 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     m_protocol_context = response.context;
     m_node_id = response.node_id;
+    m_node_name = response.node_name;
     m_handshake_complete = true;
 
     if (m_heartbeat_interval.count()) {

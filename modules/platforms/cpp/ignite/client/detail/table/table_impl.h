@@ -366,6 +366,7 @@ public:
      * @return Implementation.
      */
     [[nodiscard]] static std::shared_ptr<table_impl> from_facade(table &tb);
+    void update_partition_assignment();
 
     /**
      * Get table ID.
@@ -417,7 +418,7 @@ private:
      * @return Partition assignment.
      */
     std::shared_ptr<protocol::partition_assignment> get_partition_assignment() {
-        std::lock_guard<std::recursive_mutex> lock(m_partitions_mutex);
+        std::lock_guard lock(m_partitions_mutex);
         auto assignment = m_partition_assignment;
         return assignment;
     }
@@ -428,6 +429,14 @@ private:
      * @param callback Callback to call with the actual assignment.
      */
     void load_partition_assignment_async(ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback);
+
+    /**
+     * Returns name of node which should contain primary replica for partition record is belongs to.
+     * @param key_or_rec Key part of record or whole record.
+     * @param sch Schema
+     * @return Node name with replica or @c std::nullopt.
+     */
+    std::optional<std::string> get_preferred_node_name(const ignite_tuple &key_or_rec, const schema &sch);
 
     /**
      * Get impl of transaction.

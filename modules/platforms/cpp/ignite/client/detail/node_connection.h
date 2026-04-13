@@ -232,7 +232,14 @@ public:
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
 
-    void handle_timeouts();
+    /**
+     * Cancels waiting for over-due responses.
+     */
+     void handle_timeouts();
+
+    const std::string& get_node_name() const {
+        return m_node_name;
+    }
 
 private:
     /**
@@ -337,6 +344,9 @@ private:
 
     /** Node id. */
     uuid m_node_id{};
+
+    /** Node name. */
+    std::string m_node_name{};
 };
 
 } // namespace ignite::detail

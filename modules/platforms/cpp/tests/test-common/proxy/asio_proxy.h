@@ -93,11 +93,11 @@ public:
         , m_dst(std::move(dst))
         , m_listener(std::move(listener))
         , m_failed(failed)
-        , m_logger(std::move(logger)) {}
+        , m_logger(std::move(logger)) { }
 
     void do_read() {
         m_src->async_read_some(asio::buffer(m_buf, BUFF_SIZE),
-        [self = this->shared_from_this()](const asio::error_code& ec, size_t len) {
+        [self = shared_from_this()](const asio::error_code& ec, size_t len) {
             if (ec) {
                 if (ec == asio::error::eof) {
                     return;
@@ -107,7 +107,7 @@ public:
                 self->m_failed.store(true);
             }
 
-            message m{self->m_buf.begin(), self->m_buf.begin() + len};
+            raw_message m{self->m_buf.begin(), self->m_buf.begin() + len};
 
             if (self->m_listener) {
                 self->m_listener->register_message(m);
@@ -117,7 +117,7 @@ public:
         });
     }
 
-    void do_write(message&& msg) {
+    void do_write(raw_message&& msg) {
         asio::async_write(
             *m_dst, asio::buffer(msg.data(), msg.size()),
             [self = shared_from_this()](asio::error_code ec, size_t) {
@@ -154,6 +154,7 @@ public:
         std::shared_ptr<gtest_logger> logger)
         : m_in_sock(std::move(in_sock))
         , m_out_sock(std::move(out_sock))
+        , m_logger(logger)
     {
         m_forward_part = std::make_shared<session_part>(m_in_sock, m_out_sock, in_listener, failed, logger);
         m_reverse_part = std::make_shared<session_part>(m_out_sock, m_in_sock, out_listener, failed, logger);
@@ -169,6 +170,8 @@ public:
                     );
                 }
 
+                self->m_logger->log_info("Proxy: connected to " + e.address().to_string() + ":" + std::to_string(e.port()));
+
                 self->do_serve();
             });
     }
@@ -183,6 +186,8 @@ private:
 
     std::shared_ptr<session_part> m_forward_part;
     std::shared_ptr<session_part> m_reverse_part;
+
+    std::shared_ptr<gtest_logger> m_logger;
 };
 
 class asio_proxy {
@@ -232,6 +237,8 @@ private:
             if (ec) {
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
+
+            m_logger->log_info("Proxy: accepted connection directed to " + entry.m_out_host + ":" + entry.m_out_port);
 
             auto p_in_sock = std::make_shared<tcp::socket>(std::move(in_sock));
             auto p_out_sock = std::make_shared<tcp::socket>(m_io_context);

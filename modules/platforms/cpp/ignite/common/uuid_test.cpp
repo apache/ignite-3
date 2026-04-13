@@ -64,3 +64,13 @@ TEST(uuid, stream) {
 
     EXPECT_EQ(uuidString, uuidString2);
 }
+
+TEST(uuid, from_string) {
+    std::string uuidText = "4b62e46a-d380-460f-94ea-9b4320752634";
+
+    auto opt = ignite::uuid::from_string(uuidText);
+
+    EXPECT_TRUE(opt.has_value());
+    EXPECT_EQ(5432155248028304911LL, opt->get_most_significant_bits());
+    EXPECT_EQ(-7716184298936261068LL, opt->get_least_significant_bits());
+}
