@@ -56,7 +56,7 @@ public class PruneTableModifyRule extends RelRule<Config> implements Substitutio
         // RelNode singleValue = call.builder().values(singleRel.getRowType(), 0L).build();
         RexLiteral zeroLiteral = IgniteRexBuilder.INSTANCE.makeLiteral(0L, singleRel.getRowType().getFieldList().get(0).getType());
         RelNode singleValue = call.builder().values(List.of(List.of(zeroLiteral)), singleRel.getRowType()).build();
-                
+
         RelTraitSet traits = singleRel.getTraitSet();
         // propagate all traits (except convention) from the original singleRel
         if (singleValue.getConvention() != null) {
