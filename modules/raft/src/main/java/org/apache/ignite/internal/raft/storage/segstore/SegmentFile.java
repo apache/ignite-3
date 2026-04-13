@@ -283,7 +283,8 @@ class SegmentFile implements ManuallyCloseable {
 
             int nextPos = pos + size;
 
-            if (nextPos > buffer.limit()) {
+            // nextPos < 0 detects integer overflow (pos >= 0 and size > 0).
+            if (nextPos < 0 || nextPos > buffer.limit()) {
                 return null;
             }
 
