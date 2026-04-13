@@ -637,7 +637,7 @@ std::optional<std::string> table_impl::get_preferred_node_name(const ignite_tupl
 
     hash_calculator hc;
     for (auto column : sch.collocated_columns) {
-        auto val = key_or_rec.get(column->key_index);
+        const auto& val = key_or_rec.get(column->key_index);
         hc.append(val, column->scale, column->precision);
     }
 

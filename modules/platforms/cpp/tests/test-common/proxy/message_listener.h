@@ -20,6 +20,8 @@
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/reader.h"
 
+#include <atomic>
+#include <cassert>
 #include <queue>
 #include <shared_mutex>
 #include <utility>
@@ -64,7 +66,7 @@ public:
 
         m_payload_pos = rd.position();
 
-        assert(m_payload_pos == 0 || m_payload_pos < m_data.size());
+        assert(m_payload_pos <= m_data.size());
     }
 
     [[nodiscard]] protocol::client_operation get_op() const { return m_op; }
@@ -96,7 +98,7 @@ public:
 
         m_payload_pos = rd.position();
 
-        assert(m_payload_pos == 0 || m_payload_pos < m_data.size());
+        assert(m_payload_pos <= m_data.size());
     }
 
     [[nodiscard]] int64_t get_req_id() const { return m_req_id; }

@@ -448,9 +448,6 @@ private:
     /** Node connections. */
     std::unordered_map<uint64_t, std::shared_ptr<node_connection>> m_connections;
 
-    /** Node consistent ID to node instance mapping. */
-    std::unordered_map<std::string, node_connection*> m_consistent_id_mapping;
-
     /** Connections mutex. */
     std::recursive_mutex m_connections_mutex;
 

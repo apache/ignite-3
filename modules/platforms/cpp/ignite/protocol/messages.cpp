@@ -107,7 +107,7 @@ void write_partition_assignment_request(writer &writer, std::int32_t table_id, s
 
 std::shared_ptr<partition_assignment> read_partition_assignment_response(reader &reader, std::int64_t timestamp) {
     auto cnt = reader.read_int32();
-    if (cnt < 0)
+    if (cnt <= 0)
         throw ignite_error("Invalid partition count: " + std::to_string(cnt));
 
     std::vector<std::optional<std::string>> partitions;

@@ -32,10 +32,10 @@ namespace ignite {
 using namespace std::chrono_literals;
 
 using part_id_type = std::size_t;
-using key_type = std::int64_t;
+using id_type = std::int64_t;
 
-constexpr key_type MIN_KEY = 0;
-constexpr key_type MAX_KEY = 1000;
+constexpr id_type MIN_ID = 0;
+constexpr id_type MAX_ID = 1000;
 
 static const std::map<std::string, std::string> NODES_TO_ADDR = {
     {"org.apache.ignite.internal.runner.app.PlatformTestNodeRunner", "127.0.0.1:10942"},
@@ -55,7 +55,7 @@ std::map<int64_t, uuid> parse_partition_distribution(const std::string& encoded)
     size_t lhs = 0;
     size_t rhs = std::string::npos;
     while ((rhs = encoded.find(';', lhs)) != std::string::npos) {
-        std::string chunk= encoded.substr(lhs, rhs - lhs);
+        std::string chunk = encoded.substr(lhs, rhs - lhs);
 
         auto eq_pos = chunk.find('=');
 
@@ -84,7 +84,10 @@ std::map<int64_t, uuid> parse_partition_distribution(const std::string& encoded)
     return res;
 }
 
+template<typename T>
 class partition_awareness_test : public ignite_runner_suite {
+private:
+    T tab_info{};
 protected:
     void SetUp() override {
         ignite_client_configuration client_cfg;
@@ -94,55 +97,71 @@ protected:
 
         auto nodes = m_direct_client.get_cluster_nodes();
 
-
-        for (auto& node: nodes) {
+        for (auto& node : nodes) {
             if (NODES_TO_ADDR.count(node.get_name())) {
                 m_endpoint_to_node_id[NODES_TO_ADDR.at(node.get_name())] = node.get_id();
             }
         }
 
-        ASSERT_EQ(m_endpoint_to_node_id.size(), get_node_addrs().size()) << "Incorrect node names or address!"
+        ASSERT_EQ(m_endpoint_to_node_id.size(), get_node_addrs().size())
+            << "Incorrect node names or address!"
             << "This test should be able to connect to all non-ssl nodes";
+
+        drop_table_if_exits();
+
+        create_table();
 
         collect_partition_distribution();
 
         setup_proxy();
     }
-    
-    static ignite_tuple key_tup(key_type key) {
-        return get_tuple(key);
-    }
-    
-    static ignite_tuple prim_val(key_type key) {
-        return get_tuple(std::to_string(key));
+
+    void TearDown() override {
+        drop_table_if_exits();
     }
 
-    static ignite_tuple alt_val(key_type key) {
-        return get_tuple(std::to_string(key + MAX_KEY));
-    }
-    
-    static ignite_tuple prim_rec(key_type key) {
-        return get_tuple(key, std::to_string(key));
+    ignite_tuple key_tup(id_type key) {
+        return get_tuple(tab_info.key_column_names, tab_info.get_pk_vals(key));
     }
 
-    static ignite_tuple alt_rec(key_type key) {
-        return get_tuple(key, std::to_string(key + MAX_KEY));
+    ignite_tuple main_val_tup(id_type key) {
+        return get_tuple(tab_info.non_key_column_names, tab_info.get_main_vals(key));
+    }
+
+    ignite_tuple alt_val_tup(id_type key) {
+        return get_tuple(tab_info.non_key_column_names, tab_info.get_alt_vals(key));
+    }
+
+    ignite_tuple main_rec(id_type key) {
+        return get_tuple(tab_info.all_column_names, tab_info.get_main_rec(key));
+    }
+
+    ignite_tuple alt_rec(id_type key) {
+        return get_tuple(tab_info.all_column_names, tab_info.get_main_rec(key));
+    }
+
+    void create_table() {
+        m_direct_client.get_sql().execute(nullptr, nullptr, {tab_info.create_table_ddl()}, {});
+    }
+
+    void drop_table_if_exits() {
+        m_direct_client.get_sql().execute(nullptr, nullptr, {"drop table if exists " + tab_info.table_name}, {});
     }
 
     void collect_partition_distribution() {
-        std::map<key_type, int64_t> key_to_part;
+        std::map<id_type, int64_t> key_to_part;
 
         populate_table();
 
         std::stringstream sql;
-        sql << "select " << KEY_COLUMN << ", " << PART_PSEUDOCOLUMN << " from " << TABLE_1 << " order by " << KEY_COLUMN;
+        sql << "select ID " << ", " << PART_PSEUDOCOLUMN << " from " << tab_info.table_name << " order by ID";
 
         auto rs = m_direct_client.get_sql().execute(nullptr, nullptr, {sql.str()}, {});
         do {
             auto page = rs.current_page();
 
             for (auto &rec : page) {
-                auto key = rec.get(KEY_COLUMN).get<key_type>();
+                auto key = rec.get("ID").get<id_type>();
                 auto part_id = rec.get(PART_PSEUDOCOLUMN).get<int64_t>();
 
                 key_to_part[key] = part_id;
@@ -154,43 +173,31 @@ protected:
                 break;
         } while (true);
 
+        auto job_exec = m_direct_client.get_compute().submit(job_target::any_node(m_direct_client.get_cluster_nodes()),
+            job_descriptor::builder{GET_PART_DISTRIBUTION_JOB}.build(), {tab_info.table_name});
 
-        auto job_exec = m_direct_client.get_compute().submit(
-            job_target::any_node(m_direct_client.get_cluster_nodes()),
-            job_descriptor::builder{GET_PART_DISTRIBUTION_JOB}.build(),
-            {TABLE_1}
-        );
-
-        auto res = job_exec.get_result()->get_primitive().get<std::string>();
+        auto res = job_exec.get_result()->get_primitive().template get<std::string>();
 
         auto part_to_node = parse_partition_distribution(res);
 
         for (auto [key, part_id] : key_to_part) {
             m_key_distribution[key] = part_to_node[part_id];
-
-            auto node_id = part_to_node[part_id];
-            std::string endpoint;
-            for (auto& [ep, id] : m_endpoint_to_node_id) {
-                if (node_id == id) {
-                    endpoint = ep;
-                }
-            }
         }
 
         clear_table();
     }
 
     void populate_table() {
-        auto view = m_direct_client.get_tables().get_table(TABLE_1)->get_key_value_binary_view();
+        auto view = m_direct_client.get_tables().get_table(tab_info.table_name)->get_key_value_binary_view();
 
-        for (int64_t key = MIN_KEY; key < MAX_KEY; ++key) {
-            view.put(nullptr, key_tup(key), prim_val(key));
+        for (int64_t key = MIN_ID; key < MAX_ID; ++key) {
+            view.put(nullptr, this->key_tup(key), this->main_val_tup(key));
         }
     }
 
     void clear_table() {
         std::stringstream sql;
-        sql << "delete from " << TABLE_1;
+        sql << "delete from " << tab_info.table_name;
 
         m_direct_client.get_sql().execute(nullptr, nullptr, {sql.str()}, {});
     }
@@ -227,18 +234,18 @@ protected:
 
         m_client = ignite_client::start(client_cfg, 5s);
 
-        m_kv_view = m_client.get_tables().get_table(TABLE_1)->get_key_value_binary_view();
-        m_rec_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
+        m_kv_view = m_client.get_tables().get_table(tab_info.table_name)->get_key_value_binary_view();
+        m_rec_view = m_client.get_tables().get_table(tab_info.table_name)->get_record_binary_view();
 
         {
             // we initiate initial partition assignment load to reduce tests flakiness on first records
-            auto res = m_kv_view.get(nullptr, key_tup(42));
+            auto res = m_kv_view.get(nullptr, this->key_tup(42));
 
             auto start = std::chrono::steady_clock::now();
 
             int total = 0;
             while (total == 0) {
-                for (auto& [_, node_id] : m_endpoint_to_node_id) {
+                for (auto &[_, node_id] : m_endpoint_to_node_id) {
                     total += count_op_by_node_id(node_id, protocol::client_operation::PARTITION_ASSIGNMENT_GET);
                 }
 
@@ -252,11 +259,11 @@ protected:
     }
 
     void toggle_message_registration(bool enable) {
-        for (auto& [_, listener] : m_in_listeners) {
+        for (auto &[_, listener] : m_in_listeners) {
             listener->toggle_message_registration(enable);
         }
 
-        for (auto& [_, listener] : m_out_listeners) {
+        for (auto &[_, listener] : m_out_listeners) {
             listener->toggle_message_registration(enable);
         }
     }
@@ -277,8 +284,9 @@ protected:
                 break;
             }
 
-            for (auto& msg : msgs) {
-                get_logger()->log_debug("Processed: node_id=" + detail::to_string(node_id) +  " req_id=" + std::to_string(msg.get_req_id()) + " op=" + std::to_string(int(msg.get_op())));
+            for (auto &msg : msgs) {
+                get_logger()->log_debug("Processed: node_id=" + detail::to_string(node_id)
+                    + " req_id=" + std::to_string(msg.get_req_id()) + " op=" + std::to_string(int(msg.get_op())));
 
                 if (msg.get_op() == op) {
                     found++;
@@ -289,14 +297,14 @@ protected:
         return found;
     }
 
-    void check_messages_sent_to_correct_nodes(key_type key, ignite::protocol::client_operation op) {
+    void check_messages_sent_to_correct_nodes(id_type key, ignite::protocol::client_operation op) {
         auto this_node_id = m_key_distribution.at(key);
 
         // check if client connected to this node
         bool connected_to_this_node = m_in_listeners.count(this_node_id);
 
         int total = 0;
-        for (auto& [ep, node_id] : m_endpoint_to_node_id) {
+        for (auto &[ep, node_id] : m_endpoint_to_node_id) {
             auto cnt = count_op_by_node_id(node_id, op);
 
             total += cnt;
@@ -311,7 +319,7 @@ protected:
 
         if (!connected_to_this_node) {
             EXPECT_EQ(1, total) << "Key " << key
-                << " was not found among messages to connected nodes or message was duplicated";
+                                << " was not found among messages to connected nodes or message was duplicated";
         }
     }
 
@@ -322,7 +330,7 @@ protected:
 
     std::map<std::string, uuid> m_endpoint_to_node_id;
 
-    std::map<key_type, uuid> m_key_distribution;
+    std::map<id_type, uuid> m_key_distribution;
 
     /**
      * Client which connect through the proxy.
@@ -338,285 +346,391 @@ protected:
     std::map<uuid, std::shared_ptr<proxy::message_listener>> m_out_listeners;
 };
 
-TEST_F(partition_awareness_test, kv_contains) {
-    populate_table();
+struct SimpleType {
+    std::string table_name = "simple_table";
+    std::vector<std::string> key_column_names = {"ID"};
+    std::vector<std::string> collocation_column_names = {"ID"};
+    std::vector<std::string> non_key_column_names = {"TEXT"};
+    std::vector<std::string> all_column_names{};
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    SimpleType() {
+        all_column_names.reserve(key_column_names.size() + non_key_column_names.size());
+        all_column_names.insert(all_column_names.end(), key_column_names.begin(), key_column_names.end());
+        all_column_names.insert(all_column_names.end(), non_key_column_names.begin(), non_key_column_names.end());
+    }
 
-        auto val = m_kv_view.contains(nullptr, key_tup(key));
+    static std::string create_table_ddl() {
+        return "create table simple_table (id bigint primary key, text varchar)";
+    }
+
+    static std::vector<primitive> get_pk_vals(id_type key) {
+        return {key};
+    }
+
+    /**
+     * Values of columns which is part of collocation key.
+     */
+    static std::vector<primitive> get_ck_values(id_type key) {
+        return {key};
+    }
+
+    static std::vector<primitive> get_main_vals(id_type key) {
+        return {std::to_string(key)};
+    }
+
+    static std::vector<primitive> get_alt_vals(id_type key) {
+        return {std::to_string(key + MAX_ID)};
+    }
+
+    static std::vector<primitive> get_main_rec(id_type key) {
+        std::vector<primitive> res;
+
+        auto key_part = get_pk_vals(key);
+        auto non_key_part = get_main_vals(key);
+
+        res.reserve(key_part.size() + non_key_part.size());
+
+        res.insert(res.end(), std::make_move_iterator(key_part.begin()), std::make_move_iterator(key_part.end()));
+        res.insert(res.end(), std::make_move_iterator(non_key_part.begin()), std::make_move_iterator(non_key_part.end()));
+
+        return res;
+    }
+
+    static std::vector<primitive> get_alt_rec(id_type key) {
+        std::vector<primitive> res;
+
+        auto key_part = get_pk_vals(key);
+        auto non_key_part = get_alt_vals(key);
+
+        res.reserve(key_part.size() + non_key_part.size());
+
+        res.insert(res.end(), std::make_move_iterator(key_part.begin()), std::make_move_iterator(key_part.end()));
+        res.insert(res.end(), std::make_move_iterator(non_key_part.begin()), std::make_move_iterator(non_key_part.end()));
+
+        return res;
+    }
+};
+
+struct TypeWithCollocationKey {
+    std::string table_name = "table_with_collocation_key";
+    std::vector<std::string> key_column_names = {"ID", "DEPT_ID"};
+    std::vector<std::string> collocation_column_names = {"DEPT_ID"};
+    std::vector<std::string> non_key_column_names = {"TEXT"};
+    std::vector<std::string> all_column_names{};
+
+    TypeWithCollocationKey() {
+        all_column_names.reserve(key_column_names.size() + non_key_column_names.size());
+        all_column_names.insert(all_column_names.end(), key_column_names.begin(), key_column_names.end());
+        all_column_names.insert(all_column_names.end(), non_key_column_names.begin(), non_key_column_names.end());
+    }
+
+    static std::string create_table_ddl() {
+        return "create table table_with_collocation_key "
+               "(id bigint, dept_id bigint, text varchar, primary key (id, dept_id)) "
+               "colocate by (dept_id)";
+    }
+
+    static std::vector<primitive> get_pk_vals(id_type key) {
+        return {key, -key};
+    }
+
+    /**
+     * Values of columns which is part of collocation key.
+     */
+    static std::vector<primitive> get_ck_values(id_type key) {
+        return {-key};
+    }
+
+    static std::vector<primitive> get_main_vals(id_type key) {
+        return {std::to_string(key)};
+    }
+
+    static std::vector<primitive> get_alt_vals(id_type key) {
+        return {std::to_string(key + MAX_ID)};
+    }
+
+    static std::vector<primitive> get_main_rec(id_type key) {
+        std::vector<primitive> res;
+
+        auto key_part = get_pk_vals(key);
+        auto non_key_part = get_main_vals(key);
+
+        res.reserve(key_part.size() + non_key_part.size());
+
+        res.insert(res.end(), std::make_move_iterator(key_part.begin()), std::make_move_iterator(key_part.end()));
+        res.insert(res.end(), std::make_move_iterator(non_key_part.begin()), std::make_move_iterator(non_key_part.end()));
+
+        return res;
+    }
+
+    static std::vector<primitive> get_alt_rec(id_type key) {
+        std::vector<primitive> res;
+
+        auto key_part = get_pk_vals(key);
+        auto non_key_part = get_alt_vals(key);
+
+        res.reserve(key_part.size() + non_key_part.size());
+
+        res.insert(res.end(), std::make_move_iterator(key_part.begin()), std::make_move_iterator(key_part.end()));
+        res.insert(res.end(), std::make_move_iterator(non_key_part.begin()), std::make_move_iterator(non_key_part.end()));
+
+        return res;
+    }
+};
+
+using TestTypes = ::testing::Types<SimpleType, TypeWithCollocationKey>;
+TYPED_TEST_SUITE(partition_awareness_test, TestTypes);
+
+TYPED_TEST(partition_awareness_test, kv_contains) {
+    this->populate_table();
+
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
+
+        auto val = this->m_kv_view.contains(nullptr, this->key_tup(key));
 
         EXPECT_TRUE(val);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_CONTAINS_KEY);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_CONTAINS_KEY);
     }
 }
 
-TEST_F(partition_awareness_test, kv_get) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_get) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_kv_view.get(nullptr, key_tup(key));
+        auto val = this->m_kv_view.get(nullptr, this->key_tup(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET);
     }
 }
 
-TEST_F(partition_awareness_test, kv_get_and_put) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_get_and_put) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_kv_view.get_and_put(
-            nullptr,
-            key_tup(key),
-            alt_val(key)
-        );
+        auto val = this->m_kv_view.get_and_put(nullptr, this->key_tup(key), this->alt_val_tup(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_UPSERT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_UPSERT);
     }
 }
 
-TEST_F(partition_awareness_test, kv_get_and_remove) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_get_and_remove) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_kv_view.get_and_remove(nullptr, key_tup(key));
+        auto val = this->m_kv_view.get_and_remove(nullptr, this->key_tup(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_DELETE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_DELETE);
     }
 }
 
-TEST_F(partition_awareness_test, kv_get_and_replace) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_get_and_replace) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_kv_view.get_and_replace(
-            nullptr,
-            key_tup(key),
-            alt_val(key)
-        );
+        auto val = this->m_kv_view.get_and_replace(nullptr, this->key_tup(key), this->alt_val_tup(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_REPLACE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_REPLACE);
     }
 }
 
+TYPED_TEST(partition_awareness_test, kv_replace) {
+    this->populate_table();
 
-TEST_F(partition_awareness_test, kv_replace) {
-    populate_table();
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
-
-        bool success = m_kv_view.replace(
-            nullptr,
-            key_tup(key),
-            alt_val(key)
-        );
+        bool success = this->m_kv_view.replace(nullptr, this->key_tup(key), this->alt_val_tup(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE);
     }
 }
 
-TEST_F(partition_awareness_test, kv_replace_exact) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_replace_exact) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        bool success = m_kv_view.replace(
-            nullptr,
-            key_tup(key),
-            prim_val(key),
-            alt_val(key)
-        );
+        bool success = this->m_kv_view.replace(nullptr, this->key_tup(key), this->main_val_tup(key), this->alt_val_tup(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE_EXACT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE_EXACT);
     }
 }
 
-TEST_F(partition_awareness_test, kv_remove) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_remove) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        bool success = m_kv_view.remove(
-            nullptr,
-            key_tup(key)
-        );
+        bool success = this->m_kv_view.remove(nullptr, this->key_tup(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE);
     }
 }
 
-TEST_F(partition_awareness_test, kv_remove_exact) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, kv_remove_exact) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        bool success = m_kv_view.remove(
-            nullptr,
-            key_tup(key),
-            prim_val(key)
-        );
+        bool success = this->m_kv_view.remove(nullptr, this->key_tup(key), this->main_val_tup(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE_EXACT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE_EXACT);
     }
 }
 
-TEST_F(partition_awareness_test, kv_put) {
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+TYPED_TEST(partition_awareness_test, kv_put) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        m_kv_view.put(
-            nullptr,
-            key_tup(key),
-            prim_val(key)
-        );
+        this->m_kv_view.put(nullptr, this->key_tup(key), this->main_val_tup(key));
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_UPSERT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_UPSERT);
     }
 }
 
-TEST_F(partition_awareness_test, rec_get) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_get) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_rec_view.get(nullptr, key_tup(key));
+        auto val =  this->m_rec_view.get(nullptr, this->key_tup(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET);
     }
 }
 
-TEST_F(partition_awareness_test, rec_get_and_upsert) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_get_and_upsert) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_rec_view.get_and_upsert(nullptr, alt_rec(key));
+        auto val =  this->m_rec_view.get_and_upsert(nullptr, this->alt_rec(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_UPSERT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_UPSERT);
     }
 }
 
-TEST_F(partition_awareness_test, rec_get_and_remove) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_get_and_remove) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_rec_view.get_and_remove(nullptr, alt_rec(key));
+        auto val =  this->m_rec_view.get_and_remove(nullptr, this->alt_rec(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_DELETE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_DELETE);
     }
 }
 
-TEST_F(partition_awareness_test, rec_get_and_replace) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_get_and_replace) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto val = m_rec_view.get_and_replace(nullptr, alt_rec(key));
+        auto val =  this->m_rec_view.get_and_replace(nullptr, this->alt_rec(key));
 
         EXPECT_TRUE(val.has_value());
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_REPLACE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_GET_AND_REPLACE);
     }
 }
 
-TEST_F(partition_awareness_test, rec_replace) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_replace) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto success = m_rec_view.replace(nullptr, alt_rec(key));
+        auto success =  this->m_rec_view.replace(nullptr, this->alt_rec(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE);
     }
 }
 
-TEST_F(partition_awareness_test, rec_replace_exact) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_replace_exact) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto success = m_rec_view.replace(nullptr, prim_rec(key), alt_rec(key));
+        auto success =  this->m_rec_view.replace(nullptr, this->main_rec(key), this->alt_rec(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE_EXACT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_REPLACE_EXACT);
     }
 }
 
-TEST_F(partition_awareness_test, rec_remove) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_remove) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto success = m_rec_view.remove(nullptr, key_tup(key));
+        auto success =  this->m_rec_view.remove(nullptr, this->key_tup(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE);
     }
 }
 
-TEST_F(partition_awareness_test, rec_remove_exact) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_remove_exact) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto success = m_rec_view.remove_exact(nullptr, prim_rec(key));
+        auto success =  this->m_rec_view.remove_exact(nullptr, this->main_rec(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE_EXACT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_DELETE_EXACT);
     }
 }
 
-TEST_F(partition_awareness_test, rec_upsert) {
-    populate_table();
+TYPED_TEST(partition_awareness_test, rec_upsert) {
+    this->populate_table();
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        m_rec_view.upsert(nullptr, prim_rec(key));
+         this->m_rec_view.upsert(nullptr, this->main_rec(key));
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_UPSERT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_UPSERT);
     }
 }
 
-TEST_F(partition_awareness_test, rec_insert) {
+TYPED_TEST(partition_awareness_test, rec_insert) {
 
-    for (key_type key = MIN_KEY; key < MAX_KEY; ++key) {
+    for (id_type key = MIN_ID; key < MAX_ID; ++key) {
 
-        auto success = m_rec_view.insert(nullptr, prim_rec(key));
+        auto success =  this->m_rec_view.insert(nullptr, this->main_rec(key));
 
         EXPECT_TRUE(success);
 
-        check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_INSERT);
+        this->check_messages_sent_to_correct_nodes(key, protocol::client_operation::TUPLE_INSERT);
     }
 }
 

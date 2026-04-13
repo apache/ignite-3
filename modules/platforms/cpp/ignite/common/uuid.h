@@ -47,7 +47,7 @@ public:
      */
     constexpr uuid(std::int64_t most, std::int64_t least) noexcept
         : most(most)
-        , least(least) { }
+        , least(least) {}
 
     /**
      * Parses string-encoded uuid.
@@ -62,14 +62,14 @@ public:
 
         auto str = text.c_str();
 
-        auto parse_chunk = [str](size_t beg, size_t end, int64_t& out) -> bool {
+        auto parse_chunk = [str](size_t beg, size_t end, uint64_t& out) -> bool {
             char* p;
 
             if (errno != 0) {
                 errno = 0;
             }
 
-            out = std::strtoll(str + beg, &p, 16);
+            out = std::strtoull(str + beg, &p, 16);
 
             if (p != str + end || (*p != '-' && *p != '\0') || errno == ERANGE) {
                 return false;
@@ -78,8 +78,8 @@ public:
             return true;
         };
 
-        int64_t msb1, msb2, msb3;
-        int64_t lsb1, lsb2;
+        uint64_t msb1, msb2, msb3;
+        uint64_t lsb1, lsb2;
 
         if (!parse_chunk(0, 8, msb1)) {
             return {};
@@ -101,10 +101,10 @@ public:
             return {};
         }
 
-        int64_t msb = msb1 << 32 | msb2 << 16 | msb3;
-        int64_t lsb = lsb1 << 48 | lsb2;
+        uint64_t msb = msb1 << 32 | msb2 << 16 | msb3;
+        uint64_t lsb = lsb1 << 48 | lsb2;
 
-        return uuid{msb, lsb};
+        return uuid{static_cast<int64_t>(msb), static_cast<int64_t>(lsb)};
     }
 
     /**
