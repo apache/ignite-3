@@ -96,7 +96,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static final TerminalIoErrorRetryStrategy NEVER_RETRY = new NeverRetryStrategy();
 
-    private static final ByEphemeralIdRetryStrategy BY_EPHEMERAL_ID_RETRY_STRATEGY = new ByEphemeralIdRetryStrategy();
+    private static final TerminalIoErrorRetryStrategy BY_EPHEMERAL_ID = new ByEphemeralIdRetryStrategy();
 
     private static final long CONNECTION_RETRY_DELAY_MS = 100;
 
@@ -161,6 +161,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final Map<UUID, RecipientInetAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
 
     private final Executor connectionRetryExecutor;
+
+    private final TerminalIoErrorRetryStrategy byConsistentId;
 
     /**
      * Constructor.
@@ -230,6 +232,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         );
 
         connectionRetryExecutor = delayedExecutor(CONNECTION_RETRY_DELAY_MS, MILLISECONDS, outboundExecutor);
+
+        byConsistentId = new ByConsistentIdRetryStrategy(topologyService);
     }
 
     @Override
@@ -239,7 +243,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
-        return send0(recipient, channelType, msg, null, true, BY_EPHEMERAL_ID_RETRY_STRATEGY);
+        return send0(recipient, channelType, msg, null, true, BY_EPHEMERAL_ID);
     }
 
     @Override
@@ -254,7 +258,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return send0(recipient, channelType, msg, null, false, new ByConsistentIdRetryStrategy(recipientConsistentId));
+        return send0(recipient, channelType, msg, null, false, byConsistentId);
     }
 
     @Override
@@ -271,7 +275,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
-        return send0(recipient, type, msg, correlationId, true, BY_EPHEMERAL_ID_RETRY_STRATEGY);
+        return send0(recipient, type, msg, correlationId, true, BY_EPHEMERAL_ID);
     }
 
     @Override
@@ -286,12 +290,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return send0(recipient, type, msg, correlationId, false, new ByConsistentIdRetryStrategy(recipientConsistentId));
+        return send0(recipient, type, msg, correlationId, false, byConsistentId);
     }
 
     @Override
     public CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
-        return invoke0(recipient, type, msg, timeout, true, BY_EPHEMERAL_ID_RETRY_STRATEGY);
+        return invoke0(recipient, type, msg, timeout, true, BY_EPHEMERAL_ID);
     }
 
     /** {@inheritDoc} */
@@ -307,7 +311,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return invoke0(recipient, type, msg, timeout, false, new ByConsistentIdRetryStrategy(recipientConsistentId));
+        return invoke0(recipient, type, msg, timeout, false, byConsistentId);
     }
 
     /**
@@ -364,7 +368,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck, retryStrategy, NO_TIMEOUT);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck, retryStrategy, recipient.name(), NO_TIMEOUT);
     }
 
     private <U> CompletableFuture<U> recipientIsStaleFuture(InternalClusterNode recipient) {
@@ -440,7 +444,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck, retryStrategy, timeout)
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck, retryStrategy, recipient.name(), timeout)
                 .thenCompose(unused -> responseFuture);
     }
 
@@ -458,6 +462,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
      *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @param retryStrategy Retry strategy.
+     * @param consistentId Consistent ID of the recipient (if known).
      * @param channelTimeoutMillis Timeout for channel creation in milliseconds. If -1, then no timeout.
      * @return Future of the send operation.
      */
@@ -468,11 +473,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
             NetworkMessage message,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
+            @Nullable String consistentId,
             long channelTimeoutMillis
     ) {
         if (isInNetworkThread()) {
             return supplyAsync(() -> {
-                return sendViaNetwork(nodeId, type, addr, message, strictIdCheck, retryStrategy, channelTimeoutMillis);
+                return sendViaNetwork(nodeId, type, addr, message, strictIdCheck, retryStrategy, consistentId, channelTimeoutMillis);
             }, outboundExecutor).thenCompose(identity());
         }
 
@@ -490,6 +496,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 addr,
                 strictIdCheck,
                 retryStrategy,
+                consistentId,
                 channelTimeoutMillis
         );
 
@@ -506,7 +513,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
                     return sender.send(
                             new OutNetworkObject(message, descriptors),
-                            () -> triggerChannelCreation(nodeId, type, addr, strictIdCheck, retryStrategy, channelTimeoutMillis)
+                            () -> triggerChannelCreation(
+                                    nodeId,
+                                    type,
+                                    addr,
+                                    strictIdCheck,
+                                    retryStrategy,
+                                    consistentId,
+                                    channelTimeoutMillis
+                            )
                     );
                 });
     }
@@ -517,6 +532,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
+            @Nullable String consistentId,
             long timeoutMillis
     ) {
         Long deadlineMillis = timeoutMillis == NO_TIMEOUT || !timeoutDefined(timeoutMillis) ? null
@@ -525,7 +541,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             deadlineMillis = Long.MAX_VALUE;
         }
 
-        return openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineMillis, 0);
+        return openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, consistentId, deadlineMillis, 0);
     }
 
     private OrderingFuture<NettySender> openChannelWithRetriesInternal(
@@ -534,6 +550,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
+            @Nullable String consistentId,
             @Nullable Long deadlineMillis,
             int attemptOrdinal
     ) {
@@ -565,7 +582,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     // We always retry 'temporary I/O failures' (those that are not ConnectException or NoRouteToHostException).
                     boolean temporaryFailure = !recipientIsNotThere(ex);
 
-                    if (!temporaryFailure && !retryStrategy.stillRetriable()) {
+                    if (!temporaryFailure && !retryStrategy.stillRetriable(nodeId, consistentId)) {
                         Throwable exToReturn = retryStrategy.retriesExhaustedMeansRecipientLeft()
                                 ? new RecipientLeftException("Recipient left [id=" + nodeId + "].") : ex;
                         return OrderingFuture.<NettySender>failedFuture(exToReturn);
@@ -583,6 +600,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             addr,
                             strictIdCheck,
                             retryStrategy,
+                            consistentId,
                             deadlineMillis,
                             attemptOrdinal + 1
                     );
@@ -608,6 +626,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
+            @Nullable String consistentId,
             @Nullable Long deadlineMillis,
             int attemptOrdinal
     ) {
@@ -618,14 +637,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         connectionRetryExecutor.execute(() -> {
             try {
-                openChannelWithRetriesInternal(nodeId, type, addr, strictIdCheck, retryStrategy, deadlineMillis, attemptOrdinal)
-                        .whenComplete((nextRes, nextEx) -> {
-                            if (nextEx != null) {
-                                nextAttemptFuture.completeExceptionally(nextEx);
-                            } else {
-                                nextAttemptFuture.complete(nextRes);
-                            }
-                        });
+                openChannelWithRetriesInternal(
+                        nodeId,
+                        type,
+                        addr,
+                        strictIdCheck,
+                        retryStrategy,
+                        consistentId,
+                        deadlineMillis,
+                        attemptOrdinal
+                ).whenComplete((nextRes, nextEx) -> {
+                    if (nextEx != null) {
+                        nextAttemptFuture.completeExceptionally(nextEx);
+                    } else {
+                        nextAttemptFuture.complete(nextRes);
+                    }
+                });
             } catch (Throwable e) {
                 nextAttemptFuture.completeExceptionally(e);
 
@@ -661,9 +688,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
             InetSocketAddress addr,
             boolean strictIdCheck,
             TerminalIoErrorRetryStrategy retryStrategy,
+            @Nullable String consistentId,
             long timeoutMillis
     ) {
-        openChannelWithRetries(nodeId, type, addr, strictIdCheck, retryStrategy, timeoutMillis);
+        openChannelWithRetries(nodeId, type, addr, strictIdCheck, retryStrategy, consistentId, timeoutMillis);
     }
 
     private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {
@@ -1095,14 +1123,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private interface TerminalIoErrorRetryStrategy {
-        boolean stillRetriable();
+        boolean stillRetriable(@Nullable UUID id, @Nullable String consistentId);
 
         boolean retriesExhaustedMeansRecipientLeft();
     }
 
     private static class ByEphemeralIdRetryStrategy implements TerminalIoErrorRetryStrategy {
         @Override
-        public boolean stillRetriable() {
+        public boolean stillRetriable(@Nullable UUID id, @Nullable String consistentId) {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-28225 - make retriable.
             return false;
         }
@@ -1113,15 +1141,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
     }
 
-    private class ByConsistentIdRetryStrategy implements TerminalIoErrorRetryStrategy {
-        private final String consistentId;
+    private static class ByConsistentIdRetryStrategy implements TerminalIoErrorRetryStrategy {
+        private final TopologyService topologyService;
 
-        private ByConsistentIdRetryStrategy(String consistentId) {
-            this.consistentId = consistentId;
+        private ByConsistentIdRetryStrategy(TopologyService topologyService) {
+            this.topologyService = topologyService;
         }
 
         @Override
-        public boolean stillRetriable() {
+        public boolean stillRetriable(@Nullable UUID id, @Nullable String consistentId) {
+            assert consistentId != null;
+
             return topologyService.getByConsistentId(consistentId) != null;
         }
 
@@ -1133,7 +1163,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static class NeverRetryStrategy implements TerminalIoErrorRetryStrategy {
         @Override
-        public boolean stillRetriable() {
+        public boolean stillRetriable(@Nullable UUID id, @Nullable String consistentId) {
             return false;
         }
 
