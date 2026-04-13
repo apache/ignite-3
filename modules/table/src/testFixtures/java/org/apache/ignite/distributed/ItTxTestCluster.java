@@ -80,7 +80,9 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -125,7 +127,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageOptions;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -464,7 +468,12 @@ public class ItTxTestCluster {
                     clusterService.staticLocalNode().name(),
                     partitionsWorkDir.resolve("log"),
                     raftConfig.fsync().value(),
-                    logStorageConfiguration
+                    RocksDbLogStorageOptions.defaults(),
+                    new SegmentLogStorageOptions(
+                            raftConfig.disruptor().logManagerStripes().value(),
+                            logStorageConfiguration,
+                            new FailureManager(new NoOpFailureHandler())
+                    )
             );
 
             logStorageFactories.put(nodeName, partitionsLogStorageManager);

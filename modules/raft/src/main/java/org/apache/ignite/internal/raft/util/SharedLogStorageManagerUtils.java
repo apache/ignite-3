@@ -51,29 +51,9 @@ public class SharedLogStorageManagerUtils {
      */
     @TestOnly
     public static LogStorageManager create(String nodeName, Path logStoragePath, LogStorageConfiguration logStorageConfig) {
-        return create("test", nodeName, logStoragePath, true, logStorageConfig);
-    }
+        var segmentLogStorageOptions = new SegmentLogStorageOptions(1, logStorageConfig, new FailureManager(new NoOpFailureHandler()));
 
-    /**
-     * Creates a LogStorageManager with {@link DefaultLogStorageManager} or {@link LogitLogStorageManager} implementation depending on
-     * LOGIT_STORAGE_ENABLED_PROPERTY.
-     */
-    @TestOnly
-    public static LogStorageManager create(
-            String factoryName,
-            String nodeName,
-            Path logStoragePath,
-            boolean fsync,
-            LogStorageConfiguration logStorageConfig
-    ) {
-        return create(
-                factoryName,
-                nodeName,
-                logStoragePath,
-                fsync,
-                RocksDbLogStorageOptions.defaults(),
-                new SegmentLogStorageOptions(1, logStorageConfig, new FailureManager(new NoOpFailureHandler()))
-        );
+        return create("test", nodeName, logStoragePath, true, RocksDbLogStorageOptions.defaults(), segmentLogStorageOptions);
     }
 
     /**

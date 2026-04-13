@@ -135,7 +135,6 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath(),
                     logStorageConfiguration
             );
-
             this.eventsClientListener = new RaftGroupEventsClientListener();
             this.failureManager = new NoOpFailureManager();
             this.raftManager = TestLozaFactory.create(

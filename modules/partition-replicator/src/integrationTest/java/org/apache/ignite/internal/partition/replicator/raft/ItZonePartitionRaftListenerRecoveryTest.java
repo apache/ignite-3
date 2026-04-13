@@ -299,10 +299,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(outgoingSnapshotsManager);
 
         logStorageManager = SharedLogStorageManagerUtils.create(
-                "table data log",
                 clusterService.staticLocalNode().name(),
                 componentWorkingDir.raftLogPath(),
-                true,
                 logStorageConfiguration
         );
 

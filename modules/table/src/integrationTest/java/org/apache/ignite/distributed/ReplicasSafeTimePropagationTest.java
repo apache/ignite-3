@@ -49,7 +49,9 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -77,6 +79,8 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
+import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageOptions;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -364,7 +368,12 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     clusterService.staticLocalNode().name(),
                     workingDir.raftLogPath(),
                     raftConfiguration.fsync().value(),
-                    logStorageConfiguration
+                    RocksDbLogStorageOptions.defaults(),
+                    new SegmentLogStorageOptions(
+                            raftConfiguration.disruptor().logManagerStripes().value(),
+                            logStorageConfiguration,
+                            new FailureManager(new NoOpFailureHandler())
+                    )
             );
 
             assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
