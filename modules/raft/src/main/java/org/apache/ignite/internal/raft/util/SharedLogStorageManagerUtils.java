@@ -32,6 +32,7 @@ import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageManager;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageOptions;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Utility methods for creating {@link LogStorageManager}is for the Shared Log. */
@@ -84,14 +85,16 @@ public class SharedLogStorageManagerUtils {
             String nodeName,
             Path logStoragePath,
             boolean fsync,
-            RocksDbLogStorageOptions specificOptions,
-            SegmentLogStorageOptions segmentStoreSpecificOptions
+            RocksDbLogStorageOptions rocksDbStoreSpecificOptions,
+            @Nullable SegmentLogStorageOptions segmentStoreSpecificOptions
     ) {
-        if (segmentStoreSpecificOptions == null) {
+        if (!IgniteSystemProperties.segmentLogStorageEnabled()) {
             return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT)
                     ? new LogitLogStorageManager(nodeName, new StoreOptions(), logStoragePath)
-                    : new DefaultLogStorageManager(factoryName, nodeName, logStoragePath, fsync, specificOptions);
+                    : new DefaultLogStorageManager(factoryName, nodeName, logStoragePath, fsync, rocksDbStoreSpecificOptions);
         }
+
+        assert segmentStoreSpecificOptions != null;
 
         int stripes = segmentStoreSpecificOptions.stripes();
         LogStorageConfiguration storageConfiguration = segmentStoreSpecificOptions.configuration();

@@ -118,12 +118,11 @@ public class VolatileLogStorageManager implements LogStorageManager {
     }
 
     @Override
-    public void destroyLogStorage(String raftNodeStorageId) {
+    public void destroyLogStorage(String uri) {
         try {
-            RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, raftNodeStorageStartPrefix(raftNodeStorageId),
-                    raftNodeStorageEndPrefix(raftNodeStorageId));
+            RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, raftNodeStorageStartPrefix(uri), raftNodeStorageEndPrefix(uri));
         } catch (RocksDBException e) {
-            throw new LogStorageException("Fail to destroy the log storage spillout for " + raftNodeStorageId, e);
+            throw new LogStorageException("Fail to destroy the log storage spillout for " + uri, e);
         }
     }
 

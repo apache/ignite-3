@@ -32,10 +32,6 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
  */
 @AutoService(ConfigurationModule.class)
 public class RaftConfigurationModule implements ConfigurationModule {
-    private static final String SEGSTORE_ENABLED_PROPERTY = "SEGSTORE_ENABLED";
-
-    private static final boolean SEGSTORE_ENABLED_PROPERTY_DEFAULT = true;
-
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;
@@ -43,7 +39,7 @@ public class RaftConfigurationModule implements ConfigurationModule {
 
     @Override
     public Collection<Class<?>> schemaExtensions() {
-        if (IgniteSystemProperties.getBoolean(SEGSTORE_ENABLED_PROPERTY, SEGSTORE_ENABLED_PROPERTY_DEFAULT)) {
+        if (IgniteSystemProperties.segmentLogStorageEnabled()) {
             return List.of(RaftExtensionConfigurationSchema.class, LogStorageExtensionConfigurationSchema.class);
         } else {
             return List.of(RaftExtensionConfigurationSchema.class);

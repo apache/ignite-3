@@ -289,21 +289,21 @@ public class DefaultLogStorageManager implements LogStorageManager {
     }
 
     @Override
-    public void destroyLogStorage(String raftNodeStorageId) {
+    public void destroyLogStorage(String uri) {
         try (WriteBatch writeBatch = new WriteBatch()) {
             RocksDbSharedLogStorage.destroyAllEntriesBetween(
                     writeBatch,
                     confHandle,
                     dataHandle,
-                    raftNodeStorageStartPrefix(raftNodeStorageId),
-                    raftNodeStorageEndPrefix(raftNodeStorageId)
+                    raftNodeStorageStartPrefix(uri),
+                    raftNodeStorageEndPrefix(uri)
             );
 
-            writeBatch.delete(metaHandle, RocksDbSharedLogStorage.storageCreatedKey(raftNodeStorageId));
+            writeBatch.delete(metaHandle, RocksDbSharedLogStorage.storageCreatedKey(uri));
 
             db.write(this.writeOptions, writeBatch);
         } catch (RocksDBException e) {
-            throw new LogStorageException("Fail to destroy the log storage for " + raftNodeStorageId, e);
+            throw new LogStorageException("Fail to destroy the log storage for " + uri, e);
         }
     }
 

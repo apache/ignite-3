@@ -400,12 +400,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
+        public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
             return logStorage;
         }
 
         @Override
-        public void destroyLogStorage(String raftNodeStorageId) {
+        public void destroyLogStorage(String uri) {
             // No-op.
         }
 

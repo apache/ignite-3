@@ -155,6 +155,7 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -666,23 +667,15 @@ public class IgniteImpl implements Ignite {
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
 
-        LogStorageExtensionConfiguration logStorageConfig = nodeConfigRegistry.getConfiguration(LogStorageExtensionConfiguration.KEY);
-
-        SegmentLogStorageOptions segstoreSpecificOptions = null;
-        if (logStorageConfig != null) {
-            segstoreSpecificOptions = new SegmentLogStorageOptions(
-                    raftConfiguration.disruptor().logManagerStripes().value(),
-                    logStorageConfig.logStorage(),
-                    failureManager
-            );
-        }
-
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
         partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
+        SegmentLogStorageOptions segstoreSpecificOptions = getSegmentLogStorageOptions(raftConfiguration);
+
         InternalClusterNode localNode = clusterSvc.staticLocalNode();
+
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 "table data log",
                 localNode.name(),
@@ -1400,6 +1393,20 @@ public class IgniteImpl implements Ignite {
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
         publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService(), clusterIdService));
+    }
+
+    private @Nullable SegmentLogStorageOptions getSegmentLogStorageOptions(RaftConfiguration raftConfiguration) {
+        if (!IgniteSystemProperties.segmentLogStorageEnabled()) {
+            return null;
+        }
+
+        LogStorageExtensionConfiguration logStorageConfig = nodeConfigRegistry.getConfiguration(LogStorageExtensionConfiguration.KEY);
+
+        return new SegmentLogStorageOptions(
+                raftConfiguration.disruptor().logManagerStripes().value(),
+                logStorageConfig.logStorage(),
+                failureManager
+        );
     }
 
     private JobScopedIgnite createJobScopedIgnite(HybridTimestampTracker tracker) {

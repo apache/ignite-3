@@ -101,19 +101,19 @@ public class LogitLogStorageManager implements LogStorageManager {
     }
 
     @Override
-    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
-        Requires.requireTrue(StringUtils.isNotBlank(raftNodeStorageId), "Blank log storage uri.");
+    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
+        Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank log storage uri.");
 
-        Path storagePath = resolveLogStoragePath(raftNodeStorageId);
+        Path storagePath = resolveLogStoragePath(groupId);
 
         return new LogitLogStorage(storagePath, storeOptions, raftOptions, checkpointExecutor);
     }
 
     @Override
-    public void destroyLogStorage(String raftNodeStorageId) {
-        Requires.requireTrue(StringUtils.isNotBlank(raftNodeStorageId), "Blank log storage uri.");
+    public void destroyLogStorage(String uri) {
+        Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
 
-        Path storagePath = resolveLogStoragePath(raftNodeStorageId);
+        Path storagePath = resolveLogStoragePath(uri);
 
         if (!IgniteUtils.deleteIfExists(storagePath)) {
             throw new LogStorageException("Cannot delete directory " + storagePath);

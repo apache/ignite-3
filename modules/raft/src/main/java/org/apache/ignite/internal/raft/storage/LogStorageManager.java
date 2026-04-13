@@ -41,9 +41,9 @@ public interface LogStorageManager extends IgniteComponent {
     /**
      * Destroys a log storage (that is, removes it from the disk).
      *
-     * @param raftNodeStorageId Raft node storage ID to destroy log storage of.
+     * @param groupId Raft node storage ID to destroy log storage of.
      */
-    void destroyLogStorage(String raftNodeStorageId);
+    void destroyLogStorage(String groupId);
 
     /**
      * Obtains group IDs for storage of all Raft groups existing on disk.

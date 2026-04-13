@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static java.lang.Long.parseLong;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -28,8 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.StoredRaftNodeId;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
@@ -41,6 +38,12 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
  */
 public class SegmentLogStorageManager implements LogStorageManager {
     private static final Pattern PARTITION_GROUP_ID_PATTERN = Pattern.compile("_part_");
+
+    private static final long METASTORAGE_GROUP_ID = 1;
+    private static final long CMG_GROUP_ID = 2;
+
+    /** Offset so that (objectId=0, partitionId=0) maps to 3, avoiding collision with metastorage (1) and cmg (2). */
+    private static final long SPECIAL_GROUP_ID_OFFSET = 3;
 
     private final SegmentFileManager fileManager;
 
@@ -72,11 +75,7 @@ public class SegmentLogStorageManager implements LogStorageManager {
 
     @Override
     public void destroyLogStorage(String raftNodeStorageId) {
-        try {
-            fileManager.reset(convertNodeId(raftNodeStorageId), 1);
-        } catch (IOException e) {
-            throw new LogStorageException("Failed to destroy log storage for group " + raftNodeStorageId, e);
-        }
+        // TODO IGNITE-28527 Implement.
     }
 
     @Override
@@ -111,25 +110,40 @@ public class SegmentLogStorageManager implements LogStorageManager {
         }
     }
 
+    /**
+     * Converts a raft node storage ID string to a unique positive long, used to identify a logical log within the segment file manager.
+     *
+     * <p>For partition groups ("{objectId}_part_{partitionId}-{peerIdx}"):
+     * result = (objectId &lt;&lt; 32 | partitionId) + {@link #SPECIAL_GROUP_ID_OFFSET}.
+     * objectId and partitionId are non-negative ints, so the result is always positive and unique per (objectId, partitionId) pair.
+     *
+     * <p>peerIdx is not encoded because a single Ignite node participates as exactly one peer per raft group,
+     * so (objectId, partitionId) is already unique within one {@link SegmentLogStorageManager}.
+     */
+    // TODO IGNITE-26977 Revise after changing partition ID from int to long.
     private static long convertNodeId(String nodeId) {
-        // Temporary approach, will be revised after changing partition ID from int to long.
+        // {groupId}-{peerIdx}.
+        int lastHyphen = nodeId.lastIndexOf('-');
+        String groupName = lastHyphen > 0 ? nodeId.substring(0, lastHyphen) : nodeId;
 
-        StoredRaftNodeId raftNodeId = RaftNodeId.fromNodeIdStringForStorage(nodeId, "");
-        if ("metastorage_group".equals(raftNodeId.groupIdName())) {
-            return 1 + raftNodeId.peer().idx();
+        if ("metastorage_group".equals(groupName)) {
+            return METASTORAGE_GROUP_ID;
         }
 
-        if (nodeId.contains("cmg_group")) {
-            return raftNodeId.peer().idx() + 1000;
+        if ("cmg_group".equals(groupName)) {
+            return CMG_GROUP_ID;
         }
 
-        String[] partitionGroupIdArray = PARTITION_GROUP_ID_PATTERN.split(raftNodeId.groupIdName());
+        String[] parts = PARTITION_GROUP_ID_PATTERN.split(groupName);
 
-        if (partitionGroupIdArray.length == 2) {
-            return (parseLong(partitionGroupIdArray[0]) << 32 | parseLong(partitionGroupIdArray[1])) + 100000 + raftNodeId.peer().idx();
-        } else {
-            // For tests using invalid group IDs.
-            return 1 + Math.abs(nodeId.hashCode());
+        if (parts.length == 2) {
+            int objectId = Integer.parseInt(parts[0]);
+            int partitionId = Integer.parseInt(parts[1]);
+
+            return ((long) objectId << 32 | Integer.toUnsignedLong(partitionId)) + SPECIAL_GROUP_ID_OFFSET;
         }
+
+        // TODO IGNITE-28525 Validate node IDs instead of allowing any value.
+        return Integer.toUnsignedLong(nodeId.hashCode()) + SPECIAL_GROUP_ID_OFFSET;
     }
 }
