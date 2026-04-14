@@ -94,6 +94,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -178,6 +179,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
     @InjectExecutorService
     private ExecutorService executor;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -295,10 +299,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(outgoingSnapshotsManager);
 
         logStorageManager = SharedLogStorageManagerUtils.create(
-                "table data log",
                 clusterService.staticLocalNode().name(),
                 componentWorkingDir.raftLogPath(),
-                true
+                logStorageConfiguration
         );
 
         components.add(logStorageManager);

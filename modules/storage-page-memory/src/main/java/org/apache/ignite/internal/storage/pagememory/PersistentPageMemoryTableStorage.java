@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -134,17 +135,20 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         return inCheckpointLock(() -> {
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
 
-            FreeListImpl freeList = createFreeList(partitionId, pageMemory, meta);
+            PartitionPageMemory partitionPageMemory = pageMemory.createPartitionPageMemory(getTableId(), partitionId);
 
-            VersionChainTree versionChainTree = createVersionChainTree(partitionId, freeList, pageMemory, meta);
+            FreeListImpl freeList = createFreeList(partitionId, partitionPageMemory, meta);
 
-            IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, freeList, pageMemory, meta);
+            VersionChainTree versionChainTree = createVersionChainTree(partitionId, freeList, partitionPageMemory, meta);
 
-            GcQueue gcQueue = createGcQueue(partitionId, freeList, pageMemory, meta);
+            IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, freeList, partitionPageMemory, meta);
+
+            GcQueue gcQueue = createGcQueue(partitionId, freeList, partitionPageMemory, meta);
 
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
                     partitionId,
+                    partitionPageMemory,
                     meta,
                     freeList,
                     versionChainTree,
@@ -176,7 +180,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      */
     private FreeListImpl createFreeList(
             int partId,
-            PersistentPageMemory pageMemory,
+            PartitionPageMemory pageMemory,
             StoragePartitionMeta meta
     ) throws StorageException {
         try {
@@ -194,7 +198,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     "PersistentFreeList",
                     getTableId(),
                     partId,
-                    dataRegion.pageMemory(),
+                    pageMemory,
                     meta.freeListRootPageId(),
                     initNew,
                     dataRegion.pageListCacheLimit()
@@ -216,7 +220,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private VersionChainTree createVersionChainTree(
             int partId,
             ReuseList reuseList,
-            PersistentPageMemory pageMemory,
+            PartitionPageMemory pageMemory,
             StoragePartitionMeta meta
     ) throws StorageException {
         try {
@@ -234,7 +238,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(),
                     Integer.toString(getTableId()),
                     partId,
-                    dataRegion.pageMemory(),
+                    pageMemory,
                     engine.generateGlobalRemoveId(),
                     meta.versionChainTreeRootPageId(),
                     reuseList,
@@ -257,7 +261,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private IndexMetaTree createIndexMetaTree(
             int partitionId,
             ReuseList reuseList,
-            PersistentPageMemory pageMemory,
+            PartitionPageMemory pageMemory,
             StoragePartitionMeta meta
     ) {
         try {
@@ -275,7 +279,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(),
                     Integer.toString(getTableId()),
                     partitionId,
-                    dataRegion.pageMemory(),
+                    pageMemory,
                     engine.generateGlobalRemoveId(),
                     meta.indexTreeMetaPageId(),
                     reuseList,
@@ -298,7 +302,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private GcQueue createGcQueue(
             int partitionId,
             ReuseList reuseList,
-            PersistentPageMemory pageMemory,
+            PartitionPageMemory pageMemory,
             StoragePartitionMeta meta
     ) {
         try {
@@ -316,7 +320,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(),
                     Integer.toString(getTableId()),
                     partitionId,
-                    dataRegion.pageMemory(),
+                    pageMemory,
                     engine.generateGlobalRemoveId(),
                     meta.gcQueueMetaPageId(),
                     reuseList,
@@ -347,22 +351,25 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         GroupPartitionId groupPartitionId = createGroupPartitionId(mvPartitionStorage.partitionId());
 
         return destroyPartitionPhysically(groupPartitionId).thenAccept(unused -> {
-            PersistentPageMemory pageMemory = dataRegion.pageMemory();
-
             int partitionId = groupPartitionId.getPartitionId();
 
             StoragePartitionMeta meta = getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
 
             inCheckpointLock(() -> {
-                FreeListImpl freeList = createFreeList(partitionId, pageMemory, meta);
+                PersistentPageMemory pageMemory = dataRegion.pageMemory();
 
-                VersionChainTree versionChainTree = createVersionChainTree(partitionId, freeList, pageMemory, meta);
+                PartitionPageMemory partitionPageMemory = pageMemory.createPartitionPageMemory(getTableId(), partitionId);
 
-                IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, freeList, pageMemory, meta);
+                FreeListImpl freeList = createFreeList(partitionId, partitionPageMemory, meta);
 
-                GcQueue gcQueue = createGcQueue(partitionId, freeList, pageMemory, meta);
+                VersionChainTree versionChainTree = createVersionChainTree(partitionId, freeList, partitionPageMemory, meta);
+
+                IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, freeList, partitionPageMemory, meta);
+
+                GcQueue gcQueue = createGcQueue(partitionId, freeList, partitionPageMemory, meta);
 
                 ((PersistentPageMemoryMvPartitionStorage) mvPartitionStorage).updateDataStructures(
+                        partitionPageMemory,
                         meta,
                         freeList,
                         versionChainTree,

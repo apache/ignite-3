@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -116,6 +117,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @AfterEach
     protected void tearDown() throws Exception {
@@ -477,7 +481,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
                 LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                         cluster.staticLocalNode().name(),
-                        workingDir.resolve("log")
+                        workingDir.resolve("log"),
+                        logStorageConfiguration
                 );
 
                 logStorageFactories.put(addr, partitionsLogStorageManager);

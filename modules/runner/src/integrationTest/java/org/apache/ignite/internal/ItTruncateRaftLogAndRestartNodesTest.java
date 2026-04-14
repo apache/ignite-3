@@ -50,10 +50,13 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -82,18 +85,23 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class for testing various scenarios with raft log truncation and node restarts that emulate the situation with fsync disabled for raft
  * groups associated with tables.
  */
 // TODO: IGNITE-25501 Fix partition state after snapshot
+@ExtendWith(ConfigurationExtension.class)
 public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTruncateRaftLogAndRestartNodesTest.class);
 
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @Override
     protected int initialNodes() {
@@ -216,7 +224,8 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 ignite.name(),
-                ignite.partitionsWorkDir().raftLogPath()
+                ignite.partitionsWorkDir().raftLogPath(),
+                logStorageConfiguration
         );
 
         NodeImpl nodeImpl = raftNodeImpl(nodeIndex, replicationGroupId);

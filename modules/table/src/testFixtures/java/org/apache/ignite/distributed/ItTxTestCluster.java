@@ -80,7 +80,9 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -120,11 +122,14 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.storage.segstore.SegmentLogStorageOptions;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -214,6 +219,8 @@ public class ItTxTestCluster {
     private final NodeFinder nodeFinder;
 
     private final RaftConfiguration raftConfig;
+
+    private final LogStorageConfiguration logStorageConfiguration;
 
     private final TransactionConfiguration txConfiguration;
 
@@ -352,6 +359,7 @@ public class ItTxTestCluster {
     public ItTxTestCluster(
             TestInfo testInfo,
             RaftConfiguration raftConfig,
+            LogStorageConfiguration logStorageConfiguration,
             TransactionConfiguration txConfiguration,
             SystemLocalConfiguration systemLocalConfig,
             SystemDistributedConfiguration systemDistributedConfig,
@@ -363,6 +371,7 @@ public class ItTxTestCluster {
             ReplicationConfiguration replicationConfiguration
     ) {
         this.raftConfig = raftConfig;
+        this.logStorageConfiguration = logStorageConfiguration;
         this.txConfiguration = txConfiguration;
         this.systemLocalConfig = systemLocalConfig;
         this.systemDistributedConfig = systemDistributedConfig;
@@ -458,7 +467,13 @@ public class ItTxTestCluster {
                     "test",
                     clusterService.staticLocalNode().name(),
                     partitionsWorkDir.resolve("log"),
-                    raftConfig.fsync().value()
+                    raftConfig.fsync().value(),
+                    RocksDbLogStorageOptions.defaults(),
+                    new SegmentLogStorageOptions(
+                            raftConfig.disruptor().logManagerStripes().value(),
+                            logStorageConfiguration,
+                            new FailureManager(new NoOpFailureHandler())
+                    )
             );
 
             logStorageFactories.put(nodeName, partitionsLogStorageManager);

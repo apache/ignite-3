@@ -37,6 +37,15 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
  * Log storage manager for {@link SegstoreLogStorage} instances.
  */
 public class SegmentLogStorageManager implements LogStorageManager {
+    /** Group ID for metastorage. */
+    public static final long METASTORAGE_GROUP_ID = 1;
+
+    /** Group ID for CMG. */
+    public static final long CMG_GROUP_ID = 2;
+
+    /** Offset so that (objectId=0, partitionId=0) maps to 3, avoiding collision with metastorage (1) and cmg (2). */
+    public static final long SPECIAL_GROUP_ID_OFFSET = 3;
+
     private static final Pattern PARTITION_GROUP_ID_PATTERN = Pattern.compile("_part_");
 
     private final SegmentFileManager fileManager;
@@ -63,17 +72,13 @@ public class SegmentLogStorageManager implements LogStorageManager {
     }
 
     @Override
-    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new SegstoreLogStorage(convertGroupId(groupId), fileManager);
+    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
+        return new SegstoreLogStorage(convertNodeId(raftNodeStorageId), fileManager);
     }
 
     @Override
-    public void destroyLogStorage(String groupId) {
-        try {
-            fileManager.reset(convertGroupId(groupId), 1);
-        } catch (IOException e) {
-            throw new LogStorageException("Failed to destroy log storage for group " + groupId, e);
-        }
+    public void destroyLogStorage(String raftNodeStorageId) {
+        // TODO IGNITE-28527 Implement.
     }
 
     @Override
@@ -108,21 +113,47 @@ public class SegmentLogStorageManager implements LogStorageManager {
         }
     }
 
-    private static long convertGroupId(String groupId) {
-        if ("metastorage_group".equals(groupId)) {
-            return 1;
+    /**
+     * Converts a raft node storage ID string to a unique positive long, used to identify a logical log within the segment file manager.
+     *
+     * <p>For partition groups ({@code "{objectId}_part_{partitionId}-{peerIdx}"}):
+     * {@code result = (objectId << 32 | partitionId) + SPECIAL_GROUP_ID_OFFSET}.
+     * {@code objectId} and {@code partitionId} are non-negative ints, so the result is always positive and unique
+     * per {@code (objectId, partitionId)} pair.
+     *
+     * <p>{@code peerIdx} is not encoded because a single Ignite node participates as exactly one peer per raft group,
+     * so {@code (objectId, partitionId)} is already unique within one {@link SegmentLogStorageManager}.
+     */
+    // TODO IGNITE-26977 Revise after changing partition ID from int to long.
+    static long convertNodeId(String nodeId) {
+        // {groupId}-{peerIdx}. Peer index suffix is mandatory for all valid raft node storage IDs.
+        int lastHyphen = nodeId.lastIndexOf('-');
+
+        if (lastHyphen <= 0) {
+            // TODO IGNITE-28525 Validate node IDs instead of allowing any value.
+            return Integer.toUnsignedLong(nodeId.hashCode()) + SPECIAL_GROUP_ID_OFFSET;
         }
 
-        if ("cmg_group".equals(groupId)) {
-            return 2;
+        String groupName = nodeId.substring(0, lastHyphen);
+
+        if ("metastorage_group".equals(groupName)) {
+            return METASTORAGE_GROUP_ID;
         }
 
-        String[] partitionGroupIdArray = PARTITION_GROUP_ID_PATTERN.split(groupId);
-
-        if (partitionGroupIdArray.length == 2) {
-            return Long.parseLong(partitionGroupIdArray[0]) << 32 | Long.parseLong(partitionGroupIdArray[1]);
-        } else {
-            throw new IllegalArgumentException("Invalid groupId: " + groupId);
+        if ("cmg_group".equals(groupName)) {
+            return CMG_GROUP_ID;
         }
+
+        String[] parts = PARTITION_GROUP_ID_PATTERN.split(groupName);
+
+        if (parts.length == 2) {
+            int objectId = Integer.parseInt(parts[0]);
+            int partitionId = Integer.parseInt(parts[1]);
+
+            return ((long) objectId << 32 | Integer.toUnsignedLong(partitionId)) + SPECIAL_GROUP_ID_OFFSET;
+        }
+
+        // TODO IGNITE-28525 Validate node IDs instead of allowing any value.
+        return Integer.toUnsignedLong(nodeId.hashCode()) + SPECIAL_GROUP_ID_OFFSET;
     }
 }

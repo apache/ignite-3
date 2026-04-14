@@ -182,6 +182,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -288,6 +289,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
@@ -425,7 +429,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         String nodeName = clusterSvc.staticLocalNode().name();
 
-        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath());
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
@@ -450,7 +455,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
-        LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
+        LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -512,7 +518,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
+        LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());

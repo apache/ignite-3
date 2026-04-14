@@ -82,7 +82,9 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -117,6 +119,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -276,7 +281,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.staticLocalNode().name(),
-                    workingDir.raftLogPath()
+                    workingDir.raftLogPath(),
+                    logStorageConfiguration
             );
 
             var raftManager = TestLozaFactory.create(
@@ -296,7 +302,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_metastorage"));
 
             LogStorageManager msLogStorageManager =
-                    SharedLogStorageManagerUtils.create(clusterService.staticLocalNode().name(), metastorageWorkDir.raftLogPath());
+                    SharedLogStorageManagerUtils.create(clusterService.staticLocalNode().name(), metastorageWorkDir.raftLogPath(),
+                            logStorageConfiguration);
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
@@ -420,9 +427,13 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         waitForProlong(grpPart0, lease);
 
-        assertThat(msRaftClient.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
+        CompletableFuture<LeaderWithTerm> actualLeaderFut = msRaftClient.refreshAndGetLeaderWithTerm(TimeAwareRaftGroupService.NO_TIMEOUT);
 
-        assertEquals(newLeader, msRaftClient.leader());
+        assertThat(actualLeaderFut, willCompleteSuccessfully());
+
+        Peer actualLeader = actualLeaderFut.join().leader();
+
+        assertEquals(newLeader, actualLeader);
     }
 
     @Test

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.io;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -25,7 +26,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
@@ -1124,7 +1125,7 @@ public class DataPageIo extends PageIo {
      * @return Written payload size.
      */
     public int addRowFragment(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             long pageId,
             long pageAddr,
             Storable row,
@@ -1155,7 +1156,7 @@ public class DataPageIo extends PageIo {
         int fullEntrySize = getPageEntrySize(payloadSize, SHOW_PAYLOAD_LEN | SHOW_LINK | SHOW_ITEM);
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
 
-        ByteBuffer buf = pageMem.pageBuffer(pageAddr);
+        ByteBuffer buf = wrapPointer(pageAddr, pageMem.pageSize());
 
         buf.position(dataOff);
 

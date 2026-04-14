@@ -122,7 +122,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         int bufferSize = context().bufferSize();
 
         // Let's prefetch equal share of a buffer from each partition.
-        int fetchSize = max(context().bufferSize() / partsWithConsistencyTokens.size(), 1);
+        int fetchSize = max(bufferSize / partsWithConsistencyTokens.size(), 1);
 
         // Adds some buffer to improve chances to fulfill entire request without need go to storage once again.
         // This renders over-prefetching over all local partitions in total, but at least it's capped now at

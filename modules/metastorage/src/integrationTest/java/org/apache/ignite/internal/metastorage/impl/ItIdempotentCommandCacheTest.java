@@ -106,6 +106,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -157,6 +158,9 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
 
@@ -190,6 +194,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 RaftConfiguration raftConfiguration,
                 SystemLocalConfiguration systemLocalConfiguration,
                 SystemDistributedConfiguration systemDistributedConfiguration,
+                LogStorageConfiguration logStorageConfiguration,
                 Path workDir,
                 int index,
                 ScheduledExecutorService scheduledExecutorService
@@ -214,7 +219,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             String nodeName = clusterService.staticLocalNode().name();
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath(), logStorageConfiguration);
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -239,7 +244,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
 
-            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
+            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(), logStorageConfiguration);
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
@@ -647,6 +652,7 @@ class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     raftConfiguration,
                     systemLocalConfiguration,
                     systemDistributedConfiguration,
+                    logStorageConfiguration,
                     workDir,
                     i,
                     scheduledExecutorService

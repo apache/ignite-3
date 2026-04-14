@@ -55,6 +55,7 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -106,6 +107,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
@@ -315,7 +319,8 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.staticLocalNode().name(),
-                    partitionsWorkDir.raftLogPath()
+                    partitionsWorkDir.raftLogPath(),
+                    logStorageConfiguration
             );
             this.loza = TestLozaFactory.create(
                     clusterService,
