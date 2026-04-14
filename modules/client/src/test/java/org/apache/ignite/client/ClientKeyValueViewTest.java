@@ -603,8 +603,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
         assertEquals(
-                format("Failed to deserialize server response for op {}: Got unexpected null value: use `{}` sibling method instead.",
-                        op, methodName),
+                format("Got unexpected null value: use `{}` sibling method instead.", methodName),
                 ex.getMessage());
     }
 
