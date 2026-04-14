@@ -235,8 +235,13 @@ public:
     /**
      * Cancels waiting for over-due responses.
      */
-     void handle_timeouts();
+    void handle_timeouts();
 
+    /**
+     * Name of the node this connection is tethered to.
+     *
+     * @return Name of the node.
+     */
     const std::string& get_node_name() const {
         return m_node_name;
     }
@@ -345,7 +350,7 @@ private:
     /** Node id. */
     uuid m_node_id{};
 
-    /** Node name. */
+    /** Name of the node this connection is tethered to. */
     std::string m_node_name{};
 };
 

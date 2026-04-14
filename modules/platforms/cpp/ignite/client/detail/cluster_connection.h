@@ -320,17 +320,9 @@ private:
     std::shared_ptr<node_connection> get_random_connected_channel();
 
     /**
-     * Get a preferred node connection if partition mapping is provided
-     * otherwise returns random node connection.
+     * Get connection according to provided preference otherwise returns random node connection.
+     *
      * @param preferred_node_name Name of preferred node.
-     * @return Node connection.
-     */
-    std::shared_ptr<node_connection> get_preferred_channel(const std::string& preferred_node_name);
-
-    /**
-     * Get connection according to provided partition mapping
-     * otherwise returns random node connection.
-     * @param pm Partition mapping.
      * @return Node connection.
      */
     std::shared_ptr<node_connection> get_connected_channel(const std::optional<std::string> &preferred_node_name);

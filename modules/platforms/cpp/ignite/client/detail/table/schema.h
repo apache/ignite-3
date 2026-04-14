@@ -125,8 +125,8 @@ struct schema {
      * @return A new schema instance.
      */
     static std::shared_ptr<schema> create_instance(std::int32_t version, std::vector<column> &&cols) {
-        size_t key_columns_cnt = 0;
-        size_t collocated_columns_cnt = 0;
+        std::size_t key_columns_cnt = 0;
+        std::size_t collocated_columns_cnt = 0;
         for (const auto &column : cols) {
             if (column.is_key())
                 ++key_columns_cnt;

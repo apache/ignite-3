@@ -30,14 +30,16 @@ namespace ignite::protocol {
 class partition_assignment {
 public:
     partition_assignment() = default;
-    partition_assignment(const partition_assignment&) = default;
-    partition_assignment(partition_assignment&&) noexcept = default;
-    partition_assignment &operator=(const partition_assignment &other) = default;
-    partition_assignment &operator=(partition_assignment &&other) noexcept = default;
 
+    /**
+     * Constructor.
+     *
+     * @param timestamp Partition assignment data.
+     * @param partitions Partition assignment encode into vector.
+     */
     partition_assignment(std::int64_t timestamp, std::vector<std::optional<std::string>> partitions)
-        : timestamp(timestamp)
-        , partitions(std::move(partitions)) {}
+        : m_timestamp(timestamp)
+        , m_partitions(std::move(partitions)) {}
 
     /**
      * Check whether the assignment is outdated.
@@ -45,17 +47,24 @@ public:
      * @param actual_timestamp Timestamp.
      * @return @c true if assignment is outdated.
      */
-    [[nodiscard]] bool is_outdated(std::int64_t actual_timestamp) const { return timestamp < actual_timestamp; }
+    [[nodiscard]] bool is_outdated(std::int64_t actual_timestamp) const { return m_timestamp < actual_timestamp; }
 
+    /**
+     * Partitions. Vector is decoded as following: size of collection is total number of partitions,
+     * i-th value means that partition with id == i resides on (primary replica of that partition belongs to)
+     * node with provided consisted id (AKA node name).
+     *
+     * @return Vector with partition assignments.
+     */
     [[nodiscard]] const std::vector<std::optional<std::string>>& get_partitions() const {
-        return partitions;
+        return m_partitions;
     }
 private:
     /** Assignment timestamp. */
-    std::int64_t timestamp{0};
+    std::int64_t m_timestamp{0};
 
-    /** Partitions. */
-    std::vector<std::optional<std::string>> partitions;
+
+    std::vector<std::optional<std::string>> m_partitions;
 };
 
 } // namespace ignite::protocol

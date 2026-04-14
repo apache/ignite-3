@@ -69,10 +69,10 @@ struct handshake_response {
     protocol_context context{};
 
     /** Observable timestamp. */
-    std::int64_t observable_timestamp{};
+    std::int64_t observable_timestamp{0};
 
     /** Server idle timeout in ms. */
-    std::int64_t idle_timeout_ms{};
+    std::int64_t idle_timeout_ms{0};
 
     /** Node id. */
     uuid node_id{};

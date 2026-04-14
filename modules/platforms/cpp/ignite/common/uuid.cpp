@@ -22,6 +22,58 @@
 
 namespace ignite {
 
+std::optional<uuid> uuid::from_string(const std::string &text) {
+    if (text.length() != 36) {
+        return {};
+    }
+
+    auto str = text.c_str();
+
+    auto parse_chunk = [str](size_t beg, size_t end, uint64_t &out) -> bool {
+        char *p;
+
+        if (errno != 0) {
+            errno = 0;
+        }
+
+        out = std::strtoull(str + beg, &p, 16);
+
+        if (p != str + end || (*p != '-' && *p != '\0') || errno == ERANGE) {
+            return false;
+        }
+
+        return true;
+    };
+
+    std::uint64_t msb1, msb2, msb3;
+    std::uint64_t lsb1, lsb2;
+
+    if (!parse_chunk(0, 8, msb1)) {
+        return {};
+    }
+
+    if (!parse_chunk(9, 13, msb2)) {
+        return {};
+    }
+
+    if (!parse_chunk(14, 18, msb3)) {
+        return {};
+    }
+
+    if (!parse_chunk(19, 23, lsb1)) {
+        return {};
+    }
+
+    if (!parse_chunk(24, 36, lsb2)) {
+        return {};
+    }
+
+    uint64_t msb = msb1 << 32 | msb2 << 16 | msb3;
+    uint64_t lsb = lsb1 << 48 | lsb2;
+
+    return uuid{static_cast<int64_t>(msb), static_cast<int64_t>(lsb)};
+}
+
 uuid uuid::random() {
     static std::mutex random_mutex;
     static std::random_device rd;

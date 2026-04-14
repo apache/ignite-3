@@ -274,23 +274,15 @@ std::shared_ptr<node_connection> cluster_connection::get_random_connected_channe
     return std::next(m_connections.begin(), idx)->second;
 }
 
-std::shared_ptr<node_connection> cluster_connection::get_preferred_channel(const std::string& preferred_node_name) {
-    std::unique_lock lock(m_connections_mutex);
-    for (auto& [id, conn] : m_connections) {
-        if (conn->get_node_name() == preferred_node_name) {
-            return conn;
-        }
-    }
-
-    return {};
-}
-
 std::shared_ptr<node_connection> cluster_connection::get_connected_channel(
     const std::optional<std::string>& preferred_node_name) {
 
     if (preferred_node_name) {
-        if (auto preferred_channel = get_preferred_channel(*preferred_node_name)) {
-            return preferred_channel;
+        std::unique_lock lock(m_connections_mutex);
+        for (auto& [id, conn] : m_connections) {
+            if (conn->get_node_name() == *preferred_node_name) {
+                return conn;
+            }
         }
     }
 
