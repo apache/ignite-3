@@ -234,6 +234,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
+                Runnable::run,
                 new ZonePartitionId(ZONE_ID, PART_ID),
                 TABLE_ID,
                 () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),

@@ -199,6 +199,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         txManager,
                         txManager.lockManager(),
                         Runnable::run,
+                        Runnable::run,
                         replicationGroupId,
                         tableId,
                         indexesLockers,

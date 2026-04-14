@@ -230,7 +230,11 @@ public class TxFinishReplicaRequestHandler {
 
                     try {
                         txManager.cleanup(replicationGroupId, enlistedPartitions, actualCommit, actualCommitTs, txId)
-                                .thenApply(v -> txResult);
+                                .thenApply(v -> txResult).whenComplete((r, e) -> {
+                                    if (e != null) {
+                                        LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
+                                    }
+                                });
                     } catch (Exception e) {
                         LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
                     }
