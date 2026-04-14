@@ -881,6 +881,12 @@ namespace Apache.Ignite.Internal
                 return false;
             }
 
+            if (e is IgniteException { GroupCode: ErrorGroups.Authentication.GroupCode })
+            {
+                // Authentication errors should not be retried.
+                return false;
+            }
+
             if (retryPolicy is null or RetryNonePolicy)
             {
                 return false;

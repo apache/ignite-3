@@ -65,6 +65,27 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestBadCredentialsAreNotRetried()
+    {
+        await EnableAuthn(true);
+
+        var retryPolicy = new TestRetryPolicy();
+        var cfg = new IgniteClientConfiguration(GetConfig())
+        {
+            RetryPolicy = retryPolicy,
+            Authenticator = new BasicAuthenticator
+            {
+                Username = "user-1",
+                Password = "wrong"
+            }
+        };
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<InvalidCredentialsException>(ex.InnerException);
+        Assert.AreEqual(0, retryPolicy.InvokeCount, "Retry policy should not be invoked");
+    }
+
+    [Test]
     public async Task TestAuthnOnClientAndServer()
     {
         await EnableAuthn(true);
@@ -149,5 +170,16 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         });
 
         _authnEnabled = enable;
+    }
+
+    private class TestRetryPolicy : RetryLimitPolicy
+    {
+        public int InvokeCount { get; private set; }
+
+        public override bool ShouldRetry(IRetryPolicyContext context)
+        {
+            InvokeCount++;
+            return base.ShouldRetry(context);
+        }
     }
 }

@@ -277,7 +277,7 @@ namespace Apache.Ignite.Internal
                 }
 
                 throw new IgniteClientConnectionException(
-                    ErrorGroups.Client.Connection,
+                    (ex as IgniteException)?.Code ?? ErrorGroups.Client.Connection,
                     "Failed to connect to endpoint: " + endPoint.EndPoint,
                     ex);
             }
