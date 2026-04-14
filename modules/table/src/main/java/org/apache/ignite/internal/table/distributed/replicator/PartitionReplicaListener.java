@@ -2713,6 +2713,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<CommandApplicationResult> applyCmdRespectingDelayedAck(UpdateCommandBase cmd, boolean skipDelayedAck) {
+        assert !cmd.full() : "Only non-full commands are supported here";
+
         if (skipDelayedAck) {
             return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
         } else {
