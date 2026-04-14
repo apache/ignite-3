@@ -126,7 +126,9 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
 
         return f.handle((primaryReplica, e) -> {
             if (e != null) {
-                LOG.debug("Failed to retrieve primary replica for partition {}", e, replicationGroupId);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Failed to retrieve primary replica for partition {}", e, replicationGroupId);
+                }
 
                 throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
                         + " [replicationGroupId=" + replicationGroupId + ']', e);

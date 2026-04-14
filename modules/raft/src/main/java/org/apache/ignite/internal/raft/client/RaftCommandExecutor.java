@@ -708,7 +708,9 @@ class RaftCommandExecutor {
                     // Infinite wait mode: start a new retry phase.
                     // We may not have probed all peers yet (e.g., with many peers and short retry timeout),
                     // so we can't assume there's no leader. Start fresh and keep trying.
-                    LOG.debug("Retry phase timeout expired with infinite deadline, starting new retry phase [groupId={}]", groupId);
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Retry phase timeout expired with infinite deadline, starting new retry phase [groupId={}]", groupId);
+                    }
                     Peer initialPeer = resolveInitialPeer(targetStrategy, originalPeer);
                     if (initialPeer == null) {
                         fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
@@ -1016,7 +1018,9 @@ class RaftCommandExecutor {
                 return;
             }
 
-            LOG.debug("All peers exhausted, waiting for leader [groupId={}, term={}]", groupId, termWhenStarted);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("All peers exhausted, waiting for leader [groupId={}, term={}]", groupId, termWhenStarted);
+            }
             leaderAvailabilityState.onGroupUnavailable(termWhenStarted);
             waitForLeaderAndRetry(futureInvokeResult, requestFactory, targetSelectionStrategy, originalPeer, deadline);
         }

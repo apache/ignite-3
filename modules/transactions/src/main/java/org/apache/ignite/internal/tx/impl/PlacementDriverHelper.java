@@ -111,7 +111,9 @@ public class PlacementDriverHelper {
         return placementDriver.awaitPrimaryReplica(partitionId, timestamp, timeout, timeUnit)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
-                        LOG.debug("Failed to retrieve primary replica for partition {}", partitionId, e);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Failed to retrieve primary replica for partition {}", partitionId, e);
+                        }
 
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
                                 "Failed to get the primary replica"

@@ -126,13 +126,17 @@ class LeaderAvailabilityState {
 
         synchronized (mutex) {
             if (stopped) {
-                LOG.debug("Ignoring leader update after stop [leader={}, term={}]", leader, term);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Ignoring leader update after stop [leader={}, term={}]", leader, term);
+                }
                 return false;
             }
 
             // Ignore stale term notifications.
             if (term <= currentTerm) {
-                LOG.debug("Ignoring stale leader [newTerm={}, currentTerm={}]", term, currentTerm);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Ignoring stale leader [newTerm={}, currentTerm={}]", term, currentTerm);
+                }
                 return false;
             }
 
@@ -147,8 +151,10 @@ class LeaderAvailabilityState {
                 futureToComplete = waiters;
             }
 
-            LOG.debug("Leader updated [leader={}, term={}, previousTerm={}, stateChange={}->{}]",
-                    leader, term, previousTerm, previousState, currentState);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Leader updated [leader={}, term={}, previousTerm={}, stateChange={}->{}]",
+                        leader, term, previousTerm, previousState, currentState);
+            }
         }
 
         // Complete outside the lock to avoid potential deadlocks with future callbacks.
@@ -212,8 +218,10 @@ class LeaderAvailabilityState {
             currentState = State.WAITING_FOR_LEADER;
             waiters = new CompletableFuture<>();
 
-            LOG.debug("Leader state reset [previousTerm={}, stateChange={}->{}]",
-                    previousTerm, previousState, currentState);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Leader state reset [previousTerm={}, stateChange={}->{}]",
+                        previousTerm, previousState, currentState);
+            }
         }
     }
 
@@ -243,8 +251,10 @@ class LeaderAvailabilityState {
                 currentState = State.WAITING_FOR_LEADER;
                 waiters = new CompletableFuture<>();
 
-                LOG.debug("Group unavailable [term={}, stateChange={}->{}]",
-                        termWhenDetected, previousState, currentState);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Group unavailable [term={}, stateChange={}->{}]",
+                            termWhenDetected, previousState, currentState);
+                }
             }
         }
     }

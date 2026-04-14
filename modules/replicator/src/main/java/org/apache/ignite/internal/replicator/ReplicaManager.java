@@ -413,7 +413,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (indicatesUnexpectedProblem(ex)) {
                         throttledLog.warn(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
                     } else {
-                        throttledLog.debug(THROTTLE_REQUEST_KEY, "{} [request={}].", ex, THROTTLE_REQUEST_KEY, request);
+                        if (throttledLog.isDebugEnabled()) {
+                            throttledLog.debug(
+                                    THROTTLE_REQUEST_KEY,
+                                    () -> format("{} [request={}].", THROTTLE_REQUEST_KEY, request),
+                                    ex
+                            );
+                        }
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
@@ -432,7 +438,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             res.delayedAckProcessor != null ? res.delayedAckProcessor : (res0, ex0) -> {
                                 NetworkMessage msg0;
 
-                                LOG.debug("Sending delayed response for replica request [request={}]", request);
+                                if (LOG.isDebugEnabled()) {
+                                    LOG.debug("Sending delayed response for replica request [request={}]", request);
+                                }
 
                                 if (ex0 == null) {
                                     msg0 = prepareDelayedReplicaResponse(sendTimestamp, res0);

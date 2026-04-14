@@ -849,8 +849,10 @@ public class Replicator implements ThreadId.OnError {
 
                 addInflight(RequestType.AppendEntries, this.nextIndex, 0, 0, seq, rpcFuture);
             }
-            LOG.debug("Node {} send HeartbeatRequest to {} term {} lastCommittedIndex {}", this.options.getNode()
-                .getNodeId(), this.options.getPeerId(), this.options.getTerm(), request.committedIndex());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Node {} send HeartbeatRequest to {} term {} lastCommittedIndex {}", this.options.getNode()
+                    .getNodeId(), this.options.getPeerId(), this.options.getTerm(), request.committedIndex());
+            }
         }
         finally {
             unlockId();
@@ -1055,7 +1057,9 @@ public class Replicator implements ThreadId.OnError {
         }
         final long dueTime = startTimeMs + this.options.getDynamicHeartBeatTimeoutMs();
         try {
-            LOG.debug("Blocking nodeId {} for {} ms", this.options.getNode().getNodeId(), this.options.getDynamicHeartBeatTimeoutMs());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Blocking nodeId {} for {} ms", this.options.getNode().getNodeId(), this.options.getDynamicHeartBeatTimeoutMs());
+            }
             this.blockTimer = this.timerManager.schedule(() -> onBlockTimeout(this.id, this.options.getCommonExecutor()),
                 dueTime - Utils.nowMs(), TimeUnit.MILLISECONDS);
             this.statInfo.runningState = RunningState.BLOCKING;
@@ -1138,9 +1142,11 @@ public class Replicator implements ThreadId.OnError {
             if (this.nextIndex - 1 + this.catchUpClosure.getMaxMargin() < this.options.getLogManager()
                 .getLastLogIndex()) {
 
-                LOG.debug("Catch up for in progress [node={}, currentIndex={}, leaderLogLastIndex={}, catchUpMargin={})].",
-                    getOpts().getNode().getNodeId(), nextIndex - 1, options.getLogManager().getLastLogIndex(),
-                    catchUpClosure.getMaxMargin());
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Catch up for in progress [node={}, currentIndex={}, leaderLogLastIndex={}, catchUpMargin={})].",
+                        getOpts().getNode().getNodeId(), nextIndex - 1, options.getLogManager().getLastLogIndex(),
+                        catchUpClosure.getMaxMargin());
+                }
 
                 return;
             }
@@ -1334,9 +1340,11 @@ public class Replicator implements ThreadId.OnError {
         }
 
         if (stateVersion != r.version) {
-            LOG.debug(
-                "Replicator {} ignored old version response {}, current version is {}, request is {}\n, and response is {}\n, status is {}.",
-                r, stateVersion, r.version, request, response, status);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(
+                    "Replicator {} ignored old version response {}, current version is {}, request is {}\n, and response is {}\n, status is {}.",
+                    r, stateVersion, r.version, request, response, status);
+            }
             id.unlock();
             return;
         }
@@ -1560,7 +1568,9 @@ public class Replicator implements ThreadId.OnError {
             r.resetInflights();
             // prev_log_index and prev_log_term doesn't match
             if (response.lastLogIndex() + 1 < r.nextIndex) {
-                LOG.debug("LastLogIndex at node={} is {}", r.options.getNode().getNodeId(), response.lastLogIndex());
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("LastLogIndex at node={} is {}", r.options.getNode().getNodeId(), response.lastLogIndex());
+                }
                 // The peer contains less logs than leader
                 r.nextIndex = response.lastLogIndex() + 1;
             }
@@ -1568,7 +1578,9 @@ public class Replicator implements ThreadId.OnError {
                 // The peer contains logs from old term which should be truncated,
                 // decrease _last_log_at_peer by one to test the right index to keep
                 if (r.nextIndex > 1) {
-                    LOG.debug("Log index dismatch [node={}, logIndex={}].", r.options.getNode().getNodeId(), r.nextIndex);
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Log index dismatch [node={}, logIndex={}].", r.options.getNode().getNodeId(), r.nextIndex);
+                    }
                     r.nextIndex--;
                 }
                 else {
@@ -1633,7 +1645,9 @@ public class Replicator implements ThreadId.OnError {
         if (prevLogTerm == 0 && prevLogIndex != 0) {
             if (!isHeartbeat) {
                 Requires.requireTrue(prevLogIndex < this.options.getLogManager().getFirstLogIndex());
-                LOG.debug("Log was compacted [node={}, logIndex={}].", this.options.getNode().getNodeId(), prevLogIndex);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Log was compacted [node={}, logIndex={}].", this.options.getNode().getNodeId(), prevLogIndex);
+                }
                 rb.prevLogIndex(prevLogIndex);
                 return false;
             }
@@ -1655,7 +1669,9 @@ public class Replicator implements ThreadId.OnError {
 
     private void waitMoreEntries(final long nextWaitIndex) {
         try {
-            LOG.debug("Node {} waits more entries", this.options.getNode().getNodeId());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Node {} waits more entries", this.options.getNode().getNodeId());
+            }
             if (this.waitId >= 0) {
                 return;
             }

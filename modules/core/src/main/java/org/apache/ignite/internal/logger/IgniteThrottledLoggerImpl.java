@@ -284,17 +284,29 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
             return;
         }
 
-        String message = messageSupplier.get();
-
-        var msgKey = new LogThrottleKey(throwable, throttleKey == null ? message : throttleKey);
+        String message = null;
+        LogThrottleKey msgKey = null;
 
         while (true) {
+            if (msgKey == null) {
+                if (throttleKey == null) {
+                    message = messageSupplier.get();
+                    msgKey = new LogThrottleKey(throwable, message);
+                } else {
+                    msgKey = new LogThrottleKey(throwable, throttleKey);
+                }
+            }
+
             Long loggedTs = messagesMap.get(msgKey);
 
             long curTs = FastTimestamps.coarseCurrentTimeMillis();
 
             if (loggedTs == null || curTs - loggedTs >= throttleIntervalMs) {
                 if (replace(msgKey, loggedTs, curTs)) {
+                    if (message == null) {
+                        message = messageSupplier.get();
+                    }
+
                     if (throwable == null) {
                         delegate.log(level, message);
                     } else {

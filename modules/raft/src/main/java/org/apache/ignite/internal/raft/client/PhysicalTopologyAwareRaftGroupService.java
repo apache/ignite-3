@@ -216,7 +216,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                             }
 
                             if (leaderWithTerm == null || leaderWithTerm.leader() == null) {
-                                LOG.debug("No leader information available [grp={}].", groupId());
+                                if (LOG.isDebugEnabled()) {
+                                    LOG.debug("No leader information available [grp={}].", groupId());
+                                }
                                 return;
                             }
 
@@ -309,11 +311,17 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             CompletableFutures.allOf(futures).get(SUBSCRIPTION_CLEANUP_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.debug("Interrupted while waiting for subscription cleanup [grp={}].", groupId);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Interrupted while waiting for subscription cleanup [grp={}].", groupId);
+            }
         } catch (ExecutionException e) {
-            LOG.debug("Error during subscription cleanup [grp={}].", groupId, e.getCause());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Error during subscription cleanup [grp={}].", groupId, e.getCause());
+            }
         } catch (TimeoutException e) {
-            LOG.debug("Timeout waiting for subscription cleanup [grp={}].", groupId);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Timeout waiting for subscription cleanup [grp={}].", groupId);
+            }
         }
     }
 

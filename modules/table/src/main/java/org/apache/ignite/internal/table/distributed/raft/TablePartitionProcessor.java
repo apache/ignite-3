@@ -517,16 +517,20 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandTerm
     ) {
         long storageLastAppliedIndex = storage.lastAppliedIndex();
-        LOG.debug("Handling PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, storageLastAppliedIndex={}, "
-                        + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
-                storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex,
-                cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Handling PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, storageLastAppliedIndex={}, "
+                            + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
+                    storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex,
+                    cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+        }
 
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storageLastAppliedIndex) {
-            LOG.debug("Skipping PrimaryReplicaChangeCommand - already applied [tableId={}, partId={}, commandIndex={}, "
-                            + "storageLastAppliedIndex={}]",
-                    storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Skipping PrimaryReplicaChangeCommand - already applied [tableId={}, partId={}, commandIndex={}, "
+                                + "storageLastAppliedIndex={}]",
+                        storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex);
+            }
             return EMPTY_NOT_APPLIED_RESULT;
         }
 
@@ -540,8 +544,10 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             return null;
         });
 
-        LOG.debug("Successfully applied PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, leaseStartTime={}]",
-                storage.tableId(), storage.partitionId(), commandIndex, cmd.leaseStartTime());
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Successfully applied PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, leaseStartTime={}]",
+                    storage.tableId(), storage.partitionId(), commandIndex, cmd.leaseStartTime());
+        }
 
         return EMPTY_APPLIED_RESULT;
     }

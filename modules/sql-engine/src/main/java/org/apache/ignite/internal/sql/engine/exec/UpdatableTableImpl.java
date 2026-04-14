@@ -384,7 +384,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     /** Transforms keys list to appropriate exception. */
     private static RuntimeException conflictKeysException(List<String> conflictKeys) {
-        LOG.debug("Unable to insert rows because of conflict [rows={}]", conflictKeys);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Unable to insert rows because of conflict [rows={}]", conflictKeys);
+        }
 
         return new SqlException(CONSTRAINT_VIOLATION_ERR, "PK unique constraint is violated");
     }

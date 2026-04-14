@@ -289,7 +289,9 @@ public class PlacementDriverMessageProcessor {
                         LOG.warn("Failed to read index from raft leader {}.",
                                 readIndexError, readIndexTimeTracker.timeMessageDetails());
                     } else {
-                        LOG.debug("Successfully read index from raft leader {}.", readIndexTimeTracker.timeMessageDetails());
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Successfully read index from raft leader {}.", readIndexTimeTracker.timeMessageDetails());
+                        }
                     }
                 })
                 .thenCompose(raftIndex -> {
@@ -310,8 +312,10 @@ public class PlacementDriverMessageProcessor {
                                     LOG.warn("Failed to wait for storage index to reach raft leader {}.",
                                             storageIndexTrackerError, storageIndexUpdateTimeTracker.timeMessageDetails());
                                 } else {
-                                    LOG.debug("Successfully waited for storage index to reach raft leader {}.",
-                                            storageIndexUpdateTimeTracker.timeMessageDetails());
+                                    if (LOG.isDebugEnabled()) {
+                                        LOG.debug("Successfully waited for storage index to reach raft leader {}.",
+                                                storageIndexUpdateTimeTracker.timeMessageDetails());
+                                    }
                                 }
                             });
                 });

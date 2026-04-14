@@ -121,7 +121,9 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
 
         Status st = NodeImpl.cannotApplyBecauseNotLeaderStatus(state);
 
-        LOG.debug("Node {} can't apply, status={}.", node.getNodeId(), st);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Node {} can't apply, status={}.", node.getNodeId(), st);
+        }
 
         PeerId leaderId = node.getLeaderId();
 
