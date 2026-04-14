@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
-import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.Values;
@@ -57,12 +56,7 @@ public class PruneTableModifyRule extends RelRule<Config> implements Substitutio
         RexLiteral zeroLiteral = IgniteRexBuilder.INSTANCE.makeLiteral(0L, singleRel.getRowType().getFieldList().get(0).getType());
         RelNode singleValue = call.builder().values(List.of(List.of(zeroLiteral)), singleRel.getRowType()).build();
 
-        RelTraitSet traits = singleRel.getTraitSet();
-        // propagate all traits (except convention) from the original singleRel
-        if (singleValue.getConvention() != null) {
-            traits = traits.replace(singleValue.getConvention());
-        }
-        singleValue = singleValue.copy(traits, Collections.emptyList());
+        singleValue = singleValue.copy(singleRel.getCluster().traitSet(), Collections.emptyList());
         call.transformTo(singleValue);
     }
 
