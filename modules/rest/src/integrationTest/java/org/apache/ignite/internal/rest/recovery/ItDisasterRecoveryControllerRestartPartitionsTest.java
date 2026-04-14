@@ -58,6 +58,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Test for disaster recovery restart partitions command. */
@@ -156,14 +157,14 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
         assertThat(client.toBlocking().exchange(post), hasStatus(OK));
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(0, 1));
 
         assertThat(client.toBlocking().exchange(post), hasStatus(OK));
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testRestartPartitionsByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
