@@ -93,6 +93,5 @@ public class SharedLogStorageManagerUtils {
         } catch (IOException e) {
             throw new LogStorageException("Couldn't create SegmentLogStorageManager", e);
         }
-
     }
 }
