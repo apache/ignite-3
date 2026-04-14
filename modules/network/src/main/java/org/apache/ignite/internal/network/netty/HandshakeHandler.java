@@ -25,7 +25,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.BrokenHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 
@@ -111,9 +111,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) {
         // If this method is called that means channel has been closed before handshake has finished or handshake
         // has failed.
-        manager.localHandshakeFuture().completeExceptionally(
-                new HandshakeException("Channel has been closed before handshake has finished or handshake has failed")
-        );
+        manager.localHandshakeFuture().completeExceptionally(new BrokenHandshakeException());
 
         ctx.fireChannelInactive();
     }

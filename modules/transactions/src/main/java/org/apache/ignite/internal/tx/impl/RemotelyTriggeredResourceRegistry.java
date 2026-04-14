@@ -163,23 +163,19 @@ public class RemotelyTriggeredResourceRegistry {
     }
 
     private void addRemoteHostResource(UUID remoteHostId, FullyQualifiedResourceId resourceId) {
-        remoteHostsToResources.compute(remoteHostId, (k, v) -> {
-            if (v == null) {
-                v = ConcurrentHashMap.newKeySet();
-            }
-
-            v.add(resourceId);
-
-            return v;
-        });
+        remoteHostsToResources.computeIfAbsent(remoteHostId, k -> ConcurrentHashMap.newKeySet()).add(resourceId);
     }
 
     private void removeRemoteHostResource(UUID remoteHostId, FullyQualifiedResourceId resourceId) {
-        remoteHostsToResources.computeIfPresent(remoteHostId, (k, v) -> {
-            v.remove(resourceId);
+        Set<FullyQualifiedResourceId> resources = remoteHostsToResources.get(remoteHostId);
 
-            return v.isEmpty() ? null : v;
-        });
+        if (resources != null) {
+            resources.remove(resourceId);
+
+            if (resources.isEmpty()) {
+                remoteHostsToResources.computeIfPresent(remoteHostId, (k, v) -> v.isEmpty() ? null : v);
+            }
+        }
     }
 
     private Map<FullyQualifiedResourceId, RemotelyTriggeredResource> resources(UUID contextId) {

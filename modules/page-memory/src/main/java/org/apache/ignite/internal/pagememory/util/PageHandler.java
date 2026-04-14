@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory.util;
 import static java.lang.Boolean.FALSE;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.jetbrains.annotations.Nullable;
 
@@ -93,7 +93,7 @@ public interface PageHandler<X, R> {
      * @throws IgniteInternalCheckedException If failed.
      */
     static <X, R> R readPage(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             int groupId,
             long pageId,
             PageHandler<X, R> h,
@@ -125,7 +125,7 @@ public interface PageHandler<X, R> {
      * @throws IgniteInternalCheckedException If failed.
      */
     static <X, R> R readPage(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             int groupId,
             long pageId,
             long page,
@@ -162,7 +162,7 @@ public interface PageHandler<X, R> {
      * @see PageIo#initNewPage(long, long, int)
      */
     static void initPage(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             int groupId,
             long pageId,
             PageIo init
@@ -197,7 +197,7 @@ public interface PageHandler<X, R> {
      */
     // TODO IGNITE-16350 Consider splitting into two separate methods for init and regular locking.
     static <X, R> R writePage(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             int groupId,
             final long pageId,
             PageHandler<X, R> h,
@@ -260,7 +260,7 @@ public interface PageHandler<X, R> {
      * @throws IgniteInternalCheckedException If failed.
      */
     static <X, R> R writePage(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             int groupId,
             long pageId,
             long page,
@@ -304,7 +304,7 @@ public interface PageHandler<X, R> {
      * Invokes {@link PageIo#initNewPage(long, long, int)} and does additional checks.
      */
     private static void doInitPage(
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             int groupId,
             long pageId,
             long pageAddr,

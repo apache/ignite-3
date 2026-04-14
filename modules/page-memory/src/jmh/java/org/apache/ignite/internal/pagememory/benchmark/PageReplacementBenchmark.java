@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -92,6 +93,7 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
     public CachePressure cachePressure;
 
     private long[] pageIds;
+    private PartitionPageMemory[] partitionPageMemories;
 
     private int workingSetSize;
 
@@ -262,6 +264,7 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
      */
     private void prepareWorkingSet() throws Exception {
         pageIds = new long[workingSetSize];
+        partitionPageMemories = new PartitionPageMemory[workingSetSize];
 
         // Allocate 80% of capacity at a time to avoid hitting dirty pages limit.
         int batchSize = (int) Math.round(REGION_CAPACITY_PAGES * 0.8);
@@ -276,12 +279,13 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
                 // Distribute pages randomly across partitions.
                 for (int i = batchStart; i < batchEnd; i++) {
                     int partitionId = partitionRandom.nextInt(PARTITION_COUNT);
-                    pageIds[i] = persistentPageMemory().allocatePage(null, GROUP_ID, partitionId, FLAG_DATA);
+                    PartitionPageMemory partitionPageMemory = partitionPageMemory(partitionId);
+                    pageIds[i] = partitionPageMemory.allocatePage(null, GROUP_ID, partitionId, FLAG_DATA);
+                    partitionPageMemories[i] = partitionPageMemory;
                 }
 
                 for (int i = batchStart; i < batchEnd; i++) {
-                    long pageId = pageIds[i];
-                    writePage(pageId, pageIo);
+                    writePage(i, pageIo);
                 }
             } finally {
                 checkpointManager().checkpointTimeoutLock().checkpointReadUnlock();
@@ -325,9 +329,8 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
         try {
             for (int i = 0; i < warmupPages; i++) {
                 int index = warmupDistribution.next();
-                long pageId = pageIds[index];
 
-                accessPageReadOnly(pageId, 0, blackhole);
+                accessPageReadOnly(index, 0, blackhole);
             }
         } finally {
             checkpointManager().checkpointTimeoutLock().checkpointReadUnlock();
@@ -387,13 +390,15 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
 
     private void benchmarkIteration(ThreadState state, Blackhole blackhole) throws IgniteInternalCheckedException {
         int index = state.nextZipfianIndex();
-        long pageId = pageIds[index];
-        accessPageReadOnly(pageId, state.threadIndex(), blackhole);
+        accessPageReadOnly(index, state.threadIndex(), blackhole);
     }
 
-    private void accessPageReadOnly(long pageId, int threadIndex, Blackhole blackhole)
+    private void accessPageReadOnly(int index, int threadIndex, Blackhole blackhole)
             throws IgniteInternalCheckedException {
-        long page = persistentPageMemory().acquirePage(GROUP_ID, pageId);
+        long pageId = pageIds[index];
+        PartitionPageMemory partitionPageMemory = partitionPageMemories[index];
+
+        long page = partitionPageMemory.acquirePage(GROUP_ID, pageId);
 
         if (page == 0) {
             throw new IllegalStateException(String.format(
@@ -408,22 +413,25 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
         try {
             blackhole.consume(page);
         } finally {
-            persistentPageMemory().releasePage(GROUP_ID, pageId, page);
+            partitionPageMemory.releasePage(GROUP_ID, pageId, page);
         }
     }
 
-    private void writePage(long pageId, PageIo pageIo) throws IgniteInternalCheckedException {
-        long page = persistentPageMemory().acquirePage(GROUP_ID, pageId);
+    private void writePage(int index, PageIo pageIo) throws IgniteInternalCheckedException {
+        long pageId = pageIds[index];
+        PartitionPageMemory partitionPageMemory = partitionPageMemories[index];
+
+        long page = partitionPageMemory.acquirePage(GROUP_ID, pageId);
         try {
-            long pageAddr = persistentPageMemory().writeLock(GROUP_ID, pageId, page);
+            long pageAddr = partitionPageMemory.writeLock(GROUP_ID, pageId, page);
             try {
                 pageIo.initNewPage(pageAddr, pageId, PAGE_SIZE);
                 TestSimpleValuePageIo.setLongValue(pageAddr, pageId);
             } finally {
-                persistentPageMemory().writeUnlock(GROUP_ID, pageId, page, true);
+                partitionPageMemory.writeUnlock(GROUP_ID, pageId, page, true);
             }
         } finally {
-            persistentPageMemory().releasePage(GROUP_ID, pageId, page);
+            partitionPageMemory.releasePage(GROUP_ID, pageId, page);
         }
     }
 

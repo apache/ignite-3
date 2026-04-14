@@ -63,6 +63,7 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
@@ -118,6 +119,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     private CheckpointManager checkpointManager;
 
     private PersistentPageMemory pageMemory;
+    private PartitionPageMemory partitionPageMemory;
 
     @InjectExecutorService
     private ExecutorService executorService;
@@ -177,6 +179,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL),
                 checkpointManager.partitionDestructionLockManager()
         );
+
+        partitionPageMemory = pageMemory.createPartitionPageMemory(GROUP_ID, PARTITION_ID);
 
         dataRegionList.add(new TestDataRegion<>(pageMemory));
 
@@ -378,20 +382,20 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     }
 
     private void createAndFillTestSimpleValuePage(long pageId) throws Exception {
-        long page = pageMemory.acquirePage(GROUP_ID, pageId);
+        long page = partitionPageMemory.acquirePage(GROUP_ID, pageId);
 
         try {
-            long pageAddr = pageMemory.writeLock(GROUP_ID, pageId, page);
+            long pageAddr = partitionPageMemory.writeLock(GROUP_ID, pageId, page);
 
             try {
                 new TestSimpleValuePageIo().initNewPage(pageAddr, pageId, PAGE_SIZE);
 
                 TestSimpleValuePageIo.setLongValue(pageAddr, pageIndex(pageId) * 3L);
             } finally {
-                pageMemory.writeUnlock(GROUP_ID, pageId, page, true);
+                partitionPageMemory.writeUnlock(GROUP_ID, pageId, page, true);
             }
         } finally {
-            pageMemory.releasePage(GROUP_ID, pageId, page);
+            partitionPageMemory.releasePage(GROUP_ID, pageId, page);
         }
     }
 
@@ -454,13 +458,13 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private void createAndFillTestSimpleValuePages(int pageCount) throws Exception {
         for (int i = 0; i < pageCount; i++) {
-            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
+            createAndFillTestSimpleValuePage(partitionPageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
         }
     }
 
     private void createAndFillTestSimpleValuePages(BooleanSupplier continuePredicate) throws Exception {
         while (continuePredicate.getAsBoolean()) {
-            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
+            createAndFillTestSimpleValuePage(partitionPageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
         }
     }
 }

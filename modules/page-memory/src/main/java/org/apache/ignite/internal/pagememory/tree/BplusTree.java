@@ -54,7 +54,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.pagememory.CorruptedDataStructureException;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -924,7 +924,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             int grpId,
             @Nullable String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -954,7 +954,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             int grpId,
             @Nullable String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
@@ -1293,37 +1293,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     e,
                     grpId,
                     pageIds
-            );
-        } finally {
-            checkDestroyed();
-        }
-    }
-
-    /**
-     * Iterates over the tree.
-     *
-     * @param lower Lower bound inclusive.
-     * @param upper Upper bound inclusive.
-     * @param c Closure applied for all found items, iteration is stopped if closure returns {@code false}.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public void iterate(L lower, L upper, TreeRowClosure<L, T> c) throws IgniteInternalCheckedException {
-        checkDestroyed();
-
-        ClosureCursor cursor = new ClosureCursor(lower, upper, c);
-
-        try {
-            cursor.iterate();
-        } catch (CorruptedDataStructureException e) {
-            throw e;
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalCheckedException("Runtime failure on bounds [lower=" + lower + ", upper=" + upper + "]", e);
-        } catch (RuntimeException | AssertionError e) {
-            throw corruptedTreeException(
-                    "Runtime failure on bounds [lower=" + lower + ", upper=" + upper + "]",
-                    e,
-                    grpId,
-                    pages(cursor.getCursor != null, () -> new long[]{cursor.getCursor.pageId})
             );
         } finally {
             checkDestroyed();
@@ -6040,106 +6009,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (lower != null) {
                 lowerShift = 1; // Now we have the full row an need to avoid duplicates.
                 lowerBound = lower; // Move the lower bound forward for further concurrent merge retries.
-            }
-        }
-    }
-
-    /**
-     * Closure cursor.
-     */
-    private final class ClosureCursor extends AbstractForwardCursor {
-        /** Row predicate. */
-        private final TreeRowClosure<L, T> predicate;
-
-        /** Last row. */
-        @Nullable
-        private L lastRow;
-
-        /**
-         * Constructor.
-         *
-         * @param lowerBound Lower bound inclusive.
-         * @param upperBound Upper bound inclusive.
-         * @param predicate Row predicate.
-         */
-        ClosureCursor(L lowerBound, L upperBound, TreeRowClosure<L, T> predicate) {
-            super(lowerBound, upperBound, true, true);
-
-            this.predicate = predicate;
-        }
-
-        @Override
-        void init0() {
-            // No-op.
-        }
-
-        @Override
-        boolean fillFromBuffer0(long pageAddr, BplusIo<L> io, int startIdx, int cnt) throws IgniteInternalCheckedException {
-            if (startIdx == -1) {
-                startIdx = findLowerBound(pageAddr, io, cnt);
-            }
-
-            if (cnt == startIdx) {
-                return false;
-            }
-
-            for (int i = startIdx; i < cnt; i++) {
-                int cmp = compare(0, io, pageAddr, i, upperBound);
-
-                if (cmp > 0) {
-                    nextPageId = 0; // The End.
-
-                    return false;
-                }
-
-                boolean stop = !predicate.apply(BplusTree.this, io, pageAddr, i);
-
-                if (stop) {
-                    nextPageId = 0; // The End.
-
-                    return true;
-                }
-            }
-
-            if (nextPageId != 0) {
-                lastRow = io.getLookupRow(BplusTree.this, pageAddr, cnt - 1); // Need save last row.
-            }
-
-            return true;
-        }
-
-        @Override
-        boolean reinitialize0() {
-            return true;
-        }
-
-        @Override
-        void onNotFound(boolean readDone) {
-            nextPageId = 0;
-        }
-
-        /**
-         * Iterates over the tree.
-         *
-         * @throws IgniteInternalCheckedException If failed.
-         */
-        private void iterate() throws IgniteInternalCheckedException {
-            find();
-
-            if (nextPageId == 0) {
-                return;
-            }
-
-            for (; ; ) {
-                L lastRow0 = lastRow;
-
-                lastRow = null;
-
-                nextPage(lastRow0);
-
-                if (nextPageId == 0) {
-                    return;
-                }
             }
         }
     }
