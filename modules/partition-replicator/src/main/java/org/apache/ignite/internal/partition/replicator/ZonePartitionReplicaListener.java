@@ -75,7 +75,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // tableId -> tableProcessor.
-    private final Map<Integer, ReplicaTableProcessor> replicaProcessors = new ConcurrentHashMap<>();
+    private final Map<Integer, TablePartitionReplicaProcessor> replicaProcessors = new ConcurrentHashMap<>();
 
     /** Raft client. */
     private final RaftCommandRunner raftClient;
@@ -260,7 +260,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 .thenCompose(ignored -> {
                     int tableId = ((TableAware) request).tableId();
 
-                    ReplicaTableProcessor replicaProcessor = replicaProcessors.get(tableId);
+                    TablePartitionReplicaProcessor replicaProcessor = replicaProcessors.get(tableId);
 
                     if (replicaProcessor == null) {
                         // Most of the times this condition should be false. This block handles a case when a request got stuck
@@ -334,7 +334,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @return Table replicas listeners.
      */
     @VisibleForTesting
-    public Map<Integer, ReplicaTableProcessor> tableReplicaProcessors() {
+    public Map<Integer, TablePartitionReplicaProcessor> tableReplicaProcessors() {
         return replicaProcessors;
     }
 

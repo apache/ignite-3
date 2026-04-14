@@ -25,7 +25,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 /**
  * Processor of replica requests targeted at a particular table.
  */
-public interface ReplicaTableProcessor {
+public interface TablePartitionReplicaProcessor {
     /**
      * Processes replica request.
      *

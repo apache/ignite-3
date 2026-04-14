@@ -81,7 +81,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      *
      * <p>Concurrent access is guarded by {@link #tableProcessorsStateLock}.
      */
-    private final Int2ObjectMap<RaftTableProcessor> tableProcessors = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<TablePartitionRaftProcessor> tableProcessors = new Int2ObjectOpenHashMap<>();
 
     private final TxStatePartitionStorage txStateStorage;
 
@@ -313,7 +313,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
         boolean wasApplied = false;
 
-        for (RaftTableProcessor processor : tableProcessors.values()) {
+        for (TablePartitionRaftProcessor processor : tableProcessors.values()) {
             CommandResult r = processor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
 
             wasApplied = wasApplied || r.wasApplied();
@@ -339,7 +339,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
-        RaftTableProcessor tableProcessor = tableProcessors.get(tableId);
+        TablePartitionRaftProcessor tableProcessor = tableProcessors.get(tableId);
 
         if (tableProcessor == null) {
             // Most of the times this condition should be false. This logging message is added in case a Raft command got stuck somewhere
@@ -444,7 +444,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         cleanupSnapshots();
 
         synchronized (tableProcessorsStateLock) {
-            tableProcessors.values().forEach(RaftTableProcessor::onShutdown);
+            tableProcessors.values().forEach(TablePartitionRaftProcessor::onShutdown);
         }
     }
 
@@ -454,7 +454,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         long result = max(0, txStateStorage.lastAppliedIndex());
 
         synchronized (tableProcessorsStateLock) {
-            for (RaftTableProcessor processor : tableProcessors.values()) {
+            for (TablePartitionRaftProcessor processor : tableProcessors.values()) {
                 result = max(result, processor.lastAppliedIndex());
             }
         }
@@ -471,7 +471,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * version. Until the Catalog version is updated, commands targeting the table being added will be rejected by an interceptor that
      * requires the Catalog version to be equal to a particular value.
      */
-    public void addTableProcessor(int tableId, RaftTableProcessor processor) {
+    public void addTableProcessor(int tableId, TablePartitionRaftProcessor processor) {
         synchronized (tableProcessorsStateLock) {
             RaftGroupConfiguration configuration = raftGroupConfigurationConverter.fromBytes(txStateStorage.committedGroupConfiguration());
 
@@ -479,7 +479,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             processor.initialize(configuration, leaseInfo, lastAppliedIndex, lastAppliedTerm);
 
-            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
+            TablePartitionRaftProcessor prev = tableProcessors.put(tableId, processor);
 
             assert prev == null : "Listener for table " + tableId + " already exists";
         }
@@ -488,7 +488,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     /**
      * Adds a given Table Partition-level Raft processor to the set of managed processors during node recovery on startup.
      */
-    public void addTableProcessorOnRecovery(int tableId, RaftTableProcessor processor) {
+    public void addTableProcessorOnRecovery(int tableId, TablePartitionRaftProcessor processor) {
         synchronized (tableProcessorsStateLock) {
             PartitionSnapshotInfo snapshotInfo = snapshotInfo();
 
@@ -513,7 +513,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 );
             }
 
-            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
+            TablePartitionRaftProcessor prev = tableProcessors.put(tableId, processor);
 
             assert prev == null : "Listener for table " + tableId + " already exists";
         }
@@ -531,7 +531,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     /** Returns the table processor associated with the given table ID. */
     @TestOnly
-    public @Nullable RaftTableProcessor tableProcessor(int tableId) {
+    public @Nullable TablePartitionRaftProcessor tableProcessor(int tableId) {
         synchronized (tableProcessorsStateLock) {
             return tableProcessors.get(tableId);
         }

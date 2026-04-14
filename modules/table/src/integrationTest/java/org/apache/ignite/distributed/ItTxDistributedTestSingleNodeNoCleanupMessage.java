@@ -63,7 +63,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -170,7 +170,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
             }
 
             @Override
-            protected PartitionReplicaListener newReplicaListener(
+            protected DefaultTablePartitionReplicaProcessor newReplicaListener(
                     MvPartitionStorage mvDataStorage,
                     RaftGroupService raftClient,
                     TxManager txManager,
@@ -193,7 +193,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
                     SchemaRegistry schemaRegistry
             ) {
-                return new PartitionReplicaListener(
+                return new DefaultTablePartitionReplicaProcessor(
                         mvDataStorage,
                         raftClient,
                         txManager,

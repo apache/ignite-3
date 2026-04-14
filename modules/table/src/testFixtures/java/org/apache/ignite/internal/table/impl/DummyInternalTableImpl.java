@@ -125,9 +125,9 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -479,7 +479,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         var validationSchemasSource = new DummyValidationSchemasSource(schemaManager);
         var schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
-        var tableReplicaListener = new PartitionReplicaListener(
+        var tableReplicaListener = new DefaultTablePartitionReplicaProcessor(
                 mvPartStorage,
                 svc,
                 this.txManager,
@@ -551,7 +551,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         });
 
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
-        var tablePartitionListener = new TablePartitionProcessor(
+        var tablePartitionListener = new DefaultTablePartitionRaftProcessor(
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,

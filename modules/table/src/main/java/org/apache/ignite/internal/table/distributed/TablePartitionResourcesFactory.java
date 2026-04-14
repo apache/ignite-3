@@ -45,12 +45,12 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -67,8 +67,8 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  *
  * <p><b>Lifecycle ordering:</b> the caller must invoke {@link StorageUpdateHandler#start} on the
  * {@link PartitionResources#storageUpdateHandler} returned by {@link #createPartitionResources} before
- * the constructed objects ({@link TablePartitionProcessor}, {@link PartitionMvStorageAccess},
- * {@link PartitionReplicaListener}) are used at runtime.
+ * the constructed objects ({@link DefaultTablePartitionRaftProcessor}, {@link PartitionMvStorageAccess},
+ * {@link DefaultTablePartitionReplicaProcessor}) are used at runtime.
  */
 class TablePartitionResourcesFactory {
     private final TxManager txManager;
@@ -202,7 +202,7 @@ class TablePartitionResourcesFactory {
     }
 
     /**
-     * Creates a {@link TablePartitionProcessor} for the given partition.
+     * Creates a {@link DefaultTablePartitionRaftProcessor} for the given partition.
      *
      * @param zonePartitionId Zone partition ID.
      * @param table Table view.
@@ -210,13 +210,13 @@ class TablePartitionResourcesFactory {
      * @param partitionResources Partition resources.
      * @return Table partition processor.
      */
-    TablePartitionProcessor createTablePartitionProcessor(
+    DefaultTablePartitionRaftProcessor createTablePartitionProcessor(
             ZonePartitionId zonePartitionId,
             TableViewInternal table,
             PartitionDataStorage partitionDataStorage,
             PartitionResources partitionResources
     ) {
-        return new TablePartitionProcessor(
+        return new DefaultTablePartitionRaftProcessor(
                 txManager,
                 partitionDataStorage,
                 partitionResources.storageUpdateHandler,
@@ -257,7 +257,7 @@ class TablePartitionResourcesFactory {
     }
 
     /**
-     * Creates a {@link PartitionReplicaListener} for the given partition.
+     * Creates a {@link DefaultTablePartitionReplicaProcessor} for the given partition.
      *
      * @param replicationGroupId Zone partition ID used as the replication group ID.
      * @param table Table view.
@@ -268,7 +268,7 @@ class TablePartitionResourcesFactory {
      * @param transactionStateResolver Transaction state resolver.
      * @return Partition replica listener.
      */
-    PartitionReplicaListener createReplicaListener(
+    DefaultTablePartitionReplicaProcessor createReplicaListener(
             ZonePartitionId replicationGroupId,
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
@@ -279,7 +279,7 @@ class TablePartitionResourcesFactory {
     ) {
         int partitionIndex = replicationGroupId.partitionId();
 
-        return new PartitionReplicaListener(
+        return new DefaultTablePartitionReplicaProcessor(
                 mvPartitionStorage,
                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                 txManager,
