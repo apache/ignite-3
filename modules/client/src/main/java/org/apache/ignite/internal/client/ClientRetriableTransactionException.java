@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * Wraps client exception cause for retry purposes, which is based on marker interface RetriableTransactionException.
  */
-public class ClientRetriableTransactionException extends IgniteException implements RetriableTransactionException {
+public class ClientRetriableTransactionException extends IgniteInternalException implements RetriableTransactionException {
     public ClientRetriableTransactionException(int code, String msg, Throwable cause) {
         super(code, msg, cause);
     }

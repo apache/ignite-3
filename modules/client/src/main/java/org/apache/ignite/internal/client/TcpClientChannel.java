@@ -679,7 +679,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.TX_KILL)) {
-                return new ClientTransactionKilledException(traceId, code, msg, unpacker.unpackUuid(), null);
+                Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
+                return new ClientTransactionKilledException(traceId, code, msg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.FLAGS)) {
                 EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
                 retriable = flags.contains(ErrorFlags.RETRIABLE);
