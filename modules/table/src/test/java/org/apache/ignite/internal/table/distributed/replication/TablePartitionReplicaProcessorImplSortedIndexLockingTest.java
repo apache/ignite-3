@@ -31,9 +31,9 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorIndexLockingTest.LOCAL_NODE_ID;
-import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorTest.binaryRowsToBuffers;
-import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorTest.zonePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.replication.TablePartitionReplicaProcessorImplIndexLockingTest.LOCAL_NODE_ID;
+import static org.apache.ignite.internal.table.distributed.replication.TablePartitionReplicaProcessorImplTest.binaryRowsToBuffers;
+import static org.apache.ignite.internal.table.distributed.replication.TablePartitionReplicaProcessorImplTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -103,7 +103,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionReplicaProcessorImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -135,7 +135,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /** There are tests for partition replica listener. */
 @ExtendWith(ConfigurationExtension.class)
-public class DefaultTablePartitionReplicaProcessorSortedIndexLockingTest extends IgniteAbstractTest {
+public class TablePartitionReplicaProcessorImplSortedIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
     private static final int TABLE_ID = 1;
     private static final int PK_INDEX_ID = 1;
@@ -153,7 +153,7 @@ public class DefaultTablePartitionReplicaProcessorSortedIndexLockingTest extends
     private static SchemaDescriptor schemaDescriptor;
     private static KvMarshaller<Integer, Integer> kvMarshaller;
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
-    private static DefaultTablePartitionReplicaProcessor tablePartitionReplicaProcessor;
+    private static TablePartitionReplicaProcessorImpl tablePartitionReplicaProcessor;
     private static ColumnsExtractor row2HashKeyConverter;
 
     @InjectConfiguration
@@ -228,7 +228,7 @@ public class DefaultTablePartitionReplicaProcessorSortedIndexLockingTest extends
 
         InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
-        tablePartitionReplicaProcessor = new DefaultTablePartitionReplicaProcessor(
+        tablePartitionReplicaProcessor = new TablePartitionReplicaProcessorImpl(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
                 newTxManager(),

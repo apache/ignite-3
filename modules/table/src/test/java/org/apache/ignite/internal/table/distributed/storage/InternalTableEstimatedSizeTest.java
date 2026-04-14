@@ -95,7 +95,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionReplicaProcessorImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -227,7 +227,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME))
         );
 
-        List<DefaultTablePartitionReplicaProcessor> tablePartitionReplicaProcessors = IntStream.range(0, PARTITIONS_NUM)
+        List<TablePartitionReplicaProcessorImpl> tablePartitionReplicaProcessors = IntStream.range(0, PARTITIONS_NUM)
                 .mapToObj(partId -> createPartitionReplicaListener(
                         partId,
                         txManager,
@@ -290,7 +290,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         assertThat(stopAsync(componentContext, components), willCompleteSuccessfully());
     }
 
-    private DefaultTablePartitionReplicaProcessor createPartitionReplicaListener(
+    private TablePartitionReplicaProcessorImpl createPartitionReplicaListener(
             int partId,
             TxManager txManager,
             LockManager lockManager,
@@ -311,7 +311,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         partitionStorages.add(partitionStorage);
 
-        return new DefaultTablePartitionReplicaProcessor(
+        return new TablePartitionReplicaProcessorImpl(
                 partitionStorage,
                 new RaftCommandRunner() {
                     @Override

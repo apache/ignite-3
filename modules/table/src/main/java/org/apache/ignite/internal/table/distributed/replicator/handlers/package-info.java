@@ -17,6 +17,6 @@
 
 /**
  * This package contains replica request handlers that is used by
- * {@link org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor}.
+ * {@link org.apache.ignite.internal.table.distributed.replicator.TablePartitionReplicaProcessorImpl}.
  */
 package org.apache.ignite.internal.table.distributed.replicator.handlers;

@@ -110,8 +110,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionRaftProcessorImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -402,7 +402,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
             return clock.update(requestTime);
         });
 
-        return new DefaultTablePartitionRaftProcessor(
+        return new TablePartitionRaftProcessorImpl(
                 txManager,
                 storage,
                 storageUpdateHandler,

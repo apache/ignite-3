@@ -220,7 +220,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionReplicaProcessorImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -289,7 +289,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class DefaultTablePartitionReplicaProcessorTest extends IgniteAbstractTest {
+public class TablePartitionReplicaProcessorImplTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
 
     private static final int CURRENT_SCHEMA_VERSION = 1;
@@ -461,7 +461,7 @@ public class DefaultTablePartitionReplicaProcessorTest extends IgniteAbstractTes
     private TestPlacementDriver placementDriver;
 
     /** Partition replication listener to test. */
-    private DefaultTablePartitionReplicaProcessor tablePartitionReplicaProcessor;
+    private TablePartitionReplicaProcessorImpl tablePartitionReplicaProcessor;
 
     private HashIndexStorage pkIndexStorage;
 
@@ -657,7 +657,7 @@ public class DefaultTablePartitionReplicaProcessorTest extends IgniteAbstractTes
 
         placementDriver = spy(new TestPlacementDriver(localNode));
 
-        tablePartitionReplicaProcessor = new DefaultTablePartitionReplicaProcessor(
+        tablePartitionReplicaProcessor = new TablePartitionReplicaProcessorImpl(
                 testMvPartitionStorage,
                 mockRaftClient,
                 txManager,

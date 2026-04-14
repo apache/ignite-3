@@ -75,8 +75,8 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
-import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionRaftProcessorImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -617,7 +617,7 @@ class TableZoneCoordinator {
                         transactionStateResolver
                 );
 
-        DefaultTablePartitionRaftProcessor tablePartitionRaftProcessor = partitionResourcesFactory.createTablePartitionProcessor(
+        TablePartitionRaftProcessorImpl tablePartitionRaftProcessor = partitionResourcesFactory.createTablePartitionProcessor(
                 zonePartitionId, table, partitionDataStorage, partitionResources);
 
         PartitionMvStorageAccess partitionStorageAccess = partitionResourcesFactory.createPartitionMvStorageAccess(
