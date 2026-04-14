@@ -120,7 +120,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 failureManager,
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
     }

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
@@ -68,12 +69,14 @@ public class VolatilePageMemoryBenchmarkBase {
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
+        PartitionPageMemory partitionPageMemory = volatilePageMemory.createPartitionPageMemory(GROUP_ID, PARTITION_ID);
+
         freeList = new FreeListImpl(
                 "freeList",
                 GROUP_ID,
                 PARTITION_ID,
-                volatilePageMemory,
-                volatilePageMemory.allocatePageNoReuse(GROUP_ID, PARTITION_ID, FLAG_AUX),
+                partitionPageMemory,
+                partitionPageMemory.allocatePageNoReuse(GROUP_ID, PARTITION_ID, FLAG_AUX),
                 true,
                 null
         );

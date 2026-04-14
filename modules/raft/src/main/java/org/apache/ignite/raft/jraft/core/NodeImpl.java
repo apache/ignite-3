@@ -50,11 +50,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
-import org.apache.ignite.internal.metrics.sources.LogManagerMetricSource;
 import org.apache.ignite.internal.metrics.sources.NodeMetricSource;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
-import org.apache.ignite.internal.metrics.sources.ReadOnlyServiceMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
@@ -1074,6 +1071,26 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
+        /*
+         * Restore appliedId so that unsafeTruncateSuffix() can reject truncation of applied entries.
+         *
+         * After a node restart, logManager.appliedId is transient and resets to 0.
+         * This block restores appliedId from the state machine's persisted applied index
+         * so the unsafeTruncateSuffix() guard is effective immediately after restart, before any entries are re-applied.
+         */
+        long persistedApplied = this.options.getFsm().getPersistedAppliedIndex();
+        if (persistedApplied > 0) {
+            long term = this.logManager.getTerm(persistedApplied);
+            if (term > 0) {
+                this.logManager.setAppliedId(new LogId(persistedApplied, term));
+            } else {
+                // Term is 0 when the index is outside the log (covered by a snapshot) — skip in that case.
+                LOG.warn("Persisted applied index is not in the raft log, expecting snapshot to cover it "
+                        + "[nodeId={}, persistedAppliedIndex={}]",
+                        getNodeId(), persistedApplied);
+            }
+        }
+
         final Status st = this.logManager.checkConsistency();
         if (!st.isOk()) {
             LOG.error("Node {} is initialized with inconsistent log, status={}.", getNodeId(), st);
@@ -1159,8 +1176,15 @@ public class NodeImpl implements Node, RaftServerService {
             this.writeLock.lock();
             if (this.conf.isStable() && this.conf.getConf().size() == 1 && this.conf.getConf().contains(this.serverId)) {
                 // The group contains only this server which must be the LEADER, trigger
-                // the timer immediately.
-                electSelf();
+                // the timer immediately. Skip if already a leader — the election timer may have
+                // fired and completed a full election between stepDown() and this lock acquisition,
+                // in which case calling electSelf() again would corrupt BallotBox / confCtx state.
+                if (this.state != State.STATE_LEADER) {
+                    electSelf();
+                }
+                else {
+                    this.writeLock.unlock();
+                }
             }
             else {
                 this.writeLock.unlock();

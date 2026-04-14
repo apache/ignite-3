@@ -42,7 +42,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.LogStorageView;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -162,7 +161,7 @@ class SegmentFileManager implements ManuallyCloseable {
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
-            RaftConfiguration raftConfiguration,
+            boolean isSync,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
         this.storageName = storageName;
@@ -171,7 +170,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         this.segmentFilesDir = storageDir.resolve("segments");
         this.stripes = stripes;
-        this.isSync = raftConfiguration.fsync().value();
+        this.isSync = isSync;
 
         Files.createDirectories(segmentFilesDir);
 
@@ -483,11 +482,18 @@ class SegmentFileManager implements ManuallyCloseable {
         return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
+    /** Returns current size of all log storage files in bytes. */
+    long logSizeBytes() {
+        return garbageCollector.logSizeBytes();
+    }
+
     /**
      * Returns the current segment file possibly waiting for an ongoing rollover to complete.
      */
     private SegmentFileWithMemtable currentSegmentFile() {
         SegmentFileWithMemtable segmentFile = currentSegmentFile.get();
+
+        assert segmentFile != null : "Segment file manager is not started";
 
         if (!segmentFile.readOnly()) {
             return segmentFile;

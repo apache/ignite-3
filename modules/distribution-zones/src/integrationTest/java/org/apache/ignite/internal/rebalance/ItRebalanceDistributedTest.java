@@ -113,6 +113,7 @@ import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -1351,6 +1352,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
+            var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    raftGroupEventsClientListener,
+                    failureManager
+            );
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService.staticLocalNode(),
                     cmgManager,
@@ -1358,7 +1365,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     keyValueStorage,
                     hybridClock,
-                    topologyAwareRaftGroupServiceFactory,
+                    msRaftServiceFactory,
                     metricManager,
                     systemDistributedConfiguration,
                     msRaftConfigurer,

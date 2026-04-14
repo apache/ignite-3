@@ -141,6 +141,7 @@ enum class code : underlying_t {
     TX_DELAYED_ACK = 0x70011,
     TX_KILLED = 0x70012,
     TX_ALREADY_FINISHED_WITH_EXCEPTION = 0x70013,
+    TX_ABORTED_DUE_TO_RECOVERY = 0x70014,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,
@@ -166,7 +167,8 @@ enum class code : underlying_t {
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
     BIND = 0xb0002,
-    // Error codes 0xb0003 (FILE_TRANSFER) and 0xb0004 (FILE_VALIDATION) were removed along with the file-transfer module.
+    FILE_TRANSFER = 0xb0003,
+    FILE_VALIDATION = 0xb0004,
     RECIPIENT_LEFT = 0xb0005,
     ADDRESS_UNRESOLVED = 0xb0006,
     PORT_IN_USE [[deprecated("PORT_IN_USE is deprecated. Use BIND instead.")]] = BIND,

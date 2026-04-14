@@ -65,7 +65,7 @@ class SegstoreLogStorageTest extends BaseLogStorageTest {
                     path,
                     1,
                     new NoOpFailureManager(),
-                    raftConfiguration,
+                    raftConfiguration.fsync().value(),
                     storageConfiguration
             );
 

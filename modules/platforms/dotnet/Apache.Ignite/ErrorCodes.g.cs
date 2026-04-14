@@ -376,6 +376,9 @@ namespace Apache.Ignite
 
             /// <summary> TxAlreadyFinishedWithException error. </summary>
             public const int TxAlreadyFinishedWithException = (GroupCode << 16) | (19 & 0xFFFF);
+
+            /// <summary> TxAbortedDueToRecovery error. </summary>
+            public const int TxAbortedDueToRecovery = (GroupCode << 16) | (20 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

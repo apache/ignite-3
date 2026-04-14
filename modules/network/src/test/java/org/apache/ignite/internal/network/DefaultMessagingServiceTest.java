@@ -38,14 +38,22 @@ import static org.junit.Assume.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.AdditionalMatchers.or;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NoRouteToHostException;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
@@ -67,9 +75,11 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.handshake.BrokenHandshakeException;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
 import org.apache.ignite.internal.network.messages.MessageWithInstant;
@@ -604,6 +614,34 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * If the acceptor thinks we are stale, a send()/invoke() call at initiator side should get a {@link RecipientLeftException}
+     * (as the initiator will not be able to send anything to it before one of the nodes gets restarted).
+     */
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByClusterNodeToNodeThinkingSenderIsStale(AsyncSendOperation operation) throws Exception {
+        var receiverSideStaleIdDetector = new InMemoryStaleIds();
+        receiverSideStaleIdDetector.markAsStale(senderNode.id());
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(
+                        receiverNode,
+                        receiverNetworkConfig,
+                        () -> {},
+                        messageSerializationRegistry,
+                        receiverSideStaleIdDetector
+                )
+        ) {
+            assertThat(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    willThrow(RecipientLeftException.class)
+            );
+        }
+    }
+
     private ClusterNodeImpl copyWithDifferentId() {
         return new ClusterNodeImpl(
                 randomUUID(),
@@ -627,18 +665,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         ) {
             CompletableFuture<Void> messageDelivered = new CompletableFuture<>();
 
-            receiverServices.messagingService.addMessageHandler(
-                    TestMessageTypes.class,
-                    (message, sender, correlationId) -> {
-                        if (message instanceof TestMessage) {
-                            messageDelivered.complete(null);
-
-                            if (correlationId != null) {
-                                receiverServices.messagingService.respond(sender, message, correlationId);
-                            }
-                        }
-                    }
-            );
+            echoTestMessagesFromInvokes(receiverServices, messageDelivered);
 
             assertThat(
                     operation.sendAction.send(senderServices.messagingService, testMessage("test"), receiverWithAnotherId),
@@ -652,6 +679,218 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private static InternalClusterNode copyWithoutName(InternalClusterNode node) {
         return new ClusterNodeImpl(node.id(), null, node.address());
+    }
+
+    private static void echoTestMessagesFromInvokes(Services receiverServices, CompletableFuture<Void> messageDelivered) {
+        receiverServices.messagingService.addMessageHandler(
+                TestMessageTypes.class,
+                (message, sender, correlationId) -> {
+                    if (message instanceof TestMessage) {
+                        messageDelivered.complete(null);
+
+                        if (correlationId != null) {
+                            receiverServices.messagingService.respond(sender, message, correlationId);
+                        }
+                    }
+                }
+        );
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendThrowsOnNonIoCausedConnectionExceptions(AsyncSendOperation operation) throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            RecipientLeftException cause = new RecipientLeftException("Oops");
+
+            doReturn(OrderingFuture.failedFuture(cause))
+                    .when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            Exception ex = assertWillThrow(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    Exception.class
+            );
+
+            assertThat(ex, is(cause));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendRetriesOnNonTerminalConnectionExceptions(AsyncSendOperation operation) throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            doReturn(OrderingFuture.failedFuture(new SocketException("Connection reset by peer")))
+                    .doReturn(OrderingFuture.failedFuture(new BrokenHandshakeException()))
+                    .doCallRealMethod()
+                    .when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            CompletableFuture<Void> messageDelivered = new CompletableFuture<>();
+
+            echoTestMessagesFromInvokes(receiverServices, messageDelivered);
+
+            assertThat(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    willCompleteSuccessfully()
+            );
+            if (operation.notRespondOperation()) {
+                assertThat(messageDelivered, willCompleteSuccessfully());
+            }
+        }
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28225: expand this and other tests to also include by-cluster-node send/invoke
+    // modes (when retries for them are added).
+
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentIdRetriesOnTerminalIoConnectionExceptions(SendByConsistentCoordinateOperation operation) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            doReturn(OrderingFuture.failedFuture(new ConnectException("Connection refused")))
+                    .doReturn(OrderingFuture.failedFuture(new NoRouteToHostException()))
+                    .doCallRealMethod()
+                    .when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            CompletableFuture<Void> messageDelivered = new CompletableFuture<>();
+
+            echoTestMessagesFromInvokes(receiverServices, messageDelivered);
+
+            assertThat(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    willCompleteSuccessfully()
+            );
+            if (operation.notRespondOperation()) {
+                assertThat(messageDelivered, willCompleteSuccessfully());
+            }
+        }
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-28225 change this test when retries are added for sends/invokes by cluster node.
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendByClusterNodeDoesNotRetryOnTerminalIoConnectionExceptions(SendByClusterNodeOperation operation) throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            ConnectException cause = new ConnectException("Connection refused");
+            doReturn(OrderingFuture.failedFuture(cause))
+                    .when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            assertWillThrow(operation.send(senderServices.messagingService, testMessage("test"), receiverNode), ConnectException.class);
+        }
+    }
+
+    @Test
+    void sendByAddressDoesNotRetryOnTerminalIoConnectionExceptions() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            ConnectException cause = new ConnectException("Connection refused");
+            doReturn(OrderingFuture.failedFuture(cause))
+                    .when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            assertWillThrow(
+                    senderServices.messagingService.send(receiverNode.address(), ChannelType.DEFAULT, testMessage("test")),
+                    ConnectException.class
+            );
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentIdStopsRetryingOnTerminalIoConnectionExceptionsIfReceiverLeavesTopology(
+            SendByConsistentCoordinateOperation operation
+    ) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        AtomicInteger retryCount = new AtomicInteger();
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            when(topologyService.getByConsistentId(eq(receiverNode.name()))).thenAnswer(invocation -> {
+                // Simulate a node leaving topology after 2 retries.
+                if (retryCount.get() >= 2) {
+                    return null;
+                } else {
+                    return receiverNode;
+                }
+            });
+
+            doAnswer(invocation -> {
+                retryCount.incrementAndGet();
+                return OrderingFuture.failedFuture(new ConnectException("Connection refused"));
+            }).when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            assertWillThrow(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    RecipientLeftException.class
+            );
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendByClusterNodeChecksForReceiverStalenessOnTerminalIoException(
+            SendByClusterNodeOperation operation
+    ) throws Exception {
+        assumeThat(operation, is(not(SendByConsistentCoordinateOperation.SEND_BY_ADDRESS)));
+
+        AtomicInteger retryCount = new AtomicInteger();
+        InMemoryStaleIds senderSideStaleIdDetector = new InMemoryStaleIds();
+
+        try (
+                Services senderServices = createMessagingService(
+                        senderNode,
+                        senderNetworkConfig,
+                        () -> {},
+                        messageSerializationRegistry,
+                        senderSideStaleIdDetector
+                );
+                Services ignoredReceiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            doAnswer(invocation -> {
+                if (retryCount.incrementAndGet() == 1) {
+                    senderSideStaleIdDetector.markAsStale(receiverNode.id());
+                }
+                return OrderingFuture.failedFuture(new ConnectException("Connection refused"));
+            }).when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            assertWillThrow(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    RecipientLeftException.class
+            );
+        }
+    }
+
+    @Test
+    void invokeStopsRetryingConnectionOnTimeout() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            doReturn(OrderingFuture.failedFuture(new ConnectException("Connection refused")))
+                    .when(senderServices.connectionManager).channel(any(), or(eq(ChannelType.DEFAULT), eq(TEST_CHANNEL)), any());
+
+            CompletableFuture<Void> messageDelivered = new CompletableFuture<>();
+            echoTestMessagesFromInvokes(receiverServices, messageDelivered);
+
+            assertWillThrow(senderServices.messagingService.invoke(receiverNode.name(), testMessage("test"), 300), TimeoutException.class);
+        }
     }
 
     private static void awaitQuietly(CountDownLatch latch) {
@@ -698,7 +937,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        ConnectionManager connectionManager = new TestConnectionManager(
+        ConnectionManager connectionManager = spy(new TestConnectionManager(
                 networkConfig,
                 serializationService,
                 node,
@@ -706,7 +945,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 staleIdDetector,
                 clusterIdSupplier,
                 beforeHandshake
-        );
+        ));
 
         DefaultMessagingService messagingService = new DefaultMessagingService(
                 node.name(),
@@ -906,12 +1145,20 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    private interface AsyncSendOperation {
+        CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient);
+
+        boolean notRespondOperation();
+
+        boolean isInvoke();
+    }
+
     @FunctionalInterface
     private interface AsyncSendAction {
         CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient);
     }
 
-    private enum SendByClusterNodeOperation {
+    private enum SendByClusterNodeOperation implements AsyncSendOperation {
         SEND_DEFAULT_CHANNEL((service, message, to) -> service.send(to, message)),
         SEND_SPECIFIC_CHANNEL((service, message, to) -> service.send(to, TEST_CHANNEL, message)),
         RESPOND_DEFAULT_CHANNEL((service, message, to) -> service.respond(to, message, 123L)),
@@ -924,9 +1171,24 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         SendByClusterNodeOperation(AsyncSendAction sendAction) {
             this.sendAction = sendAction;
         }
+
+        @Override
+        public CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient) {
+            return sendAction.send(service, message, recipient);
+        }
+
+        @Override
+        public boolean notRespondOperation() {
+            return this != RESPOND_DEFAULT_CHANNEL && this != RESPOND_SPECIFIC_CHANNEL;
+        }
+
+        @Override
+        public boolean isInvoke() {
+            return this == INVOKE_DEFAULT_CHANNEL || this == INVOKE_SPECIFIC_CHANNEL;
+        }
     }
 
-    private enum SendByConsistentCoordinateOperation {
+    private enum SendByConsistentCoordinateOperation implements AsyncSendOperation {
         SEND_BY_CONSISTENT_ID((service, message, to) -> service.send(to.name(), ChannelType.DEFAULT, message)),
         SEND_BY_ADDRESS((service, message, to) -> service.send(to.address(), ChannelType.DEFAULT, message)),
         RESPOND_BY_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to) -> service.respond(to.name(), message, 123L)),
@@ -940,8 +1202,19 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             this.sendAction = sendAction;
         }
 
-        private boolean notRespondOperation() {
+        @Override
+        public CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient) {
+            return sendAction.send(service, message, recipient);
+        }
+
+        @Override
+        public boolean notRespondOperation() {
             return this != RESPOND_BY_CONSISTENT_ID_DEFAULT_CHANNEL && this != RESPOND_BY_CONSISTENT_ID_SPECIFIC_CHANNEL;
+        }
+
+        @Override
+        public boolean isInvoke() {
+            return this == INVOKE_BY_CONSISTENT_ID_DEFAULT_CHANNEL || this == INVOKE_BY_CONSISTENT_ID_SPECIFIC_CHANNEL;
         }
     }
 }

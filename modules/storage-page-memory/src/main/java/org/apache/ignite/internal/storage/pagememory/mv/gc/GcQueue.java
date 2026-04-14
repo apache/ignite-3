@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv.gc;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
@@ -55,7 +55,7 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
             int grpId,
             String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,

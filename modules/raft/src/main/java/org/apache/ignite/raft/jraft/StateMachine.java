@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -133,4 +134,14 @@ public interface StateMachine {
      * @param ctx context of leader change
      */
     void onStartFollowing(final LeaderChangeContext ctx);
+
+    /**
+     * Returns the last applied index persisted by the state machine.
+     * Called during {@link NodeImpl#init()} to prevent truncation of already-applied log entries.
+     *
+     * @return persisted applied index, or 0 if unknown.
+     */
+    default long getPersistedAppliedIndex() {
+        return 0;
+    }
 }

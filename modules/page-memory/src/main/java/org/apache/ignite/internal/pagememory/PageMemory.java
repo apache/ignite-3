@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 
 /**
  * Class responsible for pages storage and handling.
  */
 // TODO IGNITE-16350 Improve javadoc in this class.
-public interface PageMemory extends PageIdAllocator, PageSupport {
+// TODO IGNITE-28429 Remove the inheritance.
+public interface PageMemory {
     /**
      * Stops page memory.
      *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse on subsequent {@link #start()}
+     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse on subsequent {@code start()}
      */
     void stop(boolean deallocate) throws IgniteInternalException;
 
@@ -40,26 +38,10 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
     int pageSize();
 
     /**
-     * Returns a page size without the encryption overhead, in bytes.
-     *
-     * @param groupId Group id.
-     */
-    // TODO IGNITE-16350 Consider renaming.
-    int realPageSize(int groupId);
-
-    /**
      * Returns a page's size with system overhead, in bytes.
      */
     // TODO IGNITE-16350 Consider renaming.
     int systemPageSize();
-
-    /**
-     * Wraps a page address, obtained by a {@code readLock}/{@code writeLock} or their variants, into a direct byte buffer.
-     *
-     * @param pageAddr Page address.
-     * @return Page byte buffer.
-     */
-    ByteBuffer pageBuffer(long pageAddr);
 
     /**
      * Returns the total number of pages loaded into memory.
@@ -67,7 +49,10 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
     long loadedPages();
 
     /**
-     * Returns a registry to obtain {@link PageIo} instances for pages.
+     * Creates a new instance of {@link PartitionPageMemory} for a specified partition.
+     *
+     * @param groupId Group ID for the specific partition.
+     * @param partitionId Partition ID of the specific partition.
      */
-    PageIoRegistry ioRegistry();
+    PartitionPageMemory createPartitionPageMemory(int groupId, int partitionId);
 }

@@ -207,7 +207,7 @@ class RaftLogGarbageCollector {
         }
     }
 
-    @VisibleForTesting
+    /** Returns current size of all log storage files in bytes. */
     long logSizeBytes() {
         return logSizeBytes.get();
     }

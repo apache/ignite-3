@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIn
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -61,7 +61,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             int grpId,
             String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
@@ -92,7 +92,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             int grpId,
             String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -125,7 +125,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             int grpId,
             String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -141,7 +141,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             int grpId,
             String grpName,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
