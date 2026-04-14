@@ -28,6 +28,8 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQuer
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
@@ -37,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -51,9 +54,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
@@ -61,7 +66,11 @@ import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -83,7 +92,9 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -738,6 +749,175 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
                 "Transaction is already finished due to an error");
+    }
+
+    @Test
+    public void runtimeErrorReturnsSameTransactionErrorBeforeAndAfterRollbackCompletion() throws Exception {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        IgniteSql sql = igniteSql();
+
+        Transaction tx = igniteTx().begin();
+
+        // Enlist enough operations to make rollback non-trivial.
+        for (int i = 0; i < 100; i++) {
+            execute(tx, sql, "INSERT INTO tst VALUES (?, ?)", i, i);
+        }
+
+        UUID txId = txId(tx);
+
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Division by zero",
+                () -> execute(tx, sql, "SELECT val / 0 FROM tst WHERE id = ?", 0)
+        );
+
+        IgniteException[] immediateExceptions = new IgniteException[5];
+        for (int i = 0; i < immediateExceptions.length; i++) {
+            immediateExceptions[i] = (IgniteException) assertThrowsWithCause(
+                    () -> executeForRead(sql, tx, "SELECT * FROM tst WHERE id = ?", 1),
+                    IgniteException.class
+            );
+        }
+
+        if (tx instanceof InternalTransaction) {
+            assertNotNull(txId, "Expected transaction id for test transaction implementation");
+
+            Awaitility.await()
+                    .atMost(5, TimeUnit.SECONDS)
+                    .until(() -> {
+                        TxStateMeta meta = txManager().stateMeta(txId);
+
+                        return meta != null && TxState.isFinalState(meta.txState());
+                    });
+        }
+
+        IgniteException abortedStateException = (IgniteException) assertThrowsWithCause(
+                () -> executeForRead(sql, tx, "SELECT * FROM tst WHERE id = ?", 1),
+                IgniteException.class
+        );
+
+        assertEquals(Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR, abortedStateException.code());
+        assertTrue(abortedStateException.getMessage().contains("Transaction is already finished due to an error"));
+
+        for (IgniteException immediateException : immediateExceptions) {
+            assertEquals(abortedStateException.code(), immediateException.code());
+            assertTrue(immediateException.getMessage().contains("Transaction is already finished due to an error"));
+        }
+    }
+
+    @Test
+    public void secondRequestDuringRollbackReturnsFinishedWithExceptionAndPreservesOriginalCause() {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("INSERT INTO tst VALUES (0, 1)");
+
+        IgniteSql sql = igniteSql();
+
+        Transaction tx = igniteTx().begin();
+
+        List<IgniteImpl> clusterNodes = CLUSTER.runningNodes()
+                .map(node -> unwrapIgniteImpl(node))
+                .collect(toList());
+
+        CompletableFuture<Void> failingRequestStarted = new CompletableFuture<>();
+        CompletableFuture<Void> finishRequestBlocked = new CompletableFuture<>();
+        CompletableFuture<Void> releaseFinishRequest = new CompletableFuture<>();
+
+        for (IgniteImpl clusterNode : clusterNodes) {
+            // Install predicates in cluster
+            clusterNode.dropMessages((recipientConsistentId, msg) -> {
+                if (!failingRequestStarted.isDone()) {
+                    return false;
+                }
+
+                if (msg.groupType() != TxMessageGroup.GROUP_TYPE
+                        || msg.messageType() != TxMessageGroup.TX_FINISH_REQUEST) {
+                    return false;
+                }
+
+                finishRequestBlocked.complete(null);
+
+                return !releaseFinishRequest.isDone();
+            });
+        }
+
+        try {
+            CompletableFuture<IgniteException> failingRequestFut = IgniteTestUtils.runAsync(() -> {
+                failingRequestStarted.complete(null);
+
+                IgniteException ex = assertInstanceOf(
+                        IgniteException.class,
+                        assertThrowsWithCause(
+                                () -> execute(tx, sql, "SELECT val / 0 FROM tst WHERE id = ?", 0),
+                                IgniteException.class
+                        )
+                );
+
+                assertTrue(hasCause(ex, "Division by zero", Throwable.class));
+                assertTrue(
+                        ex.code() == Sql.RUNTIME_ERR || ex.code() == Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
+                        "Unexpected code for a request that triggers rollback [code=" + ex.code() + ']'
+                );
+
+                return ex;
+            });
+
+            Awaitility.await()
+                    .atMost(5, TimeUnit.SECONDS)
+                    .until(finishRequestBlocked::isDone);
+
+            IgniteException parallelRequestException = assertInstanceOf(
+                    IgniteException.class,
+                    assertThrowsWithCause(
+                            () -> executeForRead(sql, tx, "SELECT * FROM tst WHERE id = ?", 0),
+                            IgniteException.class
+                    )
+            );
+
+            assertEquals(Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR, parallelRequestException.code());
+            assertTrue(parallelRequestException.getMessage().contains("Transaction is already finished due to an error"));
+            assertTrue(
+                    hasCause(parallelRequestException, "Division by zero", Throwable.class),
+                    "Expected original rollback cause in user-visible exception chain"
+            );
+
+            releaseFinishRequest.complete(null);
+
+            IgniteException firstRequestException = await(failingRequestFut);
+
+            assertTrue(hasCause(firstRequestException, "Division by zero", Throwable.class));
+        } finally {
+            clusterNodes.forEach(IgniteImpl::stopDroppingMessages);
+        }
+    }
+
+    @Test
+    public void rollbackWithExceptionCauseIsPropagatedToSubsequentSqlRequest() {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("INSERT INTO tst VALUES (?, ?)", 1, 1);
+
+        Transaction tx = igniteTx().begin();
+
+        assumeTrue(tx instanceof InternalTransaction, "InternalTransaction is required");
+
+        InternalTransaction internalTx = (InternalTransaction) tx;
+        String rollbackCauseMessage = "rollback-cause-primary-replica-changed";
+        TransactionException rollbackCause = new TransactionException(REPLICA_MISS_ERR, rollbackCauseMessage);
+
+        await(internalTx.rollbackWithExceptionAsync(rollbackCause));
+
+        IgniteException ex = assertInstanceOf(
+                IgniteException.class,
+                assertThrowsWithCause(
+                        () -> executeForRead(igniteSql(), tx, "SELECT * FROM tst WHERE id = ?", 1),
+                        IgniteException.class
+                )
+        );
+
+        assertEquals(Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR, ex.code());
+        assertTrue(ex.getMessage().contains("Transaction is already finished due to an error"));
+        assertTrue(hasCause(ex, TransactionException.class));
+        assertTrue(hasCause(ex, rollbackCauseMessage, Throwable.class), "Expected rollback cause message in user-visible exception chain");
     }
 
     @Test
@@ -1412,6 +1592,18 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     protected abstract ResultSet<SqlRow> executeForRead(IgniteSql sql, @Nullable Transaction tx, Statement statement, Object... args);
+
+    private static @Nullable UUID txId(Transaction tx) {
+        if (tx instanceof InternalTransaction) {
+            return ((InternalTransaction) tx).id();
+        }
+
+        if (tx instanceof ClientLazyTransaction) {
+            return ((ClientLazyTransaction) tx).startedTx().txId();
+        }
+
+        return null;
+    }
 
     protected void checkSqlError(
             int code,

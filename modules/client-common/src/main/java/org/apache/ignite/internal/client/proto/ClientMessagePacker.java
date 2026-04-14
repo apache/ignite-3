@@ -347,7 +347,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param s the value to be written.
      */
-    public void packString(@Nullable String s) {
+    public void packString(@Nullable CharSequence s) {
         assert !closed : "Packer is closed";
 
         if (s == null) {

@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -243,6 +244,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
+        var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                clusterService,
+                eventsClientListener,
+                mock(FailureProcessor.class)
+        );
+
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService.staticLocalNode(),
                 cmgManager,
@@ -250,7 +257,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 raftManager,
                 storage,
                 nodeClock,
-                topologyAwareRaftGroupServiceFactory,
+                msRaftServiceFactory,
                 new NoOpMetricManager(),
                 systemDistributedConfiguration,
                 msRaftConfigurer,

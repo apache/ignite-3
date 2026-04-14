@@ -614,6 +614,34 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * If the acceptor thinks we are stale, a send()/invoke() call at initiator side should get a {@link RecipientLeftException}
+     * (as the initiator will not be able to send anything to it before one of the nodes gets restarted).
+     */
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByClusterNodeToNodeThinkingSenderIsStale(AsyncSendOperation operation) throws Exception {
+        var receiverSideStaleIdDetector = new InMemoryStaleIds();
+        receiverSideStaleIdDetector.markAsStale(senderNode.id());
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services ignoredReceiverServices = createMessagingService(
+                        receiverNode,
+                        receiverNetworkConfig,
+                        () -> {},
+                        messageSerializationRegistry,
+                        receiverSideStaleIdDetector
+                )
+        ) {
+            assertThat(
+                    operation.send(senderServices.messagingService, testMessage("test"), receiverNode),
+                    willThrow(RecipientLeftException.class)
+            );
+        }
+    }
+
     private ClusterNodeImpl copyWithDifferentId() {
         return new ClusterNodeImpl(
                 randomUUID(),

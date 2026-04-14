@@ -74,12 +74,14 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
     @InjectQueryCheckerFactory
     private static QueryCheckerFactory queryCheckerFactory;
 
-    private static final TestCluster CLUSTER = TestBuilders.cluster()
-            .nodes(NODE_NAME1)
-            .build(); // add method use table partitions
+    private static TestCluster CLUSTER;
 
     @BeforeAll
      static void startCluster() {
+        CLUSTER = TestBuilders.cluster()
+                .nodes(NODE_NAME1)
+                .build();
+
         CLUSTER.start();
 
         //noinspection ConcatenationWithEmptyString
@@ -91,38 +93,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> List.of("N1"))
                 .collect(Collectors.toList()));
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of())));
-        CLUSTER.setUpdatableTable("T1", new UpdatableTable() {
-            @Override
-            public TableDescriptor descriptor() {
-                return null;
-            }
-
-            @Override
-            public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row) {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx,
-                    RowT key) {
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
-                return nullCompletedFuture();
-            }
-        });
+        CLUSTER.setUpdatableTable("T1", blackhole());
     }
 
     @AfterAll
@@ -266,5 +237,40 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         var calculator = new PartitionCalculator(PARTITIONS_COUNT, new NativeType[] {NativeTypes.INT32});
         calculator.append(key);
         return calculator.partition();
+    }
+
+    static UpdatableTable blackhole() {
+        return new UpdatableTable() {
+            @Override
+            public TableDescriptor descriptor() {
+                return null;
+            }
+
+            @Override
+            public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row) {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx,
+                    RowT key) {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+                return nullCompletedFuture();
+            }
+        };
     }
 }

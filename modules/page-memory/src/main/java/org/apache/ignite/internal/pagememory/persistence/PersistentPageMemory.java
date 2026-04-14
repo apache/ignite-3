@@ -603,8 +603,6 @@ public class PersistentPageMemory implements PageMemory {
                 grpId, hexLong(pageId)
         );
 
-        long startTime = System.nanoTime();
-
         FullPageId fullId = new FullPageId(pageId, grpId);
 
         Segment seg = segment(grpId, pageId);
@@ -641,7 +639,6 @@ public class PersistentPageMemory implements PageMemory {
 
             if (waitUntilPageIsFullyInitialized) {
                 waitUntilPageIsFullyInitialized(resPointer);
-                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
             }
         }
 
@@ -783,8 +780,6 @@ public class PersistentPageMemory implements PageMemory {
                     headerIsValid(lockedPageAbsPtr, true);
                 }
             }
-
-            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
     }
 

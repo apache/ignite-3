@@ -116,10 +116,11 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     private SegmentFileManager createFileManager() throws IOException {
         return new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 STRIPES,
                 failureManager,
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
     }

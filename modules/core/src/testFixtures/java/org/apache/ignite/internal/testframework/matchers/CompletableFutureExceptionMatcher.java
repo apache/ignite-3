@@ -120,7 +120,7 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     private static void describeThrowable(Throwable throwable, Description mismatchDescription) {
         mismatchDescription.appendValue(throwable)
                 .appendText(System.lineSeparator())
-                .appendText(ExceptionUtils.getFullStackTrace(throwable));
+                .appendText(ExceptionUtils.getFullStackTrace(throwable).toString());
     }
 
     private boolean matchesWithCause(Throwable e) {

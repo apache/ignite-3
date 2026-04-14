@@ -15,8 +15,7 @@
 import pytest
 
 
-# TODO: IGNITE-26358: Enable heartbeats in tests and add variant with batch_size 300 and 2000 once heartbeats are implemented
-@pytest.mark.parametrize("batch_size", [1, 2, 10])
+@pytest.mark.parametrize("batch_size", [1, 2, 10, 300, 2000])
 def test_executemany_success(table_name, cursor, drop_table_cleanup, batch_size):
     test_data = [(i, f'data_{i}') for i in range(batch_size)]
 

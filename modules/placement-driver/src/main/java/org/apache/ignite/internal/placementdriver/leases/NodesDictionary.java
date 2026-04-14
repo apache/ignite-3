@@ -132,6 +132,10 @@ final class NodesDictionary {
         return nameIndexToName.size();
     }
 
+    int nodeCount() {
+        return nodeIndexToId.size();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

@@ -29,6 +29,7 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Spliterator;
@@ -227,7 +228,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, Int2ObjectMaps.emptyMap(), rf -> rowConverter);
             PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partsWithConsistencyTokens);
             IgniteTable schemaTable = mock(IgniteTable.class);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, schemaTable, scanableTable,

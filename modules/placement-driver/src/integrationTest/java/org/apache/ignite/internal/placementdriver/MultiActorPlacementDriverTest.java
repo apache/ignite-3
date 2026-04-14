@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -82,7 +83,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -300,6 +302,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
+            var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    eventsClientListener,
+                    mock(FailureProcessor.class)
+            );
+
             var metaStorageManager = new MetaStorageManagerImpl(
                     clusterService.staticLocalNode(),
                     cmgManager,
@@ -307,7 +315,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     raftManager,
                     storage,
                     nodeClock,
-                    topologyAwareRaftGroupServiceFactory,
+                    msRaftServiceFactory,
                     new NoOpMetricManager(),
                     systemDistributedConfiguration,
                     msRaftConfigurer,
@@ -394,14 +402,14 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        CompletableFuture<RaftGroupService> msRaftClientFuture = metaStorageManager.metaStorageService()
+        CompletableFuture<TimeAwareRaftGroupService> msRaftClientFuture = metaStorageManager.metaStorageService()
                 .thenApply(MetaStorageServiceImpl::raftGroupService);
 
         assertThat(msRaftClientFuture, willCompleteSuccessfully());
 
-        RaftGroupService msRaftClient = msRaftClientFuture.join();
+        TimeAwareRaftGroupService msRaftClient = msRaftClientFuture.join();
 
-        assertThat(msRaftClient.refreshLeader(), willCompleteSuccessfully());
+        assertThat(msRaftClient.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         Peer previousLeader = msRaftClient.leader();
 
@@ -409,11 +417,17 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         log.info("The placement driver group active actor is transferring [from={}, to={}]", previousLeader, newLeader);
 
-        assertThat(msRaftClient.transferLeadership(newLeader), willCompleteSuccessfully());
+        assertThat(msRaftClient.transferLeadership(newLeader, TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         waitForProlong(grpPart0, lease);
 
-        assertEquals(newLeader, msRaftClient.leader());
+        CompletableFuture<LeaderWithTerm> actualLeaderFut = msRaftClient.refreshAndGetLeaderWithTerm(TimeAwareRaftGroupService.NO_TIMEOUT);
+
+        assertThat(actualLeaderFut, willCompleteSuccessfully());
+
+        Peer actualLeader = actualLeaderFut.join().leader();
+
+        assertEquals(newLeader, actualLeader);
     }
 
     @Test

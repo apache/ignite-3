@@ -662,10 +662,20 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertNoLocks();
     }
 
+    private static void iterate(
+            TestTree tree, long lower, long upper, TreeRowMapClosure<Long, Long, Long> c
+    ) throws IgniteInternalCheckedException {
+        try (Cursor<Long> cursor = tree.find(lower, upper, c, null)) {
+            while (cursor.hasNext()) {
+                cursor.next();
+            }
+        }
+    }
+
     private void checkIterate(TestTree tree, long lower, long upper, Long exp, boolean expFound) throws IgniteInternalCheckedException {
         TestTreeRowClosure c = new TestTreeRowClosure(exp);
 
-        tree.iterate(lower, upper, c);
+        iterate(tree, lower, upper, c);
 
         assertEquals(expFound, c.found);
     }
@@ -679,7 +689,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     ) throws IgniteInternalCheckedException {
         c.found = false;
 
-        tree.iterate(lower, upper, c);
+        iterate(tree, lower, upper, c);
 
         assertEquals(expFound, c.found);
     }
@@ -2707,7 +2717,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
                 TestTreeFindFirstClosure cl = new TestTreeFindFirstClosure();
 
-                tree.iterate((long) low, (long) high, cl);
+                iterate(tree, low, high, cl);
 
                 last = cl.val;
 
@@ -3014,9 +3024,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
-    static class TestTreeRowClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeRowClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Long expVal;
 
         private boolean found;
@@ -3033,33 +3043,33 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         /** {@inheritDoc} */
         @Override
         public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
-            assertFalse(found);
+            if (expVal == null || io.getLookupRow(tree, pageAddr, idx).equals(expVal)) {
+                found = true;
+            }
 
-            found = expVal == null || io.getLookupRow(tree, pageAddr, idx).equals(expVal);
-
-            return !found;
+            return true;
         }
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
-    static class TestTreeFindFirstClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeFindFirstClosure implements TreeRowMapClosure<Long, Long, Long> {
         private Long val;
 
         /** {@inheritDoc} */
         @Override
         public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
-            assertNull(val);
-
-            val = io.getLookupRow(tree, pageAddr, idx);
+            if (val == null) {
+                val = io.getLookupRow(tree, pageAddr, idx);
+            }
 
             return false;
         }
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
     static class TestTreeFindFilteredClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Set<Long> vals;
