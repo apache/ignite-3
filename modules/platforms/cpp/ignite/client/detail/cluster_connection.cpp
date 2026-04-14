@@ -274,7 +274,7 @@ std::shared_ptr<node_connection> cluster_connection::get_random_connected_channe
     return std::next(m_connections.begin(), idx)->second;
 }
 
-std::shared_ptr<node_connection> cluster_connection::get_connected_channel(
+std::shared_ptr<node_connection> cluster_connection::get_channel(
     const std::optional<std::string>& preferred_node_name) {
 
     if (preferred_node_name) {
@@ -310,7 +310,7 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
     }
 
     while (true) {
-        auto channel = get_connected_channel(preferred_node_name);
+        auto channel = get_channel(preferred_node_name);
         if (!channel)
             throw ignite_error(error::code::CONNECTION, "No nodes connected");
 

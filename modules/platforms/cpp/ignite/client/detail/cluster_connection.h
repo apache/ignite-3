@@ -325,7 +325,7 @@ private:
      * @param preferred_node_name Name of preferred node.
      * @return Node connection.
      */
-    std::shared_ptr<node_connection> get_connected_channel(const std::optional<std::string> &preferred_node_name);
+    std::shared_ptr<node_connection> get_channel(const std::optional<std::string> &preferred_node_name);
 
     /**
      * Constructor.
