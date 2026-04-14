@@ -587,7 +587,7 @@ std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
 void table_impl::update_partition_assignment() {
     ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback = [self=shared_from_this()](auto pa) {
         if (pa.has_error()) {
-            self->m_connection->get_logger()->log_error("Error while updating partition assignment for table '"
+            self->m_connection->get_logger()->log_warning("Error while updating partition assignment for table '"
             + self->get_name() + "': " + pa.error().what_str());
 
             return;
