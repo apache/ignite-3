@@ -45,16 +45,24 @@ class SegmentLogStorageManagerConvertNodeIdTest extends BaseIgniteAbstractTest {
         return objectId + PART_SEPARATOR + partitionId + PEER_SEPARATOR + peerIdx;
     }
 
+    private static String metastorageNodeId(int peerIdx) {
+        return METASTORAGE_GROUP + PEER_SEPARATOR + peerIdx;
+    }
+
+    private static String cmgNodeId(int peerIdx) {
+        return CMG_GROUP + PEER_SEPARATOR + peerIdx;
+    }
+
     @Test
     void metastorageGroup() {
-        assertThat(convertNodeId(METASTORAGE_GROUP + PEER_SEPARATOR + 0), equalTo(METASTORAGE_GROUP_ID));
-        assertThat(convertNodeId(METASTORAGE_GROUP + PEER_SEPARATOR + 1), equalTo(METASTORAGE_GROUP_ID));
+        assertThat(convertNodeId(metastorageNodeId(0)), equalTo(METASTORAGE_GROUP_ID));
+        assertThat(convertNodeId(metastorageNodeId(1)), equalTo(METASTORAGE_GROUP_ID));
     }
 
     @Test
     void cmgGroup() {
-        assertThat(convertNodeId(CMG_GROUP + PEER_SEPARATOR + 0), equalTo(CMG_GROUP_ID));
-        assertThat(convertNodeId(CMG_GROUP + PEER_SEPARATOR + 1), equalTo(CMG_GROUP_ID));
+        assertThat(convertNodeId(cmgNodeId(0)), equalTo(CMG_GROUP_ID));
+        assertThat(convertNodeId(cmgNodeId(1)), equalTo(CMG_GROUP_ID));
     }
 
     @Test
@@ -103,8 +111,8 @@ class SegmentLogStorageManagerConvertNodeIdTest extends BaseIgniteAbstractTest {
     @Test
     void differentPartitionGroupsProduceUniqueIds() {
         Set<Long> ids = new HashSet<>();
-        for (int objectId = 0; objectId < 100; objectId++) {
-            for (int partId = 0; partId < 100; partId++) {
+        for (int objectId = 0; objectId < 1000; objectId++) {
+            for (int partId = 0; partId < 1000; partId++) {
                 long id = convertNodeId(partitionNodeId(objectId, partId, 0));
                 assertThat(ids.add(id), is(true));
             }
@@ -113,8 +121,8 @@ class SegmentLogStorageManagerConvertNodeIdTest extends BaseIgniteAbstractTest {
 
     @Test
     void specialGroupsDoNotCollideWithPartitionGroups() {
-        long meta = convertNodeId(METASTORAGE_GROUP + PEER_SEPARATOR + 0);
-        long cmg = convertNodeId(CMG_GROUP + PEER_SEPARATOR + 0);
+        long meta = convertNodeId(metastorageNodeId(0));
+        long cmg = convertNodeId(cmgNodeId(0));
         long partition = convertNodeId(partitionNodeId(0, 0, 0));
 
         assertThat(meta, not(equalTo(cmg)));
