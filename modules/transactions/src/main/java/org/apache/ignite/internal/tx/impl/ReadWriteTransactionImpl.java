@@ -235,7 +235,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param commit Commit flag.
      * @param executionTimestamp The timestamp is the time when the transaction is applied to the remote node.
      * @param full Full state transaction marker.
-     * @param isComplete The flag is true if the transaction is completed through the public API, false for {@link this#kill()} invocation.
+     * @param isFinishedDirectly The flag is true if the transaction is completed through the public API, false for {@link this#kill()}
+     * invocation.
      * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      * @return The future.
      */
@@ -243,7 +244,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean commit,
             @Nullable HybridTimestamp executionTimestamp,
             boolean full,
-            boolean isComplete,
+            boolean isFinishedDirectly,
             @Nullable Throwable finishReason
     ) {
         enlistPartitionLock.writeLock().lock();
@@ -251,7 +252,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             if (finishFuture == null) {
                 if (killed) {
-                    if (isComplete) {
+                    if (isFinishedDirectly) {
                         // An attempt to finish a killed transaction.
                         finishFuture = nullCompletedFuture();
 
@@ -266,7 +267,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                     CompletableFuture<Void> finishFutureInternal =
                             txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit, finishReason);
 
-                    if (isComplete) {
+                    if (isFinishedDirectly) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
                         this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
@@ -278,7 +279,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     return finishFutureInternal;
                 } else {
-                    killed = !isComplete;
+                    killed = !isFinishedDirectly;
 
                     CompletableFuture<Void> finishFutureInternal = txManager.finish(
                             observableTsTracker,
@@ -291,7 +292,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             id()
                     );
 
-                    if (isComplete) {
+                    if (isFinishedDirectly) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
                         this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {

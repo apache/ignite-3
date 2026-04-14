@@ -224,23 +224,30 @@ public class TxFinishReplicaRequestHandler {
                 .map(entry -> new EnlistedPartitionGroup(entry.getKey(), entry.getValue().tableIds()))
                 .collect(toList());
         return finishTransaction(enlistedPartitionGroups, txId, commit, commitTimestamp)
-                .thenApply(txResult -> {
+                .thenCompose(txResult -> {
                     boolean actualCommit = txResult.transactionState() == COMMITTED;
                     HybridTimestamp actualCommitTs = txResult.commitTimestamp();
 
-                    try {
-                        txManager.cleanup(replicationGroupId, enlistedPartitions, actualCommit, actualCommitTs, txId)
-                                .thenApply(v -> txResult).whenComplete((r, e) -> {
-                                    if (e != null) {
-                                        LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
-                                    }
-                                });
-                    } catch (Exception e) {
-                        LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
-                    }
-
-                    return txResult;
+                    return txManager.cleanup(replicationGroupId, enlistedPartitions, actualCommit, actualCommitTs, txId)
+                            .thenApply(v -> txResult);
                 });
+//                .thenApply(txResult -> {
+//                    boolean actualCommit = txResult.transactionState() == COMMITTED;
+//                    HybridTimestamp actualCommitTs = txResult.commitTimestamp();
+//
+//                    try {
+//                        txManager.cleanup(replicationGroupId, enlistedPartitions, actualCommit, actualCommitTs, txId)
+//                                .thenApply(v -> txResult).whenComplete((r, e) -> {
+//                                    if (e != null) {
+//                                        LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
+//                                    }
+//                                });
+//                    } catch (Exception e) {
+//                        LOG.warn("Failed to cleanup a transaction [id=" + txId + ']', e);
+//                    }
+//
+//                    return txResult;
+//                });
     }
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
