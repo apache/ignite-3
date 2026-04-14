@@ -780,19 +780,20 @@ public class LeaseUpdater {
                         }
                     });
                 } else {
-                    long time = lease.getLeaseholderId() == null
-                            ? clockService.current().longValue()
-                            : NULL_HYBRID_TIMESTAMP;
+                    // Return non null value to prevent retries from non-leaseholder.
+                    long time = clockService.currentLong();
 
                     LOG.info("Stop lease prolongation message was received from non-leaseholder "
                                     + "[groupId={}, sender={}, leaseholder={}, time={}]", grpId, sender, lease.getLeaseholder(), time);
 
-                    StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
-                            .stopLeaseProlongationMessageResponse()
-                            .deniedLeaseExpirationTimeLong(time)
-                            .build();
+                    if (correlationId != null) {
+                        StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
+                                .stopLeaseProlongationMessageResponse()
+                                .deniedLeaseExpirationTimeLong(time)
+                                .build();
 
-                    clusterService.messagingService().respond(sender, response, correlationId);
+                        clusterService.messagingService().respond(sender, response, correlationId);
+                    }
                 }
             } else {
                 LOG.warn("Unknown message type [msg={}]", msg.getClass().getSimpleName());
