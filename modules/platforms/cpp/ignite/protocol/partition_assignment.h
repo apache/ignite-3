@@ -63,7 +63,11 @@ private:
     /** Assignment timestamp. */
     std::int64_t m_timestamp{0};
 
-
+    /**
+    * Partitions. Vector is decoded as following: size of collection is total number of partitions,
+    * i-th value means that partition with id == i resides on (primary replica of that partition belongs to)
+    * node with provided consisted id (AKA node name).
+    */
     std::vector<std::optional<std::string>> m_partitions;
 };
 

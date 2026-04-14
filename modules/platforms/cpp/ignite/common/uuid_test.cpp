@@ -80,7 +80,7 @@ TEST_P(uuid_string_presentation_fixture, from_string) {
 
     auto resOpt = ignite::uuid::from_string(uuidText);
 
-    EXPECT_TRUE(resOpt.has_value());
+    ASSERT_TRUE(resOpt.has_value());
 
     EXPECT_EQ(uuid.get_most_significant_bits(), resOpt->get_most_significant_bits());
     EXPECT_EQ(uuid.get_least_significant_bits(), resOpt->get_least_significant_bits());
@@ -90,11 +90,38 @@ TEST_P(uuid_string_presentation_fixture, from_string) {
 TEST_P(uuid_string_presentation_fixture, to_string) {
     auto [uuidText, uuid] = GetParam();
 
-
     std::stringstream ss;
     ss << uuid;
 
     EXPECT_EQ(uuidText, ss.str());
+}
+
+TEST_P(uuid_string_presentation_fixture, circular_convertation0) {
+    auto [uuidText, uuid] = GetParam();
+
+    std::stringstream ss;
+    ss << uuid;
+
+    auto convertedText = ss.str();
+
+    auto converterUuid = ignite::uuid::from_string(convertedText);
+
+    EXPECT_EQ(converterUuid, uuid);
+}
+
+TEST_P(uuid_string_presentation_fixture, circular_convertation1) {
+    auto [uuidText, uuid] = GetParam();
+
+    auto converterUuid = ignite::uuid::from_string(uuidText);
+
+    ASSERT_TRUE(converterUuid.has_value());
+
+    std::stringstream ss;
+    ss << *converterUuid;
+
+    auto convertedText = ss.str();
+
+    EXPECT_EQ(convertedText, uuidText);
 }
 
 // Values has taken randomly from java program, as this implementation should have same behaviour as java.lang.UUID for compatibility reasons.
