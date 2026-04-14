@@ -116,15 +116,16 @@ public class SegmentLogStorageManager implements LogStorageManager {
     /**
      * Converts a raft node storage ID string to a unique positive long, used to identify a logical log within the segment file manager.
      *
-     * <p>For partition groups ("{objectId}_part_{partitionId}-{peerIdx}"):
-     * result = (objectId &lt;&lt; 32 | partitionId) + {@link #SPECIAL_GROUP_ID_OFFSET}.
-     * objectId and partitionId are non-negative ints, so the result is always positive and unique per (objectId, partitionId) pair.
+     * <p>For partition groups ({@code "{objectId}_part_{partitionId}-{peerIdx}"}):
+     * {@code result = (objectId << 32 | partitionId) + SPECIAL_GROUP_ID_OFFSET}.
+     * {@code objectId} and {@code partitionId} are non-negative ints, so the result is always positive and unique
+     * per {@code (objectId, partitionId)} pair.
      *
-     * <p>peerIdx is not encoded because a single Ignite node participates as exactly one peer per raft group,
-     * so (objectId, partitionId) is already unique within one {@link SegmentLogStorageManager}.
+     * <p>{@code peerIdx} is not encoded because a single Ignite node participates as exactly one peer per raft group,
+     * so {@code (objectId, partitionId)} is already unique within one {@link SegmentLogStorageManager}.
      */
     // TODO IGNITE-26977 Revise after changing partition ID from int to long.
-    public static long convertNodeId(String nodeId) {
+    static long convertNodeId(String nodeId) {
         // {groupId}-{peerIdx}. Peer index suffix is mandatory for all valid raft node storage IDs.
         int lastHyphen = nodeId.lastIndexOf('-');
 
