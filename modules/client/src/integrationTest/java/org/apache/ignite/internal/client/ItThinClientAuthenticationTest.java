@@ -103,7 +103,11 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                 .authenticator(basicAuthenticator)
                 .addresses(getClientAddresses().toArray(new String[0]));
 
-        await().untilAsserted(() -> checkConnection(builder.build()));
+        await().untilAsserted(() -> {
+            try (IgniteClient c = builder.build()) {
+                assertThat(checkConnection(c), willCompleteSuccessfully());
+            }
+        });
 
         clientWithAuth = builder.build();
     }
