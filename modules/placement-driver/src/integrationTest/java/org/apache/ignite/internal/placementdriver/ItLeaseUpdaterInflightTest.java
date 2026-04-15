@@ -63,7 +63,7 @@ public class ItLeaseUpdaterInflightTest extends ClusterPerTestIntegrationTest {
         super.customizeInitParameters(builder);
 
         builder.clusterConfiguration("ignite {"
-                + "  replication.rpcTimeoutMillis: " + LEASE_EXPIRATION_INTERVAL_MILLIS_STR
+                + "  replication.leaseExpirationIntervalMillis: " + LEASE_EXPIRATION_INTERVAL_MILLIS_STR
                 + "}");
     }
 
