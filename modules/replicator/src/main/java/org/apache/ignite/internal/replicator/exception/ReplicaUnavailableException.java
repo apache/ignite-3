@@ -21,11 +21,12 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_
 
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * The exception is thrown when a replica is not ready to handle a request.
  */
-public class ReplicaUnavailableException extends ReplicationException {
+public class ReplicaUnavailableException extends ReplicationException implements RetriableTransactionException {
     private static final long serialVersionUID = 9142077461528136559L;
 
     /**

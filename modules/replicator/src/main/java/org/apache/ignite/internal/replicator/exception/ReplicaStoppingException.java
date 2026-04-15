@@ -22,11 +22,12 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_STOPPING_ERR
 import java.util.UUID;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * The exception is thrown for unhandled requests that wait for the replica, but it is already stopping.
  */
-public class ReplicaStoppingException extends ReplicationException {
+public class ReplicaStoppingException extends ReplicationException implements RetriableTransactionException {
     /**
      * The constructor.
      *
