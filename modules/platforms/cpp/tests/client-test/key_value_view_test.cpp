@@ -99,13 +99,24 @@ test_value_type convert_from_tuple(ignite_tuple &&value) {
 class key_value_view_test : public ignite_runner_suite {
 protected:
     void SetUp() override {
-        ignite_client_configuration cfg{get_node_addrs()};
-        cfg.set_logger(get_logger());
+        try {
+            ignite_client_configuration cfg{get_node_addrs()};
+            cfg.set_logger(get_logger());
 
-        m_client = ignite_client::start(cfg, std::chrono::seconds(30));
-        auto table = m_client.get_tables().get_table(TABLE_1);
+            m_client = ignite_client::start(cfg, std::chrono::seconds(30));
+            auto table = m_client.get_tables().get_table(TABLE_1);
 
-        kv_view = table->get_key_value_view<test_key_type, test_value_type>();
+            kv_view = table->get_key_value_view<test_key_type, test_value_type>();
+        } catch (std::exception& e) {
+            get_logger()->log_error("TEST SUITE SetUp exception: " + std::string(e.what()));
+
+            throw;
+        } catch (...) {
+            get_logger()->log_error("TEST SUITE SetUp unknown error");
+
+            throw;
+        }
+
     }
 
     void TearDown() override {
