@@ -129,7 +129,7 @@ public class SqlIndexScanBenchmarkV2 extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .addProfiler("gc")
-                .include(".*" + SqlIndexScanBenchmarkV2.class.getSimpleName() + ".*")
+                .include(SqlIndexScanBenchmarkV2.class.getName() + "\\..*")
                 .build();
 
         new Runner(opt).run();

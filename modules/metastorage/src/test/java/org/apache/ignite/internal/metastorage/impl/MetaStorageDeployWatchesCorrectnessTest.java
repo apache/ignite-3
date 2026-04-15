@@ -48,8 +48,8 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,7 +76,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
         RaftManager raftManager = mock(RaftManager.class);
-        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
+        PhysicalTopologyAwareRaftGroupService raftGroupService = mock(PhysicalTopologyAwareRaftGroupService.class);
 
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
@@ -85,7 +85,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         var localNode = new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, new NetworkAddress("foo", 123));
 
-        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(0, -1)));
@@ -100,7 +100,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         raftManager,
                         new SimpleInMemoryKeyValueStorage(mcNodeName, readOperationForCompactionTracker),
                         clock,
-                        mock(TopologyAwareRaftGroupServiceFactory.class),
+                        mock(TimeAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         systemConfiguration,
                         RaftGroupOptionsConfigurer.EMPTY,

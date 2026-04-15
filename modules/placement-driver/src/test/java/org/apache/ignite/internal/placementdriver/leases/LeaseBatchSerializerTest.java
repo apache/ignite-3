@@ -25,9 +25,11 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -203,6 +206,22 @@ class LeaseBatchSerializerTest {
     }
 
     @Test
+    void batchWithExactly8NodeNamesAndMoreThan8NodeIds() {
+        List<Lease> originalLeases = IntStream.range(0, 8)
+                .mapToObj(n -> {
+                    String nodeName = "node" + n;
+                    return tableLease(nodeName, randomUUID(), nodeName, n);
+                })
+                .collect(toList());
+
+        originalLeases.add(tableLease("node0", randomUUID(), "node0", 8));
+
+        LeaseBatch originalBatch = new LeaseBatch(originalLeases);
+
+        verifySerializationAndDeserializationGivesSameResult(originalBatch);
+    }
+
+    @Test
     void batchWithMoreThan8NodeNames() {
         List<Lease> originalLeases = IntStream.range(0, 9)
                 .mapToObj(n -> tableLease("node" + n, randomUUID(), "candidate" + n, n))
@@ -298,6 +317,105 @@ class LeaseBatchSerializerTest {
                 originalBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()),
                 restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList())
         );
+    }
+
+    @Test
+    void v2CanBeDeserialized() {
+        LeaseBatch originalBatch = new LeaseBatch(createLeases(baseTs(), TablePartitionId::new));
+
+        byte[] bytes = VersionedSerialization.toBytes(originalBatch, serializer);
+
+        // VersionedSerializer header stores protocol version in the first byte.
+        assertEquals(2, bytes[0] & 0xFF);
+
+        LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredBatch.leases(), containsInAnyOrder(originalBatch.leases().toArray()));
+        assertEquals(
+                originalBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()),
+                restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList())
+        );
+    }
+
+    @Test
+    void v2WithExactly8NamesAndMoreThan8NodeIdsDoesNotUseCompactNodesInfoEncoding() {
+        List<Lease> originalLeases = new ArrayList<>();
+
+        for (int i = 0; i < 8; i++) {
+            originalLeases.add(tableLease("node" + i, new UUID(0, i + 1), null, i));
+        }
+
+        originalLeases.add(tableLease("node2", new UUID(0, 9), "node3", 8));
+
+        LeaseBatch originalBatch = new LeaseBatch(originalLeases);
+        byte[] bytes = VersionedSerialization.toBytes(originalBatch, serializer);
+
+        LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredBatch.leases(), containsInAnyOrder(originalBatch.leases().toArray()));
+        assertEquals(
+                originalBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()),
+                restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList())
+        );
+    }
+
+    @Test
+    void v1WithExactly8NamesAndMoreThan8NodeIdsCanBeDeserialized() throws IOException {
+        byte[] bytes = v1BytesWithExactly8NamesAndMoreThan8NodeIdsUsingCompactEncoding();
+
+        LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
+
+        Lease expectedLease = new Lease(
+                "node0",
+                new UUID(0, 1),
+                new HybridTimestamp(900, 0),
+                new HybridTimestamp(1000, 0),
+                true,
+                true,
+                "node1",
+                new TablePartitionId(1, 0)
+        );
+
+        assertThat(restoredBatch.leases(), containsInAnyOrder(expectedLease));
+        assertEquals(List.of("node1"), restoredBatch.leases().stream().map(Lease::proposedCandidate).collect(toList()));
+    }
+
+    private static byte[] v1BytesWithExactly8NamesAndMoreThan8NodeIdsUsingCompactEncoding() throws IOException {
+        // Crafted manually to reproduce a V1-only layout: V1 allowed compact nodes info based only on nameCount,
+        // while the current serializer writes V2 and would not emit compact encoding when nodeCount > 8.
+        try (IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(256)) {
+            // Header written by VersionedSerializer.writeExternal(): MAGIC(0x43BEEF00) + protocolVersion(1).
+            out.writeInt(0x43BEEF01);
+
+            // Lease batch header.
+            out.writeVarInt(1000); // minExpirationTimePhysical
+            out.writeVarInt(0); // commonExpirationTimePhysicalDelta
+            out.writeVarInt(0); // commonExpirationTimeLogical
+
+            // Nodes dictionary: 8 names.
+            out.writeVarInt(8);
+            for (int i = 0; i < 8; i++) {
+                out.writeUTF("node" + i);
+            }
+
+            // Nodes dictionary: 9 node IDs, with names cycling over 8 entries.
+            out.writeVarInt(9);
+            for (int i = 0; i < 9; i++) {
+                out.writeUuid(new UUID(0, i + 1));
+                out.writeVarInt(i % 8);
+            }
+
+            // Table section with one object and one lease.
+            out.writeVarInt(1); // tableCount
+            out.writeVarInt(1); // objectId delta
+            out.writeVarInt(1); // leaseCount
+            out.write(0x07); // accepted + prolongable + hasProposedCandidate
+            out.writeVarInt(8); // compact nodes info: holder=0, proposedCandidate=1
+            out.writeVarInt(100); // period (expirationPhysical - startPhysical)
+            out.writeVarInt(0); // startLogical
+
+            return out.array();
+        }
     }
 
     @SuppressWarnings("unused")

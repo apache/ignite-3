@@ -98,7 +98,7 @@ public class ClientSqlExecuteRequest {
             ClockService clockService,
             NotificationSender notificationSender,
             @Nullable String username,
-            boolean sqlMultistatementsSupported,
+            boolean sqlMultistatementSupported,
             boolean sqlPartitionAwarenessQualifiedNameSupported,
             Consumer<SqlQueryType> queryTypeListener
     ) {
@@ -122,7 +122,7 @@ public class ClientSqlExecuteRequest {
                 resIdHolder
         );
 
-        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementsSupported);
+        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementSupported);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
 
@@ -147,10 +147,11 @@ public class ClientSqlExecuteRequest {
                                 resources,
                                 asyncResultSet,
                                 metrics,
+                                timestampTracker,
                                 props.pageSize(),
                                 includePartitionAwarenessMeta,
                                 sqlDirectTxMappingSupported,
-                                sqlMultistatementsSupported,
+                                sqlMultistatementSupported,
                                 sqlPartitionAwarenessQualifiedNameSupported,
                                 operationExecutor))
                 .thenApply(rsWriter -> out -> {

@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -348,6 +349,10 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                     rhs = operands.get(0);
                 }
 
+                if (RexUtils.isLosslessCast(rhs)) {
+                    rhs = ((RexCall) rhs).getOperands().get(0);
+                }
+
                 if (isColocationKey(lhs, keys) && isValueExpr(rhs)) {
                     if (negate) {
                         return Result.UNKNOWN;
@@ -374,6 +379,10 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 } else {
                     lhs = operands.get(1);
                     rhs = operands.get(0);
+                }
+
+                if (RexUtils.isLosslessCast(rhs)) {
+                    rhs = ((RexCall) rhs).getOperands().get(0);
                 }
 
                 if (isColocationKey(lhs, keys) && isValueExpr(rhs)) {

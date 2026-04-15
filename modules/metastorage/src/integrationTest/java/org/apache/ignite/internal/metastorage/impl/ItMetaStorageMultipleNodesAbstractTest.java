@@ -37,6 +37,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -65,8 +66,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -104,6 +106,9 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
      */
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=1000000")
     private SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private TestInfo testInfo;
 
@@ -158,7 +163,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
             String nodeName = clusterService.staticLocalNode().name();
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath(), logStorageConfiguration);
 
             this.raftManager = TestLozaFactory.create(
                     clusterService,
@@ -180,7 +185,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 
-            cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
+            cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath(), logStorageConfiguration);
 
             RaftGroupOptionsConfigurer cmgRaftConfigurator =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -203,16 +208,15 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
-            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+            var topologyAwareRaftGroupServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
                     clusterService,
-                    logicalTopologyService,
-                    Loza.FACTORY,
-                    raftGroupEventsClientListener
+                    raftGroupEventsClientListener,
+                    failureManager
             );
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(basePath.resolve("metastorage"));
 
-            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
+            msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(), logStorageConfiguration);
 
             RaftGroupOptionsConfigurer msRaftConfigurator =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
@@ -287,7 +291,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             return metaStorageManager
                     .metaStorageService()
                     .thenApply(MetaStorageServiceImpl::raftGroupService)
-                    .thenCompose(service -> service.refreshMembers(false).thenApply(v -> service.learners()))
+                    .thenCompose(service ->
+                            service.refreshMembers(false, TimeAwareRaftGroupService.NO_TIMEOUT).thenApply(v -> service.learners()))
                     .thenApply(learners -> learners.stream().map(Peer::consistentId).collect(toSet()));
         }
     }

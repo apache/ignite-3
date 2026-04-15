@@ -35,7 +35,6 @@ public class PersistentPageMemoryMetricSource implements MetricSource {
     public static final String PAGE_CACHE_HITS = "PageCacheHits";
     public static final String DIRTY_PAGES = "DirtyPages";
     public static final String LOADED_PAGES = "LoadedPages";
-    public static final String PAGE_ACQUIRE_TIME = "PageAcquireTime";
 
     private final String name;
 

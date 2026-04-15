@@ -33,6 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -60,6 +61,9 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static StorageConfiguration storageConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private TestInfo testInfo;
 
     @BeforeEach
@@ -83,6 +87,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                         workDir,
                         raftConfiguration,
                         systemLocalConfiguration,
+                        logStorageConfiguration,
                         userNodeAttributes,
                         storageConfiguration,
                         config -> onConfigurationCommittedListener.accept(i, config)
@@ -110,6 +115,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                 workDir,
                 raftConfiguration,
                 systemLocalConfiguration,
+                logStorageConfiguration,
                 userNodeAttributes,
                 storageConfiguration,
                 onConfigurationCommittedListener
@@ -129,6 +135,7 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                 workDir,
                 raftConfiguration,
                 systemLocalConfiguration,
+                logStorageConfiguration,
                 userNodeAttributes,
                 attributesProvider,
                 storageConfiguration,

@@ -76,6 +76,7 @@ import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -113,8 +114,10 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -124,6 +127,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.AfterEach;
@@ -196,7 +200,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final ClusterTimeImpl clusterTime;
 
-        private RaftGroupService metaStorageRaftService;
+        private TimeAwareRaftGroupService metaStorageRaftService;
 
         private MetaStorageService metaStorageService;
 
@@ -204,10 +208,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final RaftGroupOptionsConfigurer partitionsRaftConfigurer;
 
+        private final RaftGroupEventsClientListener raftGroupEventsClientListener;
+
         Node(
                 ClusterService clusterService,
                 RaftConfiguration raftConfiguration,
                 SystemLocalConfiguration systemLocalConfiguration,
+                LogStorageConfiguration logStorageConfiguration,
                 Path dataPath
         ) {
             this.clusterService = clusterService;
@@ -218,16 +225,19 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             String nodeName = clusterService.staticLocalNode().name();
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath(), logStorageConfiguration);
 
             partitionsRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath());
+
+            this.raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
             this.raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
                     systemLocalConfiguration,
-                    clock
+                    clock,
+                    raftGroupEventsClientListener
             );
 
             this.clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
@@ -259,7 +269,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             return clusterService.staticLocalNode().name();
         }
 
-        private RaftGroupService startRaftService(PeersAndLearners configuration) {
+        private TimeAwareRaftGroupService startRaftService(PeersAndLearners configuration) {
             String name = name();
 
             boolean isLearner = configuration.peer(name) == null;
@@ -273,12 +283,24 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
+                return raftManager.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(
                         raftNodeId,
                         configuration,
                         listener,
                         RaftGroupEventsListener.noopLsnr,
-                        null,
+                        (groupId, peersAndLearners, raftConfiguration, raftClientExecutor, commandsMarshaller,
+                                stoppingExceptionFactory) ->
+                                PhysicalTopologyAwareRaftGroupService.start(
+                                        groupId,
+                                        clusterService,
+                                        raftConfiguration,
+                                        peersAndLearners,
+                                        raftClientExecutor,
+                                        raftGroupEventsClientListener,
+                                        commandsMarshaller,
+                                        stoppingExceptionFactory,
+                                        new NoOpFailureManager()
+                                ),
                         partitionsRaftConfigurer
                 );
             } catch (NodeStoppingException e) {
@@ -316,6 +338,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final List<Node> nodes = new ArrayList<>();
 
     @BeforeEach
@@ -331,7 +356,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
-                .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, systemLocalConfiguration, workDir)));
+                .forEach(clusterService -> nodes.add(
+                        new Node(clusterService, raftConfiguration, systemLocalConfiguration, logStorageConfiguration, workDir))
+                );
 
         return nodes;
     }
@@ -371,7 +398,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willBe(EXPECTED_RESULT_ENTRY));
+        assertThat(
+                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), TimeAwareRaftGroupService.NO_TIMEOUT),
+                willBe(EXPECTED_RESULT_ENTRY)
+        );
     }
 
     /**
@@ -387,7 +417,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         startNodes();
 
         assertThat(
-                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()),
+                node.metaStorageService.get(
+                        new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision(), TimeAwareRaftGroupService.NO_TIMEOUT
+                ),
                 willBe(EXPECTED_RESULT_ENTRY)
         );
     }
@@ -404,7 +436,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet()), willBe(EXPECTED_RESULT_MAP));
+        assertThat(
+                node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), TimeAwareRaftGroupService.NO_TIMEOUT),
+                willBe(EXPECTED_RESULT_MAP)
+        );
     }
 
     /**
@@ -419,7 +454,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10), willBe(EXPECTED_RESULT_MAP));
+        assertThat(
+                node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10, TimeAwareRaftGroupService.NO_TIMEOUT),
+                willBe(EXPECTED_RESULT_MAP)
+        );
     }
 
     /**
@@ -436,7 +474,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.put(expKey, expVal), willCompleteSuccessfully());
+        assertThat(node.metaStorageService.put(expKey, expVal, TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         verify(node.mockStorage).put(eq(expKey.bytes()), eq(expVal), any());
     }
@@ -457,7 +495,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                         e -> e.getValue().value()
                 ));
 
-        assertThat(node.metaStorageService.putAll(values), willCompleteSuccessfully());
+        assertThat(node.metaStorageService.putAll(values, TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
@@ -497,7 +535,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.remove(expKey), willCompleteSuccessfully());
+        assertThat(node.metaStorageService.remove(expKey, TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         verify(node.mockStorage).remove(eq(expKey.bytes()), any());
     }
@@ -512,7 +550,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet()), willCompleteSuccessfully());
+        assertThat(
+                node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet(), TimeAwareRaftGroupService.NO_TIMEOUT),
+                willCompleteSuccessfully()
+        );
 
         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
                 .map(ByteArray::bytes).collect(toList());
@@ -540,7 +581,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         ByteArray prefix = new ByteArray(new byte[]{1});
 
-        assertThat(node.metaStorageService.removeByPrefix(prefix), willCompleteSuccessfully());
+        assertThat(node.metaStorageService.removeByPrefix(prefix, TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         verify(node.mockStorage).removeByPrefix(eq(prefix.bytes()), any());
     }
@@ -562,7 +603,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(singleElementSubscriber());
+        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound, TimeAwareRaftGroupService.NO_TIMEOUT)
+                .subscribe(singleElementSubscriber());
 
         verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound);
     }
@@ -583,7 +625,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(singleElementSubscriber());
+        node.metaStorageService.range(expKeyFrom, expKeyTo, false, TimeAwareRaftGroupService.NO_TIMEOUT)
+                .subscribe(singleElementSubscriber());
 
         verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes());
     }
@@ -602,7 +645,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        node.metaStorageService.range(expKeyFrom, null, false).subscribe(singleElementSubscriber());
+        node.metaStorageService.range(expKeyFrom, null, false, TimeAwareRaftGroupService.NO_TIMEOUT)
+                .subscribe(singleElementSubscriber());
 
         verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), null);
     }
@@ -620,7 +664,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         startNodes();
 
         CompletableFuture<Entry> expectedEntriesFuture =
-                subscribeToValue(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
+                subscribeToValue(node.metaStorageService.range(
+                        new ByteArray(EXPECTED_RESULT_ENTRY.key()), null, TimeAwareRaftGroupService.NO_TIMEOUT));
 
         assertThat(expectedEntriesFuture, willBe(EXPECTED_RESULT_ENTRY));
     }
@@ -644,7 +689,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         startNodes();
 
         CompletableFuture<List<Entry>> future =
-                subscribeToList(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
+                subscribeToList(node.metaStorageService.range(
+                        new ByteArray(EXPECTED_RESULT_ENTRY.key()), null, TimeAwareRaftGroupService.NO_TIMEOUT));
 
         assertThat(future, willThrowFast(NoSuchElementException.class));
     }
@@ -706,7 +752,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.invoke(iif).thenApply(StatementResult::getAsBoolean), willBe(true));
+        assertThat(node.metaStorageService.invoke(iif, TimeAwareRaftGroupService.NO_TIMEOUT)
+                .thenApply(StatementResult::getAsBoolean), willBe(true));
 
         verify(node.mockStorage).invoke(ifCaptor.capture(), any(), any());
 
@@ -761,7 +808,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         Operation failure = Operations.noop();
 
-        assertThat(node.metaStorageService.invoke(condition, success, failure), willBe(true));
+        assertThat(node.metaStorageService.invoke(condition, success, failure, TimeAwareRaftGroupService.NO_TIMEOUT), willBe(true));
 
         var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
@@ -793,7 +840,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willThrow(CompactedException.class));
+        assertThat(
+                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), TimeAwareRaftGroupService.NO_TIMEOUT),
+                willThrow(CompactedException.class)
+        );
     }
 
     /**
@@ -808,7 +858,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willThrow(OperationTimeoutException.class));
+        assertThat(
+                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), TimeAwareRaftGroupService.NO_TIMEOUT),
+                willThrow(OperationTimeoutException.class)
+        );
     }
 
     private static Subscriber<Entry> singleElementSubscriber() {

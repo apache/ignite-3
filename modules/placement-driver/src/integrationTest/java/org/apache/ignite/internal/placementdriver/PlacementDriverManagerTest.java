@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -102,6 +103,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -155,6 +157,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @InjectConfiguration(validate = false)
     private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -218,7 +223,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.staticLocalNode().name(),
-                workingDir.raftLogPath()
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         raftManager = TestLozaFactory.create(
@@ -238,10 +244,17 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
         msLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterService.staticLocalNode().name(), metastorageWorkDir.raftLogPath());
+                SharedLogStorageManagerUtils.create(clusterService.staticLocalNode().name(), metastorageWorkDir.raftLogPath(),
+                        logStorageConfiguration);
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
+
+        var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                clusterService,
+                eventsClientListener,
+                mock(FailureProcessor.class)
+        );
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService.staticLocalNode(),
@@ -250,7 +263,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 raftManager,
                 storage,
                 nodeClock,
-                topologyAwareRaftGroupServiceFactory,
+                msRaftServiceFactory,
                 new NoOpMetricManager(),
                 systemDistributedConfiguration,
                 msRaftConfigurer,

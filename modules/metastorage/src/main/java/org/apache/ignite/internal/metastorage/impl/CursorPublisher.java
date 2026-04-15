@@ -35,6 +35,8 @@ class CursorPublisher implements Publisher<Entry> {
 
     private final Function<byte[], ReadCommand> nextBatchCommandSupplier;
 
+    private final long timeoutMillis;
+
     private final AtomicBoolean subscriptionGuard = new AtomicBoolean();
 
     /**
@@ -43,10 +45,12 @@ class CursorPublisher implements Publisher<Entry> {
      * @param context Context.
      * @param nextBatchCommandSupplier Factory that creates a command for retrieving the next batch of values provided with the last
      *         processed key for pagination purposes.
+     * @param timeoutMillis Timeout in milliseconds for each batch request.
      */
-    CursorPublisher(MetaStorageServiceContext context, Function<byte[], ReadCommand> nextBatchCommandSupplier) {
+    CursorPublisher(MetaStorageServiceContext context, Function<byte[], ReadCommand> nextBatchCommandSupplier, long timeoutMillis) {
         this.context = context;
         this.nextBatchCommandSupplier = nextBatchCommandSupplier;
+        this.timeoutMillis = timeoutMillis;
     }
 
     @Override
@@ -62,7 +66,7 @@ class CursorPublisher implements Publisher<Entry> {
         }
 
         try {
-            var subscription = new CursorSubscription(context, nextBatchCommandSupplier, subscriber);
+            var subscription = new CursorSubscription(context, nextBatchCommandSupplier, subscriber, timeoutMillis);
 
             subscriber.onSubscribe(subscription);
         } finally {

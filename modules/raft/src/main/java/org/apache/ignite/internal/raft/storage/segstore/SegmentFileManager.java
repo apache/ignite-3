@@ -42,7 +42,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.LogStorageView;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -115,6 +114,8 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     static final byte[] SWITCH_SEGMENT_RECORD = new byte[8]; // 8 zero bytes.
 
+    private final String storageName;
+
     private final Path segmentFilesDir;
 
     /** Number of stripes used by the index memtable. Should be equal to the number of stripes in the Raft server's Disruptor. */
@@ -156,15 +157,20 @@ class SegmentFileManager implements ManuallyCloseable {
 
     SegmentFileManager(
             String nodeName,
+            String storageName,
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
-            RaftConfiguration raftConfiguration,
+            boolean isSync,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
-        this.segmentFilesDir = baseDir.resolve("segments");
+        this.storageName = storageName;
+
+        Path storageDir = baseDir.resolve(storageName);
+
+        this.segmentFilesDir = storageDir.resolve("segments");
         this.stripes = stripes;
-        this.isSync = raftConfiguration.fsync().value();
+        this.isSync = isSync;
 
         Files.createDirectories(segmentFilesDir);
 
@@ -174,10 +180,11 @@ class SegmentFileManager implements ManuallyCloseable {
 
         maxLogEntrySize = maxLogEntrySize(logStorageView);
 
-        indexFileManager = new IndexFileManager(baseDir);
+        indexFileManager = new IndexFileManager(storageDir);
 
         garbageCollector = new RaftLogGarbageCollector(
                 nodeName,
+                storageName,
                 segmentFilesDir,
                 indexFileManager,
                 logStorageView.softLogSizeLimitBytes(),
@@ -187,6 +194,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         checkpointer = new RaftLogCheckpointer(
                 nodeName,
+                storageName,
                 indexFileManager,
                 failureProcessor,
                 logStorageView.maxCheckpointQueueSize(),
@@ -195,7 +203,10 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     void start() throws IOException {
-        LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, segmentFileSize);
+        LOG.info(
+                "Starting segment file manager [storageName={}, segmentFilesDir={}, fileSize={}].",
+                storageName, segmentFilesDir, segmentFileSize
+        );
 
         indexFileManager.cleanupLeftoverFiles();
         garbageCollector.cleanupLeftoverFiles();
@@ -471,11 +482,18 @@ class SegmentFileManager implements ManuallyCloseable {
         return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
+    /** Returns current size of all log storage files in bytes. */
+    long logSizeBytes() {
+        return garbageCollector.logSizeBytes();
+    }
+
     /**
      * Returns the current segment file possibly waiting for an ongoing rollover to complete.
      */
     private SegmentFileWithMemtable currentSegmentFile() {
         SegmentFileWithMemtable segmentFile = currentSegmentFile.get();
+
+        assert segmentFile != null : "Segment file manager is not started";
 
         if (!segmentFile.readOnly()) {
             return segmentFile;

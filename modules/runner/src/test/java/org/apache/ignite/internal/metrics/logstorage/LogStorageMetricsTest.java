@@ -30,13 +30,17 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -54,7 +58,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class LogStorageMetricsTest {
+@ExtendWith(ConfigurationExtension.class)
+class LogStorageMetricsTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
@@ -72,6 +77,9 @@ class LogStorageMetricsTest {
 
     private final LogStorageOptions logStorageOptions = new LogStorageOptions();
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     @BeforeEach
     void setUp() {
         logStorageOptions.setConfigurationManager(new ConfigurationManager());
@@ -79,9 +87,10 @@ class LogStorageMetricsTest {
 
         String nodeName = "test";
 
-        cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workDir.resolve("cmg"));
-        metastorageLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workDir.resolve("metastorage"));
-        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workDir.resolve("partitions"));
+        cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workDir.resolve("cmg"), logStorageConfiguration);
+        metastorageLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workDir.resolve("metastorage"),
+                logStorageConfiguration);
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workDir.resolve("partitions"), logStorageConfiguration);
 
         volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("spillout"));
 

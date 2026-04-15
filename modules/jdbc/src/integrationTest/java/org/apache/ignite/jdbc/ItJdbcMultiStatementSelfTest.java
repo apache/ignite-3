@@ -19,6 +19,11 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.jdbc.util.RowsProjectionMatcher.hasValuesInAnyOrder;
+import static org.apache.ignite.jdbc.util.RowsProjectionMatcher.hasValuesOrder;
+import static org.apache.ignite.jdbc.util.StatementResultCheck.isResultSet;
+import static org.apache.ignite.jdbc.util.StatementResultCheck.isUpdateCounter;
+import static org.apache.ignite.jdbc.util.StatementResultCheck.noMoreResults;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -35,9 +40,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.jdbc.util.StatementResultCheck;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -281,18 +288,26 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testMixedDmlQueryExecute() throws Exception {
-        boolean res = stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5'); DELETE FROM TEST_TX WHERE ID=6; SELECT 1;");
-        assertFalse(res);
-        assertEquals(1, getResultSetSize());
+        assertStatementResults("INSERT INTO TEST_TX VALUES (6, 5, '5'); DELETE FROM TEST_TX WHERE ID=6; SELECT 1;",
+                isUpdateCounter(1),
+                isUpdateCounter(1),
+                isResultSet(rs -> rs.getInt(1), hasValuesOrder(1)),
+                noMoreResults()
+        );
 
-        res = stmt.execute("SELECT 1; INSERT INTO TEST_TX VALUES (7, 5, '5'); DELETE FROM TEST_TX WHERE ID=6;");
-        assertEquals(true, res);
-        assertEquals(1, getResultSetSize());
+        assertStatementResults("SELECT 1; INSERT INTO TEST_TX VALUES (7, 5, '5'); DELETE FROM TEST_TX WHERE ID=6;",
+                isResultSet(rs -> rs.getInt(1), hasValuesOrder(1)),
+                isUpdateCounter(1),
+                isUpdateCounter(0),
+                noMoreResults()
+        );
 
-        // empty results set in the middle
-        res = stmt.execute("SELECT * FROM TEST_TX; INSERT INTO TEST_TX VALUES (6, 6, '6'); SELECT * FROM TEST_TX;");
-        assertEquals(true, res);
-        assertEquals(11, getResultSetSize());
+        assertStatementResults("SELECT * FROM TEST_TX; INSERT INTO TEST_TX VALUES (6, 6, '6'); SELECT * FROM TEST_TX;",
+                isResultSet(rs -> rs.getInt(1), hasValuesInAnyOrder(1, 2, 3, 4, 7)),
+                isUpdateCounter(1),
+                isResultSet(rs -> rs.getInt(1), hasValuesInAnyOrder(1, 2, 3, 4, 6, 7)),
+                noMoreResults()
+        );
     }
 
     @Test
@@ -778,6 +793,18 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
             updCount = stmt.getUpdateCount();
         } while (more || updCount != -1);
         return size;
+    }
+
+    /** Verifies that after query execution statement returns results that satisfy provided assertions. */
+    private void assertStatementResults(String query, StatementResultCheck... resultCheck) throws SQLException {
+        List<StatementResultCheck> checks = List.of(resultCheck);
+
+        stmt.execute(query);
+
+        for (StatementResultCheck check : checks) {
+            check.check(stmt);
+            stmt.getMoreResults();
+        }
     }
 
     private boolean checkNoMoreResults() throws SQLException {

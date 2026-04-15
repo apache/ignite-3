@@ -522,7 +522,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rowFactory,
                 idx,
                 scannableTable,
-                tbl.descriptor(),
                 partitionProvider,
                 comp,
                 ranges,

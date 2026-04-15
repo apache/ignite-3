@@ -186,11 +186,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IgniteInternalException(Common.INTERNAL_ERR, "Table with given id not found: " + tableId);
             }
 
-            CacheKey tableKey = tableCacheKey(tableDescriptor.id(), tableDescriptor.updateTimestamp());
+            HybridTimestamp tableTime = deriveTableTimestamp(tableDescriptor, catalog);
+            CacheKey tableKey = tableCacheKey(tableDescriptor.id(), tableTime);
 
             IgniteTableImpl igniteTable = tableCache.get(tableKey, (x) -> {
                 TableDescriptor descriptor = createTableDescriptorForTable(catalog, tableDescriptor);
-                return createTableDataOnlyTable(catalog, tableDescriptor, descriptor);
+                return createTableDataOnlyTable(catalog, tableTime, tableDescriptor, descriptor);
             });
 
             Map<String, IgniteIndex> tableIndexes = getIndexes(catalog,
@@ -200,6 +201,24 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             return new ActualIgniteTable(igniteTable, tableIndexes);
         });
+    }
+
+    private static HybridTimestamp deriveTableTimestamp(CatalogTableDescriptor table, Catalog catalog) {
+        // Consolidated time accounting for update time of all table-related objects which affects either 
+        // planning or sql-related execution.
+        //
+        // Indexes included because ScannableTable contains index-related meta, hence we need to create
+        // new instance as soon as any indexes has changed or new index has been added. Such kind of 
+        // consolidation doesn't account for DROP, but in case of indexes this should not be a big deal
+        // because it's rather infrequent operation.
+        HybridTimestamp time = table.updateTimestamp();
+        for (CatalogIndexDescriptor index : catalog.indexes(table.id())) {
+            if (index.updateTimestamp().compareTo(time) > 0) {
+                time = index.updateTimestamp();
+            }
+        }
+
+        return time; 
     }
 
     private static long cacheKey(int part1, int part2) {
@@ -232,12 +251,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            CacheKey tableKey = tableCacheKey(tableDescriptor.id(), tableDescriptor.updateTimestamp());
+            HybridTimestamp tableTime = deriveTableTimestamp(tableDescriptor, catalog);
+            CacheKey tableKey = tableCacheKey(tableDescriptor.id(), tableTime);
 
             // Load cached table by (id, version)
             IgniteTableImpl igniteTable = tableCache.get(tableKey, (k) -> {
                 TableDescriptor descriptor = createTableDescriptorForTable(catalog, tableDescriptor);
-                return createTableDataOnlyTable(catalog, tableDescriptor, descriptor);
+                return createTableDataOnlyTable(catalog, tableTime, tableDescriptor, descriptor);
             });
 
             // Get actual indices
@@ -445,6 +465,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private IgniteTableImpl createTableDataOnlyTable(
             Catalog catalog,
+            HybridTimestamp tableTime,
             CatalogTableDescriptor table,
             TableDescriptor descriptor
     ) {
@@ -455,7 +476,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(catalog, table.zoneId());
 
-        return createTable(table, descriptor, tableIndexes, zoneDescriptor, sqlStatisticManager);
+        return createTable(table, tableTime, descriptor, tableIndexes, zoneDescriptor, sqlStatisticManager);
     }
 
     private Map<String, IgniteIndex> getIndexes(Catalog catalog, int tableId, int primaryKeyIndexId) {
@@ -501,6 +522,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private static IgniteTableImpl createTable(
             CatalogTableDescriptor catalogTableDescriptor,
+            HybridTimestamp tableTime,
             TableDescriptor tableDescriptor,
             Map<String, IgniteIndex> indexes,
             CatalogZoneDescriptor zoneDescriptor,
@@ -526,7 +548,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 tableName,
                 tableId,
                 catalogTableDescriptor.latestSchemaVersion(),
-                catalogTableDescriptor.updateTimestamp().longValue(),
+                tableTime.longValue(),
                 tableDescriptor,
                 primaryKeyColumns,
                 statistic,

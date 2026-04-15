@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
@@ -44,7 +43,6 @@ class DummyScannableTable implements ScannableTable {
             PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
             int indexId,
-            List<String> columns,
             @Nullable RangeCondition<RowT> cond,
             int @Nullable [] requiredColumns
     ) {
@@ -57,7 +55,6 @@ class DummyScannableTable implements ScannableTable {
             PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
             int indexId,
-            List<String> columns,
             RowT key,
             int @Nullable [] requiredColumns
     ) {

@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdT
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -44,6 +44,8 @@ class IndexStorageFactory {
     private final AbstractPageMemoryTableStorage<?> tableStorage;
 
     private final int partitionId;
+
+    private final PartitionPageMemory partitionPageMemory;
 
     private final IndexMetaTree indexMetaTree;
 
@@ -67,12 +69,13 @@ class IndexStorageFactory {
 
     IndexStorageFactory(
             AbstractPageMemoryTableStorage<?> tableStorage,
-            int partitionId,
+            PartitionPageMemory partitionPageMemory,
             IndexMetaTree indexMetaTree,
             FreeListImpl freeList
     ) {
         this.tableStorage = tableStorage;
-        this.partitionId = partitionId;
+        this.partitionId = partitionPageMemory.partitionId();
+        this.partitionPageMemory = partitionPageMemory;
         this.indexMetaTree = indexMetaTree;
         this.freeList = freeList;
     }
@@ -128,7 +131,7 @@ class IndexStorageFactory {
                         tableStorage.getTableId(),
                         Integer.toString(tableStorage.getTableId()),
                         partitionId,
-                        tableStorage.dataRegion().pageMemory(),
+                        partitionPageMemory,
                         tableStorage.engine().generateGlobalRemoveId(),
                         metaPageId,
                         freeList,
@@ -142,7 +145,7 @@ class IndexStorageFactory {
                     tableStorage.getTableId(),
                     Integer.toString(tableStorage.getTableId()),
                     partitionId,
-                    tableStorage.dataRegion().pageMemory(),
+                    partitionPageMemory,
                     tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList
@@ -210,7 +213,7 @@ class IndexStorageFactory {
                         tableStorage.getTableId(),
                         Integer.toString(tableStorage.getTableId()),
                         partitionId,
-                        tableStorage.dataRegion().pageMemory(),
+                        partitionPageMemory,
                         tableStorage.engine().generateGlobalRemoveId(),
                         metaPageId,
                         freeList,
@@ -226,7 +229,7 @@ class IndexStorageFactory {
                     tableStorage.getTableId(),
                     Integer.toString(tableStorage.getTableId()),
                     partitionId,
-                    tableStorage.dataRegion().pageMemory(),
+                    partitionPageMemory,
                     tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList,
@@ -244,7 +247,7 @@ class IndexStorageFactory {
                     tableStorage.getTableId(),
                     Integer.toString(tableStorage.getTableId()),
                     partitionId,
-                    tableStorage.dataRegion().pageMemory(),
+                    partitionPageMemory,
                     tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList
@@ -274,9 +277,7 @@ class IndexStorageFactory {
 
     private <T> IndexTreeAndMeta<T> createIndexTree(StorageIndexDescriptor descriptor, IndexTreeConstructor<T> treeConstructor) {
         try {
-            PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
-
-            long metaPageId = pageMemory.allocatePage(freeList, tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX);
+            long metaPageId = partitionPageMemory.allocatePage(freeList, tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX);
 
             T tree = treeConstructor.createTree(metaPageId);
 

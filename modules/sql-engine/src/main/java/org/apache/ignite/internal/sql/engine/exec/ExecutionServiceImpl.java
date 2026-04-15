@@ -1143,7 +1143,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             } catch (Exception e) {
                 LOG.info("Unable to send error message", e);
 
-                close(CancellationReason.CANCEL);
+                try {
+                    messageService.send(
+                            initiatorNode,
+                            FACTORY.queryCloseMessage()
+                                    .queryId(executionId.queryId())
+                                    .executionToken(executionId.executionToken())
+                                    .build()
+                    );
+                } finally {
+                    close(CancellationReason.CANCEL);
+                }
             }
         }
 
@@ -1327,19 +1337,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 return cancelFut;
             }
 
-            CompletableFuture<Void> start = new CompletableFuture<>();
-
             CompletableFuture<Void> stage;
 
             if (coordinator) {
-                stage = start.thenCompose(ignored -> closeRootNode(reason))
+                stage = closeRootNode(reason)
                         .thenCompose(ignored -> awaitFragmentInitialisationAndClose());
             } else {
-                stage = start.thenCompose(ignored -> messageService.send(coordinatorNodeName, FACTORY.queryCloseMessage()
-                                .queryId(executionId.queryId())
-                                .executionToken(executionId.executionToken())
-                                .build()).exceptionally(ignore -> null))
-                        .thenCompose(ignored -> closeLocalFragments());
+                stage = closeLocalFragments();
             }
 
             stage.whenComplete((r, e) -> {
@@ -1353,8 +1357,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
                 cancelFut.complete(null);
             }).thenRun(() -> localFragments.forEach(f -> f.context().cancel()));
-
-            start.completeAsync(() -> null, taskExecutor);
 
             return cancelFut;
         }
