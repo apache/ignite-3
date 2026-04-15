@@ -97,7 +97,6 @@ protected:
         client_cfg.set_endpoints(get_node_addrs());
 #endif
 
-
         m_direct_client = ignite_client::start(client_cfg, 5s);
 
         auto nodes = m_direct_client.get_cluster_nodes();
