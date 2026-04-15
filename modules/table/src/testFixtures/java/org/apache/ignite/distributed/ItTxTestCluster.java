@@ -157,10 +157,10 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionRaftProcessorImpl;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionReplicaProcessorImpl;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -923,7 +923,7 @@ public class ItTxTestCluster {
                 )
         );
 
-        TablePartitionRaftProcessorImpl tablePartitionRaftListener = new TablePartitionRaftProcessorImpl(
+        DefaultTablePartitionRaftProcessor tablePartitionRaftListener = new DefaultTablePartitionRaftProcessor(
                 txManagers.get(assignment),
                 partitionDataStorage,
                 storageUpdateHandler,
@@ -1064,7 +1064,7 @@ public class ItTxTestCluster {
         }
     }
 
-    protected TablePartitionReplicaProcessorImpl newReplicaListener(
+    protected DefaultTablePartitionReplicaProcessor newReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftGroupService raftClient,
             TxManager txManager,
@@ -1087,7 +1087,7 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             SchemaRegistry schemaRegistry
     ) {
-        return new TablePartitionReplicaProcessorImpl(
+        return new DefaultTablePartitionReplicaProcessor(
                 mvDataStorage,
                 raftClient,
                 txManager,

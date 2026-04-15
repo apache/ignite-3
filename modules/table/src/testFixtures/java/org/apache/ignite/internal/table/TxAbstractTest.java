@@ -85,7 +85,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionReplicaProcessorImpl;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
@@ -364,16 +364,16 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             throw new RuntimeException(e);
         }
 
-        TablePartitionReplicaProcessorImpl listener = IgniteTestUtils.getFieldValue(replica, ReplicaImpl.class, "listener");
+        DefaultTablePartitionReplicaProcessor listener = IgniteTestUtils.getFieldValue(replica, ReplicaImpl.class, "listener");
         TestMvPartitionStorage storage = IgniteTestUtils.getFieldValue(
                 listener,
-                TablePartitionReplicaProcessorImpl.class,
+                DefaultTablePartitionReplicaProcessor.class,
                 "mvDataStorage"
         );
         Map<RowId, ?> map = IgniteTestUtils.getFieldValue(storage, TestMvPartitionStorage.class, "map");
 
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
-                IgniteTestUtils.getFieldValue(listener, TablePartitionReplicaProcessorImpl.class, "safeTime");
+                IgniteTestUtils.getFieldValue(listener, DefaultTablePartitionReplicaProcessor.class, "safeTime");
 
         logger().info("Partition data "
                         + "[node={}, groupId={}, data={}, lastAppliedIndex={}, lastAppliedTerm={}, leaseInfo={}, safeTime = {}]",
@@ -381,7 +381,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 safeTime.current());
 
         Lazy<TableSchemaAwareIndexStorage> indexStorageLazy =
-                IgniteTestUtils.getFieldValue(listener, TablePartitionReplicaProcessorImpl.class, "pkIndexStorage");
+                IgniteTestUtils.getFieldValue(listener, DefaultTablePartitionReplicaProcessor.class, "pkIndexStorage");
         IndexStorage indexStorage = indexStorageLazy.get().storage();
         Map<RowId, ?> indexMap = IgniteTestUtils.getFieldValue(indexStorage, TestHashIndexStorage.class, "index");
 
@@ -389,7 +389,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         TxStatePartitionStorage stateStorage = IgniteTestUtils.getFieldValue(
                 listener,
-                TablePartitionReplicaProcessorImpl.class,
+                DefaultTablePartitionReplicaProcessor.class,
                 "txStateStorage"
         );
 

@@ -71,8 +71,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-public class TablePartitionRaftProcessorImpl implements TablePartitionRaftProcessor {
-    private static final IgniteLogger LOG = Loggers.forClass(TablePartitionRaftProcessorImpl.class);
+public class DefaultTablePartitionRaftProcessor implements TablePartitionRaftProcessor {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultTablePartitionRaftProcessor.class);
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -104,7 +104,7 @@ public class TablePartitionRaftProcessorImpl implements TablePartitionRaftProces
     private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
-    public TablePartitionRaftProcessorImpl(
+    public DefaultTablePartitionRaftProcessor(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,

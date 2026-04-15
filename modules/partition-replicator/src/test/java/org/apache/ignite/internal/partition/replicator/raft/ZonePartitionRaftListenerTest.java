@@ -96,8 +96,8 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionRaftProcessorImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -309,7 +309,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         listener.onConfigurationCommitted(raftGroupConfiguration, 2L, 3L);
 
-        TablePartitionRaftProcessorImpl tablePartitionRaftProcessor = partitionListener(TABLE_ID);
+        DefaultTablePartitionRaftProcessor tablePartitionRaftProcessor = partitionListener(TABLE_ID);
 
         listener.addTableProcessor(TABLE_ID, tablePartitionRaftProcessor);
 
@@ -453,7 +453,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-        TablePartitionRaftProcessorImpl tableProcessor = partitionListener(TABLE_ID);
+        DefaultTablePartitionRaftProcessor tableProcessor = partitionListener(TABLE_ID);
 
         listener.addTableProcessor(TABLE_ID, tableProcessor);
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -951,7 +951,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         return writeCommandClosure(index, term, writeCommand, null, null);
     }
 
-    private TablePartitionRaftProcessorImpl partitionListener(int tableId) {
+    private DefaultTablePartitionRaftProcessor partitionListener(int tableId) {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
@@ -979,7 +979,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
             return null;
         }).when(storageUpdateHandler).handleUpdate(any(), any(), any(), any(), anyBoolean(), any(Runnable.class), any(), any(), any());
 
-        return new TablePartitionRaftProcessorImpl(
+        return new DefaultTablePartitionRaftProcessor(
                 txManager,
                 new SnapshotAwarePartitionDataStorage(
                         tableId,

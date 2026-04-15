@@ -228,7 +228,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
-public class TablePartitionReplicaProcessorImpl implements TablePartitionReplicaProcessor {
+public class DefaultTablePartitionReplicaProcessor implements TablePartitionReplicaProcessor {
     /**
      * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
      * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
@@ -254,7 +254,7 @@ public class TablePartitionReplicaProcessorImpl implements TablePartitionReplica
     private static final Object INTERNAL_DOC_PLACEHOLDER = null;
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TablePartitionReplicaProcessorImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultTablePartitionReplicaProcessor.class);
 
     /** Factory to create RAFT command messages. */
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
@@ -367,7 +367,7 @@ public class TablePartitionReplicaProcessorImpl implements TablePartitionReplica
      * @param metrics Table metric source.
      */
     @SuppressWarnings("PMD.UnusedFormalParameter") // clusterNodeResolver and failureProcessor kept for API compatibility
-    public TablePartitionReplicaProcessorImpl(
+    public DefaultTablePartitionReplicaProcessor(
             MvPartitionStorage mvDataStorage,
             RaftCommandRunner raftCommandRunner,
             TxManager txManager,
@@ -532,7 +532,7 @@ public class TablePartitionReplicaProcessorImpl implements TablePartitionReplica
             UUID senderId
     ) {
         return processRequest(request, replicaPrimacy)
-                .thenApply(TablePartitionReplicaProcessorImpl::wrapInReplicaResultIfNeeded);
+                .thenApply(DefaultTablePartitionReplicaProcessor::wrapInReplicaResultIfNeeded);
     }
 
     private static ReplicaResult wrapInReplicaResultIfNeeded(Object res) {
@@ -2675,7 +2675,7 @@ public class TablePartitionReplicaProcessorImpl implements TablePartitionReplica
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(TablePartitionReplicaProcessorImpl::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
+            }).handle(DefaultTablePartitionReplicaProcessor::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 
@@ -2808,7 +2808,7 @@ public class TablePartitionReplicaProcessorImpl implements TablePartitionReplica
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(TablePartitionReplicaProcessorImpl::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
+            }).handle(DefaultTablePartitionReplicaProcessor::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 

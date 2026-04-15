@@ -53,7 +53,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionRaftProcessorImpl;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -296,7 +296,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            var listener = (TablePartitionRaftProcessorImpl) ((ZonePartitionRaftListener) fsm.getListener())
+            var listener = (DefaultTablePartitionRaftProcessor) ((ZonePartitionRaftListener) fsm.getListener())
                     .tableProcessor(table.tableId());
 
             MvPartitionStorage storage = listener.getMvStorage();
