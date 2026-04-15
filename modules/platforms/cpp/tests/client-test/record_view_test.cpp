@@ -194,16 +194,36 @@ extra_mapping_value convert_from_tuple(ignite_tuple &&value) {
 class record_view_test : public ignite_runner_suite {
 protected:
     void SetUp() override {
-        ignite_client_configuration cfg{get_node_addrs()};
-        cfg.set_logger(get_logger());
+        try {
+            ignite_client_configuration cfg{get_node_addrs()};
+            cfg.set_logger(get_logger());
 
-        m_client = ignite_client::start(cfg, std::chrono::seconds(30));
-        auto table = m_client.get_tables().get_table(TABLE_1);
-        if (!table) {
-            throw std::runtime_error("Failed to get table");
+            m_client = ignite_client::start(cfg, std::chrono::seconds(30));
+            auto table = m_client.get_tables().get_table(TABLE_1);
+            if (!table) {
+                throw std::runtime_error("Failed to get table");
+            }
+
+            view = table->get_record_view<test_type>();
+
+        } catch (ignite_error& e) {
+            std::cerr << "TEST SUITE SetUp ignite_error: " << std::string(e.what()) << std::endl;
+
+            if (e.get_java_stack_trace().has_value()) {
+                std::cerr << "Java stacktrace" << *e.get_java_stack_trace() << std::endl;
+            } else {
+                std::cerr << "No Java stacktrace" << std::endl;
+            }
+
+        } catch (std::exception& e) {
+            std::cerr << "TEST SUITE SetUp exception: " << std::string(e.what()) << std::endl;
+
+            throw;
+        } catch (...) {
+            std::cerr << "TEST SUITE SetUp unknown error" << std::endl;
+
+            throw;
         }
-
-        view = table->get_record_view<test_type>();
     }
 
     void TearDown() override {
