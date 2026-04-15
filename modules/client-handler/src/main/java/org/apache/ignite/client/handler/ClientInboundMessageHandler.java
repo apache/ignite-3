@@ -568,7 +568,7 @@ public class ClientInboundMessageHandler
 
         logConnectionEstablished(ctx);
 
-        sendHandshakeResponse(ctx, actualFeatures, guard);
+        sendHandshakeResponse(ctx, supportedFeatures, guard);
     }
 
     private void handshakeError(ChannelHandlerContext ctx, Throwable t, ResponseWriteGuard guard) {

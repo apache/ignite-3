@@ -29,7 +29,7 @@ namespace ignite::protocol {
  */
 enum class bitmask_feature {
     /** Qualified name table requests. */
-    TABLE_REQS_USE_QUALIFIED_NAME = 2,
+    TABLE_REQS_USE_QUALIFIED_NAME = 1,
 
     /** SQL_UPDATE_COUNTERS_2 error extension (single binary value instead of array). */
     SQL_UPDATE_COUNTERS_2 = 18,
