@@ -91,7 +91,12 @@ private:
 protected:
     void SetUp() override {
         ignite_client_configuration client_cfg;
+#ifdef _WIN32
+        client_cfg.set_endpoints(ignite_runner::NODE_ADDRS);
+#else
         client_cfg.set_endpoints(get_node_addrs());
+#endif
+
 
         m_direct_client = ignite_client::start(client_cfg, 5s);
 
