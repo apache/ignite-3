@@ -108,11 +108,11 @@ protected:
 
             kv_view = table->get_key_value_view<test_key_type, test_value_type>();
         } catch (std::exception& e) {
-            get_logger()->log_error("TEST SUITE SetUp exception: " + std::string(e.what()));
+            std::cerr << "TEST SUITE SetUp exception: " << std::string(e.what()) << std::endl;
 
             throw;
         } catch (...) {
-            get_logger()->log_error("TEST SUITE SetUp unknown error");
+            std::cerr << "TEST SUITE SetUp unknown error" << std::endl;
 
             throw;
         }

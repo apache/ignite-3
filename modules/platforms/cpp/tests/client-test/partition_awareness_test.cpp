@@ -203,7 +203,11 @@ protected:
     }
 
     void setup_proxy() {
+#ifdef _WIN32
+        auto srv_endpoints = ignite_runner::NODE_ADDRS;
+#else
         auto srv_endpoints = get_node_addrs();
+#endif
 
         std::vector<proxy::configuration> proxy_cfg;
         proxy_cfg.reserve(srv_endpoints.size());
