@@ -1036,7 +1036,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
      */
     public QualifiedName unpackQualifiedName() {
         String schemaName = unpackString();
+        System.err.println("Unpacked schemaName = " + schemaName);
+
         String objectName = unpackString();
+
+        System.err.println("Unpacked objectName = " + objectName);
 
         return QualifiedNameHelper.fromNormalized(schemaName, objectName);
     }
