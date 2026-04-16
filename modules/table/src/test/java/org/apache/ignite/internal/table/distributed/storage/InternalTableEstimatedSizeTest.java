@@ -95,7 +95,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -227,7 +227,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME))
         );
 
-        List<PartitionReplicaListener> partitionReplicaListeners = IntStream.range(0, PARTITIONS_NUM)
+        List<DefaultTablePartitionReplicaProcessor> tablePartitionReplicaProcessors = IntStream.range(0, PARTITIONS_NUM)
                 .mapToObj(partId -> createPartitionReplicaListener(
                         partId,
                         txManager,
@@ -269,7 +269,9 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
             return primacyEngines.get(zonePartitionId)
                     .validatePrimacy(request)
                     .thenCompose(
-                            primacy -> partitionReplicaListeners.get(zonePartitionId.partitionId()).process(request, primacy, node.id())
+                            primacy -> tablePartitionReplicaProcessors.get(
+                                    zonePartitionId.partitionId()).process(request, primacy, node.id()
+                            )
                     )
                     .thenApply(replicaResult -> new ReplicaMessagesFactory()
                             .replicaResponse()
@@ -288,7 +290,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         assertThat(stopAsync(componentContext, components), willCompleteSuccessfully());
     }
 
-    private PartitionReplicaListener createPartitionReplicaListener(
+    private DefaultTablePartitionReplicaProcessor createPartitionReplicaListener(
             int partId,
             TxManager txManager,
             LockManager lockManager,
@@ -309,7 +311,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         partitionStorages.add(partitionStorage);
 
-        return new PartitionReplicaListener(
+        return new DefaultTablePartitionReplicaProcessor(
                 partitionStorage,
                 new RaftCommandRunner() {
                     @Override

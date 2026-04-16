@@ -162,10 +162,10 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -938,7 +938,7 @@ public class ItTxTestCluster {
                 )
         );
 
-        TablePartitionProcessor tablePartitionRaftListener = new TablePartitionProcessor(
+        DefaultTablePartitionRaftProcessor tablePartitionRaftListener = new DefaultTablePartitionRaftProcessor(
                 txManagers.get(assignment),
                 partitionDataStorage,
                 storageUpdateHandler,
@@ -1079,7 +1079,7 @@ public class ItTxTestCluster {
         }
     }
 
-    protected PartitionReplicaListener newReplicaListener(
+    protected DefaultTablePartitionReplicaProcessor newReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftGroupService raftClient,
             TxManager txManager,
@@ -1102,7 +1102,7 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             SchemaRegistry schemaRegistry
     ) {
-        return new PartitionReplicaListener(
+        return new DefaultTablePartitionReplicaProcessor(
                 mvDataStorage,
                 raftClient,
                 txManager,

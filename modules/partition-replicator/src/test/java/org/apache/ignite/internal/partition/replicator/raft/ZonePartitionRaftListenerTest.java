@@ -96,8 +96,8 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -227,7 +227,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     void savesSnapshotInfoToTxStorageOnSnapshotSave(
             @Mock CommandClosure<WriteCommand> writeCommandClosure,
             @Mock PrimaryReplicaChangeCommand command,
-            @Mock RaftTableProcessor tableProcessor
+            @Mock TablePartitionRaftProcessor tableProcessor
     ) {
         when(writeCommandClosure.command()).thenReturn(command);
         when(writeCommandClosure.index()).thenReturn(25L);
@@ -309,9 +309,9 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         listener.onConfigurationCommitted(raftGroupConfiguration, 2L, 3L);
 
-        TablePartitionProcessor tablePartitionProcessor = partitionListener(TABLE_ID);
+        DefaultTablePartitionRaftProcessor tablePartitionRaftProcessor = partitionListener(TABLE_ID);
 
-        listener.addTableProcessor(TABLE_ID, tablePartitionProcessor);
+        listener.addTableProcessor(TABLE_ID, tablePartitionRaftProcessor);
 
         verify(mvPartitionStorage).lastApplied(2L, 3L);
         verify(mvPartitionStorage).committedGroupConfiguration(any());
@@ -325,7 +325,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         var raftGroupConfiguration = new RaftGroupConfiguration(index, term, 111L, 110L, List.of("foo"), List.of("bar"), null, null);
 
-        var tableProcessor = new TestRaftTableProcessor();
+        var tableProcessor = new TestTablePartitionRaftProcessor();
 
         CompletableFuture<Void> f1 = runAsync(() -> listener.onConfigurationCommitted(raftGroupConfiguration, index, term), executor);
 
@@ -371,7 +371,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
             }
         });
 
-        var tableProcessor = new TestRaftTableProcessor();
+        var tableProcessor = new TestTablePartitionRaftProcessor();
 
         CompletableFuture<Void> f1 = runAsync(() -> listener.onWrite(closure.iterator()), executor);
 
@@ -392,9 +392,9 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void usesSnapshotInfoForRecovery(
-            @Mock RaftTableProcessor tableProcessor1,
-            @Mock RaftTableProcessor tableProcessor2,
-            @Mock RaftTableProcessor tableProcessor3,
+            @Mock TablePartitionRaftProcessor tableProcessor1,
+            @Mock TablePartitionRaftProcessor tableProcessor2,
+            @Mock TablePartitionRaftProcessor tableProcessor3,
             @Mock CommandClosure<WriteCommand> writeCommandClosure,
             @Mock PrimaryReplicaChangeCommand command
     ) {
@@ -443,7 +443,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void processorsAreNotInitializedWithoutSnapshot(@Mock RaftTableProcessor tableProcessor) {
+    void processorsAreNotInitializedWithoutSnapshot(@Mock TablePartitionRaftProcessor tableProcessor) {
         listener.addTableProcessorOnRecovery(42, tableProcessor);
 
         verify(tableProcessor, never()).initialize(any(), any(), anyLong(), anyLong());
@@ -453,7 +453,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-        TablePartitionProcessor tableProcessor = partitionListener(TABLE_ID);
+        DefaultTablePartitionRaftProcessor tableProcessor = partitionListener(TABLE_ID);
 
         listener.addTableProcessor(TABLE_ID, tableProcessor);
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -757,7 +757,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void locksOnConfigCommit(@Mock RaftTableProcessor tableProcessor) {
+    void locksOnConfigCommit(@Mock TablePartitionRaftProcessor tableProcessor) {
         listener.addTableProcessor(TABLE_ID, tableProcessor);
 
         long index = 10;
@@ -827,7 +827,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("tableCommands")
-    void locksOnApplicationOfTableCommands(WriteCommand command, @Mock RaftTableProcessor tableProcessor) {
+    void locksOnApplicationOfTableCommands(WriteCommand command, @Mock TablePartitionRaftProcessor tableProcessor) {
         listener.addTableProcessor(TABLE_ID, tableProcessor);
         when(tableProcessor.processCommand(any(), anyLong(), anyLong(), any()))
                 .thenReturn(EMPTY_APPLIED_RESULT);
@@ -951,7 +951,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         return writeCommandClosure(index, term, writeCommand, null, null);
     }
 
-    private TablePartitionProcessor partitionListener(int tableId) {
+    private DefaultTablePartitionRaftProcessor partitionListener(int tableId) {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
         lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
@@ -979,7 +979,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
             return null;
         }).when(storageUpdateHandler).handleUpdate(any(), any(), any(), any(), anyBoolean(), any(Runnable.class), any(), any(), any());
 
-        return new TablePartitionProcessor(
+        return new DefaultTablePartitionRaftProcessor(
                 txManager,
                 new SnapshotAwarePartitionDataStorage(
                         tableId,
@@ -999,7 +999,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static class TestRaftTableProcessor implements RaftTableProcessor {
+    private static class TestTablePartitionRaftProcessor implements TablePartitionRaftProcessor {
         @Nullable
         private RaftGroupConfiguration raftGroupConfiguration;
 

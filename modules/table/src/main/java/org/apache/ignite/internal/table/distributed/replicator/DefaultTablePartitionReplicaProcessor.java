@@ -111,9 +111,9 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.TablePartitionReplicaProcessor;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -228,7 +228,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
-public class PartitionReplicaListener implements ReplicaTableProcessor {
+public class DefaultTablePartitionReplicaProcessor implements TablePartitionReplicaProcessor {
     /**
      * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
      * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
@@ -254,7 +254,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private static final Object INTERNAL_DOC_PLACEHOLDER = null;
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultTablePartitionReplicaProcessor.class);
 
     /** Factory to create RAFT command messages. */
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
@@ -367,7 +367,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @param metrics Table metric source.
      */
     @SuppressWarnings("PMD.UnusedFormalParameter") // clusterNodeResolver and failureProcessor kept for API compatibility
-    public PartitionReplicaListener(
+    public DefaultTablePartitionReplicaProcessor(
             MvPartitionStorage mvDataStorage,
             RaftCommandRunner raftCommandRunner,
             TxManager txManager,
@@ -532,7 +532,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             UUID senderId
     ) {
         return processRequest(request, replicaPrimacy)
-                .thenApply(PartitionReplicaListener::wrapInReplicaResultIfNeeded);
+                .thenApply(DefaultTablePartitionReplicaProcessor::wrapInReplicaResultIfNeeded);
     }
 
     private static ReplicaResult wrapInReplicaResultIfNeeded(Object res) {
@@ -2675,7 +2675,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
+            }).handle(DefaultTablePartitionReplicaProcessor::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 
@@ -2808,7 +2808,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
+            }).handle(DefaultTablePartitionReplicaProcessor::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 

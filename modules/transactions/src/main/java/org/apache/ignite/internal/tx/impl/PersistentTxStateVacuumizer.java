@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,6 +60,9 @@ public class PersistentTxStateVacuumizer {
     private static final IgniteLogger LOG = Loggers.forClass(PersistentTxStateVacuumizer.class);
 
     private static final String VACUUM_THROTTLE_KEY = "vacuum-failed";
+
+    /** Maximum number of transaction IDs per vacuum request to avoid serialization timeouts. */
+    static final int VACUUM_BATCH_SIZE = 1000;
 
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -134,30 +138,13 @@ public class PersistentTxStateVacuumizer {
                                 return nullCompletedFuture();
                             }
 
-                            VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
-                                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
-                                    .transactionIds(filteredTxIds)
-                                    .build();
-
-                            return replicaService.invoke(localNode, request).whenComplete((v, e) -> {
-                                if (e == null) {
-                                    successful.addAll(filteredTxIds);
-                                    vacuumizedPersistentTxnStatesCount.addAndGet(filteredTxIds.size());
-                                } else if (expectedException(e)) {
-                                    // We can log the exceptions without further handling because failed requests' txns are not added
-                                    // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
-                                    // a part of regular flow and doesn't need to be logged. NodeStoppingException should be ignored as
-                                    // vacuumization will be retried after restart.
-                                    LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
-                                } else {
-                                    // In general, even though this vacuum round has completed unsuccessfully,
-                                    // due to ReplicationTimeoutException for instance,
-                                    // it does not mean that correctness is violated, and we need to shutdown the node.
-                                    // Perhaps the next attempt will be successful.
-                                    throttledLogger.warn(VACUUM_THROTTLE_KEY, "Failed to vacuum tx states from the persistent storage.", e);
-                                }
-                            });
+                            return sendBatchedVacuumRequests(
+                                    replicaMeta.getStartTime().longValue(),
+                                    commitPartitionId,
+                                    filteredTxIds,
+                                    successful,
+                                    vacuumizedPersistentTxnStatesCount
+                            );
                         } else {
                             successful.addAll(txs.stream().map(v -> v.txId).collect(toSet()));
 
@@ -170,6 +157,56 @@ public class PersistentTxStateVacuumizer {
 
         return allOf(futures)
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
+    }
+
+    private CompletableFuture<Void> sendBatchedVacuumRequests(
+            long enlistmentConsistencyToken,
+            ZonePartitionId commitPartitionId,
+            Set<UUID> txIds,
+            Set<UUID> successful,
+            AtomicInteger vacuumizedCount
+    ) {
+        List<CompletableFuture<?>> batchFutures = new ArrayList<>();
+        Iterator<UUID> it = txIds.iterator();
+
+        while (it.hasNext()) {
+            Set<UUID> batch = new HashSet<>(Math.min(VACUUM_BATCH_SIZE, txIds.size()));
+
+            for (int j = 0; j < VACUUM_BATCH_SIZE && it.hasNext(); j++) {
+                batch.add(it.next());
+            }
+
+            batchFutures.add(sendVacuumBatch(enlistmentConsistencyToken, commitPartitionId, batch, successful, vacuumizedCount));
+        }
+
+        return allOf(batchFutures);
+    }
+
+    private CompletableFuture<?> sendVacuumBatch(
+            long enlistmentConsistencyToken,
+            ZonePartitionId commitPartitionId,
+            Set<UUID> batch,
+            Set<UUID> successful,
+            AtomicInteger vacuumizedCount
+    ) {
+        VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
+                .enlistmentConsistencyToken(enlistmentConsistencyToken)
+                .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
+                .transactionIds(batch)
+                .build();
+
+        return replicaService.invoke(localNode, request).whenComplete((v, e) -> {
+            if (e == null) {
+                successful.addAll(batch);
+                vacuumizedCount.addAndGet(batch.size());
+            } else if (expectedException(e)) {
+                // Failed requests' txns are not added to the set of successful and will be retried.
+                LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
+            } else {
+                throttledLogger.warn(VACUUM_THROTTLE_KEY,
+                        "Failed to vacuum tx states from the persistent storage.", e);
+            }
+        });
     }
 
     private static boolean expectedException(Throwable e) {

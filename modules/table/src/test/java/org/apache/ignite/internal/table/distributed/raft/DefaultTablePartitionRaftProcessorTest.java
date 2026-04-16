@@ -143,7 +143,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
+public class DefaultTablePartitionRaftProcessorTest extends BaseIgniteAbstractTest {
     private static final int KEY_COUNT = 100;
 
     private static final int TABLE_ID = 1;
@@ -160,7 +160,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private static final SchemaRegistry SCHEMA_REGISTRY = new DummySchemaManagerImpl(SCHEMA);
 
-    private TablePartitionProcessor commandListener;
+    private DefaultTablePartitionRaftProcessor commandListener;
 
     private final AtomicLong raftIndex = new AtomicLong();
 
@@ -271,7 +271,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             return hybridClock.update(requestTime);
         });
 
-        commandListener = new TablePartitionProcessor(
+        commandListener = new DefaultTablePartitionRaftProcessor(
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,

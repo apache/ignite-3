@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Processor of Raft commands targeted at a particular table.
  */
-public interface RaftTableProcessor {
+public interface TablePartitionRaftProcessor {
     /**
      * Processes a Raft command.
      *
