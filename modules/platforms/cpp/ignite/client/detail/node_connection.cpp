@@ -195,6 +195,16 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
         handle_timeouts();
     }
 
+    {
+        std::stringstream ss;
+        ss << "Handshake complete. Feature bytes are ";
+
+        for (std::byte b : m_protocol_context.get_features_raw()) {
+            ss << static_cast<unsigned int>(b) << " ";
+        }
+
+        get_logger()->log_info(ss.str());
+    }
     return {};
 }
 
