@@ -283,9 +283,11 @@ public class MessageImplGenerator {
 
         messageImpl.addMethod(messageTypeMethod);
 
-        // messageSize field with getter/setter (overrides NetworkMessage.getMessageSize())
+        // messageSize field with getter/setter (overrides NetworkMessage.getMessageSize()).
+        // Declared transient so it does not affect serialVersionUID computation and is not included in Java serialization.
         FieldSpec messageSizeField = FieldSpec.builder(int.class, "messageSize")
-                .addModifiers(Modifier.PRIVATE)
+                .addModifiers(Modifier.PRIVATE, Modifier.TRANSIENT)
+                .addAnnotation(IgniteToStringExclude.class)
                 .build();
 
         messageImpl.addField(messageSizeField);

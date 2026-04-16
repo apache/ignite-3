@@ -20,6 +20,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.util.List;
+import org.apache.ignite.internal.network.annotations.MessageSerialVersionUid;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -27,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 public final class LocalStorageOutter {
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.STABLE_PB_META)
+    @MessageSerialVersionUid(-5290387314865672247L)
     public interface StablePBMeta extends Message {
         long term();
 
@@ -34,6 +36,7 @@ public final class LocalStorageOutter {
     }
 
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_SNAPSHOT_PB_META)
+    @MessageSerialVersionUid(2413309240654251368L)
     public interface LocalSnapshotPbMeta extends Message {
         @Nullable
         RaftOutter.SnapshotMeta meta();
@@ -41,6 +44,7 @@ public final class LocalStorageOutter {
         List<LocalStorageOutter.LocalSnapshotPbMeta.File> filesList();
 
         @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_SNAPSHOT_META_FILE)
+        @MessageSerialVersionUid(-7940140526427081886L)
         interface File extends Message {
             String name();
 

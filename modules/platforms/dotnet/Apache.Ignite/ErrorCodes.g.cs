@@ -425,6 +425,9 @@ namespace Apache.Ignite
 
             /// <summary> ReplicaAbsent error. </summary>
             public const int ReplicaAbsent = (GroupCode << 16) | (11 & 0xFFFF);
+
+            /// <summary> ReplicaOverloaded error. </summary>
+            public const int ReplicaOverloaded = (GroupCode << 16) | (12 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>
