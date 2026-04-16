@@ -39,6 +39,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
@@ -127,14 +128,15 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
 
     private FreeList createFreeList(int pageSize) throws Exception {
         pageMemory = createPageMemory(pageSize);
+        PartitionPageMemory partitionPageMemory = pageMemory.createPartitionPageMemory(1, 1);
 
-        long metaPageId = pageMemory.allocatePageNoReuse(1, 1, FLAG_DATA);
+        long metaPageId = partitionPageMemory.allocatePageNoReuse(1, 1, FLAG_DATA);
 
         return new FreeListImpl(
                 "TestFreeList",
                 0,
                 1,
-                pageMemory,
+                partitionPageMemory,
                 metaPageId,
                 true,
                 null

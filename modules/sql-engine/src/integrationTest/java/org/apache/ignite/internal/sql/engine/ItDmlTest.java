@@ -55,6 +55,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -1177,6 +1178,17 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 "Number of INSERT target columns (2) does not equal number of source items (3)",
                 () -> sql("INSERT INTO test1(id, val) VALUES (1, 2, 3)")
         );
+    }
+
+    @Test
+    public void insertFromSelectWithAlwaysFalseCondition() {
+        sql("CREATE TABLE test (id INT PRIMARY KEY, val REAL)");
+        sql("CREATE TABLE test2 (id INT PRIMARY KEY, val REAL)");
+
+        assertQuery("INSERT INTO test2 SELECT id, val FROM test WHERE val > 1 AND val < 0")
+                .matches(Matchers.not(containsSubPlan("TableModify")))
+                .returns(0L)
+                .check();
     }
 
     private static Stream<Arguments> decimalLimits() {

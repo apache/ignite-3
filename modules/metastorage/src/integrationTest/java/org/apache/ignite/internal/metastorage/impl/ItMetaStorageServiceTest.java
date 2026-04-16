@@ -115,6 +115,7 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -213,6 +214,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 ClusterService clusterService,
                 RaftConfiguration raftConfiguration,
                 SystemLocalConfiguration systemLocalConfiguration,
+                LogStorageConfiguration logStorageConfiguration,
                 Path dataPath
         ) {
             this.clusterService = clusterService;
@@ -223,7 +225,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             String nodeName = clusterService.staticLocalNode().name();
 
-            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath());
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, workingDir.raftLogPath(), logStorageConfiguration);
 
             partitionsRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath());
@@ -336,6 +338,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final List<Node> nodes = new ArrayList<>();
 
     @BeforeEach
@@ -351,7 +356,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
-                .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, systemLocalConfiguration, workDir)));
+                .forEach(clusterService -> nodes.add(
+                        new Node(clusterService, raftConfiguration, systemLocalConfiguration, logStorageConfiguration, workDir))
+                );
 
         return nodes;
     }

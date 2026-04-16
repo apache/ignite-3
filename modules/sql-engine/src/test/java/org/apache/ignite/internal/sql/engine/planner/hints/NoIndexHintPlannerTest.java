@@ -60,13 +60,17 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
     @Test
     public void testSingleTable() throws Exception {
         assertNoAnyIndex("SELECT /*+ NO_INDEX */ * FROM TBL1 WHERE id = 0");
+        assertNoAnyIndex("SELECT * FROM TBL1 /*+ NO_INDEX */ WHERE id = 0");
 
-        var sql = "SELECT /*+ NO_INDEX({}) */ * FROM TBL1 WHERE id = 0";
-
-        assertNoAnyIndex(format(sql, ""));
+        assertNoAnyIndex("SELECT /*+ NO_INDEX() */ * FROM TBL1 WHERE id = 0");
+        assertNoAnyIndex("SELECT * FROM TBL1 /*+ NO_INDEX() */ WHERE id = 0");
 
         assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1, IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1=1 and val2='v'");
         assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1=1 and val2='v'");
+
+        assertNoAnyIndex(format("SELECT * FROM TBL1 /*+ NO_INDEX({}) */  WHERE id = 0", ""));
+        assertNoAnyIndex("SELECT * FROM TBL1 /*+ NO_INDEX(IDX_VAL1, IDX_VAL2_VAL3) */ WHERE val1=1 and val2='v'");
+        assertNoAnyIndex("SELECT * FROM TBL1 /*+ NO_INDEX(IDX_VAL1), NO_INDEX(IDX_VAL2_VAL3) */ WHERE val1=1 and val2='v'");
     }
 
     @Test

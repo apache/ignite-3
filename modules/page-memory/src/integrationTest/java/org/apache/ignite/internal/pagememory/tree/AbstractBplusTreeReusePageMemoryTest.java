@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.tree;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 
@@ -31,7 +32,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
     protected ReuseList createReuseList(
             int grpId,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             long rootId,
             boolean initNew
     ) throws IgniteInternalCheckedException {

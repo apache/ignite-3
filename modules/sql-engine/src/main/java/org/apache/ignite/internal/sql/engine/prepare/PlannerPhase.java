@@ -78,6 +78,7 @@ import org.apache.ignite.internal.sql.engine.rule.logical.IgniteMultiJoinOptimiz
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteProjectCorrelateTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.PruneTableModifyRule;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -161,6 +162,22 @@ public enum PlannerPhase {
         }
     },
 
+    HEP_EMPTY_NODES_ELIMINATION(
+            "Heuristic phase to eliminate empty nodes",
+            PruneEmptyRules.PROJECT_INSTANCE,
+            PruneEmptyRules.FILTER_INSTANCE,
+            PruneEmptyRules.SORT_INSTANCE,
+            PruneEmptyRules.AGGREGATE_INSTANCE,
+            PruneEmptyRules.JOIN_LEFT_INSTANCE,
+            PruneEmptyRules.JOIN_RIGHT_INSTANCE
+    ) {
+        /** {@inheritDoc} */
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return hep(getRules(ctx));
+        }
+    },
+
     HEP_OPTIMIZE_JOIN_ORDER(
             "Heuristic phase to optimize join order"
     ) {
@@ -206,6 +223,13 @@ public enum PlannerPhase {
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             IgniteJoinConditionPushRule.INSTANCE,
             CoreRules.JOIN_PUSH_TRANSITIVE_PREDICATES,
+
+            PruneEmptyRules.PROJECT_INSTANCE,
+            PruneEmptyRules.FILTER_INSTANCE,
+            PruneEmptyRules.SORT_INSTANCE,
+            PruneEmptyRules.AGGREGATE_INSTANCE,
+            PruneEmptyRules.JOIN_LEFT_INSTANCE,
+            PruneEmptyRules.JOIN_RIGHT_INSTANCE,
 
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
@@ -255,6 +279,7 @@ public enum PlannerPhase {
 
             PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
             PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,
+            PruneTableModifyRule.INSTANCE,
 
             // Useful of this rule is not clear now.
             // CoreRules.AGGREGATE_REDUCE_FUNCTIONS,

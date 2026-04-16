@@ -17,10 +17,14 @@
 
 #pragma once
 
+#include <cerrno>
 #include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <istream>
+#include <optional>
 #include <ostream>
+#include <string>
 
 namespace ignite {
 
@@ -45,6 +49,15 @@ public:
     constexpr uuid(std::int64_t most, std::int64_t least) noexcept
         : most(most)
         , least(least) {}
+
+    /**
+     * Parses string-encoded uuid.
+     *
+     * Example of possible input value: ff979603-fb56-49e9-bc79-7c4487bbbafd.
+     * @param text String-encoded uuid.
+     * @return @c uuid object if parsing was successful, otherwise empty optional.
+     */
+    static std::optional<uuid> from_string(const std::string& text);
 
     /**
      * Make random UUID.

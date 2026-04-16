@@ -42,7 +42,10 @@ public class OnSnapshotSaveHandler {
     /**
      * Called when {@link RaftGroupListener#onSnapshotSave} is triggered.
      */
-    public CompletableFuture<Void> onSnapshotSave(PartitionSnapshotInfo snapshotInfo, Collection<RaftTableProcessor> tableProcessors) {
+    public CompletableFuture<Void> onSnapshotSave(
+            PartitionSnapshotInfo snapshotInfo,
+            Collection<TablePartitionRaftProcessor> tableProcessors
+    ) {
         // The max index here is required for local recovery and a possible scenario
         // of false node failure when we actually have all required data. This might happen because we use the minimal index
         // among storages on a node restart.
@@ -63,7 +66,7 @@ public class OnSnapshotSaveHandler {
         txStatePartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
         CompletableFuture<?>[] tableStorageFlushFutures = tableProcessors.stream()
-                .map(RaftTableProcessor::flushStorage)
+                .map(TablePartitionRaftProcessor::flushStorage)
                 .toArray(CompletableFuture<?>[]::new);
 
         // Flush the TX state storage last to guarantee that all data is flushed before the snapshot is saved.

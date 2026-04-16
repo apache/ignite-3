@@ -579,32 +579,31 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNullValueThrows() {
-        testNullValueThrows(view -> view.get(null, DEFAULT_ID), "getNullable", 12);
+        testNullValueThrows(view -> view.get(null, DEFAULT_ID), "getNullable");
     }
 
     @Test
     public void testGetAndPutNullValueThrows() {
-        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndPut", 16);
+        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndPut");
     }
 
     @Test
     public void testGetAndRemoveNullValueThrows() {
-        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID), "getNullableAndRemove", 32);
+        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID), "getNullableAndRemove");
     }
 
     @Test
     public void testGetAndReplaceNullValueThrows() {
-        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndReplace", 26);
+        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndReplace");
     }
 
-    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run, String methodName, int op) {
+    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run, String methodName) {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
         primitiveView.put(null, DEFAULT_ID, null);
 
         var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
         assertEquals(
-                format("Failed to deserialize server response for op {}: Got unexpected null value: use `{}` sibling method instead.",
-                        op, methodName),
+                format("Got unexpected null value: use `{}` sibling method instead.", methodName),
                 ex.getMessage());
     }
 

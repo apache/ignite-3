@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.pagememory.tree.inmemory;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -32,7 +32,7 @@ public class ItBplusTreeFakeReuseVolatilePageMemoryTest extends ItBplusTreeVolat
     protected ReuseList createReuseList(
             int grpId,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             long rootId,
             boolean initNew
     ) {

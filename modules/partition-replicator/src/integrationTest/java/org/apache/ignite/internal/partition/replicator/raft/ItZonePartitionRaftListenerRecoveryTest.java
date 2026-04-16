@@ -94,6 +94,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -110,8 +111,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -178,6 +179,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
     @InjectExecutorService
     private ExecutorService executor;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -295,10 +299,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(outgoingSnapshotsManager);
 
         logStorageManager = SharedLogStorageManagerUtils.create(
-                "table data log",
                 clusterService.staticLocalNode().name(),
                 componentWorkingDir.raftLogPath(),
-                true
+                logStorageConfiguration
         );
 
         components.add(logStorageManager);
@@ -384,7 +387,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         raftManager.stopRaftNodes(PARTITION_ID);
     }
 
-    private RaftTableProcessor createTableProcessor(int tableId) {
+    private TablePartitionRaftProcessor createTableProcessor(int tableId) {
         var storage = new SnapshotAwarePartitionDataStorage(
                 tableId,
                 mockStorage(tableId).storage,
@@ -402,7 +405,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
             return clock.update(requestTime);
         });
 
-        return new TablePartitionProcessor(
+        return new DefaultTablePartitionRaftProcessor(
                 txManager,
                 storage,
                 storageUpdateHandler,

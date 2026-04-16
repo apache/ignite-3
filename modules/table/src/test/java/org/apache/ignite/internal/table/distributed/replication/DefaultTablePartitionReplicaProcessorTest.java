@@ -220,7 +220,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -289,7 +289,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class PartitionReplicaListenerTest extends IgniteAbstractTest {
+public class DefaultTablePartitionReplicaProcessorTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
 
     private static final int CURRENT_SCHEMA_VERSION = 1;
@@ -461,7 +461,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private TestPlacementDriver placementDriver;
 
     /** Partition replication listener to test. */
-    private PartitionReplicaListener partitionReplicaListener;
+    private DefaultTablePartitionReplicaProcessor tablePartitionReplicaProcessor;
 
     private HashIndexStorage pkIndexStorage;
 
@@ -657,7 +657,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         placementDriver = spy(new TestPlacementDriver(localNode));
 
-        partitionReplicaListener = new PartitionReplicaListener(
+        tablePartitionReplicaProcessor = new DefaultTablePartitionReplicaProcessor(
                 testMvPartitionStorage,
                 mockRaftClient,
                 txManager,
@@ -1049,7 +1049,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID scanTxId = newTxId();
 
         // Request first batch
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.process(
+        CompletableFuture<ReplicaResult> fut = tablePartitionReplicaProcessor.process(
                 TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                         .groupId(zonePartitionIdMessage(grpId))
                         .tableId(TABLE_ID)
@@ -1067,7 +1067,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(4, rows.size());
 
         // Request second batch
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(scanTxId)
@@ -1084,7 +1084,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(2, rows.size());
 
         // Request bounded.
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(newTxId())
@@ -1104,7 +1104,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(2, rows.size());
 
         // Empty result.
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(newTxId())
@@ -1122,7 +1122,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(0, rows.size());
 
         // Lookup.
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(newTxId())
@@ -1162,7 +1162,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID scanTxId = newTxId();
 
         // Request first batch
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.process(
+        CompletableFuture<ReplicaResult> fut = tablePartitionReplicaProcessor.process(
                 TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                         .groupId(zonePartitionIdMessage(grpId))
                         .tableId(TABLE_ID)
@@ -1181,7 +1181,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(3, rows.size());
 
         // Request second batch
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(scanTxId)
@@ -1199,7 +1199,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(1, rows.size());
 
         // Empty result.
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(newTxId())
@@ -1217,7 +1217,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(0, rows.size());
 
         // Lookup.
-        fut = partitionReplicaListener.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+        fut = tablePartitionReplicaProcessor.process(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
                 .groupId(zonePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .transactionId(newTxId())
@@ -2426,7 +2426,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private CompletableFuture<BinaryRow> roGetAsync(BinaryRow row, HybridTimestamp readTimestamp) {
         ReadOnlySingleRowPkReplicaRequest message = readOnlySingleRowPkReplicaRequest(row, readTimestamp);
 
-        return partitionReplicaListener.process(message, validRoPrimacy(), localNode.id())
+        return tablePartitionReplicaProcessor.process(message, validRoPrimacy(), localNode.id())
                 .thenApply(replicaResult -> (BinaryRow) replicaResult.result());
     }
 
@@ -2490,7 +2490,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTsOrNull, null, null));
 
         lockManager.releaseAll(txId);
-        partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
+        tablePartitionReplicaProcessor.cleanupLocally(txId, commit, commitTs);
     }
 
     private BinaryTupleMessage toIndexBound(int val) {
@@ -3078,7 +3078,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {
         return primacyEngine.validatePrimacy(request)
-                .thenCompose(primacy -> partitionReplicaListener.process(request, primacy, localNode.id()));
+                .thenCompose(primacy -> tablePartitionReplicaProcessor.process(request, primacy, localNode.id()));
     }
 
     private static class RequestContext {

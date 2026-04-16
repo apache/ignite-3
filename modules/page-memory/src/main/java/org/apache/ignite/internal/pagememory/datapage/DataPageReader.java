@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.jetbrains.annotations.Nullable;
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * Contains logic for reading values from page memory data pages (this includes handling multy-page values).
  */
 public class DataPageReader {
-    private final PageMemory pageMemory;
+    private final PartitionPageMemory pageMemory;
     private final int groupId;
 
     /**
@@ -39,7 +39,7 @@ public class DataPageReader {
      * @param pageMemory Page memory that will be used to lock and access memory.
      * @param groupId ID of the cache group with which the reader works (all pages must belong to this group)
      */
-    public DataPageReader(PageMemory pageMemory, int groupId) {
+    public DataPageReader(PartitionPageMemory pageMemory, int groupId) {
         this.pageMemory = pageMemory;
         this.groupId = groupId;
     }

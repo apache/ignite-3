@@ -38,25 +38,34 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
-import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
+import org.apache.ignite.internal.network.handshake.BrokenHandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Tests if a topology size is correct after some nodes are restarted in quick succession.
@@ -70,6 +79,13 @@ class ItNodeRestartsTest {
     /** Created {@link ClusterService}s. Needed for resource management. */
     private List<ClusterService> services;
 
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     /** Tear down method. */
     @AfterEach
     void tearDown() {
@@ -80,7 +96,7 @@ class ItNodeRestartsTest {
      * Tests that restarting nodes get discovered in an established topology.
      */
     @Test
-    public void testRestarts(TestInfo testInfo) {
+    void testRestarts() {
         final int initPort = 3344;
 
         List<NetworkAddress> addresses = findLocalAddresses(initPort, initPort + 5);
@@ -140,7 +156,17 @@ class ItNodeRestartsTest {
 
         assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
+        echoOnInvokeRequests(clusterService);
+
         return clusterService;
+    }
+
+    private static void echoOnInvokeRequests(ClusterService clusterService) {
+        clusterService.messagingService().addMessageHandler(TestMessageTypes.class, (message, sender, correlationId) -> {
+            if (message instanceof TestMessage && correlationId != null) {
+                clusterService.messagingService().respond(sender, message, correlationId);
+            }
+        });
     }
 
     /**
@@ -173,8 +199,9 @@ class ItNodeRestartsTest {
     /**
      * Tests that message sends only end with expected exceptions during recipient node restart.
      */
-    @Test
-    public void testRestartDuringSends(TestInfo testInfo) {
+    @ParameterizedTest
+    @EnumSource(SendOperation.class)
+    void testRestartDuringSends(SendOperation operation) {
         final int initPort = 3344;
 
         List<NetworkAddress> addresses = findLocalAddresses(initPort, initPort + 2);
@@ -191,45 +218,37 @@ class ItNodeRestartsTest {
         }
 
         ClusterService sender = services.get(0);
-        ClusterService receiver = services.get(1);
 
         AtomicBoolean sending = new AtomicBoolean(true);
 
-        CompletableFuture<Void> sendingFuture = runAsync(() -> {
-            InternalClusterNode receiverNode = receiver.staticLocalNode();
+        int receiverIndex = 1;
+        AtomicReference<InternalClusterNode> receiverNodeRef = new AtomicReference<>(services.get(receiverIndex).staticLocalNode());
 
+        CompletableFuture<Void> sendingFuture = runAsync(() -> {
             while (sending.get()) {
+                InternalClusterNode receiverNode = receiverNodeRef.get();
+
                 TestMessage message = new TestMessagesFactory().testMessage().build();
-                CompletableFuture<Void> future = sender.messagingService().send(receiverNode, message);
+                CompletableFuture<Void> future = operation.send(sender.messagingService(), receiverNode, message);
 
                 try {
                     future.get(10, SECONDS);
                 } catch (InterruptedException | TimeoutException e) {
                     throw new RuntimeException(e);
                 } catch (ExecutionException e) {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException.
-                    if (!hasCause(e, RecipientLeftException.class, ConnectException.class, SocketException.class, IOException.class)) {
-                        if (!hasCause(e, "Channel has been closed before handshake has finished", HandshakeException.class)) {
-                            fail("Not an expected exception", e);
-                        }
+                    if (!operation.isAllowed(e)) {
+                        fail("Not an expected exception", e);
                     }
-                }
-
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
                 }
             }
         });
 
-        int receiverIndex = 1;
-
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 100; i++) {
             stopClusterService(services.get(receiverIndex));
 
             ClusterService restartedReceiver = startNetwork(testInfo, addresses.get(receiverIndex), nodeFinder);
             services.set(receiverIndex, restartedReceiver);
+            receiverNodeRef.set(restartedReceiver.staticLocalNode());
         }
 
         sending.set(false);
@@ -239,5 +258,74 @@ class ItNodeRestartsTest {
 
     private static void stopClusterService(ClusterService clusterService) {
         assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
+    }
+
+    private enum SendOperation {
+        SEND_BY_NODE {
+            @Override
+            CompletableFuture<Void> send(MessagingService senderService, InternalClusterNode receiverNode, NetworkMessage message) {
+                return senderService.send(receiverNode, message);
+            }
+
+            @Override
+            boolean isAllowed(ExecutionException ex) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException.
+                return hasCause(
+                        ex,
+                        RecipientLeftException.class,
+                        ConnectException.class,
+                        SocketException.class,
+                        IOException.class,
+                        BrokenHandshakeException.class
+                );
+            }
+        },
+        INVOKE_BY_NODE {
+            @Override
+            CompletableFuture<Void> send(MessagingService senderService, InternalClusterNode receiverNode, NetworkMessage message) {
+                return senderService.invoke(receiverNode, message, 1000).thenApply(unused -> null);
+            }
+
+            @Override
+            boolean isAllowed(ExecutionException ex) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-21364 - remove everything except RecipientLeftException
+                // and TimeoutException.
+                return hasCause(
+                        ex,
+                        RecipientLeftException.class,
+                        TimeoutException.class,
+                        ConnectException.class,
+                        SocketException.class,
+                        IOException.class,
+                        BrokenHandshakeException.class
+                );
+            }
+        },
+        SEND_BY_NAME {
+            @Override
+            CompletableFuture<Void> send(MessagingService senderService, InternalClusterNode receiverNode, NetworkMessage message) {
+                return senderService.send(receiverNode.name(), ChannelType.DEFAULT, message);
+            }
+
+            @Override
+            boolean isAllowed(ExecutionException ex) {
+                return hasCause(ex, RecipientLeftException.class, UnresolvableConsistentIdException.class);
+            }
+        },
+        INVOKE_BY_NAME {
+            @Override
+            CompletableFuture<Void> send(MessagingService senderService, InternalClusterNode receiverNode, NetworkMessage message) {
+                return senderService.invoke(receiverNode.name(), message, 1000).thenApply(unused -> null);
+            }
+
+            @Override
+            boolean isAllowed(ExecutionException ex) {
+                return hasCause(ex, RecipientLeftException.class, UnresolvableConsistentIdException.class, TimeoutException.class);
+            }
+        };
+
+        abstract CompletableFuture<Void> send(MessagingService senderService, InternalClusterNode receiverNode, NetworkMessage message);
+
+        abstract boolean isAllowed(ExecutionException ex);
     }
 }

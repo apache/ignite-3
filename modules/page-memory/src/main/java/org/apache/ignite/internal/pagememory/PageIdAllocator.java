@@ -31,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class responsible for allocating/freeing page IDs.
  */
+// TODO IGNITE-28429 Remove "groupId" parameter from all methods.
 public interface PageIdAllocator {
     /**
      * Flag for a Data page. Also used by partition meta and tracking pages. This type doesn't use the Page ID rotation mechanism.

@@ -15,27 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
-
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+package org.apache.ignite.internal.network.handshake;
 
 /**
- * Processor of replica requests targeted at a particular table.
+ * Exception that notifies of handshake that failed because a channel was closed or some internal error happened.
  */
-public interface ReplicaTableProcessor {
-    /**
-     * Processes replica request.
-     *
-     * @param request Replica request.
-     * @param replicaPrimacy Replica primacy info.
-     * @param senderId ID of the node that sent the request.
-     * @return Future completed with the result of processing.
-     */
-    CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId);
+public class BrokenHandshakeException extends HandshakeException {
+    private static final long serialVersionUID = 0L;
 
-    /** Callback on replica shutdown. */
-    void onShutdown();
+    public BrokenHandshakeException() {
+        super("Channel has been closed before handshake has finished or handshake has failed");
+    }
 }

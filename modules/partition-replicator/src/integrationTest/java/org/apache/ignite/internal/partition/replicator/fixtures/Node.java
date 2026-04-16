@@ -129,6 +129,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
@@ -333,6 +334,7 @@ public class Node {
             ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
+            LogStorageConfiguration logStorageConfiguration,
             @Nullable InvokeInterceptor invokeInterceptor,
             GcConfiguration gcConfiguration,
             SqlLocalConfiguration sqlLocalConfiguration,
@@ -395,7 +397,8 @@ public class Node {
 
         String nodeName = clusterService.staticLocalNode().name();
 
-        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath());
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
@@ -427,7 +430,7 @@ public class Node {
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
-        cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath());
+        cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath(), logStorageConfiguration);
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -469,7 +472,7 @@ public class Node {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
 
-        msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath());
+        msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(), logStorageConfiguration);
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());

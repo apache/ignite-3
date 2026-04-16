@@ -26,7 +26,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
@@ -98,7 +98,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         var pageMemory = new VolatilePageMemory(regionConfiguration, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
 
         try {
-            this.freeList = createFreeList(pageMemory);
+            this.freeList = createFreeList(pageMemory.createPartitionPageMemory(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating free list", e);
         }
@@ -138,7 +138,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 .build();
     }
 
-    private static FreeListImpl createFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
+    private static FreeListImpl createFreeList(PartitionPageMemory pageMemory) throws IgniteInternalCheckedException {
         long metaPageId = pageMemory.allocatePageNoReuse(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new FreeListImpl(

@@ -70,6 +70,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -167,6 +168,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private SystemLocalConfiguration systemConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     /**
      * Run {@code NODES} cluster nodes.
@@ -374,7 +378,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         logStorageManager1 = SharedLogStorageManagerUtils.create(
                 cluster.get(0).staticLocalNode().name(),
-                workingDir1.raftLogPath()
+                workingDir1.raftLogPath(),
+                logStorageConfiguration
         );
 
         var eventsClientListener1 = new RaftGroupEventsClientListener();
@@ -389,7 +394,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         logStorageManager2 = SharedLogStorageManagerUtils.create(
                 cluster.get(1).staticLocalNode().name(),
-                workingDir2.raftLogPath()
+                workingDir2.raftLogPath(),
+                logStorageConfiguration
         );
 
         var eventsClientListener2 = new RaftGroupEventsClientListener();
@@ -404,7 +410,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         logStorageManager3 = SharedLogStorageManagerUtils.create(
                 cluster.get(2).staticLocalNode().name(),
-                workingDir3.raftLogPath()
+                workingDir3.raftLogPath(),
+                logStorageConfiguration
         );
 
         var eventsClientListener3 = new RaftGroupEventsClientListener();

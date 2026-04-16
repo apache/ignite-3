@@ -91,6 +91,7 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -138,6 +139,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -196,7 +200,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.staticLocalNode().name(),
-                    partitionsWorkDir.raftLogPath()
+                    partitionsWorkDir.raftLogPath(),
+                    logStorageConfiguration
             );
 
             RaftGroupOptionsConfigurer partitionsConfigurer =

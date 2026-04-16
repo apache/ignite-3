@@ -17,6 +17,7 @@
 
 #include "table_impl.h"
 
+#include "detail/hash_calculator.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"
@@ -149,6 +150,8 @@ void table_impl::load_schema_async(
 void table_impl::get_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback) {
 
+    update_partition_assignment();
+
     with_proper_schema_async<std::optional<ignite_tuple>>(std::move(callback),
         [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
@@ -165,12 +168,21 @@ void table_impl::get_async(
                     callback(read_tuple_opt(reader, &sch));
                 });
 
+            auto preferred_node = self->get_preferred_node_name(*key, sch);
+
             self->m_connection->perform_request_raw(
-                protocol::client_operation::TUPLE_GET, tx0.get(), writer_func, std::move(handle_func));
+                protocol::client_operation::TUPLE_GET,
+                tx0.get(),
+                writer_func,
+                std::move(handle_func),
+                preferred_node
+            );
         });
 }
 
 void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
+
+    update_partition_assignment();
 
     with_proper_schema_async<bool>(std::move(callback),
         [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
@@ -186,8 +198,16 @@ void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_CONTAINS_KEY, tx0.get(),
-                writer_func, std::move(reader_func), std::move(callback));
+            auto preferred_node = self->get_preferred_node_name(*key, sch);
+
+            self->m_connection->perform_request<bool>(
+                protocol::client_operation::TUPLE_CONTAINS_KEY,
+                tx0.get(),
+                writer_func,
+                std::move(reader_func),
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
@@ -213,6 +233,9 @@ void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
 }
 
 void table_impl::upsert_async(transaction *tx, const ignite_tuple &record, ignite_callback<void> callback) {
+
+    update_partition_assignment();
+
     with_proper_schema_async<void>(std::move(callback),
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
@@ -221,8 +244,15 @@ void table_impl::upsert_async(transaction *tx, const ignite_tuple &record, ignit
                 write_tuple(writer, sch, record, false);
             };
 
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
             self->m_connection->perform_request_wr(
-                protocol::client_operation::TUPLE_UPSERT, tx0.get(), writer_func, std::move(callback));
+                protocol::client_operation::TUPLE_UPSERT,
+                tx0.get(),
+                writer_func,
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
@@ -244,12 +274,14 @@ void table_impl::upsert_all_async(transaction *tx, std::vector<ignite_tuple> rec
 void table_impl::get_and_upsert_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback) {
 
+    update_partition_assignment();
+
     with_proper_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record), tx0 = to_impl(tx)](
+        [self = shared_from_this(), record, tx0 = to_impl(tx)](
             const schema &sch, auto callback) {
             auto writer_func = [self, record, &sch, &tx0](protocol::writer &writer, auto&) {
                 write_table_operation_header(writer, self->m_id, tx0.get(), sch);
-                write_tuple(writer, sch, *record, false);
+                write_tuple(writer, sch, record, false);
             };
 
             auto handle_func = make_schema_handler_function<std::optional<ignite_tuple>>(
@@ -257,12 +289,22 @@ void table_impl::get_and_upsert_async(
                     callback(read_tuple_opt(reader, &sch));
                 });
 
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
             self->m_connection->perform_request_raw(
-                protocol::client_operation::TUPLE_GET_AND_UPSERT, tx0.get(), writer_func, std::move(handle_func));
+                protocol::client_operation::TUPLE_GET_AND_UPSERT,
+                tx0.get(),
+                writer_func,
+                std::move(handle_func),
+                preferred_node
+            );
         });
 }
 
 void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
+
+    update_partition_assignment();
+
     with_proper_schema_async<bool>(std::move(callback),
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
@@ -277,8 +319,16 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_INSERT, tx0.get(), writer_func,
-                std::move(reader_func), std::move(callback));
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
+            self->m_connection->perform_request<bool>(
+                protocol::client_operation::TUPLE_INSERT,
+                tx0.get(),
+                writer_func,
+                std::move(reader_func),
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
@@ -305,10 +355,13 @@ void table_impl::insert_all_async(
 }
 
 void table_impl::replace_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
+
+    update_partition_assignment();
+
     with_proper_schema_async<bool>(std::move(callback),
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
-            auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer, auto&) {
+            auto writer_func = [self, &record, &sch, &tx0](protocol::writer &writer, auto &) {
                 write_table_operation_header(writer, self->m_id, tx0.get(), sch);
                 write_tuple(writer, sch, record, false);
             };
@@ -319,13 +372,24 @@ void table_impl::replace_async(transaction *tx, const ignite_tuple &record, igni
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_REPLACE, tx0.get(), writer_func,
-                std::move(reader_func), std::move(callback));
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
+            self->m_connection->perform_request<bool>(
+                protocol::client_operation::TUPLE_REPLACE,
+                tx0.get(),
+                writer_func,
+                std::move(reader_func),
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
 void table_impl::replace_async(
     transaction *tx, const ignite_tuple &record, const ignite_tuple &new_record, ignite_callback<bool> callback) {
+
+    update_partition_assignment();
+
     with_proper_schema_async<bool>(std::move(callback),
         [self = shared_from_this(), record = ignite_tuple(record), new_record = ignite_tuple(new_record),
             tx0 = to_impl(tx)](const schema &sch, auto callback) mutable {
@@ -341,20 +405,30 @@ void table_impl::replace_async(
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_REPLACE_EXACT, tx0.get(),
-                writer_func, std::move(reader_func), std::move(callback));
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
+            self->m_connection->perform_request<bool>(
+                protocol::client_operation::TUPLE_REPLACE_EXACT,
+                tx0.get(),
+                writer_func,
+                std::move(reader_func),
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
 void table_impl::get_and_replace_async(
     transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback) {
 
+    update_partition_assignment();
+
     with_proper_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record), tx0 = to_impl(tx)](
+        [self = shared_from_this(), record, tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, record, &sch, &tx0](protocol::writer &writer, auto&) {
                 write_table_operation_header(writer, self->m_id, tx0.get(), sch);
-                write_tuple(writer, sch, *record, false);
+                write_tuple(writer, sch, record, false);
             };
 
             auto handle_func = make_schema_handler_function<std::optional<ignite_tuple>>(
@@ -362,12 +436,22 @@ void table_impl::get_and_replace_async(
                     callback(read_tuple_opt(reader, &sch));
                 });
 
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
             self->m_connection->perform_request_raw(
-                protocol::client_operation::TUPLE_GET_AND_REPLACE, tx0.get(), writer_func, std::move(handle_func));
+                protocol::client_operation::TUPLE_GET_AND_REPLACE,
+                tx0.get(),
+                writer_func,
+                std::move(handle_func),
+                preferred_node
+            );
         });
 }
 
 void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
+
+    update_partition_assignment();
+
     with_proper_schema_async<bool>(std::move(callback),
         [self = shared_from_this(), record = ignite_tuple(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
@@ -382,12 +466,23 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_DELETE, tx0.get(), writer_func,
-                std::move(reader_func), std::move(callback));
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
+            self->m_connection->perform_request<bool>(
+                protocol::client_operation::TUPLE_DELETE,
+                tx0.get(),
+                writer_func,
+                std::move(reader_func),
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
 void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
+
+    update_partition_assignment();
+
     with_proper_schema_async<bool>(std::move(callback),
         [self = shared_from_this(), record = ignite_tuple(record), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
@@ -402,20 +497,30 @@ void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record,
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_DELETE_EXACT, tx0.get(),
-                writer_func, std::move(reader_func), std::move(callback));
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
+            self->m_connection->perform_request<bool>(
+                protocol::client_operation::TUPLE_DELETE_EXACT,
+                tx0.get(),
+                writer_func,
+                std::move(reader_func),
+                std::move(callback),
+                preferred_node
+            );
         });
 }
 
 void table_impl::get_and_remove_async(
     transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback) {
 
+    update_partition_assignment();
+
     with_proper_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
+        [self = shared_from_this(), record = key, tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
             auto writer_func = [self, record, &sch, &tx0](protocol::writer &writer, auto&) {
                 write_table_operation_header(writer, self->m_id, tx0.get(), sch);
-                write_tuple(writer, sch, *record, true);
+                write_tuple(writer, sch, record, true);
             };
 
             auto handle_func = make_schema_handler_function<std::optional<ignite_tuple>>(
@@ -423,8 +528,15 @@ void table_impl::get_and_remove_async(
                     callback(read_tuple_opt(reader, &sch));
                 });
 
+            auto preferred_node = self->get_preferred_node_name(record, sch);
+
             self->m_connection->perform_request_raw(
-                protocol::client_operation::TUPLE_GET_AND_DELETE, tx0.get(), writer_func, std::move(handle_func));
+                protocol::client_operation::TUPLE_GET_AND_DELETE,
+                tx0.get(),
+                writer_func,
+                std::move(handle_func),
+                preferred_node
+            );
         });
 }
 
@@ -470,6 +582,70 @@ void table_impl::remove_all_exact_async(
 
 std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
     return tb.m_impl;
+}
+
+void table_impl::update_partition_assignment() {
+    ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback = [self=shared_from_this()](auto pa) {
+        if (pa.has_error()) {
+            self->m_connection->get_logger()->log_warning("Error while updating partition assignment for table '"
+            + self->get_name() + "': " + pa.error().what_str());
+
+            return;
+        }
+
+        std::lock_guard lock(self->m_partitions_mutex);
+        self->m_partition_assignment = std::move(pa).value();
+    };
+
+    load_partition_assignment_async(std::move(callback));
+}
+
+void table_impl::load_partition_assignment_async(ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback) {
+    std::int64_t timestamp = m_connection->get_assignment_timestamp();
+
+    auto pa = get_partition_assignment();
+    if (pa && !pa->is_outdated(timestamp)) {
+        m_connection->get_logger()->log_debug("Partition assignment for table " + get_name() + " is up to date.");
+
+        callback(std::move(pa));
+        return;
+    }
+
+    auto writer_func = [id = m_id, timestamp](protocol::writer &writer, auto&) {
+        protocol::write_partition_assignment_request(writer, id, timestamp);
+    };
+
+    auto reader_func = [timestamp](protocol::reader &reader) -> std::shared_ptr<protocol::partition_assignment> {
+        return protocol::read_partition_assignment_response(reader, timestamp);
+    };
+
+    m_connection->perform_request<std::shared_ptr<protocol::partition_assignment>>(
+        protocol::client_operation::PARTITION_ASSIGNMENT_GET,
+        nullptr,
+        writer_func,
+        std::move(reader_func),
+        std::move(callback));
+}
+
+std::optional<std::string> table_impl::get_preferred_node_name(const ignite_tuple &key_or_rec, const schema &sch) {
+    auto pa = get_partition_assignment();
+
+    if (!pa || pa->get_partitions().empty()) {
+        m_connection->get_logger()->log_debug("No partition distribution available, a random node will be called");
+        return {};
+    }
+
+    hash_calculator hc;
+    for (auto column : sch.collocated_columns) {
+        const auto& val = key_or_rec.get(column->key_index);
+        hc.append(val, column->scale, column->precision);
+    }
+
+    auto hash = hc.result_hash();
+
+    auto part_id = std::abs(hash % static_cast<int32_t>(pa->get_partitions().size()));
+
+    return pa->get_partitions()[part_id];
 }
 
 } // namespace ignite::detail

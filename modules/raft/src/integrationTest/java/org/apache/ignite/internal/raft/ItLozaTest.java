@@ -60,6 +60,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -99,6 +100,9 @@ public class ItLozaTest extends IgniteAbstractTest {
     private Loza loza;
 
     private final List<IgniteComponent> allComponents = new ArrayList<>();
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
@@ -174,7 +178,8 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 spyService.staticLocalNode().name(),
-                partitionsWorkDir.raftLogPath()
+                partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         RaftGroupOptionsConfigurer partitionsConfigurer =
@@ -229,7 +234,8 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.staticLocalNode().name(),
-                partitionsWorkDir.raftLogPath()
+                partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         allComponents.add(logStorageManager);
@@ -319,7 +325,8 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.staticLocalNode().name(),
-                partitionsWorkDir.raftLogPath()
+                partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
         logStorageManager = spy(logStorageManager);
 

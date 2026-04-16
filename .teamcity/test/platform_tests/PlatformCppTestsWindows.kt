@@ -27,7 +27,6 @@ object PlatformCppTestsWindows : BuildType({
     """.trimIndent()
 
     params {
-        hiddenText("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         hiddenText("PATH__CMAKE_BUILD_DIRECTORY", """%PATH__WORKING_DIR%\cmake-build-debug""")
         hiddenText("PATH__CLIENT_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_client_tests_results.xml""")
         hiddenText("PATH__ODBC_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\odbc_tests_results.xml""")

@@ -114,7 +114,8 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 service.staticLocalNode().name(),
-                workingDir.raftLogPath()
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

@@ -73,6 +73,7 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -101,6 +102,9 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     private class Node {
@@ -128,7 +132,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.staticLocalNode().name(),
-                    workingDir.raftLogPath()
+                    workingDir.raftLogPath(),
+                    logStorageConfiguration
             );
             this.eventsClientListener = new RaftGroupEventsClientListener();
             this.failureManager = new NoOpFailureManager();

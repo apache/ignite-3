@@ -232,7 +232,19 @@ public:
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
 
+    /**
+     * Cancels waiting for over-due responses.
+     */
     void handle_timeouts();
+
+    /**
+     * Name of the node this connection is tethered to.
+     *
+     * @return Name of the node.
+     */
+    const std::string& get_node_name() const {
+        return m_node_name;
+    }
 
 private:
     /**
@@ -334,6 +346,12 @@ private:
 
     /** Timer thread. */
     std::weak_ptr<thread_timer> m_timer_thread;
+
+    /** Node id. */
+    uuid m_node_id{};
+
+    /** Name of the node this connection is tethered to. */
+    std::string m_node_name{};
 };
 
 } // namespace ignite::detail

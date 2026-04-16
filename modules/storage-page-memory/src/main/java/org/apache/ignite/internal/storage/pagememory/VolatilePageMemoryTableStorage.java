@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -84,15 +85,17 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
-        VersionChainTree versionChainTree = createVersionChainTree(partitionId);
+        PartitionPageMemory partitionPageMemory = dataRegion.pageMemory().createPartitionPageMemory(getTableId(), partitionId);
 
-        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId);
+        VersionChainTree versionChainTree = createVersionChainTree(partitionPageMemory);
 
-        GcQueue gcQueue = createGarbageCollectionTree(partitionId);
+        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionPageMemory);
+
+        GcQueue gcQueue = createGarbageCollectionTree(partitionPageMemory);
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
-                partitionId,
+                partitionPageMemory,
                 versionChainTree,
                 indexMetaTree,
                 gcQueue,
@@ -101,15 +104,16 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         );
     }
 
-    private IndexMetaTree createIndexMetaTree(int partitionId) {
+    private IndexMetaTree createIndexMetaTree(PartitionPageMemory partitionPageMemory) {
         try {
-            long metaPageId = dataRegion.pageMemory().allocatePage(dataRegion.reuseList(), getTableId(), partitionId, FLAG_AUX);
+            int partitionId = partitionPageMemory.partitionId();
+            long metaPageId = partitionPageMemory.allocatePage(dataRegion.reuseList(), getTableId(), partitionId, FLAG_AUX);
 
             return new IndexMetaTree(
                     getTableId(),
                     Integer.toString(getTableId()),
                     partitionId,
-                    dataRegion.pageMemory(),
+                    partitionPageMemory,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -120,15 +124,16 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         }
     }
 
-    private GcQueue createGarbageCollectionTree(int partitionId) {
+    private GcQueue createGarbageCollectionTree(PartitionPageMemory partitionPageMemory) {
         try {
-            long metaPageId = dataRegion.pageMemory().allocatePage(dataRegion().reuseList(), getTableId(), partitionId, FLAG_AUX);
+            int partitionId = partitionPageMemory.partitionId();
+            long metaPageId = partitionPageMemory.allocatePage(dataRegion().reuseList(), getTableId(), partitionId, FLAG_AUX);
 
             return new GcQueue(
                     getTableId(),
                     Integer.toString(getTableId()),
                     partitionId,
-                    dataRegion.pageMemory(),
+                    partitionPageMemory,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -152,25 +157,26 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /**
      * Returns new {@link VersionChainTree} instance for partition.
      *
-     * @param partId Partition ID.
+     * @param partitionPageMemory Page memory instance associated with a given partition.
      * @throws StorageException If failed.
      */
-    private VersionChainTree createVersionChainTree(int partId) throws StorageException {
+    private VersionChainTree createVersionChainTree(PartitionPageMemory partitionPageMemory) throws StorageException {
+        int partitionId = partitionPageMemory.partitionId();
         try {
-            long metaPageId = dataRegion.pageMemory().allocatePage(dataRegion().reuseList(), getTableId(), partId, FLAG_AUX);
+            long metaPageId = partitionPageMemory.allocatePage(dataRegion().reuseList(), getTableId(), partitionId, FLAG_AUX);
 
             return new VersionChainTree(
                     getTableId(),
                     Integer.toString(getTableId()),
-                    partId,
-                    dataRegion.pageMemory(),
+                    partitionId,
+                    partitionPageMemory,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
                     true
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating TableTree: [tableId={}, partitionId={}]", e, getTableId(), partId);
+            throw new StorageException("Error creating TableTree: [tableId={}, partitionId={}]", e, getTableId(), partitionId);
         }
     }
 
@@ -192,11 +198,13 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         });
 
         int partitionId = mvPartitionStorage.partitionId();
+        PartitionPageMemory partitionPageMemory = dataRegion.pageMemory().createPartitionPageMemory(getTableId(), partitionId);
 
         volatilePartitionStorage.updateDataStructures(
-                createVersionChainTree(partitionId),
-                createIndexMetaTree(partitionId),
-                createGarbageCollectionTree(partitionId)
+                partitionPageMemory,
+                createVersionChainTree(partitionPageMemory),
+                createIndexMetaTree(partitionPageMemory),
+                createGarbageCollectionTree(partitionPageMemory)
         );
 
         afterUpdateStructuresCallback.run();
