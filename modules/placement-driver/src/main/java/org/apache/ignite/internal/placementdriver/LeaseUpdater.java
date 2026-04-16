@@ -440,7 +440,7 @@ public class LeaseUpdater {
 
                 leases = new Leases(newLeasesMap, entry.value());
             } else {
-                leases = leaseTracker.leasesLatest();
+                leases = leaseTracker.latestLeases();
             }
         }
 
