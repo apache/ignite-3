@@ -1331,6 +1331,40 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(lockManager.queue(key).isEmpty());
     }
 
+    @Test
+    public void testConcurrentCompatibleLocksOnSameKey() throws InterruptedException {
+        LockKey key = lockKey();
+        int threadCount = Runtime.getRuntime().availableProcessors() * 2;
+        CyclicBarrier barrier = new CyclicBarrier(threadCount);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        AtomicInteger granted = new AtomicInteger();
+
+        Thread[] threads = new Thread[threadCount];
+
+        for (int i = 0; i < threadCount; i++) {
+            UUID txId = TestTransactionIds.newTransactionId();
+            threads[i] = new Thread(() -> {
+                try {
+                    barrier.await();
+                    Lock lock = lockManager.acquire(txId, key, IX).join();
+                    granted.incrementAndGet();
+                    lockManager.release(lock);
+                } catch (Exception e) {
+                    error.compareAndSet(null, e);
+                }
+            });
+            threads[i].start();
+        }
+
+        for (Thread t : threads) {
+            t.join(10_000);
+        }
+
+        assertNull(error.get(), () -> "Unexpected error: " + error.get());
+        assertEquals(threadCount, granted.get(), "All IX locks should be granted");
+        assertTrue(lockManager.queue(key).isEmpty());
+    }
+
     private UUID[] generate(int num) {
         UUID[] tmp = new UUID[num];
 
