@@ -53,7 +53,8 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
 
     @Test
     public void testPageTearingInner() throws Exception {
-        PageMemory mem = memory();
+        PageMemory pageMemory = memory();
+        PartitionPageMemory mem = pageMemory.createPartitionPageMemory(GRP_ID, PARTITION_ID);
 
         try {
             FullPageId fullId1 = allocatePage(mem);
@@ -84,13 +85,14 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
                 mem.releasePage(fullId1.groupId(), fullId1.pageId(), page1);
             }
         } finally {
-            mem.stop(true);
+            pageMemory.stop(true);
         }
     }
 
     @Test
     public void testPageTearingSequential() throws Exception {
-        PageMemory mem = memory();
+        PageMemory pageMemory = memory();
+        PartitionPageMemory mem = pageMemory.createPartitionPageMemory(GRP_ID, PARTITION_ID);
 
         try {
             int pagesCnt = 1024;
@@ -131,13 +133,14 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
                 }
             }
         } finally {
-            mem.stop(true);
+            pageMemory.stop(true);
         }
     }
 
     @Test
     public void testPageHandleDeallocation() throws Exception {
-        PageMemory mem = memory();
+        PageMemory pageMemory = memory();
+        PartitionPageMemory mem = pageMemory.createPartitionPageMemory(GRP_ID, PARTITION_ID);
 
         try {
             int pages = 3 * 1024 * 1024 / (8 * 1024);
@@ -156,13 +159,14 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
                 assertFalse(handles.add(allocatePage(mem)));
             }
         } finally {
-            mem.stop(true);
+            pageMemory.stop(true);
         }
     }
 
     @Test
     public void testPageIdRotation() throws Exception {
-        PageMemory mem = memory();
+        PageMemory pageMemory = memory();
+        PartitionPageMemory mem = pageMemory.createPartitionPageMemory(GRP_ID, PARTITION_ID);
 
         try {
             int pages = 5;
@@ -250,7 +254,7 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
                 }
             }
         } finally {
-            mem.stop(true);
+            pageMemory.stop(true);
         }
     }
 
@@ -267,7 +271,7 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
      * @param page Page pointer.
      * @param val Value to write.
      */
-    protected void writePage(PageMemory mem, FullPageId fullId, long page, int val) {
+    protected void writePage(PartitionPageMemory mem, FullPageId fullId, long page, int val) {
         long pageAddr = mem.writeLock(GRP_ID, fullId.pageId(), page);
 
         try {
@@ -289,7 +293,7 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
      * @param page Page pointer.
      * @param expVal Expected value.
      */
-    private void readPage(PageMemory mem, long pageId, long page, int expVal) {
+    private void readPage(PartitionPageMemory mem, long pageId, long page, int expVal) {
         expVal &= 0xFF;
 
         long pageAddr = mem.readLock(GRP_ID, pageId, page);

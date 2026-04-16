@@ -117,7 +117,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             int finalI = i;
             startServer(i, raftServer -> {
-                String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+                String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -145,7 +145,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     @Test
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
-            String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+            String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), initialMembersConf.peer(localNodeName));
 
@@ -173,7 +173,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         for (int j = 0; j < servers.size(); j++) {
             JraftServerImpl srv = servers.get(j);
-            String localNodeName = srv.clusterService().topologyService().localMember().name();
+            String localNodeName = srv.clusterService().staticLocalNode().name();
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -580,7 +580,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     for (int j = 0; j < list.size(); j++) {
                         RaftServer srv = list.get(j);
 
-                        String localNodeName = srv.clusterService().topologyService().localMember().name();
+                        String localNodeName = srv.clusterService().staticLocalNode().name();
 
                         Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -635,7 +635,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         for (int i = 0; i < 3; i++) {
             int finalI = i;
             startServer(i, raftServer -> {
-                String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+                String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -701,7 +701,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         for (int i = 0; i < 3; i++) {
             int finalI = i;
             startServer(i, raftServer -> {
-                String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+                String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -863,7 +863,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         var svc2 = startServer(stopIdx, r -> {
-            String localNodeName = r.clusterService().topologyService().localMember().name();
+            String localNodeName = r.clusterService().staticLocalNode().name();
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 
@@ -911,7 +911,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         serverWorkingDirs.remove(sv2Idx);
 
         var svc3 = startServer(stopIdx, r -> {
-            String localNodeName = r.clusterService().topologyService().localMember().name();
+            String localNodeName = r.clusterService().staticLocalNode().name();
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 

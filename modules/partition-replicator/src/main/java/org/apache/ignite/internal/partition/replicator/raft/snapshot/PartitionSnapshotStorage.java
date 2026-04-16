@@ -71,6 +71,8 @@ public class PartitionSnapshotStorage {
 
     private final TopologyService topologyService;
 
+    private final String localNodeName;
+
     /** Snapshot manager. */
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
@@ -105,6 +107,7 @@ public class PartitionSnapshotStorage {
 
     /** Constructor. */
     public PartitionSnapshotStorage(
+            String localNodeName,
             PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -116,6 +119,7 @@ public class PartitionSnapshotStorage {
             RaftSnapshotsMetricsSource snapshotsMetricsSource
     ) {
         this(
+                localNodeName,
                 partitionKey,
                 topologyService,
                 outgoingSnapshotsManager,
@@ -131,6 +135,7 @@ public class PartitionSnapshotStorage {
 
     /** Constructor. */
     public PartitionSnapshotStorage(
+            String localNodeName,
             PartitionKey partitionKey,
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -144,6 +149,7 @@ public class PartitionSnapshotStorage {
     ) {
         this.partitionKey = partitionKey;
         this.topologyService = topologyService;
+        this.localNodeName = localNodeName;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.txState = txState;
         this.catalogService = catalogService;
@@ -160,6 +166,10 @@ public class PartitionSnapshotStorage {
 
     public TopologyService topologyService() {
         return topologyService;
+    }
+
+    public String localNodeName() {
+        return localNodeName;
     }
 
     public MessagingService messagingService() {

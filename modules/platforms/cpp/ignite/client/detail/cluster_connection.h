@@ -106,10 +106,15 @@ public:
      * @param tx Transaction.
      * @param wr Request writer function.
      * @param handler Request handler.
+     * @param preferred_node_name Name of preferred node.
      * @return A connection used to perform request and the request ID.
      */
-    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_handler(const operation_function_type &op_func,
-        transaction_impl *tx, const writer_function_type &wr, const std::shared_ptr<response_handler> &handler);
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_handler(
+        const operation_function_type &op_func,
+        transaction_impl *tx,
+        const writer_function_type &wr,
+        const std::shared_ptr<response_handler> &handler,
+        const std::optional<std::string>& preferred_node_name = std::nullopt);
 
     /**
      * Perform request raw.
@@ -119,9 +124,14 @@ public:
      * @param tx Transaction.
      * @param wr Request writer function.
      * @param callback Callback to call on a result.
+     * @param preferred_node_name Name of preferred node.
      */
-    void perform_request_raw(protocol::client_operation op, transaction_impl *tx,
-        const writer_function_type &wr, ignite_callback<bytes_view> callback);
+    void perform_request_raw(
+        protocol::client_operation op,
+        transaction_impl *tx,
+        const writer_function_type &wr,
+        ignite_callback<bytes_view> callback,
+        const std::optional<std::string>& preferred_node_name = std::nullopt);
 
     /**
      * Perform request raw.
@@ -151,13 +161,15 @@ public:
      * @param wr Request writer function.
      * @param rd Response reader function.
      * @param callback Callback to call on a result.
+     * @param preferred_node_name Name of preferred node.
      */
     template<typename T>
     std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request(protocol::client_operation op,
         transaction_impl *tx, const writer_function_type &wr,
-        reader_function_type<T> rd, ignite_callback<T> callback) {
+        reader_function_type<T> rd, ignite_callback<T> callback,
+        const std::optional<std::string>& preferred_node_name = std::nullopt) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
-        return perform_request_handler(static_op(op), tx, wr, std::move(handler));
+        return perform_request_handler(static_op(op), tx, wr, std::move(handler), preferred_node_name);
     }
 
     /**
@@ -189,7 +201,7 @@ public:
     void perform_request(protocol::client_operation op, const writer_function_type &wr,
         std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader_connection<T>>(std::move(rd), std::move(callback));
-        perform_request_handler(static_op(op), nullptr, wr, std::move(handler));
+        perform_request_handler(static_op(op), nullptr, wr, std::move(handler), std::nullopt);
     }
 
     /**
@@ -261,9 +273,13 @@ public:
      * @return A connection used to perform request and the request ID.
      */
     template<typename T>
-    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_wr(protocol::client_operation op,
-        transaction_impl *tx, const writer_function_type &wr, ignite_callback<T> callback) {
-        return perform_request<T>(op, tx, wr, [](protocol::reader &) {}, std::move(callback));
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_wr(
+        protocol::client_operation op,
+        transaction_impl *tx,
+        const writer_function_type &wr,
+        ignite_callback<T> callback,
+        const std::optional<std::string>& preferred_node_name = std::nullopt) {
+        return perform_request<T>(op, tx, wr, [](protocol::reader &) {}, std::move(callback), preferred_node_name);
     }
 
     /**
@@ -272,6 +288,20 @@ public:
      * @return Observable timestamp.
      */
     std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
+    /**
+     * Get assignment timestamp.
+     *
+     * @return Assignment timestamp.
+     */
+    std::int64_t get_assignment_timestamp() const { return m_assignment_timestamp.load(); }
+
+    /**
+     * Get logger.
+     *
+     * @return Logger.
+     */
+    [[nodiscard]] std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
 
     /**
      * @param op Operation code to return.
@@ -288,6 +318,14 @@ private:
      * @return Random node connection or nullptr if there are no active connections.
      */
     std::shared_ptr<node_connection> get_random_connected_channel();
+
+    /**
+     * Get connection according to provided preference otherwise returns random node connection.
+     *
+     * @param preferred_node_name Name of preferred node.
+     * @return Node connection.
+     */
+    std::shared_ptr<node_connection> get_channel(const std::optional<std::string> &preferred_node_name);
 
     /**
      * Constructor.
@@ -341,6 +379,13 @@ private:
      * @param timestamp Timestamp.
      */
     void on_observable_timestamp_changed(std::int64_t timestamp) override;
+
+    /**
+     * Handle partition assignment change.
+     *
+     * @param timestamp Assignment timestamp.
+     */
+    void on_partition_assignment_changed(std::int64_t timestamp) override;
 
     /**
      * Remove client.
@@ -403,6 +448,9 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Partition assignment timestamp. */
+    std::atomic_int64_t m_assignment_timestamp{0};
 
     /** Timer thread. */
     std::shared_ptr<thread_timer> m_timer_thread;

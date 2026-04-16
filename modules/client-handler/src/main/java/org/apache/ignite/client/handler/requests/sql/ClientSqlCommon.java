@@ -36,7 +36,9 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.QueryModifier;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -268,6 +270,7 @@ class ClientSqlCommon {
             ClientResourceRegistry resources,
             AsyncResultSetImpl asyncResultSet,
             ClientHandlerMetricSource metrics,
+            HybridTimestampTracker parentTsTracker,
             int pageSize,
             boolean includePartitionAwarenessMeta,
             boolean sqlDirectTxMappingSupported,
@@ -277,7 +280,7 @@ class ClientSqlCommon {
     ) {
         try {
             Long nextResultResourceId = sqlMultiStatementSupported && asyncResultSet.cursor().hasNextResult()
-                    ? saveNextResultResource(asyncResultSet.cursor().nextResult(), pageSize, resources, executor)
+                    ? saveNextResultResource(asyncResultSet.cursor().nextResult(), pageSize, resources, parentTsTracker, executor)
                     : null;
 
             if ((asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages())) {
@@ -317,10 +320,11 @@ class ClientSqlCommon {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResultFuture,
             int pageSize,
             ClientResourceRegistry resources,
+            HybridTimestampTracker parentTsTracker,
             Executor executor
     ) throws IgniteInternalCheckedException {
         ClientResource resource = new ClientResource(
-                new CursorWithPageSize(nextResultFuture, pageSize),
+                new NextCursorContext(parentTsTracker, pageSize, nextResultFuture),
                 () -> nextResultFuture.thenAccept(cur -> iterateThroughResultsAndCloseThem(cur, executor))
         );
 
@@ -414,22 +418,33 @@ class ClientSqlCommon {
         }
     }
 
-    /** Holder of the cursor future and page size. */
-    static class CursorWithPageSize {
+    /** Holder of the context for future result set retrieval. */
+    static class NextCursorContext {
         private final CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture;
         private final int pageSize;
+        private final HybridTimestampTracker parentTsTracker;
 
-        CursorWithPageSize(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture, int pageSize) {
-            this.cursorFuture = cursorFuture;
+        NextCursorContext(
+                HybridTimestampTracker parentTsTracker,
+                int pageSize,
+                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture
+        ) {
+            this.parentTsTracker = parentTsTracker;
             this.pageSize = pageSize;
+            this.cursorFuture = cursorFuture;
         }
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture() {
-            return cursorFuture;
+        /** Tracker of the request that initiated query processing (i.e. {@link ClientOp#SQL_EXEC}). */
+        HybridTimestampTracker parentTsTracker() {
+            return parentTsTracker;
         }
 
         int pageSize() {
             return pageSize;
+        }
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture() {
+            return cursorFuture;
         }
     }
 }

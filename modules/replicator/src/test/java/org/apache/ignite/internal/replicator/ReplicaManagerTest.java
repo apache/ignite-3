@@ -65,7 +65,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -127,7 +126,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterService clusterService,
             @Mock ClusterManagementGroupManager cmgManager,
             @Mock PlacementDriver placementDriver,
-            @Mock TopologyService topologyService,
             @Mock Marshaller marshaller,
             @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             @Mock VolatileLogStorageManagerCreator volatileLogStorageManagerCreator
@@ -136,10 +134,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         String nodeName = testNodeName(testInfo, 0);
 
-        when(clusterService.messagingService()).thenReturn(messagingService);
-        when(clusterService.topologyService()).thenReturn(topologyService);
+        InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("foo", 0));
 
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("foo", 0)));
+        when(clusterService.messagingService()).thenReturn(messagingService);
+        when(clusterService.staticLocalNode()).thenReturn(localNode);
 
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
@@ -153,7 +151,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         RaftGroupOptionsConfigurer partitionsConfigurer = mock(RaftGroupOptionsConfigurer.class);
 
         replicaManager = new ReplicaManager(
-                nodeName,
                 clusterService,
                 cmgManager,
                 groupId -> completedFuture(Assignments.EMPTY),

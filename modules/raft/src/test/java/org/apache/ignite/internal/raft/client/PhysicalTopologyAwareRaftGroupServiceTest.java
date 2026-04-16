@@ -56,6 +56,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -108,6 +109,9 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @AfterEach
     public void afterTest() throws Exception {
@@ -407,7 +411,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
             if (isServerAddress.test(addr)) { // RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
-                        .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
+                        .filter(peer -> peer.consistentId().equals(cluster.staticLocalNode().name())).findAny().get();
 
                 var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
 
@@ -419,8 +423,9 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
                 Path workingDir = dataPath.resolve("partitions");
 
                 LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                        cluster.nodeName(),
-                        workingDir.resolve("log")
+                        cluster.staticLocalNode().name(),
+                        workingDir.resolve("log"),
+                        logStorageConfiguration
                 );
 
                 logStorageFactories.put(addr, partitionsLogStorageManager);

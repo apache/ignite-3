@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.SINGLE;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_CANCELED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_EXECUTING;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_FAILED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_QUEUED;
@@ -134,14 +135,17 @@ abstract class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegration
 
         String jobClassName = InteractiveJobs.globalJob().name();
 
-        // When node is shut down gracefully, the job execution is interrupted and event could be logged anyway
-        // So there would be 2 events from a worker node, 1 failed events from a worker node and 1 failed event from the coordinator
-        await().until(logInspector::events, contains(
+        // When node is shut down gracefully, the job execution is interrupted and CancellationException is thrown.
+        // There would be 2 events from a worker node (QUEUED, EXECUTING), then a CANCELED event from the worker node
+        // and a FAILED event from the coordinator. The order of the last two events is not determined.
+        await().until(logInspector::events, hasSize(4));
+
+        assertThat(logInspector.events(), containsInRelativeOrder(
                 jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, workerNodeName),
-                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, workerNodeName),
-                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, workerNodeName),
-                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, workerNodeName)
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, workerNodeName)
         ));
+        assertThat(logInspector.events(), hasItem(jobEvent(COMPUTE_JOB_CANCELED, jobId, jobClassName, workerNodeName)));
+        assertThat(logInspector.events(), hasItem(jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, workerNodeName)));
     }
 
     @Test
@@ -177,9 +181,9 @@ abstract class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegration
         // Then the job is failed, because there are no more failover workers.
         execution.assertFailed();
 
-        // When node is shut down gracefully, the job execution is interrupted and event could be logged anyway
-        // So there would be 4 events from worker nodes, 2 failed events from both worker nodes and 1 failed event from the coordinator
-        // The order of failed events is not determined
+        // Each worker node logs QUEUED, EXECUTING, CANCELED (interrupted on shutdown → CancellationException).
+        // The coordinator logs FAILED (no more failover candidates).
+        // The order of the last 3 terminal events is not determined.
         await().until(logInspector::events, hasSize(7));
 
         String jobClassName = InteractiveJobs.globalJob().name();
@@ -189,12 +193,18 @@ abstract class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegration
                 jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, workerNodeName),
                 jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, failoverWorker),
                 jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, failoverWorker),
-                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, failoverWorker)
+                // Interrupted on shutdown → CancellationException → CANCELED
+                jobEvent(COMPUTE_JOB_CANCELED, jobId, jobClassName, failoverWorker)
         ));
 
-        // Failed event from second worker node
+        // First worker was also interrupted on shutdown → CANCELED
         assertThat(logInspector.events(), hasItem(
-                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, workerNodeName)
+                jobEvent(COMPUTE_JOB_CANCELED, jobId, jobClassName, workerNodeName)
+        ));
+
+        // Coordinator's failover gives up (no more candidates) → FAILED, targetNode is the last worker attempted
+        assertThat(logInspector.events(), hasItem(
+                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, failoverWorker)
         ));
     }
 

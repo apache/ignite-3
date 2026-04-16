@@ -23,8 +23,9 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.CursorWithPageSize;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.NextCursorContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -37,43 +38,54 @@ public class ClientSqlCursorNextResultRequest {
     /**
      * Processes the request.
      *
+     * @param operationExecutor Operation executor.
      * @param in Unpacker.
+     * @param resources Resource bundle.
+     * @param metrics Client metrics.
+     * @param requestTsTracker TS tracker attached to current request processing.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
+            Executor operationExecutor,
             ClientMessageUnpacker in,
             ClientResourceRegistry resources,
-            Executor operationExecutor,
-            ClientHandlerMetricSource metrics
+            ClientHandlerMetricSource metrics,
+            HybridTimestampTracker requestTsTracker
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
         ClientResource resource = resources.remove(resourceId);
-        CursorWithPageSize cursorWithPageSize = resource.get(CursorWithPageSize.class);
-        int pageSize = cursorWithPageSize.pageSize();
+        NextCursorContext nextCursorContext = resource.get(NextCursorContext.class);
+        HybridTimestampTracker parentTsTracker = nextCursorContext.parentTsTracker();
+        int pageSize = nextCursorContext.pageSize();
 
-        CompletableFuture<ResponseWriter> f = cursorWithPageSize.cursorFuture()
+        CompletableFuture<ResponseWriter> f = nextCursorContext.cursorFuture()
                 .thenComposeAsync(cur -> cur.requestNextAsync(pageSize)
                         .thenApply(batchRes -> new AsyncResultSetImpl<SqlRow>(
                                         cur,
                                         batchRes,
                                         pageSize
                                 )
-                        ).thenCompose(asyncResultSet ->
-                                ClientSqlCommon.writeResultSetAsync(
-                                        resources,
-                                        asyncResultSet,
-                                        metrics,
-                                        pageSize,
-                                        false,
-                                        false,
-                                        true,
-                                        false,
-                                        operationExecutor)
-                        ).thenApply(rsWriter -> rsWriter), operationExecutor);
+                        ).thenCompose(asyncResultSet -> {
+                            // For multi-statement DML operations, this will help us keep the client's timestamp tracker up to date and
+                            // ensure client reads are consistent with the latest updates.
+                            requestTsTracker.update(parentTsTracker.get());
+
+                            return ClientSqlCommon.writeResultSetAsync(
+                                    resources,
+                                    asyncResultSet,
+                                    metrics,
+                                    parentTsTracker,
+                                    pageSize,
+                                    false,
+                                    false,
+                                    true,
+                                    false,
+                                    operationExecutor);
+                        }).thenApply(rsWriter -> rsWriter), operationExecutor);
 
         f.whenCompleteAsync((r, t) -> {
             if (t != null) {
-                cursorWithPageSize.cursorFuture().thenAccept(cur -> closeRemainingCursors(cur, false, operationExecutor));
+                nextCursorContext.cursorFuture().thenAccept(cur -> closeRemainingCursors(cur, false, operationExecutor));
             }
         }, operationExecutor);
 

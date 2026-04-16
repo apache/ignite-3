@@ -19,6 +19,9 @@
 
 #include "ignite/protocol/protocol_context.h"
 #include "ignite/protocol/protocol_version.h"
+#include "ignite/protocol/writer.h"
+#include "ignite/protocol/reader.h"
+#include "ignite/protocol/partition_assignment.h"
 
 #include "ignite/common/bytes_view.h"
 #include "ignite/common/ignite_error.h"
@@ -66,10 +69,16 @@ struct handshake_response {
     protocol_context context{};
 
     /** Observable timestamp. */
-    std::int64_t observable_timestamp;
+    std::int64_t observable_timestamp{0};
 
     /** Server idle timeout in ms. */
-    std::int64_t idle_timeout_ms;
+    std::int64_t idle_timeout_ms{0};
+
+    /** Node id. */
+    uuid node_id{};
+
+    /** Node name. */
+    std::string node_name;
 };
 
 /**
@@ -90,5 +99,23 @@ std::vector<std::byte> make_handshake_request(
  * @return Handshake response.
  */
 handshake_response parse_handshake_response(bytes_view message);
+
+/**
+ * Write partition assignment request.
+ *
+ * @param writer Writer.
+ * @param table_id Table ID.
+ * @param timestamp Timestamp.
+ */
+void write_partition_assignment_request(writer &writer, std::int32_t table_id, std::int64_t timestamp);
+
+/**
+ * Read assignment response.
+ *
+ * @param reader Reader.
+ * @param timestamp Timestamp.
+ * @return A new assignment.
+ */
+std::shared_ptr<partition_assignment> read_partition_assignment_response(reader &reader, std::int64_t timestamp);
 
 } // namespace ignite::protocol

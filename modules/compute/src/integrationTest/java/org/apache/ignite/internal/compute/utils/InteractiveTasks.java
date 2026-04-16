@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -166,7 +167,7 @@ public final class InteractiveTasks {
                 return GLOBAL_SIGNALS.take();
             } catch (InterruptedException e) {
                 if (throwExceptionOnInterruption) {
-                    throw new RuntimeException(e);
+                    throw new CancellationException();
                 } else {
                     Thread.currentThread().interrupt();
                     return Signal.CHECK_CANCEL;
@@ -201,7 +202,7 @@ public final class InteractiveTasks {
                             ).collect(toList()));
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
-                                throw new RuntimeException("Task is cancelled");
+                                throw new CancellationException("Task is cancelled");
                             }
                             break;
                         default:
@@ -229,7 +230,7 @@ public final class InteractiveTasks {
                             return completedFuture(new ArrayList<>(results.values()));
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
-                                throw new RuntimeException("Task is cancelled");
+                                throw new CancellationException("Task is cancelled");
                             }
                             break;
                         default:

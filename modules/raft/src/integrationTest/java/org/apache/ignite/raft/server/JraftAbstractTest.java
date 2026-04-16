@@ -209,8 +209,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
         serverWorkingDirs.add(workingDir);
 
         LogStorageManager partitionsLogStorageManager = spy(SharedLogStorageManagerUtils.create(
-                service.nodeName(),
-                workingDir.raftLogPath()
+                service.staticLocalNode().name(),
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         ));
 
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

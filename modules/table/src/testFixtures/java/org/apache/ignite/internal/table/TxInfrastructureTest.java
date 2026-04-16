@@ -44,6 +44,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -53,7 +54,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -117,6 +118,9 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     protected RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
+    @InjectConfiguration
     protected SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
@@ -177,6 +181,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                logStorageConfiguration,
                 txConfiguration,
                 systemLocalConfiguration,
                 systemDistributedConfiguration,
@@ -296,7 +301,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            TablePartitionProcessor listener = (TablePartitionProcessor) ((ZonePartitionRaftListener) fsm.getListener())
+            var listener = (DefaultTablePartitionRaftProcessor) ((ZonePartitionRaftListener) fsm.getListener())
                     .tableProcessor(table.tableId());
 
             MvPartitionStorage storage = listener.getMvStorage();

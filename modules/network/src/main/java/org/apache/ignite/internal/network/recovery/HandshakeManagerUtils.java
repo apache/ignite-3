@@ -89,7 +89,7 @@ class HandshakeManagerUtils {
     }
 
     static Exception createExceptionFromRejectionMessage(HandshakeRejectedMessage msg) {
-        return msg.reason() == HandshakeRejectionReason.STOPPING
+        return msg.reason() == HandshakeRejectionReason.STOPPING || msg.reason() == HandshakeRejectionReason.STALE_LAUNCH_ID
                 ? new RecipientLeftException(msg.message())
                 : new HandshakeException(msg.message());
     }

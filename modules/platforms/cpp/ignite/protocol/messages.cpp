@@ -64,8 +64,8 @@ handshake_response parse_handshake_response(bytes_view message) {
         return res;
 
     res.idle_timeout_ms = reader.read_int64();
-    reader.skip(); // Cluster node ID. Needed for partition-aware compute.
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
+    res.node_id = reader.read_uuid();
+    res.node_name = reader.read_string();
 
     auto cluster_ids_len = reader.read_int32();
     if (cluster_ids_len <= 0) {
@@ -98,6 +98,41 @@ handshake_response parse_handshake_response(bytes_view message) {
     reader.skip(); // Extensions.
 
     return res;
+}
+
+void write_partition_assignment_request(writer &writer, std::int32_t table_id, std::int64_t timestamp) {
+    writer.write(table_id);
+    writer.write(timestamp);
+}
+
+std::shared_ptr<partition_assignment> read_partition_assignment_response(reader &reader, std::int64_t timestamp) {
+    auto cnt = reader.read_int32();
+    if (cnt <= 0)
+        throw ignite_error("Invalid partition count: " + std::to_string(cnt));
+
+    std::vector<std::optional<std::string>> partitions;
+    partitions.reserve(cnt);
+
+    bool assignment_available = reader.read_bool();
+    if (!assignment_available) {
+        // Invalidate the current assignment so that we can retry on the next call.
+        // Return an empty array so that per-partition batches can be initialized.
+        // We'll get the actual assignment on the next call.
+        partitions.insert(partitions.end(), cnt, std::nullopt);
+        return std::make_shared<partition_assignment>(0, std::move(partitions));
+    }
+
+    // Returned timestamp can be newer than requested.
+    std::int64_t ts = reader.read_int64();
+    if (ts < timestamp)
+        throw ignite_error("Returned timestamp is older than requested: " + std::to_string(ts) + " < "
+            + std::to_string(timestamp));
+
+    for (std::int32_t i = 0; i < cnt; ++i) {
+        partitions.emplace_back(reader.read_string_nullable());
+    }
+
+    return std::make_shared<partition_assignment>(ts, std::move(partitions));
 }
 
 } // namespace ignite::protocol

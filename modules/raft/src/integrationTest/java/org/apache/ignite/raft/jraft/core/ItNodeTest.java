@@ -371,7 +371,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         AtomicInteger c = new AtomicInteger();
 
         Task task1 = new Task(ByteBuffer.wrap(("Test task").getBytes(UTF_8)), new JoinableClosure(status -> {
-            log.info("First task is started.");
+            log.info("First task is started [statusOk={}, statusError={}, status={}].", status.isOk(), status.getRaftError().name(),
+                    status);
 
             if (!status.isOk()) {
                 assertTrue(
@@ -381,7 +382,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }));
 
         Task task2 = new Task(ByteBuffer.wrap(("Test task").getBytes(UTF_8)), new JoinableClosure(status -> {
-            log.info("Second task is started.");
+            log.info("Second task is started [statusOk={}, statusError={}, status={}].", status.isOk(), status.getRaftError().name(),
+                    status);
 
             if (!status.isOk()) {
                 assertTrue(

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -24,6 +26,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl.IndexMeta;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -92,8 +96,13 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                 tableDescriptor, schemaRegistry, schemaDescriptor
         );
 
+        Int2ObjectMap<IndexMeta> indexMeta = new Int2ObjectOpenHashMap<>();
+        for (IgniteIndex index : sqlTable.indexes().values()) {
+            indexMeta.put(index.id(), new ScannableTableImpl.IndexMeta(index.collation().getFieldCollations().size()));
+        }
+
         InternalTable internalTable = table.internalTable();
-        ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
+        ScannableTable scannableTable = new ScannableTableImpl(internalTable, indexMeta, converterFactory);
         TableRowConverter rowConverter = converterFactory.create(null);
 
         UpdatableTableImpl updatableTable = new UpdatableTableImpl(

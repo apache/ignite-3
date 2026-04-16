@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -116,6 +117,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @AfterEach
     protected void tearDown() throws Exception {
@@ -464,7 +468,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
             if (isServerAddress.test(addr)) { // RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
-                        .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
+                        .filter(peer -> peer.consistentId().equals(cluster.staticLocalNode().name())).findAny().get();
 
                 var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
 
@@ -476,8 +480,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 Path workingDir = dataPath.resolve("partitions");
 
                 LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                        cluster.nodeName(),
-                        workingDir.resolve("log")
+                        cluster.staticLocalNode().name(),
+                        workingDir.resolve("log"),
+                        logStorageConfiguration
                 );
 
                 logStorageFactories.put(addr, partitionsLogStorageManager);
@@ -566,7 +571,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     ) {
         return PeersAndLearners.fromConsistentIds(
                 findLocalAddresses(PORT_BASE, PORT_BASE + nodes).stream().filter(isServerAddress)
-                        .map(netAddr -> clusterServices.get(netAddr).topologyService().localMember().name()).collect(
+                        .map(netAddr -> clusterServices.get(netAddr).staticLocalNode().name()).collect(
                                 toSet()));
     }
 

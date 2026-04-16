@@ -21,12 +21,10 @@ import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMe
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.LOADED_PAGES;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_READ;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_WRITTEN;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_ACQUIRE_TIME;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_HITS;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_MISSES;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_REPLACEMENTS;
 
-import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
@@ -34,13 +32,6 @@ import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionC
 
 /** Persistent page memory metrics. */
 public class PersistentPageMemoryMetrics implements PageCacheMetrics {
-    private static final long[] PAGE_ACQUISITIONS_BOUNDS_NANOS = {
-            1_000,         // 1µs   - cache hit
-            100_000,       // 100µs - page cache miss, fast SSD
-            10_000_000,    // 10ms  - HDD or slow I/O
-            100_000_000    // 100ms - very slow I/O or high load
-    };
-
     private final LongAdderMetric readPagesFromDisk;
 
     private final LongAdderMetric writePagesToDisk;
@@ -48,8 +39,6 @@ public class PersistentPageMemoryMetrics implements PageCacheMetrics {
     private final LongAdderMetric pageCacheHitsTotal;
 
     private final LongAdderMetric pageCacheMisses;
-
-    private final DistributionMetric pageAcquireTime;
 
     private final LongAdderMetric pageReplacements;
 
@@ -97,12 +86,6 @@ public class PersistentPageMemoryMetrics implements PageCacheMetrics {
                 "Number of times a page was not found in the page cache and had to be loaded from disk."
         ));
 
-        pageAcquireTime = source.addMetric(new DistributionMetric(
-                PAGE_ACQUIRE_TIME,
-                "Distribution of page acquisition time in nanoseconds.",
-                PAGE_ACQUISITIONS_BOUNDS_NANOS
-        ));
-
         pageReplacements = source.addMetric(new LongAdderMetric(
                 PAGE_REPLACEMENTS,
                 "Number of times a page was replaced (evicted) from the page cache."
@@ -141,11 +124,6 @@ public class PersistentPageMemoryMetrics implements PageCacheMetrics {
     @Override
     public void incrementPageCacheMiss() {
         pageCacheMisses.increment();
-    }
-
-    /** Records a page acquisition time in nanoseconds. */
-    public void recordPageAcquireTime(long nanos) {
-        pageAcquireTime.add(nanos);
     }
 
     /** Increases the page replacement metric by one. */

@@ -17,6 +17,51 @@
 
 set(TARGET ignite-network)
 
+set(PUBLIC_HEADERS)
+
+set(PRIVATE_HEADERS
+    async_client_pool.h
+    async_client_pool_adapter.h
+    async_handler.h
+    codec.h
+    codec_data_filter.h
+    data_buffer.h
+    data_filter.h
+    data_filter_adapter.h
+    data_sink.h
+    detail/linux/connecting_context.h
+    detail/linux/dynamic_module.h
+    detail/linux/linux_async_client.h
+    detail/linux/linux_async_client_pool.h
+    detail/linux/linux_async_worker_thread.h
+    detail/linux/sockets.h
+    detail/linux/tcp_socket_client.h
+    detail/sockets.h
+    detail/utils.h
+    detail/win/dynamic_module.h
+    detail/win/sockets.h
+    detail/win/tcp_socket_client.h
+    detail/win/win_async_client.h
+    detail/win/win_async_client_pool.h
+    detail/win/win_async_connecting_thread.h
+    detail/win/win_async_worker_thread.h
+    error_handling_filter.h
+    length_prefix_codec.h
+    network.h
+    socket_client.h
+    ssl/secure_configuration.h
+    ssl/secure_data_filter.h
+    ssl/secure_socket_client.h
+    ssl/secure_utils.h
+    ssl/ssl_connection.h
+    ssl/ssl_gateway.h
+    tcp_range.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
+ignite_collect_public_headers(network PUBLIC_HEADERS)
+
 find_package(OpenSSL)
 if (EXISTS ${OPENSSL_INCLUDE_DIR})
     message(STATUS "OPENSSL_INCLUDE_DIR: " ${OPENSSL_INCLUDE_DIR})

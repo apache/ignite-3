@@ -49,6 +49,7 @@ import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -110,9 +111,9 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.TablePartitionReplicaProcessor;
 import org.apache.ignite.internal.partition.replicator.exception.OperationLockException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.TimedBina
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandBase;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
@@ -208,11 +210,13 @@ import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaReques
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -224,7 +228,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Partition replication listener. */
-public class PartitionReplicaListener implements ReplicaTableProcessor {
+public class DefaultTablePartitionReplicaProcessor implements TablePartitionReplicaProcessor {
     /**
      * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
      * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
@@ -250,7 +254,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private static final Object INTERNAL_DOC_PLACEHOLDER = null;
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultTablePartitionReplicaProcessor.class);
 
     /** Factory to create RAFT command messages. */
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
@@ -363,7 +367,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @param metrics Table metric source.
      */
     @SuppressWarnings("PMD.UnusedFormalParameter") // clusterNodeResolver and failureProcessor kept for API compatibility
-    public PartitionReplicaListener(
+    public DefaultTablePartitionReplicaProcessor(
             MvPartitionStorage mvDataStorage,
             RaftCommandRunner raftCommandRunner,
             TxManager txManager,
@@ -528,7 +532,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             UUID senderId
     ) {
         return processRequest(request, replicaPrimacy)
-                .thenApply(PartitionReplicaListener::wrapInReplicaResultIfNeeded);
+                .thenApply(DefaultTablePartitionReplicaProcessor::wrapInReplicaResultIfNeeded);
     }
 
     private static ReplicaResult wrapInReplicaResultIfNeeded(Object res) {
@@ -1309,19 +1313,71 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return nullCompletedFuture();
         }
 
-        IndexRow indexRow = cursor.next();
+        List<Pair<IndexRow, CompletableFuture<TimedBinaryRow>>> indexRowWithWriteIntentFutures = null;
+        int resultStartIndex = result.size();
 
-        RowId rowId = indexRow.rowId();
+        while (result.size() < batchSize && cursor.hasNext()) {
+            IndexRow indexRow = cursor.next();
+            RowId rowId = indexRow.rowId();
 
-        return resolvePlainReadResult(rowId, null, readTimestamp).thenComposeAsync(resolvedReadResult -> {
-            BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
+            CompletableFuture<@Nullable TimedBinaryRow> resolutionResult = resolvePlainReadResult(rowId, null, readTimestamp);
 
-            if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
-                result.add(binaryRow);
+            if (resolutionResult.isDone() && !resolutionResult.isCompletedExceptionally()) {
+                BinaryRow binaryRow = upgrade(binaryRow(resolutionResult.join()), tableVersion);
+
+                if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
+                    result.add(binaryRow);
+                }
+            } else {
+                if (indexRowWithWriteIntentFutures == null) {
+                    indexRowWithWriteIntentFutures = new ArrayList<>();
+                }
+
+                indexRowWithWriteIntentFutures.add(new Pair<>(indexRow, resolutionResult));
+                result.add(null); // Placeholder; will be filled or removed after write intent resolution.
             }
+        }
 
-            return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, readTimestamp, batchSize, result, tableVersion);
-        }, scanRequestExecutor);
+        if (nullOrEmpty(indexRowWithWriteIntentFutures)) {
+            return nullCompletedFuture();
+        }
+
+        List<Pair<IndexRow, CompletableFuture<TimedBinaryRow>>> finalIndexRowWithWriteIntentFutures = indexRowWithWriteIntentFutures;
+        return CompletableFutures.allOf(view(indexRowWithWriteIntentFutures, Pair::getSecond))
+                .thenComposeAsync(unused -> {
+                    int futureIdx = 0;
+
+                    ListIterator<BinaryRow> it = result.listIterator(resultStartIndex);
+
+                    while (it.hasNext()) {
+                        BinaryRow row = it.next();
+
+                        if (row == null) {
+                            Pair<IndexRow, CompletableFuture<TimedBinaryRow>> indexRowWithWriteIntent
+                                    = finalIndexRowWithWriteIntentFutures.get(futureIdx);
+                            IndexRow indexRow = indexRowWithWriteIntent.getFirst();
+                            TimedBinaryRow resolved = indexRowWithWriteIntent.getSecond().join();
+                            futureIdx++;
+
+                            BinaryRow binaryRow = upgrade(binaryRow(resolved), tableVersion);
+
+                            if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
+                                it.set(binaryRow);
+                            } else {
+                                it.remove();
+                            }
+                        }
+                    }
+
+                    assert futureIdx == finalIndexRowWithWriteIntentFutures.size()
+                            : "Expected " + finalIndexRowWithWriteIntentFutures.size() + " iterations but was " + futureIdx;
+
+                    if (result.size() < batchSize && cursor.hasNext()) {
+                        return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, readTimestamp, batchSize, result, tableVersion);
+                    }
+
+                    return nullCompletedFuture();
+                }, scanRequestExecutor);
     }
 
     /**
@@ -1393,9 +1449,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return {@code true} if index row matches the binary row, {@code false} otherwise.
      */
     private static boolean indexRowMatches(IndexRow indexRow, BinaryRow binaryRow, TableSchemaAwareIndexStorage schemaAwareIndexStorage) {
-        BinaryTuple actualIndexRow = schemaAwareIndexStorage.indexRowResolver().extractColumns(binaryRow);
-
-        return indexRow.indexColumns().byteBuffer().equals(actualIndexRow.byteBuffer());
+        return schemaAwareIndexStorage.indexRowResolver().columnsMatch(binaryRow, indexRow.indexColumns());
     }
 
     private CompletableFuture<Void> continueIndexLookup(
@@ -2569,48 +2623,22 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         );
 
         if (!cmd.full()) {
-            if (skipDelayedAck) {
-                if (!SKIP_UPDATES) {
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.commitPartitionId().asReplicationGroupId(),
-                            cmd.rowToUpdate(),
-                            true,
-                            null,
-                            null,
-                            null,
-                            indexIdsAtRwTxBeginTs(txId)
-                    );
-                }
-
-                return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
-            } else {
-                if (!SKIP_UPDATES) {
-                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.commitPartitionId().asReplicationGroupId(),
-                            cmd.rowToUpdate(),
-                            true,
-                            null,
-                            null,
-                            null,
-                            indexIdsAtRwTxBeginTs(txId)
-                    );
-                }
-
-                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
-                    if (e != null) {
-                        throw new DelayedAckException(cmd.txId(), unwrapCause(e), txManager);
-                    }
-
-                    return cmd.txId();
-                });
-
-                return completedFuture(new CommandApplicationResult(null, repFut));
+            if (!SKIP_UPDATES) {
+                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                storageUpdateHandler.handleUpdate(
+                        cmd.txId(),
+                        cmd.rowUuid(),
+                        cmd.commitPartitionId().asReplicationGroupId(),
+                        cmd.rowToUpdate(),
+                        true,
+                        null,
+                        null,
+                        null,
+                        indexIdsAtRwTxBeginTs(txId)
+                );
             }
+
+            return applyCmdRespectingDelayedAck(cmd, skipDelayedAck);
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
                 UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
@@ -2647,7 +2675,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
+            }).handle(DefaultTablePartitionReplicaProcessor::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 
@@ -2684,6 +2712,24 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         );
     }
 
+    private CompletableFuture<CommandApplicationResult> applyCmdRespectingDelayedAck(UpdateCommandBase cmd, boolean skipDelayedAck) {
+        assert !cmd.full() : "Only non-full commands are supported here";
+
+        if (skipDelayedAck) {
+            return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
+        } else {
+            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
+                if (e != null) {
+                    throw new DelayedAckException(cmd.txId(), unwrapCause(e), txManager);
+                }
+
+                return cmd.txId();
+            });
+
+            return completedFuture(new CommandApplicationResult(null, repFut));
+        }
+    }
+
     /**
      * Executes an UpdateAll command.
      *
@@ -2718,41 +2764,18 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         );
 
         if (!cmd.full()) {
-            if (skipDelayedAck) {
-                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.commitPartitionId().asReplicationGroupId(),
-                        true,
-                        null,
-                        null,
-                        indexIdsAtRwTxBeginTs(txId)
-                );
+            // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+            storageUpdateHandler.handleUpdateAll(
+                    cmd.txId(),
+                    cmd.rowsToUpdate(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
+                    true,
+                    null,
+                    null,
+                    indexIdsAtRwTxBeginTs(txId)
+            );
 
-                return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
-            } else {
-                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.commitPartitionId().asReplicationGroupId(),
-                        true,
-                        null,
-                        null,
-                        indexIdsAtRwTxBeginTs(txId)
-                );
-            }
-
-            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
-                if (e != null) {
-                    throw new DelayedAckException(cmd.txId(), unwrapCause(e), txManager);
-                }
-
-                return cmd.txId();
-            });
-
-            return completedFuture(new CommandApplicationResult(null, repFut));
+            return applyCmdRespectingDelayedAck(cmd, skipDelayedAck);
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
                 UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
@@ -2785,7 +2808,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
+            }).handle(DefaultTablePartitionReplicaProcessor::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 

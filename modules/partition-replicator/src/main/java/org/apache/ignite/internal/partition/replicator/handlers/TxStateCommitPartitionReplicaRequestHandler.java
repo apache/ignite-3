@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
+import org.apache.ignite.internal.tx.message.RowIdMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.Nullable;
@@ -117,7 +119,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                     request.senderCurrentConsistencyToken(),
                     senderGroupId,
                     senderId,
-                    request.rowId().asRowId(),
+                    extractRowId(request.rowId()),
                     request.newestCommitTimestamp()
             );
         } else {
@@ -168,6 +170,12 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                 // - txn is not finished, volatile state is lost
                 // - txn was finished, state was vacuumized
                 // both mean primary replica resolution path.
+                if (rowId == null) {
+                    throw new IllegalStateException(format("Failed to resolve transaction state for transaction "
+                            + "using primary replica path, because row id is not provided [txId={}, commitGroupId={}, tableId={}, "
+                            + "senderGroupId={}, readTimestamp={}].", txId, commitGroupId, tableId, senderGroupId, readTimestamp));
+                }
+
                 return resolveTxStateFromPrimaryReplica(
                         txId,
                         tableId,
@@ -320,5 +328,10 @@ public class TxStateCommitPartitionReplicaRequestHandler {
      */
     private void markAbandoned(UUID txId) {
         txManager.updateTxMeta(txId, stateMeta -> stateMeta != null ? stateMeta.abandoned() : null);
+    }
+
+    @Nullable
+    private static RowId extractRowId(@Nullable RowIdMessage rowIdMessage) {
+        return rowIdMessage == null ? null : rowIdMessage.asRowId();
     }
 }

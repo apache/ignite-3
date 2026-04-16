@@ -295,7 +295,7 @@ class IndexManagementUtils {
      * @param clusterService Cluster service.
      */
     static InternalClusterNode localNode(ClusterService clusterService) {
-        return clusterService.topologyService().localMember();
+        return clusterService.staticLocalNode();
     }
 
     /**

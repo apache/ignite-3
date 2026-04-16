@@ -182,6 +182,8 @@ public final class PlannerHelper {
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
+            rel = planner.transform(PlannerPhase.HEP_EMPTY_NODES_ELIMINATION, rel.getTraitSet(), rel);
+
             if (fastQueryOptimizationEnabled()) {
                 // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,

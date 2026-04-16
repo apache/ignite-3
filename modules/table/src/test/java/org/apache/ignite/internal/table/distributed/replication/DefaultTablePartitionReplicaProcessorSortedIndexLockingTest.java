@@ -31,8 +31,9 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
-import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorIndexLockingTest.LOCAL_NODE_ID;
+import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorTest.binaryRowsToBuffers;
+import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -46,7 +47,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -85,7 +85,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -94,21 +93,17 @@ import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshal
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -140,19 +135,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /** There are tests for partition replica listener. */
 @ExtendWith(ConfigurationExtension.class)
-public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
+public class DefaultTablePartitionReplicaProcessorSortedIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
     private static final int TABLE_ID = 1;
     private static final int PK_INDEX_ID = 1;
-    private static final int HASH_INDEX_ID = 2;
-    private static final int SORTED_INDEX_ID = 3;
+    private static final int ZONE_ID = 2;
     private static final IndexLocker.PartitionIndexId PK_INDEX_CONTEXT_ID
             = new IndexLocker.PartitionIndexId(PART_ID, PK_INDEX_ID);
-    private static final IndexLocker.PartitionIndexId HASH_INDEX_CONTEXT_ID
-            = new IndexLocker.PartitionIndexId(PART_ID, HASH_INDEX_ID);
-    private static final IndexLocker.PartitionIndexId SORTED_INDEX_CONTEXT_ID
-            = new IndexLocker.PartitionIndexId(PART_ID, SORTED_INDEX_ID);
-    private static final int ZONE_ID = 4;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
@@ -161,14 +150,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
     private static final TestMvPartitionStorage TEST_MV_PARTITION_STORAGE = new TestMvPartitionStorage(PART_ID);
 
-    static final UUID LOCAL_NODE_ID = new UUID(0, 0);
-
     private static SchemaDescriptor schemaDescriptor;
     private static KvMarshaller<Integer, Integer> kvMarshaller;
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
-    private static PartitionReplicaListener partitionReplicaListener;
+    private static DefaultTablePartitionReplicaProcessor tablePartitionReplicaProcessor;
     private static ColumnsExtractor row2HashKeyConverter;
-    private static ColumnsExtractor row2SortKeyConverter;
 
     @InjectConfiguration
     private static ReplicationConfiguration replicationConfiguration;
@@ -190,45 +176,27 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         row2HashKeyConverter = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
-        StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
+        StorageSortedIndexDescriptor pkIndexDescriptor = new StorageSortedIndexDescriptor(
                 PK_INDEX_ID,
-                List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false)),
+                List.of(new StorageSortedIndexColumnDescriptor("ID", NativeTypes.INT32, false, true, false)),
                 false
         );
 
-        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
+        TableSchemaAwareIndexStorage pkSortedIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
-                new TestHashIndexStorage(PART_ID, pkIndexDescriptor),
+                new TestSortedIndexStorage(PART_ID, pkIndexDescriptor),
                 row2HashKeyConverter
         );
-        pkStorage = new Lazy<>(() -> hashIndexStorage);
 
-        IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, PART_ID, true, LOCK_MANAGER, row2HashKeyConverter);
-        IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, PART_ID, false, LOCK_MANAGER, row2HashKeyConverter);
+        pkStorage = new Lazy<>(() -> pkSortedIndexStorage);
 
-        BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
-
-        row2SortKeyConverter = new BinaryRowConverter(rowSchema, keySchema);
-
-        TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
-                SORTED_INDEX_ID,
-                new TestSortedIndexStorage(PART_ID,
-                        new StorageSortedIndexDescriptor(
-                                SORTED_INDEX_ID,
-                                List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true, false)),
-                                false
-                        )),
-                row2SortKeyConverter
-        );
-
-        IndexLocker sortedIndexLocker = new SortedIndexLocker(
-                SORTED_INDEX_ID,
+        IndexLocker pkLocker = new SortedIndexLocker(
+                PK_INDEX_ID,
                 PART_ID,
                 LOCK_MANAGER,
-                (SortedIndexStorage) sortedIndexStorage.storage(),
-                row2SortKeyConverter,
-                false
+                (SortedIndexStorage) pkSortedIndexStorage.storage(),
+                row2HashKeyConverter,
+                true
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
@@ -240,10 +208,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
 
-        Catalog catalog = mock(Catalog.class);
         CatalogService catalogService = mock(CatalogService.class);
-        when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        Catalog catalog = mock(Catalog.class);
+
         when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.latestSchemaVersion()).thenReturn(schemaDescriptor.version());
@@ -258,7 +228,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
-        partitionReplicaListener = new PartitionReplicaListener(
+        tablePartitionReplicaProcessor = new DefaultTablePartitionReplicaProcessor(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
                 newTxManager(),
@@ -266,16 +236,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 Runnable::run,
                 new ZonePartitionId(ZONE_ID, PART_ID),
                 TABLE_ID,
-                () -> Int2ObjectMap.ofEntries(
-                        Int2ObjectMap.entry(pkLocker.id(), pkLocker),
-                        Int2ObjectMap.entry(hashIndexLocker.id(), hashIndexLocker),
-                        Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexLocker)
-                ),
+                () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),
                 pkStorage,
-                () -> Int2ObjectMap.ofEntries(
-                        Int2ObjectMap.entry(sortedIndexLocker.id(), sortedIndexStorage),
-                        Int2ObjectMap.entry(hashIndexLocker.id(), hashIndexStorage)
-                ),
+                Int2ObjectMaps::emptyMap,
                 CLOCK_SERVICE,
                 safeTime,
                 mock(TransactionStateResolver.class),
@@ -331,18 +294,22 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return txManager;
     }
 
-    private static LockManager lockManager() {
-        HeapLockManager lockManager = HeapLockManager.smallInstance();
-        lockManager.start(new WaitDieDeadlockPreventionPolicy());
-        return lockManager;
+    private static ReplicaPrimacy validRwPrimacy() {
+        return ReplicaPrimacy.forPrimaryReplicaRequest(1);
     }
 
     @BeforeEach
     public void beforeTest() {
-        ((TestHashIndexStorage) pkStorage.get().storage()).clear();
+        ((TestSortedIndexStorage) pkStorage.get().storage()).clear();
         TEST_MV_PARTITION_STORAGE.clear();
 
         LOCK_MANAGER.releaseAll(TRANSACTION_ID);
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
@@ -403,7 +370,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.process(request, replicaPrimacy(), LOCAL_NODE_ID);
+        CompletableFuture<?> fut = tablePartitionReplicaProcessor.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -411,27 +378,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 locks(),
                 allOf(
                         hasItem(lockThat(
-                                arg.expectedLockOnUniqueHash + " on unique hash index",
+                                arg.expectedLockOnSortedPk + " on sorted pk index",
                                 lock -> Objects.equals(PK_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                         && row2HashKeyConverter.extractColumns(testBinaryRow).byteBuffer().equals(lock.lockKey().key())
-                                        && lock.lockMode() == arg.expectedLockOnUniqueHash
-                        )),
-                        hasItem(lockThat(
-                                arg.expectedLockOnNonUniqueHash + " on non unique hash index",
-                                lock -> Objects.equals(HASH_INDEX_CONTEXT_ID, lock.lockKey().contextId())
-                                        && lock.lockMode() == arg.expectedLockOnNonUniqueHash
-                        )),
-                        hasItem(lockThat(
-                                arg.expectedLockOnSort + " on sorted index",
-                                lock -> Objects.equals(SORTED_INDEX_CONTEXT_ID, lock.lockKey().contextId())
-                                        && lock.lockMode() == arg.expectedLockOnSort
+                                        && lock.lockMode() == arg.expectedLockOnSortedPk
                         ))
                 )
         );
-    }
-
-    private ReplicaPrimacy replicaPrimacy() {
-        return ReplicaPrimacy.forPrimaryReplicaRequest(HybridTimestamp.MIN_VALUE.longValue());
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
@@ -496,7 +449,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.process(request, replicaPrimacy(), LOCAL_NODE_ID);
+        CompletableFuture<?> fut = tablePartitionReplicaProcessor.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -505,22 +458,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                     locks(),
                     allOf(
                             hasItem(lockThat(
-                                    arg.expectedLockOnUniqueHash + " on unique hash index",
+                                    arg.expectedLockOnSortedPk + " on sorted pk index",
                                     lock -> Objects.equals(PK_INDEX_CONTEXT_ID, lock.lockKey().contextId())
                                             && row2HashKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
-                                            && lock.lockMode() == arg.expectedLockOnUniqueHash
-                            )),
-                            hasItem(lockThat(
-                                    arg.expectedLockOnNonUniqueHash + " on non unique hash index",
-                                    lock -> Objects.equals(HASH_INDEX_CONTEXT_ID, lock.lockKey().contextId())
-                                            && row2HashKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
-                                            && lock.lockMode() == arg.expectedLockOnNonUniqueHash
-                            )),
-                            hasItem(lockThat(
-                                    arg.expectedLockOnSort + " on sorted index",
-                                    lock -> Objects.equals(SORTED_INDEX_CONTEXT_ID, lock.lockKey().contextId())
-                                            && row2SortKeyConverter.extractColumns(row).byteBuffer().equals(lock.lockKey().key())
-                                            && lock.lockMode() == arg.expectedLockOnSort
+                                            && lock.lockMode() == arg.expectedLockOnSortedPk
                             ))
                     )
             );
@@ -529,24 +470,24 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     private static Iterable<ReadWriteTestArg> readWriteSingleTestArguments() {
         return List.of(
-                new ReadWriteTestArg(RW_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_DELETE_EXACT, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_INSERT, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_UPSERT, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_DELETE, LockMode.SIX),
+                new ReadWriteTestArg(RW_DELETE_EXACT, LockMode.SIX),
+                new ReadWriteTestArg(RW_INSERT, LockMode.X),
+                new ReadWriteTestArg(RW_UPSERT, LockMode.X),
+                new ReadWriteTestArg(RW_REPLACE_IF_EXIST, LockMode.X),
 
-                new ReadWriteTestArg(RW_GET_AND_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.IX)
+                new ReadWriteTestArg(RW_GET_AND_DELETE, LockMode.SIX),
+                new ReadWriteTestArg(RW_GET_AND_REPLACE, LockMode.X),
+                new ReadWriteTestArg(RW_GET_AND_UPSERT, LockMode.X)
         );
     }
 
     private static Iterable<ReadWriteTestArg> readWriteMultiTestArguments() {
         return List.of(
-                new ReadWriteTestArg(RW_DELETE_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_DELETE_EXACT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.IX)
+                new ReadWriteTestArg(RW_DELETE_ALL, LockMode.SIX),
+                new ReadWriteTestArg(RW_DELETE_EXACT_ALL, LockMode.SIX),
+                new ReadWriteTestArg(RW_INSERT_ALL, LockMode.X),
+                new ReadWriteTestArg(RW_UPSERT_ALL, LockMode.X)
         );
     }
 
@@ -586,20 +527,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     static class ReadWriteTestArg {
         private final RequestType type;
-        private final LockMode expectedLockOnUniqueHash;
-        private final LockMode expectedLockOnNonUniqueHash;
-        private final LockMode expectedLockOnSort;
+        private final LockMode expectedLockOnSortedPk;
 
         ReadWriteTestArg(
                 RequestType type,
-                LockMode expectedLockOnUniqueHash,
-                LockMode expectedLockOnNonUniqueHash,
-                LockMode expectedLockOnSort
+                LockMode expectedLockOnSortedPk
         ) {
             this.type = type;
-            this.expectedLockOnUniqueHash = expectedLockOnUniqueHash;
-            this.expectedLockOnNonUniqueHash = expectedLockOnNonUniqueHash;
-            this.expectedLockOnSort = expectedLockOnSort;
+            this.expectedLockOnSortedPk = expectedLockOnSortedPk;
         }
 
         @Override

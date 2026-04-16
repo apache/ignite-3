@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
-import static org.apache.ignite.lang.ErrorGroups.Marshalling.COMMON_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -62,17 +62,22 @@ class RaftLogCheckpointer {
 
     private final FailureProcessor failureProcessor;
 
+    private final BeforeIndexFileCreatedCallback beforeIndexFileCreated;
+
     RaftLogCheckpointer(
             String nodeName,
+            String storageName,
             IndexFileManager indexFileManager,
             FailureProcessor failureProcessor,
-            int maxQueueSize
+            int maxQueueSize,
+            BeforeIndexFileCreatedCallback beforeIndexFileCreated
     ) {
         this.indexFileManager = indexFileManager;
         this.failureProcessor = failureProcessor;
+        this.beforeIndexFileCreated = beforeIndexFileCreated;
 
         queue = new CheckpointQueue(maxQueueSize);
-        checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint", new CheckpointTask());
+        checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint-" + storageName, new CheckpointTask());
     }
 
     void start() {
@@ -91,7 +96,7 @@ class RaftLogCheckpointer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            throw new IgniteInternalException(COMMON_ERR, "Interrupted while waiting for the checkpoint thread to finish.", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Interrupted while waiting for the checkpoint thread to finish.", e);
         }
     }
 
@@ -101,7 +106,7 @@ class RaftLogCheckpointer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            throw new IgniteInternalException(COMMON_ERR, "Interrupted while adding an entry to the checkpoint queue.", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Interrupted while adding an entry to the checkpoint queue.", e);
         }
     }
 
@@ -154,6 +159,11 @@ class RaftLogCheckpointer {
                     segmentFile.closeForRollover(SWITCH_SEGMENT_RECORD);
 
                     segmentFile.sync();
+
+                    long indexFileSize = IndexFileManager.computeIndexFileSize(entry.memTable());
+
+                    // Notify about the upcoming log size increase.
+                    beforeIndexFileCreated.beforeIndexFileCreated(indexFileSize);
 
                     indexFileManager.saveNewIndexMemtable(entry.memTable());
 

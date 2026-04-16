@@ -74,11 +74,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -400,6 +399,17 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         resetPeersCallCount.updateAndGet(existing -> Math.max(existing, resetSequenceToken));
     }
 
+    private static MvTableStorageFactory spyingStorageFactory(
+            MvTableStorageFactory delegate,
+            Consumer<MvTableStorage> decorator
+    ) {
+        return (tableDesc, zoneDesc) -> {
+            MvTableStorage storage = spy(delegate.createMvTableStorage(tableDesc, zoneDesc));
+            decorator.accept(storage);
+            return storage;
+        };
+    }
+
     /**
      * Creates and starts TableManage and dependencies.
      */
@@ -428,7 +438,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
-        when(topologyService.localMember()).thenReturn(node);
+        when(clusterService.staticLocalNode()).thenReturn(node);
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
         when(txManager.transactionMetricsSource()).thenReturn(mock(TransactionMetricsSource.class));
 
@@ -439,7 +449,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
 
         replicaMgr = spy(new ReplicaManager(
-                NODE_NAME,
                 clusterService,
                 mock(ClusterManagementGroupManager.class, RETURNS_DEEP_STUBS),
                 groupId -> completedFuture(Assignments.EMPTY),
@@ -540,6 +549,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 metaStorageManager,
                 topologyService,
+                node,
                 lowWatermark,
                 failureProcessor,
                 ForkJoinPool.commonPool(),
@@ -562,7 +572,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         ));
 
         tableManager = new TableManager(
-                NODE_NAME,
+                node,
                 revisionUpdater,
                 gcConfig,
                 replicationConfiguration,
@@ -593,16 +603,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
-        ) {
-
-            @Override
-            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
-
-                return mvTableStorage;
-            }
-        };
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY,
+                spyingStorageFactory(new DefaultMvTableStorageFactory(dsm, catalogManager, lowWatermark), storage -> {
+                    mvTableStorage = storage;
+                })
+        );
 
         tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 

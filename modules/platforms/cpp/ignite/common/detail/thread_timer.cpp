@@ -27,27 +27,31 @@ thread_timer::~thread_timer() {
 
 std::shared_ptr<thread_timer> thread_timer::start(std::function<void(ignite_error&&)> error_handler) {
     std::shared_ptr<thread_timer> res{new thread_timer()};
-    res->m_thread = std::thread([&self = *res, error_handler = std::move(error_handler)]() {
-        std::unique_lock<std::mutex> lock(self.m_mutex);
+    res->m_thread = std::thread([state = res->m_state, error_handler = std::move(error_handler)]() {
+        std::unique_lock<std::mutex> lock(state->m_mutex);
         while (true) {
-            if (self.m_stopping) {
-                self.m_condition.notify_one();
+            if (state->m_stopping) {
+                state->m_condition.notify_one();
                 return;
             }
 
-            if (self.m_events.empty()) {
-                self.m_condition.wait(lock);
+            if (state->m_events.empty()) {
+                state->m_condition.wait(lock);
                 continue;
             }
 
-            auto nearest_event_ts = self.m_events.top().timestamp;
+            auto nearest_event_ts = state->m_events.top().timestamp;
             auto now = std::chrono::steady_clock::now();
             if (nearest_event_ts < now) {
-                auto func = self.m_events.top().callback;
-                self.m_events.pop();
+                auto func = state->m_events.top().callback;
+                state->m_events.pop();
 
                 lock.unlock();
 
+                // NOTE: invoking func may destroy the thread_timer object (e.g. when the last
+                // shared_ptr<node_connection> held by the callback is released, triggering
+                // ~node_connection -> ~thread_timer -> stop()). The timer_state shared_ptr
+                // captured by this lambda keeps state alive across that destruction.
                 auto res = result_of_operation(func);
                 if (res.has_error()) {
                     error_handler(res.error());
@@ -55,7 +59,7 @@ std::shared_ptr<thread_timer> thread_timer::start(std::function<void(ignite_erro
 
                 lock.lock();
             } else {
-                self.m_condition.wait_until(lock, nearest_event_ts);
+                state->m_condition.wait_until(lock, nearest_event_ts);
             }
         }
     });
@@ -64,20 +68,29 @@ std::shared_ptr<thread_timer> thread_timer::start(std::function<void(ignite_erro
 
 void thread_timer::stop() {
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        if (m_stopping)
+        std::unique_lock<std::mutex> lock(m_state->m_mutex);
+        if (m_state->m_stopping)
             return;
 
-        m_stopping = true;
-        m_condition.notify_one();
+        m_state->m_stopping = true;
+        m_state->m_condition.notify_one();
     }
-    m_thread.join();
+
+    if (std::this_thread::get_id() == m_thread.get_id()) {
+        // Called from within a timer callback. Joining the current thread would deadlock, so
+        // detach instead. The timer loop will see m_stopping == true on its next iteration and
+        // exit cleanly. The timer_state shared_ptr held by the thread lambda keeps the state
+        // (mutex, condition variable, event queue) alive until the thread actually terminates.
+        m_thread.detach();
+    } else {
+        m_thread.join();
+    }
 }
 
 void thread_timer::add(std::chrono::milliseconds timeout, std::function<void()> callback) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_events.emplace(std::chrono::steady_clock::now() + timeout, std::move(callback));
-    m_condition.notify_one();
+    std::lock_guard<std::mutex> lock(m_state->m_mutex);
+    m_state->m_events.emplace(std::chrono::steady_clock::now() + timeout, std::move(callback));
+    m_state->m_condition.notify_one();
 }
 
 } // namespace ignite::detail

@@ -651,7 +651,7 @@ public class ClientSql implements IgniteSql {
     private static void addCancelAction(CancellationToken cancellationToken, PayloadOutputChannel ch) {
         CompletableFuture<Void> cancelFuture = new CompletableFuture<>();
 
-        if (CancelHandleHelper.isCancelled(cancellationToken)) {
+        if (cancellationToken.isCancelled()) {
             throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
         }
 

@@ -24,6 +24,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
@@ -60,6 +63,7 @@ public class PersistentPageMemoryBenchmarkBase {
     private static final String NODE_NAME = "benchmark-node";
 
     private PersistentPageMemory persistentPageMemory;
+    private Map<GroupPartitionId, PartitionPageMemory> partitionPageMemoryMap = new ConcurrentHashMap<>();
     private CheckpointManager checkpointManager;
     private FilePageStoreManager filePageStoreManager;
     private PartitionMetaManager partitionMetaManager;
@@ -69,6 +73,10 @@ public class PersistentPageMemoryBenchmarkBase {
 
     protected PersistentPageMemory persistentPageMemory() {
         return persistentPageMemory;
+    }
+
+    protected PartitionPageMemory partitionPageMemory(int partitionId) {
+        return partitionPageMemoryMap.get(new GroupPartitionId(GROUP_ID, partitionId));
     }
 
     protected CheckpointManager checkpointManager() {
@@ -160,6 +168,10 @@ public class PersistentPageMemoryBenchmarkBase {
 
         try {
             var groupPartitionId = new GroupPartitionId(GROUP_ID, partitionId);
+
+            assert !partitionPageMemoryMap.containsKey(groupPartitionId) : partitionPageMemoryMap;
+
+            partitionPageMemoryMap.put(groupPartitionId, persistentPageMemory.createPartitionPageMemory(GROUP_ID, partitionId));
 
             FilePageStore filePageStore = filePageStoreManager.readOrCreateStore(groupPartitionId, buffer.rewind());
 

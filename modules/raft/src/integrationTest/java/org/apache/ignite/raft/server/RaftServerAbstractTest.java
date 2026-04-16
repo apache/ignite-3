@@ -30,6 +30,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -57,6 +58,9 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     protected SystemLocalConfiguration systemConfiguration;
+
+    @InjectConfiguration
+    protected static LogStorageConfiguration logStorageConfiguration;
 
     /** Test info. */
     TestInfo testInfo;

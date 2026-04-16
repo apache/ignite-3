@@ -87,6 +87,36 @@ set(PUBLIC_HEADERS
     transaction/transaction_options.h
 )
 
+set(PRIVATE_HEADERS
+    detail/argument_check_utils.h
+    detail/cancellation_token_impl.h
+    detail/client_error_flags.h
+    detail/cluster_connection.h
+    detail/compute/any_node_job_target.h
+    detail/compute/colocated_job_target.h
+    detail/compute/compute_impl.h
+    detail/compute/job_execution_impl.h
+    detail/compute/nodes_broadcast_job_target.h
+    detail/connection_event_handler.h
+    detail/ignite_client_impl.h
+    detail/logger_wrapper.h
+    detail/node_connection.h
+    detail/response_handler.h
+    detail/sql/result_set_impl.h
+    detail/sql/sql_impl.h
+    detail/table/name_utils.h
+    detail/table/schema.h
+    detail/table/table_impl.h
+    detail/table/tables_impl.h
+    detail/transaction/transaction_impl.h
+    detail/transaction/transactions_impl.h
+    detail/utils.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
+ignite_collect_public_headers(client PUBLIC_HEADERS)
+
 add_library(${TARGET}-obj OBJECT ${SOURCES})
 target_include_directories(${TARGET}-obj PUBLIC ${IGNITE_CMAKE_TOP_DIR})
 

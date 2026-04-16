@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.table.distributed;
 
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 
 /**
- * Processor of replica requests targeted at a particular table.
+ * Factory for creating {@link MvTableStorage} instances.
  */
-public interface ReplicaTableProcessor {
+public interface MvTableStorageFactory {
     /**
-     * Processes replica request.
+     * Creates a new MV table storage for the given table and zone descriptors.
      *
-     * @param request Replica request.
-     * @param replicaPrimacy Replica primacy info.
-     * @param senderId ID of the node that sent the request.
-     * @return Future completed with the result of processing.
+     * @param tableDescriptor Catalog table descriptor.
+     * @param zoneDescriptor Catalog zone descriptor.
+     * @return New MV table storage.
      */
-    CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId);
-
-    /** Callback on replica shutdown. */
-    void onShutdown();
+    MvTableStorage createMvTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor);
 }

@@ -27,11 +27,12 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.CharsetUtil;
 import java.util.Arrays;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Decodes full client messages: 1. MAGIC for first message. 2. Payload length (4 bytes). 3. Payload (N bytes).
  */
-public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
+public final class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
     /** Magic decoded flag. */
     private boolean magicDecoded;
 
@@ -43,13 +44,19 @@ public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
      */
     public ClientMessageDecoder() {
         super(Integer.MAX_VALUE - HEADER_SIZE, 0, HEADER_SIZE, 0, HEADER_SIZE, true);
+
+        // Effectively disable automatic calls to discardReadBytes / discardSomeReadBytes:
+        // We pass the buffers to other threads, and discardReadBytes modifies the buffer concurrently,
+        // leading to race conditions and corrupted offsets.
+        // Moreover, discardReadBytes is not very beneficial with our access patterns:
+        // Read small header => pass to another thread => read fully => discard.
+        setDiscardAfterReads(Integer.MAX_VALUE);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected Object decode(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
+    protected @Nullable Object decode(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
         if (!readMagic(in)) {
-            //noinspection ReturnOfNull
             return null;
         }
 

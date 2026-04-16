@@ -27,7 +27,7 @@ set(SOURCES
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})
-target_link_libraries(${TARGET} ignite-common)
+target_link_libraries(${TARGET} ignite-common asio msgpack-c)
 target_include_directories(${TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})

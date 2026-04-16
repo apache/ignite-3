@@ -158,6 +158,8 @@ include(CPack)
 
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
+include(ignite_check_headers)
+include(ignite_collect_public_headers)
 
 # Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
@@ -202,6 +204,11 @@ endif()
 
 include(ignite_test)
 
+# Accumulated list of all installed public headers (relative to the include
+# root, e.g. "ignite/common/big_integer.h"). Each module appends its own
+# headers below; ignite_compile_headers.cmake reads this list.
+set(IGNITE3_ALL_PUBLIC_HEADERS "")
+
 # Add common libraries along with their unit tests if any.
 add_subdirectory(ignite/common)
 add_subdirectory(ignite/tuple)
@@ -241,6 +248,8 @@ if (${ENABLE_TESTS})
         add_subdirectory(tests/compatibility-tests)
     endif()
 endif()
+
+include(ignite_compile_headers)
 
 # Source code formatting with clang-format.
 # TODO: require clang-format version 13 or higher

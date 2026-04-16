@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.security.authentication.SecurityConfigu
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -91,6 +92,23 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
         server = startServer(true);
 
         client = startClient(BasicAuthenticator.builder().username(DEFAULT_USERNAME).password(DEFAULT_PASSWORD).build());
+    }
+
+    @Test
+    public void testBadCredentialsAreNotRetried() {
+        server = startServer(true);
+
+        BasicAuthenticator authenticator = BasicAuthenticator.builder().username("u").password("wrong").build();
+
+        var builder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .authenticator(authenticator)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(5));
+
+        IgniteTestUtils.assertThrowsWithCause(builder::build, InvalidCredentialsException.class, "Authentication failed");
+
+        // The server should have received exactly one connection attempt, no retries.
+        assertEquals(1, server.metrics().sessionsRejected());
     }
 
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {

@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
@@ -90,6 +91,7 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -679,7 +681,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         // RuntimeException is thrown when SleepJob catches the InterruptedException
         assertThat(runtimeException.toString(), containsString(InterruptedException.class.getName()));
 
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(FAILED)));
     }
 
     @ParameterizedTest
@@ -729,7 +731,31 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         // Cancel running task
         assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(FAILED)));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void asyncJobCompletesNormallyAfterCooperativeCancellation(boolean local) {
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecution<String> execution = submit(
+                JobTarget.node(clusterNode(executeNode)),
+                asyncDelayedCompleteJob(),
+                cancelHandle.token(),
+                null
+        );
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        cancelHandle.cancel();
+
+        // The async job detects cancellation via isCancelled(), does cleanup, then completes with a result.
+        // Cooperative cancellation should honor the result — status must be COMPLETED, not CANCELED.
+        assertThat(execution.resultAsync(), willBe(is("completed-after-cancel")));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -906,17 +932,68 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         ObservableTimestampResult jobRes = execution.resultAsync().join();
 
         // The per-job tracker should have the client's observable timestamp.
-        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes.perJobTimestamp);
+        HybridTimestamp jobObservableTs = HybridTimestamp.nullableHybridTimestamp(jobRes.perJobTimestamp());
         assertThat(jobObservableTs, is(localObservableTs));
 
         // The node's global tracker should NOT be updated by the compute job.
-        HybridTimestamp targetNodeTsAfter = HybridTimestamp.nullableHybridTimestamp(jobRes.nodeGlobalTimestamp);
+        HybridTimestamp targetNodeTsAfter = HybridTimestamp.nullableHybridTimestamp(jobRes.nodeGlobalTimestamp());
         assertThat(targetNodeTsAfter, is(targetNodeTsBefore));
         assertThat(targetNodeTsAfter, not(jobObservableTs));
     }
 
     protected @Nullable HybridTimestamp currentObservableTimestamp() {
         return unwrapIgniteImpl(node(0)).observableTimeTracker().get();
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancellationTokenPropagatesSqlCancellation(boolean local) {
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        // Submit a job that runs a long-running SQL query with context.cancellationToken().
+        // The SQL query registers on the token, so when the job is cancelled the query is canceled too.
+        JobExecution<Void> execution = submit(
+                JobTarget.node(clusterNode(executeNode)),
+                sqlQueryWithCancellationTokenJob(),
+                cancelHandle.token(),
+                null
+        );
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        // Cancel the job — the cancellation token propagates to the SQL query.
+        cancelHandle.cancel();
+
+        // The SQL query throws SqlException with EXECUTION_CANCELLED_ERR, which is treated as cancellation.
+        assertThat(execution.resultAsync(), willThrow(sqlCancelledException()));
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void nestedJobCancellationPropagatesToOuterJob(boolean local) {
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        // The outer job submits a nested CancelAwareSleepJob with context.cancellationToken().
+        // When the outer job is canceled, the token propagates to the inner job.
+        JobExecution<Void> execution = submit(
+                JobTarget.node(clusterNode(executeNode)),
+                nestedSleepJob(),
+                cancelHandle.token(),
+                Long.MAX_VALUE
+        );
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        cancelHandle.cancel();
+
+        // The inner job throws CancellationException, which is wrapped as ComputeException(COMPUTE_JOB_CANCELLED_ERR).
+        // The outer job propagates this — isCancellationException recognizes the error code → CANCELED.
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
     JobDescriptor.Builder<Object, String> toStringJobBuilder() {
@@ -943,6 +1020,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         return JobDescriptor.<Long, Void>builder(jobClassName("SilentSleepJob")).units(units()).build();
     }
 
+    private JobDescriptor<Long, Void> nestedSleepJob() {
+        return JobDescriptor.<Long, Void>builder(jobClassName("NestedSleepJob")).units(units()).build();
+    }
+
     private JobDescriptor<Long, Void> cancelAwareSleepJob() {
         return JobDescriptor.<Long, Void>builder(jobClassName("CancelAwareSleepJob")).units(units()).build();
     }
@@ -961,6 +1042,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private TaskDescriptor<Void, Void> infiniteMapReduceTask() {
         return TaskDescriptor.<Void, Void>builder(jobClassName("InfiniteMapReduceTask")).units(units()).build();
+    }
+
+    private JobDescriptor<Void, String> asyncDelayedCompleteJob() {
+        return JobDescriptor.<Void, String>builder(jobClassName("AsyncDelayedCompleteJob")).units(units()).build();
+    }
+
+    private JobDescriptor<Void, Void> sqlQueryWithCancellationTokenJob() {
+        return JobDescriptor.<Void, Void>builder(jobClassName("SqlQueryWithCancellationTokenJob")).units(units()).build();
     }
 
     private JobDescriptor<Tuple, Integer> tupleJob() {
@@ -990,5 +1079,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                         either(hasMessage(containsString(CancellationException.class.getName())))
                                 .or(instanceOf(CancellationException.class))
                 );
+    }
+
+    private static Matcher<Exception> sqlCancelledException() {
+        return traceableException(SqlException.class)
+                .withCode(is(EXECUTION_CANCELLED_ERR))
+                .withMessage(is("The query was cancelled while executing."));
     }
 }

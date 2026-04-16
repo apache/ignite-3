@@ -159,7 +159,7 @@ public class ItZoneInMemoryTest extends ItAbstractColocationTest {
     private static boolean isRaftLogStorageVolatile(Node node, int zoneId) {
         ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        String singlePeerConsistentId = node.clusterService.topologyService().localMember().name();
+        String singlePeerConsistentId = node.clusterService.staticLocalNode().name();
 
         RaftNodeId raftNodeId = new RaftNodeId(zonePartitionId, new Peer(singlePeerConsistentId));
 

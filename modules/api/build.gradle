@@ -52,4 +52,46 @@ artifacts {
     }
 }
 
+def checkGeneratedPlatformHeaders = tasks.register('checkGeneratedErrorGroupFiles', Task) {
+    description = 'Verifies that committed generated error group files (C++, C#) are in sync with Java error code definitions. ' +
+            'If this fails, run \'./gradlew :platforms:copyPlatformsHeaders\' and commit the result.'
+    dependsOn compileJava
+
+    doLast {
+        def failures = []
+
+        [
+            'cpp/ignite/common/error_codes.h',
+            'dotnet/Apache.Ignite/ErrorCodes.g.cs'
+        ].each { relativePath ->
+            def generatedFile = file("${platformsHeadersDir}/${relativePath}")
+            def committedFile = file("${rootDir}/modules/platforms/${relativePath}")
+
+            if (!generatedFile.exists()) {
+                failures << "Generated file not found: ${generatedFile}"
+                return
+            }
+
+            if (!committedFile.exists()) {
+                failures << "modules/platforms/${relativePath} is missing — run './gradlew :platforms:copyPlatformsHeaders' and commit."
+                return
+            }
+
+            if (generatedFile.text != committedFile.text) {
+                failures << "modules/platforms/${relativePath} is out of date with ErrorGroups.java."
+            }
+        }
+
+        if (!failures.isEmpty()) {
+            throw new GradleException(
+                "Generated platform headers are out of sync with Java error code definitions.\n" +
+                "Run './gradlew :platforms:copyPlatformsHeaders' and commit the result.\n" +
+                "Affected files:\n" + failures.collect { "  - $it" }.join("\n")
+            )
+        }
+    }
+}
+
+check.dependsOn checkGeneratedErrorGroupFiles
+
 description = 'ignite-api'

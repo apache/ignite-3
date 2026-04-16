@@ -477,7 +477,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private boolean isLocal(InternalClusterNode targetNode) {
-        return targetNode.name().equals(topologyService.localMember().name());
+        return targetNode.name().equals(nodeName);
     }
 
     @Override

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
@@ -119,6 +120,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
             int partitionId,
+            PartitionPageMemory partitionPageMemory,
             StoragePartitionMeta meta,
             FreeListImpl freeList,
             VersionChainTree versionChainTree,
@@ -133,7 +135,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 tableStorage,
                 new RenewablePartitionStorageState(
                         tableStorage,
-                        partitionId,
+                        partitionPageMemory,
                         versionChainTree,
                         freeList,
                         indexMetaTree,
@@ -166,7 +168,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         blobStorage = new BlobStorage(
                 freeList,
-                dataRegion.pageMemory(),
+                partitionPageMemory,
                 tableStorage.getTableId(),
                 partitionId
         );
@@ -590,6 +592,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
+            PartitionPageMemory partitionPageMemory,
             StoragePartitionMeta meta,
             FreeListImpl freeList,
             VersionChainTree versionChainTree,
@@ -602,19 +605,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         this.blobStorage = new BlobStorage(
                 freeList,
-                tableStorage.dataRegion().pageMemory(),
+                partitionPageMemory,
                 tableStorage.getTableId(),
                 partitionId
         );
 
         updateRenewableState(
+                partitionPageMemory,
                 versionChainTree,
                 freeList,
                 indexMetaTree,
                 gcQueue
         );
 
-        checkpointManager.addCheckpointListener(checkpointListener, tableStorage.dataRegion());
+        checkpointManager.addCheckpointListener(checkpointListener, (DataRegion<PersistentPageMemory>) tableStorage.dataRegion());
     }
 
     @Override
@@ -704,7 +708,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         var read = new ReadWriteIntentLinks(partitionId);
 
         try {
-            rowVersionDataPageReader.traverse(rowVersionLink, read, null);
+            renewableState.rowVersionDataPageReader().traverse(rowVersionLink, read, null);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Write intent links lookup failed: [link={}, {}]", e, rowVersionLink, createStorageInfo());
         }

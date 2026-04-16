@@ -89,7 +89,6 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -373,17 +372,15 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     private static ClusterService createClusterService() {
         ClusterService clusterService = mock(ClusterService.class);
-        TopologyService topologyService = mock(TopologyService.class);
         MessagingService messagingService = mock(MessagingService.class);
 
         CompletableFuture<NetworkMessage> responseFuture = completedFuture(
                 FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(true).build()
         );
 
-        when(topologyService.localMember()).thenReturn(LOCAL_NODE);
+        when(clusterService.staticLocalNode()).thenReturn(LOCAL_NODE);
         when(messagingService.invoke(any(InternalClusterNode.class), any(), anyLong())).thenReturn(responseFuture);
 
-        when(clusterService.topologyService()).thenReturn(topologyService);
         when(clusterService.messagingService()).thenReturn(messagingService);
 
         return clusterService;

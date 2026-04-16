@@ -28,6 +28,7 @@ import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -145,6 +146,16 @@ public class TxStateMetaTest {
 
         assertEquals(321, message.exceptionErrorCode());
         assertEquals(321, message.asTxStateMetaAbandoned().lastExceptionErrorCode());
+    }
+
+    @Test
+    public void testFinishingMetaDerivesLastExceptionErrorCodeFromFinishReason() {
+        IgniteInternalException finishReason = new IgniteInternalException(321, "boom");
+
+        TxStateMetaFinishing meta = PENDING_META.finishing(finishReason);
+
+        assertEquals(finishReason, meta.lastException());
+        assertEquals(321, meta.lastExceptionErrorCode());
     }
 
     private static ArgumentSet args(

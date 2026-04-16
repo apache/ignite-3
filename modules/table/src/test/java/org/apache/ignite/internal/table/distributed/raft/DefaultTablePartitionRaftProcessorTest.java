@@ -143,7 +143,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
+public class DefaultTablePartitionRaftProcessorTest extends BaseIgniteAbstractTest {
     private static final int KEY_COUNT = 100;
 
     private static final int TABLE_ID = 1;
@@ -160,7 +160,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private static final SchemaRegistry SCHEMA_REGISTRY = new DummySchemaManagerImpl(SCHEMA);
 
-    private TablePartitionProcessor commandListener;
+    private DefaultTablePartitionRaftProcessor commandListener;
 
     private final AtomicLong raftIndex = new AtomicLong();
 
@@ -214,9 +214,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
-        when(clusterService.topologyService().localMember().address()).thenReturn(addr);
-        when(clusterService.topologyService().localMember().id()).thenReturn(deriveUuidFrom(addr.toString()));
-        when(clusterService.nodeName()).thenReturn(addr.toString());
+        when(clusterService.staticLocalNode().address()).thenReturn(addr);
+        when(clusterService.staticLocalNode().id()).thenReturn(deriveUuidFrom(addr.toString()));
+        when(clusterService.staticLocalNode().name()).thenReturn(addr.toString());
 
         int indexId = pkStorage.id();
 
@@ -271,14 +271,14 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             return hybridClock.update(requestTime);
         });
 
-        commandListener = new TablePartitionProcessor(
+        commandListener = new DefaultTablePartitionRaftProcessor(
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
                 catalogService,
                 SCHEMA_REGISTRY,
                 indexMetaStorage,
-                clusterService.topologyService().localMember().id(),
+                clusterService.staticLocalNode().id(),
                 mock(MinimumRequiredTimeCollectorService.class),
                 placementDriver,
                 clockService,
@@ -295,7 +295,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                             1,
                             111L,
                             110L,
-                            List.of(clusterService.nodeName()),
+                            List.of(clusterService.staticLocalNode().name()),
                             Collections.emptyList(),
                             null,
                             null

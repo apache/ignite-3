@@ -36,6 +36,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
@@ -66,6 +67,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfig;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
@@ -105,6 +109,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         testCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfig,
+                logStorageConfiguration,
                 txConfiguration,
                 systemLocalConfiguration,
                 systemDistributedConfiguration,
@@ -145,7 +150,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     }
 
     private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit, boolean read) {
-        InternalClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
+        InternalClusterNode coord = testCluster.cluster.get(0).staticLocalNode();
         UUID coordinatorId = coord.id();
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
@@ -191,7 +196,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 int finalI = i;
 
                 assertTrue(waitForCondition(() -> {
-                    meta.set(testCluster.txManagers.get(testCluster.cluster.get(finalI).nodeName()).stateMeta(txId));
+                    meta.set(testCluster.txManagers.get(testCluster.cluster.get(finalI).staticLocalNode().name()).stateMeta(txId));
 
                     if (expected == null) {
                         return meta.get() == null;

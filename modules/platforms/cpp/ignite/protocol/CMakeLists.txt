@@ -17,6 +17,28 @@
 
 set(TARGET ignite-protocol)
 
+set(PUBLIC_HEADERS)
+
+set(PRIVATE_HEADERS
+    bitmask_feature.h
+    bitset_span.h
+    buffer_adapter.h
+    client_operation.h
+    extension_types.h
+    heartbeat_timeout.h
+    messages.h
+    protocol_context.h
+    protocol_version.h
+    reader.h
+    sql/column_meta.h
+    utils.h
+    writer.h
+)
+
+ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
+
+ignite_collect_public_headers(protocol PUBLIC_HEADERS)
+
 set(SOURCES
     sql/column_meta.cpp sql/column_meta.h
     bitset_span.h

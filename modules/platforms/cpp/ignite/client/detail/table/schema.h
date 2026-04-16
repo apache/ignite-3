@@ -79,6 +79,7 @@ struct schema {
     const std::vector<column> columns;
     const std::vector<const column *> key_columns;
     const std::vector<const column *> val_columns;
+    const std::vector<const column *> collocated_columns;
 
     // Default
     schema() = default;
@@ -86,17 +87,23 @@ struct schema {
     /**
      * Constructor.
      *
-     * @param version Version.
-     * @param columns Columns.
-     * @param key_columns Key Columns.
-     * @param val_columns Value Columns.
+     * @param version Schema version.
+     * @param columns All columns.
+     * @param key_columns Key columns.
+     * @param val_columns Value columns.
+     * @param collocated_columns Collocated columns.
      */
-    schema(std::int32_t version, std::vector<column> &&columns, std::vector<const column *> &&key_columns,
-        std::vector<const column *> &&val_columns)
+    schema(
+        std::int32_t version,
+        std::vector<column> &&columns,
+        std::vector<const column *> &&key_columns,
+        std::vector<const column *> &&val_columns,
+        std::vector<const column *> &&collocated_columns)
         : version(version)
         , columns(std::move(columns))
         , key_columns(std::move(key_columns))
-        , val_columns(std::move(val_columns)) {}
+        , val_columns(std::move(val_columns))
+        , collocated_columns(std::move(collocated_columns)) {}
 
     /**
      * Get column by index.
@@ -118,30 +125,52 @@ struct schema {
      * @return A new schema instance.
      */
     static std::shared_ptr<schema> create_instance(std::int32_t version, std::vector<column> &&cols) {
-        std::int32_t key_columns_cnt = 0;
+        std::size_t key_columns_cnt = 0;
+        std::size_t collocated_columns_cnt = 0;
         for (const auto &column : cols) {
             if (column.is_key())
                 ++key_columns_cnt;
+
+            if (column.colocation_index >= 0)
+                ++collocated_columns_cnt;
         }
-        std::int32_t val_columns_cnt = std::int32_t(cols.size()) - key_columns_cnt;
+
+        const size_t val_columns_cnt = cols.size() - key_columns_cnt;
 
         std::vector<const column *> key_columns(key_columns_cnt, nullptr);
 
         std::vector<const column *> val_columns;
         val_columns.reserve(val_columns_cnt);
 
+        assert(collocated_columns_cnt <= key_columns_cnt);
+
+        std::vector<const column *> collocated_columns(collocated_columns_cnt, nullptr);
+
         for (const auto &column : cols) {
             if (column.is_key()) {
-                assert(column.key_index >= 0 && std::size_t(column.key_index) < key_columns.size());
+                assert(column.key_index >= 0 && static_cast<std::size_t>(column.key_index) < key_columns.size());
                 assert(key_columns[column.key_index] == nullptr);
 
                 key_columns[column.key_index] = &column;
             } else {
                 val_columns.push_back(&column);
             }
+
+            if (column.colocation_index >= 0) {
+                assert(static_cast<std::size_t>(column.colocation_index) < collocated_columns.size());
+                assert(collocated_columns[column.colocation_index] == nullptr);
+
+                collocated_columns[column.colocation_index] = &column;
+            }
         }
 
-        return std::make_shared<schema>(version, std::move(cols), std::move(key_columns), std::move(val_columns));
+        return std::make_shared<schema>(
+            version,
+            std::move(cols),
+            std::move(key_columns),
+            std::move(val_columns),
+            std::move(collocated_columns)
+        );
     }
 
     /**

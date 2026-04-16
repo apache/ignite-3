@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.network.handshake;
 
 /**
- * Knows how to obtain a 32-bit nodeId needed for transactionId generation. Must return the same value for all invocations
- * run in the same Ignite instance.
+ * Exception that notifies of handshake that failed because a channel was closed or some internal error happened.
  */
-@FunctionalInterface
-public interface NodeIdSupplier {
-    /**
-     * Returns the node ID.
-     *
-     * @return Node ID.
-     */
-    int nodeId();
+public class BrokenHandshakeException extends HandshakeException {
+    private static final long serialVersionUID = 0L;
+
+    public BrokenHandshakeException() {
+        super("Channel has been closed before handshake has finished or handshake has failed");
+    }
 }

@@ -92,7 +92,9 @@ void cluster_connection::stop() {
 
 void cluster_connection::on_connection_success(const end_point &addr, uint64_t id) {
     m_logger->log_info("Established connection with remote host " + addr.to_string());
-    m_logger->log_debug("Connection ID: " + std::to_string(id));
+
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Connection ID: " + std::to_string(id));
 
     auto connection = node_connection::make_new(
         id, m_pool, weak_from_this(), m_logger, m_configuration, m_timer_thread);
@@ -214,6 +216,16 @@ void cluster_connection::on_observable_timestamp_changed(std::int64_t timestamp)
     }
 }
 
+void cluster_connection::on_partition_assignment_changed(std::int64_t timestamp) {
+    auto expected = m_assignment_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_assignment_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_assignment_timestamp.load();
+    }
+}
+
 void cluster_connection::remove_client(uint64_t id) {
     [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -262,9 +274,28 @@ std::shared_ptr<node_connection> cluster_connection::get_random_connected_channe
     return std::next(m_connections.begin(), idx)->second;
 }
 
+std::shared_ptr<node_connection> cluster_connection::get_channel(
+    const std::optional<std::string>& preferred_node_name) {
+
+    if (preferred_node_name) {
+        std::unique_lock lock(m_connections_mutex);
+        for (auto& [id, conn] : m_connections) {
+            if (conn->get_node_name() == *preferred_node_name) {
+                return conn;
+            }
+        }
+    }
+
+    return get_random_connected_channel();
+}
+
 std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::perform_request_handler(
-    const operation_function_type &op_func, transaction_impl *tx, const writer_function_type &wr,
-    const std::shared_ptr<response_handler> &handler) {
+    const operation_function_type &op_func,
+    transaction_impl *tx,
+    const writer_function_type &wr,
+    const std::shared_ptr<response_handler> &handler,
+    const std::optional<std::string>& preferred_node_name) {
+
     if (tx) {
         auto channel = tx->get_connection();
         if (!channel)
@@ -279,7 +310,7 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
     }
 
     while (true) {
-        auto channel = get_random_connected_channel();
+        auto channel = get_channel(preferred_node_name);
         if (!channel)
             throw ignite_error(error::code::CONNECTION, "No nodes connected");
 
@@ -290,10 +321,15 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
     }
 }
 
-void cluster_connection::perform_request_raw(protocol::client_operation op, transaction_impl *tx,
-    const writer_function_type &wr, ignite_callback<bytes_view> callback) {
+void cluster_connection::perform_request_raw(
+    protocol::client_operation op,
+    transaction_impl *tx,
+    const writer_function_type &wr,
+    ignite_callback<bytes_view> callback,
+    const std::optional<std::string>& preferred_node_name) {
     auto handler = std::make_shared<response_handler_raw>(std::move(callback));
-    perform_request_handler(static_op(op), tx, wr, std::move(handler));
+
+    perform_request_handler(static_op(op), tx, wr, std::move(handler), preferred_node_name);
 }
 
 } // namespace ignite::detail

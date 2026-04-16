@@ -27,6 +27,7 @@ import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
@@ -72,6 +73,7 @@ class ClientTuplesRequestBase {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             @Nullable NotificationSender notificationSender,
             HybridTimestampTracker tsTracker,
@@ -82,7 +84,7 @@ class ClientTuplesRequestBase {
         long[] resIdHolder = {0};
 
         CompletableFuture<InternalTransaction> txFut =
-                readOrStartImplicitTx(in, tsTracker, resources, txManager, tables, options, notificationSender, resIdHolder);
+                readOrStartImplicitTx(in, tsTracker, resources, metrics, txManager, tables, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 

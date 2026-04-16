@@ -101,7 +101,6 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.StatisticsConfiguration;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -1237,48 +1236,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void coordinatorIgnoresRemoteCloseErrorFromNodeOnCoordinator() throws InterruptedException {
-        ExecutionService execService = executionServices.get(0);
-
-        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
-
-        var expectedEx = new RuntimeException("Test error");
-        var queryClosed = new CountDownLatch(nodeNames.size() - 1);
-
-        String coordinatorNode = nodeNames.get(0);
-        testCluster.node(coordinatorNode).interceptor((senderNode, msg, original) -> {
-            if (msg instanceof QueryStartRequest) {
-                QueryStartRequest queryStart = (QueryStartRequest) msg;
-
-                String nodeName = senderNode.name();
-                testCluster.node(coordinatorNode).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
-                        .queryId(queryStart.queryId())
-                        .fragmentId(queryStart.fragmentId())
-                        .error(expectedEx)
-                        .build()
-                );
-            } else {
-                original.onMessage(senderNode, msg);
-            }
-
-            if (msg instanceof QueryCloseMessage) {
-                queryClosed.countDown();
-                return CompletableFuture.failedFuture(new RuntimeException("Test exception: failed to close"));
-            } else {
-                return nullCompletedFuture();
-            }
-        });
-
-        SqlOperationContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-
-        RuntimeException actualException = assertWillThrow(execService.executePlan(plan, ctx), RuntimeException.class);
-        assertEquals(expectedEx, actualException);
-
-        queryClosed.await();
-    }
-
-    @Test
     public void coordinatorIgnoresRemoteCloseErrorOnNode() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
 
@@ -1378,10 +1335,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             firstNode = clusterNode;
         }
 
-        var topologyService = mock(TopologyService.class);
-
-        when(topologyService.localMember()).thenReturn(clusterNode);
-
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
@@ -1391,7 +1344,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
-                topologyService,
+                clusterNode,
                 mappingService,
                 new PredefinedSchemaManager(schema),
                 mock(DdlCommandHandler.class),
