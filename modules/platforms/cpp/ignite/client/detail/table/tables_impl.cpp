@@ -46,7 +46,10 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
 
 void tables_impl::get_table_async(const qualified_name &name, ignite_callback<std::optional<table>> callback) {
     auto writer_func = [&name](protocol::writer &writer, const protocol::protocol_context &context) {
-        std::cerr << "[WR] Context ptr = " << &context << std::endl;
+        std::stringstream ss;
+        ss << "[" << std::hex << std::this_thread::get_id() << "] ";
+
+        std::cerr << ss.str() << "[WR] Context ptr = " << &context << std::endl;
 
         if (context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)) {
             writer.write(name.get_schema_name());
@@ -70,11 +73,17 @@ void tables_impl::get_table_async(const qualified_name &name, ignite_callback<st
     };
 
     const auto operation_func = [](const protocol::protocol_context &context) -> protocol::client_operation {
-        std::cerr << "[OP] Context ptr = " << &context << std::endl;
 
-        return context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)
+        auto op = context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)
             ? protocol::client_operation::TABLE_GET_QUALIFIED
             : protocol::client_operation::TABLE_GET;
+
+        std::stringstream ss;
+        ss << "[" << std::hex << std::this_thread::get_id() << "] ";
+
+        std::cerr << ss.str() << "[OP] Context ptr = " << &context << " chosen op=" << static_cast<int>(op) << std::endl;
+
+        return op;
     };
 
     m_connection->perform_request<std::optional<table>>(
