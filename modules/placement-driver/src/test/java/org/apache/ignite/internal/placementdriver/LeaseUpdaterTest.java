@@ -410,7 +410,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         Leases currentLeases = new Leases(staleLeasesByGroup, BYTE_EMPTY_ARRAY);
 
-        lenient().when(leaseTracker.leasesLatest()).thenReturn(currentLeases);
+        lenient().when(leaseTracker.latestLeases()).thenReturn(currentLeases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenAnswer(invocation ->
                 currentLeases.leaseByGroupId().getOrDefault(invocation.getArgument(0), Lease.emptyLease(invocation.getArgument(0))));
 
@@ -501,7 +501,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         Leases currentLeases = new Leases(leasesByGroup, BYTE_EMPTY_ARRAY);
 
-        lenient().when(leaseTracker.leasesLatest()).thenReturn(currentLeases);
+        lenient().when(leaseTracker.latestLeases()).thenReturn(currentLeases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenAnswer(invocation ->
                 currentLeases.leaseByGroupId().getOrDefault(invocation.getArgument(0), Lease.emptyLease(invocation.getArgument(0))));
 
