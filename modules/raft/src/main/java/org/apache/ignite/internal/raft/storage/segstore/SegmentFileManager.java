@@ -119,7 +119,7 @@ class SegmentFileManager implements ManuallyCloseable {
      *
      * <p>Must not overlap with a valid stored log index.
      */
-    static final long GROUP_DESTROY_LOG_INDEX = Integer.MIN_VALUE;
+    static final long GROUP_DESTROY_LOG_INDEX = Long.MIN_VALUE;
 
     private final String storageName;
 
