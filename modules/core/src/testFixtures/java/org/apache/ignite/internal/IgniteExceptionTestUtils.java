@@ -17,14 +17,28 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
@@ -88,7 +102,18 @@ public class IgniteExceptionTestUtils {
         var ret = traceableException(expectedClass)
                 .withCode(is(expectedCode))
                 .withMessage(containsString(containMessage))
-                .withCause(nullValue(Throwable.class));
+                .withCause(
+                        // Checks if is either null or a RetriableException with no cause and same code and trace.
+                        anyOf(
+                                nullValue(Throwable.class),
+                                allOf(
+                                        instanceOf(RetriableTransactionException.class),
+                                        traceableException(TraceableException.class)
+                                                .withCode(is(expectedCode))
+                                                .withCause(nullValue(Throwable.class))
+                                )
+                        )
+                );
 
         for (var cause : causes) {
             if (cause.message() != null) {
@@ -144,6 +169,98 @@ public class IgniteExceptionTestUtils {
                 return actual.getMessage();
             }
         };
+    }
+
+    /**
+     * Creates a matcher that checks if a given exception complies with our public guidelines.
+     *
+     * @return Matcher.
+     */
+    public static Matcher<Exception> anyPublicException() {
+        return allOf(
+                anyOf(instanceOf(IgniteException.class), instanceOf(IgniteCheckedException.class)),
+                traceableException(TraceableException.class)
+                        .withCause(
+                                // Checks if is either null or a RetriableException with no cause and same code and trace.
+                                anyOf(
+                                        nullValue(Throwable.class),
+                                        allOf(
+                                                instanceOf(RetriableTransactionException.class),
+                                                traceableException(TraceableException.class)
+                                                        .withCause(nullValue(Throwable.class))
+                                        )
+                                )
+                        )
+        );
+    }
+
+    /**
+     * Wraps a KeyValueView with a proxy that checks that all exceptions thrown by it comply with the public guidelines.
+     *
+     * @param view View.
+     * @param <K> KeyType.
+     * @param <V> ValueType.
+     * @return Proxy around the view.
+     */
+    public static <K, V> KeyValueView<K, V> withPublicExceptionAssertions(KeyValueView<K, V> view) {
+        return (KeyValueView<K, V>) Proxy.newProxyInstance(
+                KeyValueView.class.getClassLoader(),
+                new Class<?>[]{KeyValueView.class},
+                new PublicExceptionCheckInvocationHandler<>(view)
+        );
+    }
+
+    /**
+     * Wraps a IgniteSql with a proxy that checks that all exceptions thrown by it comply with the public guidelines.
+     *
+     * @param view IgniteSql instance..
+     * @return Proxy around the IgniteSql.
+     */
+    public static IgniteSql withPublicExceptionAssertions(IgniteSql view) {
+        return (IgniteSql) Proxy.newProxyInstance(
+                IgniteSql.class.getClassLoader(),
+                new Class<?>[]{IgniteSql.class},
+                new PublicExceptionCheckInvocationHandler<>(view)
+        );
+    }
+
+    private static class PublicExceptionCheckInvocationHandler<T> implements InvocationHandler {
+        private final T target;
+
+        PublicExceptionCheckInvocationHandler(T target) {
+            this.target = target;
+        }
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            boolean isAsync = CompletableFuture.class.isAssignableFrom(method.getReturnType());
+
+            if (isAsync) {
+                try {
+                    CompletableFuture<?> future = (CompletableFuture<?>) method.invoke(target, args);
+                    return future.handle((r, e) -> {
+                        if (e != null) {
+                            Exception ex = (Exception) unwrapCause(e);
+                            assertThat(ex, anyPublicException());
+                            ExceptionUtils.sneakyThrow(e);
+                        }
+
+                        return r;
+                    });
+                } catch (InvocationTargetException e) {
+                    return CompletableFuture.failedFuture(e);
+                }
+            } else {
+                try {
+                    return method.invoke(target, args);
+                } catch (InvocationTargetException e) {
+                    throw e;
+                } catch (Exception e) {
+                    assertThat(e, anyPublicException());
+                    throw e;
+                }
+            }
+        }
     }
 
     /** Cause. */
