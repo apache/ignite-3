@@ -430,6 +430,10 @@ class IndexFileManager {
             return null;
         }
 
+        if (firstIndexKept == GROUP_DESTROY_LOG_INDEX) {
+            return null;
+        }
+
         if (firstIndexKept == -1 || firstIndexKept <= firstLogIndexInclusive) {
             // No prefix truncation required, simply create a new meta.
             return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileProperties);
@@ -444,8 +448,6 @@ class IndexFileManager {
     }
 
     private void putIndexFileMeta(IndexMetaSpec metaSpec) {
-        IndexFileMeta indexFileMeta = metaSpec.indexFileMeta();
-
         // Using boxed value to avoid unnecessary autoboxing later.
         Long groupId = metaSpec.groupId();
 
@@ -456,6 +458,8 @@ class IndexFileManager {
 
             return;
         }
+
+        IndexFileMeta indexFileMeta = metaSpec.indexFileMeta();
 
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 

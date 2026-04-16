@@ -116,8 +116,10 @@ class SegmentFileManager implements ManuallyCloseable {
 
     /**
      * Special "destroy group" sentinel value for the log reset index.
+     *
+     * <p>Must not overlap with a valid stored log index.
      */
-    static final long GROUP_DESTROY_LOG_INDEX = 0L;
+    static final long GROUP_DESTROY_LOG_INDEX = Integer.MIN_VALUE;
 
     private final String storageName;
 

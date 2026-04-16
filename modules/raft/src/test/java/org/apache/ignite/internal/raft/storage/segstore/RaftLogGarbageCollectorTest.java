@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -679,6 +680,16 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         for (Path indexFile : oldIndexFiles) {
             assertThat(indexFile, not(exists()));
+        }
+
+        for (int i = 0; i < batches.size(); i++) {
+            int index = i;
+
+            fileManager.getEntry(GROUP_ID_1, index, bs -> {
+                fail("Entry for index " + index + " must be missing");
+
+                return null;
+            });
         }
     }
 
