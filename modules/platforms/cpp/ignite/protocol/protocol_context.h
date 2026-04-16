@@ -129,7 +129,11 @@ public:
             std::cout << ss.str() << std::endl;
         }
 
-        return bitset_span(m_features).test(static_cast<std::size_t>(feature));
+        auto features_copy = m_features;
+
+        bitset_span bs(features_copy.data(), features_copy.size());
+
+        return bs.test(static_cast<std::size_t>(feature));
     }
 
 private:
