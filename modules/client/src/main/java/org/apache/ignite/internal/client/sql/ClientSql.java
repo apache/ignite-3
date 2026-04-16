@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ViewUtils.ensurePublicException;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -663,7 +664,8 @@ public class ClientSql implements IgniteSql {
     }
 
     private static <T> T handleException(Throwable e) {
-        Throwable ex = unwrapCause(e);
+        Throwable ex = ensurePublicException(unwrapCause(e));
+
         if (ex instanceof TransactionException) {
             var te = (TransactionException) ex;
             throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
