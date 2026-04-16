@@ -74,7 +74,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -164,8 +163,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final Executor partitionOperationsExecutor;
 
-    private final PartitionOperationInFlightLimiter partitionOperationInFlightLimiter;
-
     private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
 
     @TestOnly
@@ -189,7 +186,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param eventLog Event log.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
-     * @param partitionOperationInFlightLimiter In-flight limiter for partition operations.
      * @param ddlBatchingSuggestionEnabled Boolean supplier indicates whether the suggestion related DDL batching is enabled.
      */
     public ClientHandlerModule(
@@ -211,7 +207,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             EventLog eventLog,
             LowWatermark lowWatermark,
             Executor partitionOperationsExecutor,
-            PartitionOperationInFlightLimiter partitionOperationInFlightLimiter,
             Supplier<Boolean> ddlBatchingSuggestionEnabled
     ) {
         assert igniteTables != null;
@@ -257,7 +252,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.ddlBatchingSuggestionEnabled = ddlBatchingSuggestionEnabled;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.partitionOperationInFlightLimiter = partitionOperationInFlightLimiter;
     }
 
     /** {@inheritDoc} */
@@ -477,7 +471,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 connectionId,
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
-                partitionOperationInFlightLimiter,
                 SUPPORTED_FEATURES,
                 Map.of(),
                 computeExecutors::remove,

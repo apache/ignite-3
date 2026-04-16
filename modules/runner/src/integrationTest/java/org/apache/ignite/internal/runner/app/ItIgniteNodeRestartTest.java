@@ -239,7 +239,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
+import org.apache.ignite.internal.util.PartitionOperationInflightLimiter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
@@ -650,7 +650,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                new PartitionOperationInFlightLimiter(0),
+                new PartitionOperationInflightLimiter(0),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureProcessor,
                 new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),

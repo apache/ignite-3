@@ -88,7 +88,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
+import org.apache.ignite.internal.util.PartitionOperationInflightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
@@ -159,7 +159,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 requestsExecutor,
-                new PartitionOperationInFlightLimiter(0),
+                new PartitionOperationInflightLimiter(0),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 marshaller,

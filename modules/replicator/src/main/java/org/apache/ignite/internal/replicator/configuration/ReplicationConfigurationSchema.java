@@ -75,13 +75,12 @@ public class ReplicationConfigurationSchema {
     public int batchSizeBytes = DEFAULT_BATCH_SIZE_BYTES;
 
     /**
-     * Maximum number of in-flight partition operations (queued or executing) per CPU core on this node.
-     * The total node-level limit is computed as {@code maxInFlightPartitionOperationsPerCore * availableProcessors}.
+     * Percentage of JVM max heap memory to use as the limit for total in-flight partition operation bytes on this node.
      * When the limit is reached, new partition operation requests are rejected with an overload error.
-     * Applies to both replica manager (inter-node) and client connector (thin client) partition operations.
+     * Applies to the replica manager (inter-node) partition operations.
      * Zero means no limit.
      */
-    @Range(min = 0)
+    @Range(min = 0, max = 100)
     @Value(hasDefault = true)
-    public int maxInFlightPartitionOperationsPerCore = 0;
+    public int partitionOperationHeapUsagePercent = 50;
 }

@@ -260,7 +260,7 @@ import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
+import org.apache.ignite.internal.util.PartitionOperationInflightLimiter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
@@ -1488,7 +1488,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
-                    new PartitionOperationInFlightLimiter(0),
+                    new PartitionOperationInflightLimiter(0),
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new NoOpFailureManager(),
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),

@@ -240,6 +240,83 @@ public class InboundDecoderTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Tests that the wire size reported by {@link NetworkMessage#getMessageSize()} matches the number of bytes
+     * actually written by the serializer for the same message.
+     */
+    @Test
+    public void testMessageSizeIsTracked() {
+        var msg = new TestMessagesFactory().testMessage().msg("hello").build();
+
+        var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
+        var perSessionSerializationService = new PerSessionSerializationService(serializationService);
+        var channel = new EmbeddedChannel(new InboundDecoder(messageFormat, perSessionSerializationService));
+
+        MessageWriter writer = messageFormat.writer(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
+
+        ByteBuffer buf = ByteBuffer.allocate(10_000);
+        writer.setBuffer(buf);
+        serializer.writeMessage(msg, writer);
+        buf.flip();
+        int expectedSize = buf.limit();
+
+        ByteBuf buffer = allocator.buffer(expectedSize);
+        buffer.writeBytes(buf);
+        channel.writeInbound(buffer);
+
+        NetworkMessage received = channel.readInbound();
+
+        assertFalse(channel.finish());
+
+        assertEquals(expectedSize, received.getMessageSize());
+    }
+
+    /**
+     * Tests that the wire size is tracked correctly even when the message arrives in multiple chunks.
+     */
+    @Test
+    public void testMessageSizeIsTrackedAcrossPartialReads() throws Exception {
+        ChannelHandlerContext ctx = mock(ChannelHandlerContext.class);
+        var channel = new EmbeddedChannel();
+        Mockito.doReturn(channel).when(ctx).channel();
+
+        var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
+        var perSessionSerializationService = new PerSessionSerializationService(serializationService);
+        var decoder = new InboundDecoder(messageFormat, perSessionSerializationService);
+        var list = new ArrayList<>();
+
+        var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
+
+        MessageWriter writer = messageFormat.writer(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
+
+        ByteBuffer nioBuffer = ByteBuffer.allocate(10_000);
+        writer.setBuffer(nioBuffer);
+        serializer.writeMessage(msg, writer);
+        nioBuffer.flip();
+        int expectedSize = nioBuffer.limit();
+
+        ByteBuf buffer = allocator.buffer();
+
+        // Feed the message in two halves.
+        int half = expectedSize / 2;
+        for (int i = 0; i < half; i++) {
+            buffer.writeByte(nioBuffer.get());
+        }
+        decoder.decode(ctx, buffer, list);
+        assertEquals(0, list.size());
+
+        buffer.writeBytes(nioBuffer);
+        decoder.decode(ctx, buffer, list);
+        buffer.release();
+
+        assertEquals(1, list.size());
+
+        NetworkMessage received = (NetworkMessage) list.get(0);
+        assertEquals(expectedSize, received.getMessageSize());
+    }
+
+    /**
      * Source of parameters for the {@link #testAllTypes(long)} method. Creates seeds for a {@link AllTypesMessage} generation.
      *
      * @return Random seeds.

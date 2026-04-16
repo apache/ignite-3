@@ -79,7 +79,6 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
@@ -291,7 +290,6 @@ public class TestServer implements AutoCloseable {
                         EventLog.NOOP,
                         new TestLowWatermark(),
                         Runnable::run,
-                        new PartitionOperationInFlightLimiter(0),
                         () -> true
                 );
 

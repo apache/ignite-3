@@ -129,7 +129,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
+import org.apache.ignite.internal.util.PartitionOperationInflightLimiter;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
@@ -227,7 +227,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final Executor requestsExecutor;
 
     /** In-flight limiter for partition operations. */
-    private final PartitionOperationInFlightLimiter partitionOperationInFlightLimiter;
+    private final PartitionOperationInflightLimiter partitionOperationInFlightLimiter;
 
     /** Failure processor. */
     private final FailureProcessor failureProcessor;
@@ -275,7 +275,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
-            PartitionOperationInFlightLimiter partitionOperationInFlightLimiter,
+            PartitionOperationInflightLimiter partitionOperationInFlightLimiter,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
             @Nullable Marshaller raftCommandsMarshaller,
@@ -328,7 +328,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
-        if (!partitionOperationInFlightLimiter.tryAcquire()) {
+        if (!partitionOperationInFlightLimiter.tryAcquire(message.getMessageSize())) {
             clusterNetSvc.messagingService().respond(
                     sender.name(),
                     prepareReplicaErrorResponse(false, new ReplicaOverloadedException()),
@@ -339,7 +339,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         try {
             handleReplicaMessage(message, sender, correlationId);
         } finally {
-            partitionOperationInFlightLimiter.release();
+            partitionOperationInFlightLimiter.release(message.getMessageSize());
         }
     }
 

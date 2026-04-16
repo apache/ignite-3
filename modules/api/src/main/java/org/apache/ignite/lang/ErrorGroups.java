@@ -522,6 +522,9 @@ public class ErrorGroups {
 
         /** Replica is absent on the node and the node is not in assignments for this replica. */
         public static final int REPLICA_ABSENT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 11);
+
+        /** Node is overloaded: in-flight partition operation byte limit reached. */
+        public static final int REPLICA_OVERLOADED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 12);
     }
 
     /** Storage error group. */

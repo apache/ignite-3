@@ -283,6 +283,26 @@ public class MessageImplGenerator {
 
         messageImpl.addMethod(messageTypeMethod);
 
+        // messageSize field with getter/setter (overrides NetworkMessage.getMessageSize())
+        FieldSpec messageSizeField = FieldSpec.builder(int.class, "messageSize")
+                .addModifiers(Modifier.PRIVATE)
+                .build();
+
+        messageImpl.addField(messageSizeField);
+
+        messageImpl.addMethod(MethodSpec.methodBuilder("getMessageSize")
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(int.class)
+                .addStatement("return $N", messageSizeField)
+                .build());
+
+        messageImpl.addMethod(MethodSpec.methodBuilder("setMessageSize")
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(int.class, "messageSize")
+                .addStatement("this.messageSize = messageSize")
+                .build());
+
         // equals and hashCode
         generateEqualsAndHashCode(messageImpl, message);
 

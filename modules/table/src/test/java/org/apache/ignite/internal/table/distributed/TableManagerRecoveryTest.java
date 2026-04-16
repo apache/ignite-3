@@ -163,7 +163,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.util.PartitionOperationInFlightLimiter;
+import org.apache.ignite.internal.util.PartitionOperationInflightLimiter;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
@@ -457,7 +457,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 partitionOperationsExecutor,
-                new PartitionOperationInFlightLimiter(0),
+                new PartitionOperationInflightLimiter(0),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 failureProcessor,
                 null,

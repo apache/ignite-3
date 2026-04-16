@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_OVERLOADED_ERR;
 
 /**
- * Thrown when the node has reached the maximum number of in-flight partition operations
- * ({@code replication.maxInFlightPartitionOperationsPerCore}) and cannot accept new requests.
+ * Thrown when the node has reached the in-flight partition operation byte limit
+ * ({@code replication.partitionOperationHeapUsagePercent}) and cannot accept new requests.
  */
 public class ReplicaOverloadedException extends IgniteInternalException {
     private static final long serialVersionUID = -6023736883539658779L;
 
     /** Constructor. */
     public ReplicaOverloadedException() {
-        super(GROUP_OVERLOADED_ERR, "Node is overloaded: max in-flight partition operations limit reached.");
+        super(REPLICA_OVERLOADED_ERR, "Node is overloaded: in-flight partition operation byte limit reached.");
     }
 }

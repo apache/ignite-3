@@ -23,100 +23,121 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 class PartitionOperationInFlightLimiterTest {
-    private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
+    private static final long MAX_MEMORY = Runtime.getRuntime().maxMemory();
 
     @Test
-    void zeroLimitAlwaysPermits() {
-        var limiter = new PartitionOperationInFlightLimiter(0);
+    void zeroHeapPercentAlwaysPermits() {
+        var limiter = new PartitionOperationInflightLimiter(0);
 
         for (int i = 0; i < 100; i++) {
-            assertTrue(limiter.tryAcquire());
+            assertTrue(limiter.tryAcquire(1000));
         }
     }
 
     @Test
-    void totalLimitIsPerCoreTimesAvailableProcessors() {
-        int perCore = 3;
-        int expectedTotal = perCore * CPU_COUNT;
-        var limiter = new PartitionOperationInFlightLimiter(perCore);
+    void negativeHeapPercentAlwaysPermits() {
+        var limiter = new PartitionOperationInflightLimiter(-1);
 
-        for (int i = 0; i < expectedTotal; i++) {
-            assertTrue(limiter.tryAcquire(), "acquire " + i + " should succeed");
+        for (int i = 0; i < 100; i++) {
+            assertTrue(limiter.tryAcquire(1000));
         }
-        assertFalse(limiter.tryAcquire(), "acquire beyond total limit should fail");
     }
 
     @Test
-    void releaseRestoresPermit() {
-        var limiter = new PartitionOperationInFlightLimiter(1);
-        int total = CPU_COUNT;
+    void acquireFailsWhenByteLimitExceeded() {
+        // Use 10% heap limit.
+        var limiter = new PartitionOperationInflightLimiter(10);
+        long limit = (long) (0.10 * MAX_MEMORY);
 
-        for (int i = 0; i < total; i++) {
-            limiter.tryAcquire();
-        }
-        assertFalse(limiter.tryAcquire());
+        // A single chunk that exceeds the limit should be rejected.
+        assertFalse(limiter.tryAcquire((int) Math.min(limit + 1, Integer.MAX_VALUE)));
+    }
 
-        limiter.release();
+    @Test
+    void acquireSucceedsUpToLimit() {
+        var limiter = new PartitionOperationInflightLimiter(10);
+        long limit = (long) (0.10 * MAX_MEMORY);
 
-        assertTrue(limiter.tryAcquire());
+        // Chunk size that fits within the limit.
+        int chunkBytes = (int) Math.min(limit / 2, Integer.MAX_VALUE / 2);
+
+        assertTrue(limiter.tryAcquire(chunkBytes));
+        assertTrue(limiter.tryAcquire(chunkBytes));
+    }
+
+    @Test
+    void releaseRestoresBudget() {
+        var limiter = new PartitionOperationInflightLimiter(10);
+        long limit = (long) (0.10 * MAX_MEMORY);
+        int chunkBytes = (int) Math.min(limit / 2, Integer.MAX_VALUE / 2);
+
+        assertTrue(limiter.tryAcquire(chunkBytes));
+        assertTrue(limiter.tryAcquire(chunkBytes));
+        // Now at or near limit; another chunk should fail.
+        assertFalse(limiter.tryAcquire(chunkBytes));
+
+        limiter.release(chunkBytes);
+
+        assertTrue(limiter.tryAcquire(chunkBytes));
     }
 
     @Test
     void releaseOnZeroLimitIsNoOp() {
-        var limiter = new PartitionOperationInFlightLimiter(0);
+        var limiter = new PartitionOperationInflightLimiter(0);
 
         // Should not throw.
-        limiter.release();
+        limiter.release(1000);
 
-        assertTrue(limiter.tryAcquire());
+        assertTrue(limiter.tryAcquire(1000));
     }
 
     @Test
     void supplierConstructorInitializesLazily() {
         int[] callCount = {0};
 
-        var limiter = new PartitionOperationInFlightLimiter(() -> {
+        // 100% heap — effectively unlimited for this test.
+        var limiter = new PartitionOperationInflightLimiter(() -> {
             callCount[0]++;
-            return 1;
+            return 100;
         });
 
         assertTrue(callCount[0] == 0, "supplier should not be called at construction time");
 
-        int total = CPU_COUNT;
-        for (int i = 0; i < total; i++) {
-            assertTrue(limiter.tryAcquire());
-        }
-        assertFalse(limiter.tryAcquire());
+        assertTrue(limiter.tryAcquire(1));
         assertTrue(callCount[0] == 1, "supplier should be called exactly once");
+
+        assertTrue(limiter.tryAcquire(1));
+        assertTrue(callCount[0] == 1, "supplier should not be called again");
     }
 
     @Test
-    void supplierConstructorWithZeroLimitAlwaysPermits() {
-        var limiter = new PartitionOperationInFlightLimiter(() -> 0);
+    void supplierConstructorWithZeroPercentAlwaysPermits() {
+        var limiter = new PartitionOperationInflightLimiter(() -> 0);
 
         for (int i = 0; i < 100; i++) {
-            assertTrue(limiter.tryAcquire());
+            assertTrue(limiter.tryAcquire(1000));
         }
     }
 
     @Test
-    void multipleReleasesRestoreMultiplePermits() {
-        int perCore = 2;
-        int total = perCore * CPU_COUNT;
-        var limiter = new PartitionOperationInFlightLimiter(perCore);
+    void multipleReleasesRestoreBudget() {
+        var limiter = new PartitionOperationInflightLimiter(10);
+        long limit = (long) (0.10 * MAX_MEMORY);
+        int chunkBytes = (int) Math.min(limit / 4, Integer.MAX_VALUE / 4);
 
-        for (int i = 0; i < total; i++) {
-            limiter.tryAcquire();
-        }
-        assertFalse(limiter.tryAcquire());
-
-        for (int i = 0; i < total; i++) {
-            limiter.release();
+        // Acquire 4 chunks.
+        for (int i = 0; i < 4; i++) {
+            assertTrue(limiter.tryAcquire(chunkBytes), "acquire " + i + " should succeed");
         }
 
-        for (int i = 0; i < total; i++) {
-            assertTrue(limiter.tryAcquire(), "re-acquire " + i + " should succeed after release");
+        // Release all.
+        for (int i = 0; i < 4; i++) {
+            limiter.release(chunkBytes);
         }
-        assertFalse(limiter.tryAcquire());
+
+        // Should be able to acquire again.
+        for (int i = 0; i < 4; i++) {
+            assertTrue(limiter.tryAcquire(chunkBytes), "re-acquire " + i + " should succeed after release");
+        }
     }
 }

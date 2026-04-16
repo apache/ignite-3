@@ -80,4 +80,19 @@ public interface NetworkMessage extends Cloneable {
     default String toStringForLightLogging() {
         return getClass().getName();
     }
+
+    /**
+     * Returns the wire size of this message in bytes (header + body).
+     * Returns {@code 0} if the message was not received from the network (e.g. created locally).
+     */
+    default int getMessageSize() {
+        return 0;
+    }
+
+    /**
+     * Sets the wire size of this message in bytes. Called by the inbound decoder after decoding.
+     */
+    default void setMessageSize(int messageSize) {
+        // No-op for messages not received from the network.
+    }
 }
