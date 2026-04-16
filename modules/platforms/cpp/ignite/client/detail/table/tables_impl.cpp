@@ -49,12 +49,16 @@ void tables_impl::get_table_async(const qualified_name &name, ignite_callback<st
         std::stringstream ss;
         ss << "[" << std::hex << std::this_thread::get_id() << "] ";
 
-        std::cerr << ss.str() << "[WR] Context ptr = " << &context << std::endl;
+        std::cout << ss.str() << "[WR] Context ptr = " << &context << std::endl;
 
         if (context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)) {
+            std::cout << ss.str() << "[WR] chosen with schema"<< std::endl;
+
             writer.write(name.get_schema_name());
             writer.write(name.get_object_name());
         } else {
+
+            std::cout << ss.str() << "[WR] chosen without schema"<< std::endl;
             writer.write(name.get_object_name());
         }
     };
@@ -81,7 +85,7 @@ void tables_impl::get_table_async(const qualified_name &name, ignite_callback<st
         std::stringstream ss;
         ss << "[" << std::hex << std::this_thread::get_id() << "] ";
 
-        std::cerr << ss.str() << "[OP] Context ptr = " << &context << " chosen op=" << static_cast<int>(op) << std::endl;
+        std::cout << ss.str() << "[OP] Context ptr = " << &context << " chosen op=" << static_cast<int>(op) << std::endl;
 
         return op;
     };

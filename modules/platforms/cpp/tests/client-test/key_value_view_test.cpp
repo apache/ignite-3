@@ -108,20 +108,20 @@ protected:
 
             kv_view = table->get_key_value_view<test_key_type, test_value_type>();
         } catch (ignite_error& e) {
-            std::cerr << "TEST SUITE SetUp ignite_error: " << std::string(e.what()) << std::endl;
+            std::cout << "TEST SUITE SetUp ignite_error: " << std::string(e.what()) << std::endl;
 
             if (e.get_java_stack_trace().has_value()) {
-                std::cerr << "Java stacktrace" << *e.get_java_stack_trace() << std::endl;
+                std::cout << "Java stacktrace" << *e.get_java_stack_trace() << std::endl;
             } else {
-                std::cerr << "No Java stacktrace" << std::endl;
+                std::cout << "No Java stacktrace" << std::endl;
             }
 
         } catch (std::exception& e) {
-            std::cerr << "TEST SUITE SetUp exception: " << std::string(e.what()) << std::endl;
+            std::cout << "TEST SUITE SetUp exception: " << std::string(e.what()) << std::endl;
 
             throw;
         } catch (...) {
-            std::cerr << "TEST SUITE SetUp unknown error" << std::endl;
+            std::cout << "TEST SUITE SetUp unknown error" << std::endl;
 
             throw;
         }

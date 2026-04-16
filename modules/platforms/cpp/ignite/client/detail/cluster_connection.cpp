@@ -16,6 +16,8 @@
  */
 
 #include "ignite/client/detail/cluster_connection.h"
+
+#include "detail/string_extensions.h"
 #include "ignite/client/detail/logger_wrapper.h"
 
 #include "ignite/network/codec.h"
@@ -266,12 +268,19 @@ std::shared_ptr<node_connection> cluster_connection::get_random_connected_channe
     if (m_connections.empty())
         return {};
 
-    if (m_connections.size() == 1)
+    if (m_connections.size() == 1) {
+        get_logger()->log_info("Choosing the only connection");
         return m_connections.begin()->second;
+    }
+
 
     std::uniform_int_distribution<size_t> distrib(0, m_connections.size() - 1);
     auto idx = ptrdiff_t(distrib(m_generator));
-    return std::next(m_connections.begin(), idx)->second;
+    auto it = std::next(m_connections.begin(), idx);
+
+    get_logger()->log_info("Choosing random connection idx = " + std::to_string(idx) + " id = " + std::to_string(it->first));
+
+    return it->second;
 }
 
 std::shared_ptr<node_connection> cluster_connection::get_channel(

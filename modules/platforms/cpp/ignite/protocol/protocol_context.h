@@ -126,7 +126,7 @@ public:
                 ss << static_cast<unsigned int>(b) << " ";
             }
 
-            std::cerr << ss.str() << std::endl;
+            std::cout << ss.str() << std::endl;
         }
 
         return bitset_span(m_features).test(static_cast<std::size_t>(feature));
