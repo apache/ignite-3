@@ -34,32 +34,13 @@ using namespace ignite;
 class key_value_binary_view_test : public ignite_runner_suite {
 protected:
     void SetUp() override {
-        try {
-            ignite_client_configuration cfg{get_node_addrs()};
-            cfg.set_logger(get_logger());
+        ignite_client_configuration cfg{get_node_addrs()};
+        cfg.set_logger(get_logger());
 
-            m_client = ignite_client::start(cfg, std::chrono::seconds(30));
-            auto table = m_client.get_tables().get_table(TABLE_1);
+        m_client = ignite_client::start(cfg, std::chrono::seconds(30));
+        auto table = m_client.get_tables().get_table(TABLE_1);
 
-            kv_view = table->get_key_value_binary_view();
-        } catch (ignite_error& e) {
-            std::cout << "TEST SUITE SetUp ignite_error: " << std::string(e.what()) << std::endl;
-
-            if (e.get_java_stack_trace().has_value()) {
-                std::cout << "Java stacktrace " << *e.get_java_stack_trace() << std::endl;
-            } else {
-                std::cout << "No Java stacktrace" << std::endl;
-            }
-
-        } catch (std::exception& e) {
-            std::cout << "TEST SUITE SetUp exception: " << std::string(e.what()) << std::endl;
-
-            throw;
-        } catch (...) {
-            std::cout << "TEST SUITE SetUp unknown error" << std::endl;
-
-            throw;
-        }
+        kv_view = table->get_key_value_binary_view();
     }
 
     void TearDown() override {

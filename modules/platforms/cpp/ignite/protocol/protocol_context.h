@@ -102,8 +102,6 @@ public:
      */
     [[nodiscard]] bytes_view get_features() const { return m_features; }
 
-    [[nodiscard]] std::vector<std::byte> get_features_raw() const { return m_features; }
-
     /**
      * Set features.
      *
@@ -118,17 +116,6 @@ public:
      * @return Features.
      */
     [[nodiscard]] bool is_feature_supported(bitmask_feature feature) const {
-        {
-            std::stringstream ss;
-            ss << "Features check. Feature bytes are ";
-
-            for (std::byte b : m_features) {
-                ss << static_cast<unsigned int>(b) << " ";
-            }
-
-            std::cout << ss.str() << std::endl;
-        }
-
         auto features_copy = m_features;
 
         bitset_span bs(features_copy.data(), features_copy.size());
