@@ -19,6 +19,9 @@ package org.apache.ignite.internal.util;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntSupplier;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,6 +34,9 @@ import org.jetbrains.annotations.Nullable;
  * A permit must be released via {@link #release(int)} when the operation completes.
  */
 public class PartitionOperationInflightLimiter {
+
+    private final IgniteLogger log = Loggers.forClass(HybridClockImpl.class);
+
     /** Byte limit computed from heap percentage; {@code 0} means unlimited. */
     private volatile long byteLimit;
 
@@ -79,6 +85,7 @@ public class PartitionOperationInflightLimiter {
             long current = inFlightBytes.get();
 
             if (current + messageBytes > limit) {
+                log.error("node is overloaded, cannot permit partition operation requiring {} bytes", messageBytes);
                 return false;
             }
 
