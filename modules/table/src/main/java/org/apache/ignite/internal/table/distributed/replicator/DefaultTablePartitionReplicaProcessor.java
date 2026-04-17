@@ -614,8 +614,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         assert currentSafeTime.compareTo(safeTime.current()) <= 0 : "currentSafeTime > safeTime";
 
         // Stable committed snapshot is ensured after resolving pending transactions state.
-        UUID uppedBoundTxId = TransactionIds.transactionId(currentSafeTime, Integer.MAX_VALUE, TxPriority.NORMAL);
-        ConcurrentNavigableMap<UUID, PendingTxContext> txToWait = pendingTransactions.headMap(uppedBoundTxId, true);
+        UUID upperBoundTxId = TransactionIds.transactionId(currentSafeTime, Integer.MAX_VALUE, TxPriority.NORMAL);
+        ConcurrentNavigableMap<UUID, PendingTxContext> txToWait = pendingTransactions.headMap(upperBoundTxId, true);
 
         if (!txToWait.isEmpty()) {
             List<CompletableFuture<?>> futs = null;
