@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.sql.engine.externalize.IgniteRelJsonUtils.OBJECT_MAPPER;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -66,8 +65,6 @@ public class RelJsonReader {
 
     private static final Map<String, Object> EMPTY_JSON_RELS = Map.of("rels", List.of());
 
-    private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
-
     private final RelJson relJson;
 
     private final RelOptSchema relOptSchema;
@@ -93,7 +90,7 @@ public class RelJsonReader {
 
             RelInput relInput = reader.newInput(EMPTY_JSON_RELS);
 
-            LinkedHashMap<String, Object> val = reader.mapper.readValue(json, TYPE_REF);
+            LinkedHashMap<String, Object> val = OBJECT_MAPPER.readValue(json, TYPE_REF);
 
             return reader.relJson.toRex(relInput, val);
         } catch (IOException e) {
@@ -118,7 +115,7 @@ public class RelJsonReader {
     public RelNode read(String s) {
         try {
             lastRel = null;
-            Map<String, Object> o = mapper.readValue(s, TYPE_REF);
+            Map<String, Object> o = OBJECT_MAPPER.readValue(s, TYPE_REF);
             List<Map<String, Object>> rels = (List) o.get("rels");
             readRels(rels);
             return lastRel;
