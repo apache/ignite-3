@@ -151,7 +151,8 @@ public:
 
         if (m_logger->is_debug_enabled()) {
             m_logger->log_debug(
-                "Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(req_id));
+                "Performing request: op=" + std::to_string(int(op)) + ", conn_id=" + std::to_string(id())
+                    + ", req_id=" + std::to_string(req_id));
         }
 
         bool sent = m_pool->send(m_id, std::move(message));

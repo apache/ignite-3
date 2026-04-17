@@ -36,4 +36,4 @@ set(SOURCES
     partition_awareness_test.cpp
 )
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client)
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client-static)

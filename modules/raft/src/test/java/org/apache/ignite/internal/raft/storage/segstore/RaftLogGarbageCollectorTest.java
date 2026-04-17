@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -646,6 +647,100 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         });
     }
 
+    /**
+     * Verifies that after {@link SegmentFileManager#destroyGroup} is called, the GC can remove segment files belonging
+     * to the destroyed group.
+     */
+    @Test
+    void testSegmentFilesRemovedByGcAfterGroupDestroy() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(equalTo(segmentFiles().size() - 1)));
+
+        List<Path> oldSegmentFiles = segmentFiles().subList(0, segmentFiles().size() - 1);
+        List<Path> oldIndexFiles = indexFiles();
+
+        fileManager.destroyGroup(GROUP_ID_1);
+
+        // The destroy tombstone is in the current segment file's memtable. Trigger a rollover using a different group so the
+        // checkpoint thread processes the tombstone and removes GROUP_ID_1 from the in-memory index.
+        triggerAndAwaitCheckpoint(GROUP_ID_2, 0);
+
+        for (Path segmentFile : oldSegmentFiles) {
+            runCompaction(segmentFile);
+        }
+
+        for (Path segmentFile : oldSegmentFiles) {
+            assertThat(segmentFile, not(exists()));
+        }
+
+        for (Path indexFile : oldIndexFiles) {
+            assertThat(indexFile, not(exists()));
+        }
+
+        for (int i = 0; i < batches.size(); i++) {
+            int index = i;
+
+            fileManager.getEntry(GROUP_ID_1, index, bs -> {
+                fail("Entry for index " + index + " must be missing");
+
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Verifies that when a group is destroyed while another group shares the same segment files, GC compacts each shared file by dropping
+     * only the destroyed group's entries while preserving the surviving group's entries.
+     */
+    @Test
+    void testSegmentFilesCompactedByGcAfterGroupDestroyWithSurvivingGroup() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+            appendBytes(GROUP_ID_2, batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(equalTo(segmentFiles().size() - 1)));
+
+        List<Path> oldSegmentFiles = segmentFiles().subList(0, segmentFiles().size() - 1);
+
+        // Destroy one group while the other remains active.
+        fileManager.destroyGroup(GROUP_ID_1);
+
+        // Trigger a rollover using GROUP_ID_2 so the checkpoint thread processes the tombstone and removes GROUP_ID_1 from
+        // the in-memory index, enabling GC to compact the shared segment files.
+        triggerAndAwaitCheckpoint(GROUP_ID_2, batches.size() - 1);
+
+        for (Path segmentFile : oldSegmentFiles) {
+            FileProperties originalProperties = SegmentFile.fileProperties(segmentFile);
+
+            runCompaction(segmentFile);
+
+            // Original file must have been replaced by a compacted generation (GROUP_ID_2 entries survive).
+            assertThat(segmentFile, not(exists()));
+
+            var newFileProperties = new FileProperties(originalProperties.ordinal(), originalProperties.generation() + 1);
+
+            assertThat(fileManager.segmentFilesDir().resolve(SegmentFile.fileName(newFileProperties)), exists());
+        }
+
+        // GROUP_ID_2 entries must all still be readable.
+        for (int i = 0; i < batches.size(); i++) {
+            int index = i;
+
+            fileManager.getEntry(GROUP_ID_2, i, bs -> {
+                assertThat(bs, is(batches.get(index)));
+                return null;
+            });
+        }
+    }
+
     @Test
     void testLogSizeBytesInitializedCorrectlyOnStartup() throws Exception {
         // Fill multiple segment files to create both segment and index files.
@@ -717,13 +812,17 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     private void triggerAndAwaitCheckpoint(long lastGroupIndex) throws IOException {
+        triggerAndAwaitCheckpoint(GROUP_ID_1, lastGroupIndex);
+    }
+
+    private void triggerAndAwaitCheckpoint(long groupId, long lastGroupIndex) throws IOException {
         List<Path> segmentFilesBeforeCheckpoint = segmentFiles();
 
         // Insert some entries to trigger a rollover (and a checkpoint).
         List<byte[]> batches = createRandomData(FILE_SIZE / 4, 5);
 
         for (int i = 0; i < batches.size(); i++) {
-            appendBytes(GROUP_ID_1, batches.get(i), lastGroupIndex + i + 1);
+            appendBytes(groupId, batches.get(i), lastGroupIndex + i + 1);
         }
 
         List<Path> segmentFilesAfterCheckpoint = segmentFiles();

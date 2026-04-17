@@ -20,15 +20,12 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.tx.RetriableReplicaRequestException;
-import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * This exception is used to indicate that Ignite node is stopping (already stopped) for some reason.
  */
-public class NodeStoppingException extends IgniteInternalCheckedException implements RetriableTransactionException,
-        RetriableReplicaRequestException {
+public class NodeStoppingException extends IgniteInternalCheckedException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 

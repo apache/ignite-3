@@ -29,7 +29,7 @@ namespace ignite::protocol {
  */
 enum class bitmask_feature {
     /** Qualified name table requests. */
-    TABLE_REQS_USE_QUALIFIED_NAME = 2,
+    TABLE_GET_REQS_USE_QUALIFIED_NAME = 1,
 
     /** SQL_UPDATE_COUNTERS_2 error extension (single binary value instead of array). */
     SQL_UPDATE_COUNTERS_2 = 18,
@@ -44,7 +44,7 @@ inline std::vector<std::byte> all_supported_bitmask_features() {
     std::vector<std::byte> res(3, std::byte{0});
 
     bitset_span span(res.data(), res.size());
-    span.set(static_cast<std::size_t>(bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME));
+    span.set(static_cast<std::size_t>(bitmask_feature::TABLE_GET_REQS_USE_QUALIFIED_NAME));
     span.set(static_cast<std::size_t>(bitmask_feature::SQL_UPDATE_COUNTERS_2));
 
     return res;

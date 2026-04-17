@@ -114,6 +114,13 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     static final byte[] SWITCH_SEGMENT_RECORD = new byte[8]; // 8 zero bytes.
 
+    /**
+     * Special "destroy group" sentinel value for the log reset index.
+     *
+     * <p>Must not overlap with a valid stored log index.
+     */
+    static final long GROUP_DESTROY_LOG_INDEX = Long.MIN_VALUE;
+
     private final String storageName;
 
     private final Path segmentFilesDir;
@@ -420,6 +427,14 @@ class SegmentFileManager implements ManuallyCloseable {
             // Modify the memtable before write buffer is released to avoid races with checkpoint on rollover.
             writeBufferWithMemtable.memtable().reset(groupId, nextLogIndex);
         }
+    }
+
+    /**
+     * Destroys all log data for the given group. Writes a tombstone using {@link #GROUP_DESTROY_LOG_INDEX} so that the GC can discard
+     * the group's entries on the next compaction pass.
+     */
+    void destroyGroup(long groupId) throws IOException {
+        reset(groupId, GROUP_DESTROY_LOG_INDEX);
     }
 
     private WriteBufferWithMemtable reserveBytesWithRollover(int size) throws IOException {

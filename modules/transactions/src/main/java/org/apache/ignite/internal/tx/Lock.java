@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 
 /** Lock. */
 public class Lock {
-
     /** Lock key. */
     private final LockKey lockKey;
 
@@ -70,6 +70,23 @@ public class Lock {
      */
     public UUID txId() {
         return txId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Lock lock = (Lock) o;
+        return Objects.equals(lockKey, lock.lockKey) && lockMode == lock.lockMode && Objects.equals(txId, lock.txId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(lockKey, lockMode, txId);
     }
 
     @Override
