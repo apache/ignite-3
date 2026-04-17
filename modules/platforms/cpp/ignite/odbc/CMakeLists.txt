@@ -58,6 +58,8 @@ set(PRIVATE_HEADERS
 
 ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
 
+ignite_collect_public_headers(odbc PUBLIC_HEADERS)
+
 include(find_odbc)
 find_package(ODBC REQUIRED)
 

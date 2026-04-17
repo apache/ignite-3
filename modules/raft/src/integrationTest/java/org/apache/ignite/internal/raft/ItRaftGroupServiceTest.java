@@ -55,6 +55,7 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -106,6 +107,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
@@ -314,8 +318,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             partitionsWorkDir = new ComponentWorkingDir(workDir.resolve("node" + nodes.size()));
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    partitionsWorkDir.raftLogPath()
+                    clusterService.staticLocalNode().name(),
+                    partitionsWorkDir.raftLogPath(),
+                    logStorageConfiguration
             );
             this.loza = TestLozaFactory.create(
                     clusterService,
@@ -326,7 +331,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         String name() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.staticLocalNode().name();
         }
 
         void start() {
@@ -334,7 +339,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void startSystemRaftGroup(PeersAndLearners configuration) {
-            String nodeName = clusterService.topologyService().localMember().name();
+            String nodeName = clusterService.staticLocalNode().name();
 
             Peer serverPeer = configuration.peer(nodeName);
 
@@ -358,7 +363,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void startRaftGroup(PeersAndLearners configuration) {
-            String nodeName = clusterService.topologyService().localMember().name();
+            String nodeName = clusterService.staticLocalNode().name();
 
             Peer serverPeer = configuration.peer(nodeName);
 

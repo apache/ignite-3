@@ -50,6 +50,7 @@ import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -63,7 +64,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -100,6 +101,9 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
@@ -118,6 +122,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                logStorageConfiguration,
                 txConfiguration,
                 systemLocalConfiguration,
                 systemDistributedConfiguration,
@@ -170,7 +175,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
             }
 
             @Override
-            protected PartitionReplicaListener newReplicaListener(
+            protected DefaultTablePartitionReplicaProcessor newReplicaListener(
                     MvPartitionStorage mvDataStorage,
                     RaftGroupService raftClient,
                     TxManager txManager,
@@ -193,7 +198,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
                     SchemaRegistry schemaRegistry
             ) {
-                return new PartitionReplicaListener(
+                return new DefaultTablePartitionReplicaProcessor(
                         mvDataStorage,
                         raftClient,
                         txManager,

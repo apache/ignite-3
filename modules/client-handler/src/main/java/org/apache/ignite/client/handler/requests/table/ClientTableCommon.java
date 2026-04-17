@@ -33,6 +33,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -430,6 +431,7 @@ public class ClientTableCommon {
             ClientMessageUnpacker in,
             HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             @Nullable TxManager txManager,
             @Nullable IgniteTables tables,
             @Nullable NotificationSender notificationSender,
@@ -441,6 +443,7 @@ public class ClientTableCommon {
                 in,
                 tsUpdater,
                 resources,
+                metrics,
                 txManager,
                 tables,
                 notificationSender,
@@ -469,6 +472,7 @@ public class ClientTableCommon {
             ClientMessageUnpacker in,
             HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             @Nullable TxManager txManager,
             @Nullable IgniteTables tables,
             @Nullable NotificationSender notificationSender,
@@ -527,6 +531,8 @@ public class ClientTableCommon {
 
                 // Record the mapping between first request and resourceId.
                 reqToTxMap.put(requestId, resourceIdHolder[0]);
+
+                metrics.transactionsActiveIncrement();
 
                 return completedFuture(tx);
             } else if (id == TX_ID_DIRECT) {
@@ -603,6 +609,7 @@ public class ClientTableCommon {
             ClientMessageUnpacker in,
             HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             IgniteTables tables,
             EnumSet<RequestOptions> options,
@@ -611,7 +618,19 @@ public class ClientTableCommon {
             long requestId,
             Map<Long, Long> reqToTxMap
     ) {
-        return readTx(in, readTs, resources, txManager, tables, notificationSender, resourceIdHolder, requestId, reqToTxMap, options)
+        return readTx(
+                in,
+                readTs,
+                resources,
+                metrics,
+                txManager,
+                tables,
+                notificationSender,
+                resourceIdHolder,
+                requestId,
+                reqToTxMap,
+                options
+        )
                 .thenApply(tx -> {
                     if (tx == null) {
                         // Implicit transactions do not use an observation timestamp because RW never depends on it,

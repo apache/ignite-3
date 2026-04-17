@@ -237,6 +237,39 @@ public class SqlTestUtils {
     }
 
     /**
+     * Convert {@link NativeType} to string representation of SQL type.
+     *
+     * @param igniteType Ignite type.
+     * @return String representation of SQL type.
+     */
+    public static String toSqlType(NativeType igniteType) {
+        SqlTypeName type = COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.get(igniteType.spec());
+
+        if (type == null) {
+            throw new IllegalArgumentException("Unsupported type " + igniteType);
+        }
+
+        if (type == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+            return format("TIMESTAMP({}) WITH LOCAL TIME ZONE", ((TemporalNativeType) igniteType).precision());
+        }
+
+        if (igniteType instanceof DecimalNativeType) {
+            var decimalType = (DecimalNativeType) igniteType;
+            return format("{}({},{})", type.getSpaceName(), decimalType.precision(), decimalType.scale());
+        }
+
+        if (igniteType instanceof TemporalNativeType) {
+            return format("{}({})", type.getSpaceName(), ((TemporalNativeType) igniteType).precision());
+        }
+
+        if (igniteType instanceof VarlenNativeType) {
+            return format("{}({})", type.getSpaceName(), ((VarlenNativeType) igniteType).length());
+        }
+
+        return type.getSpaceName();
+    }
+
+    /**
      * Generate random value for given type.
      *
      * @param type {@link NativeType} type to generate value.

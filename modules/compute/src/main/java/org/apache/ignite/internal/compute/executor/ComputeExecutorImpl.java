@@ -60,8 +60,9 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,7 +80,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private final ComputeStateMachine stateMachine;
 
-    private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
 
     private final ClockService clockService;
 
@@ -96,7 +97,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param igniteFactory Factory for creating per-job scoped Ignite instances.
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
-     * @param topologyService Topology service.
+     * @param localNode Local cluster node.
      * @param eventLog Event log.
      */
     public ComputeExecutorImpl(
@@ -104,7 +105,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ComputeIgniteFactory igniteFactory,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
-            TopologyService topologyService,
+            InternalClusterNode localNode,
             ClockService clockService,
             EventLog eventLog
     ) {
@@ -112,7 +113,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         this.igniteFactory = igniteFactory;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.clockService = clockService;
         this.eventLog = eventLog;
     }
@@ -132,8 +133,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         assert executorService != null;
 
         Ignite scopedIgnite = createIgniteForJob(arg);
-        AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(scopedIgnite, isInterrupted, classLoader, options.partition());
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecutionContext context = new JobExecutionContextImpl(scopedIgnite, cancelHandle, classLoader, options.partition());
 
         metadataBuilder
                 .jobClassName(jobClassName)
@@ -151,7 +152,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 metadataBuilder
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
+        return new JobExecutionInternal<>(execution, cancelHandle, null, false, localNode);
     }
 
     /**

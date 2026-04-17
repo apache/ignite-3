@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
@@ -192,7 +192,7 @@ public abstract class PagesList extends DataStructure {
             String pageListNamePrefix,
             int grpId,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             IgniteLogger log,
             int buckets,
             long metaPageId

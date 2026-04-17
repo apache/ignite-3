@@ -50,9 +50,16 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private boolean returnError;
 
+    /**
+     * Constructor.
+     *
+     * @param partitions number of partitions.
+     */
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
-        primaryReplicas = new ArrayList<>(nCopies(partitions, getReplicaMeta("s", new UUID(3, 4), HybridTimestamp.MIN_VALUE.longValue())));
+        primaryReplicas = new ArrayList<>(
+                nCopies(partitions, getReplicaMeta("server-1", new UUID(3, 4), HybridTimestamp.MIN_VALUE.longValue()))
+        );
     }
 
     public void returnError(boolean returnError) {

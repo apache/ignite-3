@@ -271,7 +271,6 @@ public class TestBuilders {
                     PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
                     int indexId,
-                    List<String> columns,
                     @Nullable RangeCondition<RowT> cond,
                     int @Nullable [] requiredColumns
             ) {
@@ -296,7 +295,7 @@ public class TestBuilders {
         return new AbstractScannableTable() {
             @Override
             public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key,
+                    RowFactory<RowT> rowFactory, int indexId, RowT key,
                     int @Nullable [] requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
@@ -1585,7 +1584,6 @@ public class TestBuilders {
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
                 int indexId,
-                List<String> columns,
                 @Nullable RangeCondition<RowT> cond,
                 int @Nullable [] requiredColumns) {
             throw new UnsupportedOperationException();
@@ -1597,7 +1595,6 @@ public class TestBuilders {
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
                 int indexId,
-                List<String> columns,
                 RowT key,
                 int @Nullable [] requiredColumns
         ) {

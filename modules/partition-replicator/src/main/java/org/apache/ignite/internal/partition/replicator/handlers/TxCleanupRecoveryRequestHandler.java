@@ -31,8 +31,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -156,13 +158,13 @@ public class TxCleanupRecoveryRequestHandler {
                 txMeta.commitTimestamp(),
                 txId
         ).exceptionally(throwable -> {
-            throttledLog.warn(
-                    "Failed to cleanup transaction",
-                    "Failed to cleanup transaction {}.",
-                    throwable,
-                    formatTxInfo(txId, txManager)
-            );
-
+            if (!hasCause(throwable, NodeStoppingException.class) && !hasCause(throwable, ComponentStoppingException.class)) {
+                throttledLog.warn(
+                        "Failed to cleanup transaction",
+                        "Failed to cleanup transaction {}.",
+                        throwable,
+                        formatTxInfo(txId, txManager));
+            }
             return null;
         });
     }

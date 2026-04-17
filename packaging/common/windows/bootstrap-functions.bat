@@ -25,7 +25,11 @@ set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="%CONF_DIR%\ignite.java.ut
 -XX:HeapDumpPath="%LOG_DIR%" ^
 -Xlog:gc=info:file="%LOG_DIR%\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
 
-set CLASSPATH=-classpath "%LIBS_DIR%\*" @MAIN_CLASS@
+if defined IGNITE3_EXTRA_CLASSPATH (
+    set CLASSPATH=-classpath "%LIBS_DIR%\*;%IGNITE3_EXTRA_CLASSPATH%" @MAIN_CLASS@
+) else (
+    set CLASSPATH=-classpath "%LIBS_DIR%\*" @MAIN_CLASS@
+)
 
 set JAVA_MEMORY_OPTIONS=-Xmx%JVM_MAX_MEM% -Xms%JVM_MIN_MEM%
 

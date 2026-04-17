@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Consumer;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.Test;
  * Tests client handler metrics. See also {@code org.apache.ignite.client.handler.ItClientHandlerMetricsTest}.
  */
 @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
-public class ServerMetricsTest extends AbstractClientTest {
+public class ServerMetricsTest extends AbstractClientTableTest {
     @AfterEach
     public void resetCompute() {
         FakeCompute.future = null;
@@ -51,18 +52,17 @@ public class ServerMetricsTest extends AbstractClientTest {
         testServer.metrics().enable();
     }
 
-    @Test
-    public void testTxMetrics() {
+    private void testTxMetricsRoutine(Consumer<Transaction> doOpInTx) {
         assertEquals(0, testServer.metrics().transactionsActive());
 
         Transaction tx1 = client.transactions().begin(); // Lazy tx does not begin until first operation.
         assertEquals(0, testServer.metrics().transactionsActive());
 
-        client.sql().execute(tx1, "select 1").close(); // Force lazy tx init.
+        doOpInTx.accept(tx1);
         assertEquals(1, testServer.metrics().transactionsActive());
 
         Transaction tx2 = client.transactions().begin();
-        client.sql().execute(tx2, "select 1").close(); // Force lazy tx init.
+        doOpInTx.accept(tx2);
         assertEquals(2, testServer.metrics().transactionsActive());
 
         tx1.rollback();
@@ -70,6 +70,19 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         tx2.rollback();
         assertEquals(0, testServer.metrics().transactionsActive());
+    }
+
+    @Test
+    public void testTxMetrics() {
+        testTxMetricsRoutine(tx -> client.sql().execute(tx, "select 1").close());
+    }
+
+    @Test
+    public void testTxMetricsWithDirectTx() {
+        var table = defaultTable();
+        testTxMetricsRoutine(tx -> {
+            table.keyValueView().put(tx, tupleKey(1), tupleVal("v:" + tx.hashCode()));
+        });
     }
 
     @Test

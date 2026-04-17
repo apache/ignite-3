@@ -209,13 +209,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         );
 
         replicaManager = new ReplicaManager(
-                NODE_NAME,
                 clusterService,
                 cmgManager,
                 groupId -> completedFuture(Assignments.EMPTY),
                 testClockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
-                new TestPlacementDriver(clusterService.topologyService().localMember()),
+                new TestPlacementDriver(clusterService.staticLocalNode()),
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
@@ -246,7 +245,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
-        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.staticLocalNode();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -302,13 +301,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .binaryTuple(binaryRow.tupleSlice())
                 .requestType(RW_GET)
                 .enlistmentConsistencyToken(1L)
-                .coordinatorId(clusterService.topologyService().localMember().id())
+                .coordinatorId(clusterService.staticLocalNode().id())
                 .build();
     }
 
     @Test
     public void testStopReplicaException() {
-        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.staticLocalNode();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -343,7 +342,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithNotStartedReplica() {
-        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.staticLocalNode();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
@@ -373,7 +372,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithNotReadyReplica() {
-        InternalClusterNode clusterNode = clusterService.topologyService().localMember();
+        InternalClusterNode clusterNode = clusterService.staticLocalNode();
 
         TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 

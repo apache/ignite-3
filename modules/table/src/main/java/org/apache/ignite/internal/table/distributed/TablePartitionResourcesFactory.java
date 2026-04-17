@@ -24,6 +24,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -44,12 +45,12 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -66,8 +67,8 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  *
  * <p><b>Lifecycle ordering:</b> the caller must invoke {@link StorageUpdateHandler#start} on the
  * {@link PartitionResources#storageUpdateHandler} returned by {@link #createPartitionResources} before
- * the constructed objects ({@link TablePartitionProcessor}, {@link PartitionMvStorageAccess},
- * {@link PartitionReplicaListener}) are used at runtime.
+ * the constructed objects ({@link DefaultTablePartitionRaftProcessor}, {@link PartitionMvStorageAccess},
+ * {@link DefaultTablePartitionReplicaProcessor}) are used at runtime.
  */
 class TablePartitionResourcesFactory {
     private final TxManager txManager;
@@ -82,6 +83,7 @@ class TablePartitionResourcesFactory {
     private final SchemaSyncService schemaSyncService;
     private final LeasePlacementDriver placementDriver;
     private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
     private final FailureProcessor failureProcessor;
     private final SchemaManager schemaManager;
@@ -105,6 +107,7 @@ class TablePartitionResourcesFactory {
             SchemaSyncService schemaSyncService,
             LeasePlacementDriver placementDriver,
             TopologyService topologyService,
+            InternalClusterNode localNode,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             FailureProcessor failureProcessor,
             SchemaManager schemaManager,
@@ -127,6 +130,7 @@ class TablePartitionResourcesFactory {
         this.schemaSyncService = schemaSyncService;
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
+        this.localNode = localNode;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.failureProcessor = failureProcessor;
         this.schemaManager = schemaManager;
@@ -198,7 +202,7 @@ class TablePartitionResourcesFactory {
     }
 
     /**
-     * Creates a {@link TablePartitionProcessor} for the given partition.
+     * Creates a {@link DefaultTablePartitionRaftProcessor} for the given partition.
      *
      * @param zonePartitionId Zone partition ID.
      * @param table Table view.
@@ -206,20 +210,20 @@ class TablePartitionResourcesFactory {
      * @param partitionResources Partition resources.
      * @return Table partition processor.
      */
-    TablePartitionProcessor createTablePartitionProcessor(
+    DefaultTablePartitionRaftProcessor createTablePartitionProcessor(
             ZonePartitionId zonePartitionId,
             TableViewInternal table,
             PartitionDataStorage partitionDataStorage,
             PartitionResources partitionResources
     ) {
-        return new TablePartitionProcessor(
+        return new DefaultTablePartitionRaftProcessor(
                 txManager,
                 partitionDataStorage,
                 partitionResources.storageUpdateHandler,
                 catalogService,
                 table.schemaView(),
                 indexMetaStorage,
-                topologyService.localMember().id(),
+                localNode.id(),
                 minTimeCollectorService,
                 placementDriver,
                 clockService,
@@ -253,7 +257,7 @@ class TablePartitionResourcesFactory {
     }
 
     /**
-     * Creates a {@link PartitionReplicaListener} for the given partition.
+     * Creates a {@link DefaultTablePartitionReplicaProcessor} for the given partition.
      *
      * @param replicationGroupId Zone partition ID used as the replication group ID.
      * @param table Table view.
@@ -264,7 +268,7 @@ class TablePartitionResourcesFactory {
      * @param transactionStateResolver Transaction state resolver.
      * @return Partition replica listener.
      */
-    PartitionReplicaListener createReplicaListener(
+    DefaultTablePartitionReplicaProcessor createReplicaListener(
             ZonePartitionId replicationGroupId,
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
@@ -275,7 +279,7 @@ class TablePartitionResourcesFactory {
     ) {
         int partitionIndex = replicationGroupId.partitionId();
 
-        return new PartitionReplicaListener(
+        return new DefaultTablePartitionReplicaProcessor(
                 mvPartitionStorage,
                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                 txManager,
@@ -291,7 +295,7 @@ class TablePartitionResourcesFactory {
                 transactionStateResolver,
                 partitionResources.storageUpdateHandler,
                 validationSchemasSource,
-                topologyService.localMember(),
+                localNode,
                 schemaSyncService,
                 catalogService,
                 placementDriver,

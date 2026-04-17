@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static org.apache.ignite.internal.compute.ComputeUtils.isCancellationException;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCanceledEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCancelingEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCompletedEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobExecutingEvent;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobFailedEvent;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.UUID;
@@ -210,7 +210,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 if (throwable instanceof QueueEntryCanceledException) {
                     logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(new CancellationException());
-                } else if (unwrapCause(throwable) instanceof CancellationException) {
+                } else if (isCancellationException(throwable)) {
                     stateMachine.cancelJob(jobId);
                     logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(throwable);

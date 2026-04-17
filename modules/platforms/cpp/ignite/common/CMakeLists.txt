@@ -55,6 +55,8 @@ set(PRIVATE_HEADERS
 
 ignite_check_headers(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${PUBLIC_HEADERS} PRIVATE ${PRIVATE_HEADERS})
 
+ignite_collect_public_headers(common PUBLIC_HEADERS)
+
 set(SOURCES
     big_decimal.cpp
     big_integer.cpp
@@ -65,7 +67,7 @@ set(SOURCES
     uuid.cpp
     detail/hash_calculator.cpp
     detail/hash_utils.cpp
-        detail/murmur3_hash.cpp
+    detail/murmur3_hash.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})

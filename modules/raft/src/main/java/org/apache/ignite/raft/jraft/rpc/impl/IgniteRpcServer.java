@@ -147,7 +147,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 serviceEventInterceptor.unsubscribeNode(member);
 
                 for (ConnectionClosedEventListener listener : listeners)
-                    listener.onClosed(service.topologyService().localMember().name(), member.name());
+                    listener.onClosed(service.staticLocalNode().name(), member.name());
             }
         });
     }
@@ -265,7 +265,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         @Override
         public String getLocalConsistentId() {
-            return service.topologyService().localMember().name();
+            return service.staticLocalNode().name();
         }
     }
 
@@ -286,7 +286,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     @Override public String consistentId() {
-        return service.topologyService().localMember().name();
+        return service.staticLocalNode().name();
     }
 
     /** {@inheritDoc} */

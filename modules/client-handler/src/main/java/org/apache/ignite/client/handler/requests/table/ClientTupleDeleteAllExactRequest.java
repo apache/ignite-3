@@ -24,6 +24,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTuplesReques
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -53,6 +54,7 @@ public class ClientTupleDeleteAllExactRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
@@ -64,6 +66,7 @@ public class ClientTupleDeleteAllExactRequest {
                 in,
                 tables,
                 resources,
+                metrics,
                 txManager,
                 notificationSender,
                 tsTracker,

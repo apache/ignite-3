@@ -104,6 +104,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -181,6 +182,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -212,6 +214,7 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.DefaultMvTableStorageFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
@@ -286,6 +289,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
@@ -421,8 +427,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
-        LogStorageManager partitionsLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
+        String nodeName = clusterSvc.staticLocalNode().name();
+
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
@@ -447,8 +455,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
-        LogStorageManager cmgLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
+        LogStorageManager cmgLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, cmgWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
@@ -510,20 +518,26 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        LogStorageManager msLogStorageManager =
-                SharedLogStorageManagerUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
+        LogStorageManager msLogStorageManager = SharedLogStorageManagerUtils.create(nodeName, metastorageWorkDir.raftLogPath(),
+                logStorageConfiguration);
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
-        var metaStorageMgr = new MetaStorageManagerImpl(
+        var metaStorageRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
+                raftGroupEventsClientListener,
+                failureProcessor
+        );
+
+        var metaStorageMgr = new MetaStorageManagerImpl(
+                clusterSvc.staticLocalNode(),
                 cmgManager,
                 logicalTopologyService,
                 raftMgr,
                 metaStorage,
                 hybridClock,
-                topologyAwareRaftGroupServiceFactory,
+                metaStorageRaftServiceFactory,
                 metricManager,
                 systemDistributedConfiguration,
                 msRaftConfigurer,
@@ -628,7 +642,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
         ReplicaManager replicaMgr = new ReplicaManager(
-                name,
                 clusterSvc,
                 cmgManager,
                 groupId -> zonePartitionStableAssignments(metaStorageMgr, groupId),
@@ -665,7 +678,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var txManager = new TxManagerImpl(
-                name,
+                clusterSvc.staticLocalNode(),
                 txConfiguration,
                 systemDistributedConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
@@ -726,8 +739,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                name,
-                () -> clusterSvc.topologyService().localMember().id(),
+                clusterSvc.staticLocalNode(),
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
@@ -767,6 +779,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 metaStorageMgr,
                 clusterSvc.topologyService(),
+                clusterSvc.staticLocalNode(),
                 lowWatermark,
                 failureProcessor,
                 threadPoolsManager.tableIoExecutor(),
@@ -789,7 +802,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         TableManager tableManager = new TableManager(
-                name,
+                clusterSvc.staticLocalNode(),
                 registry,
                 gcConfig,
                 replicationConfiguration,
@@ -820,7 +833,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
-                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY,
+                new DefaultMvTableStorageFactory(dataStorageManager, catalogManager, lowWatermark)
         );
 
         var indexManager = new IndexManager(

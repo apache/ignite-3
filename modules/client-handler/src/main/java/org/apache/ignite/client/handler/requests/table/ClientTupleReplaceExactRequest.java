@@ -20,10 +20,10 @@ package org.apache.ignite.client.handler.requests.table;
 import static java.util.EnumSet.of;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.READ_SECOND_TUPLE;
-import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.readAsync;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -52,6 +52,7 @@ public class ClientTupleReplaceExactRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
@@ -59,7 +60,18 @@ public class ClientTupleReplaceExactRequest {
             long requestId,
             Map<Long, Long> reqToTxMap
     ) {
-        return readAsync(in, tables, resources, txManager, notificationSender, tsTracker, of(READ_SECOND_TUPLE), requestId, reqToTxMap)
+        return ClientTupleRequestBase.readAsync(
+                        in,
+                        tables,
+                        resources,
+                        metrics,
+                        txManager,
+                        notificationSender,
+                        tsTracker,
+                        of(READ_SECOND_TUPLE),
+                        requestId,
+                        reqToTxMap
+                )
                 .thenCompose(req -> req.table().recordView().replaceExactAsync(req.tx(), req.tuple(), req.tuple2())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

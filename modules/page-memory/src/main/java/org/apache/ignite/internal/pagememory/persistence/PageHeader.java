@@ -18,17 +18,19 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
+import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapInt;
 import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putInt;
-import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLongVolatile;
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 
 /**
  * Helper class for working with the page header that is stored in memory for {@link PersistentPageMemory}.
@@ -36,7 +38,7 @@ import org.apache.ignite.internal.util.GridUnsafe;
  * <p>Page header has the following structure:</p>
  * <pre>
  * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
- * |     8 bytes     |       4 bytes       |4 bytes |8 bytes |4 bytes  |4 bytes   |8 bytes   |       8 bytes        |
+ * |     8 bytes     |       4 bytes       |4 bytes |8 bytes |4 bytes  |4 bytes   |16 bytes  |       8 bytes        |
  * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
  * |Marker/Timestamp |Partition generation |Flags   |Page ID |Group ID |Pin count |Lock data |Checkpoint tmp buffer |
  * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
@@ -62,32 +64,32 @@ public class PageHeader {
     /** Unknown partition generation. */
     static final int UNKNOWN_PARTITION_GENERATION = -1;
 
-    /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 8b Lock, 8b Temporary buffer. */
-    public static final int PAGE_OVERHEAD = 48;
-
     /** Marker or timestamp offset. */
     private static final int MARKER_OR_TIMESTAMP_OFFSET = 0;
 
     /** Partition generation offset. */
-    private static final int PARTITION_GENERATION_OFFSET = 8;
+    private static final int PARTITION_GENERATION_OFFSET = MARKER_OR_TIMESTAMP_OFFSET + Long.BYTES;
 
     /** Flags offset. */
-    private static final int FLAGS_OFFSET = 12;
+    private static final int FLAGS_OFFSET = PARTITION_GENERATION_OFFSET + Integer.BYTES;
 
     /** Page ID offset. */
-    private static final int PAGE_ID_OFFSET = 16;
+    private static final int PAGE_ID_OFFSET = FLAGS_OFFSET + Integer.BYTES;
 
     /** Page group ID offset. */
-    private static final int PAGE_GROUP_ID_OFFSET = 24;
+    private static final int PAGE_GROUP_ID_OFFSET = PAGE_ID_OFFSET + Long.BYTES;
 
     /** Page pin counter offset. */
-    private static final int PAGE_PIN_CNT_OFFSET = 28;
+    private static final int PAGE_PIN_CNT_OFFSET = PAGE_GROUP_ID_OFFSET + Integer.BYTES;
 
     /** Page lock offset. */
-    public static final int PAGE_LOCK_OFFSET = 32;
+    public static final int PAGE_LOCK_OFFSET = PAGE_PIN_CNT_OFFSET + Integer.BYTES;
 
     /** Page temp copy buffer relative pointer offset. */
-    private static final int PAGE_TMP_BUF_OFFSET = 40;
+    private static final int PAGE_TMP_BUF_OFFSET = PAGE_LOCK_OFFSET + OffheapReadWriteLock.LOCK_SIZE;
+
+    /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 16b Lock, 8b Temporary buffer. */
+    public static final int PAGE_OVERHEAD = PAGE_TMP_BUF_OFFSET + Long.BYTES;
 
     /**
      * Initializes the header of the page.
@@ -109,7 +111,7 @@ public class PageHeader {
      * @param absPtr Absolute pointer.
      */
     public static boolean dirty(long absPtr) {
-        return flag(absPtr, DIRTY_FLAG, false);
+        return flag(absPtr, DIRTY_FLAG);
     }
 
     /**
@@ -120,21 +122,21 @@ public class PageHeader {
      * @return Previous value of dirty flag.
      */
     public static boolean dirty(long absPtr, boolean dirty) {
-        return flag(absPtr, DIRTY_FLAG, dirty, false);
+        return flag(absPtr, DIRTY_FLAG, dirty);
     }
 
     /**
      * Reads the value of a header validity flag. Does it using a volatile memory access.
      */
     public static boolean headerIsValid(long absPtr) {
-        return flag(absPtr, HEADER_IS_VALID_FLAG, true);
+        return flag(absPtr, HEADER_IS_VALID_FLAG);
     }
 
     /**
      * Updates the value of a header validity flag. Does it using a volatile memory access.
      */
     public static void headerIsValid(long absPtr, boolean valid) {
-        flag(absPtr, HEADER_IS_VALID_FLAG, valid, true);
+        flag(absPtr, HEADER_IS_VALID_FLAG, valid);
     }
 
     /**
@@ -142,13 +144,12 @@ public class PageHeader {
      *
      * @param absPtr Absolute pointer.
      * @param flagMask Flag mask.
-     * @param volatileAccess Whether to use volatile memory access.
      */
-    private static boolean flag(long absPtr, int flagMask, boolean volatileAccess) {
+    private static boolean flag(long absPtr, int flagMask) {
         assert (flagMask & 0xFFFFFF) == 0 : Integer.toHexString(flagMask);
-        assert Long.bitCount(flagMask) == 1 : Integer.toHexString(flagMask);
+        assert isPow2(flagMask) : Integer.toHexString(flagMask);
 
-        int flags = volatileAccess ? getIntVolatile(null, absPtr + FLAGS_OFFSET) : getInt(absPtr + FLAGS_OFFSET);
+        int flags = getIntVolatile(null, absPtr + FLAGS_OFFSET);
 
         return (flags & flagMask) != 0;
     }
@@ -159,30 +160,27 @@ public class PageHeader {
      * @param absPtr Absolute pointer.
      * @param flagMask Flag mask.
      * @param set New flag value.
-     * @param volatileAccess Whether to use volatile memory access.
      * @return Previous flag value.
      */
-    private static boolean flag(long absPtr, int flagMask, boolean set, boolean volatileAccess) {
+    private static boolean flag(long absPtr, int flagMask, boolean set) {
         assert (flagMask & 0xFFFFFF) == 0 : Integer.toHexString(flagMask);
-        assert Long.bitCount(flagMask) == 1 : Integer.toHexString(flagMask);
+        assert isPow2(flagMask) : Integer.toHexString(flagMask);
 
-        int flags = volatileAccess ? getIntVolatile(null, absPtr + FLAGS_OFFSET) : getInt(absPtr + FLAGS_OFFSET);
+        while (true) {
+            int flags = getIntVolatile(null, absPtr + FLAGS_OFFSET);
 
-        boolean was = (flags & flagMask) != 0;
+            boolean was = (flags & flagMask) != 0;
 
-        if (set) {
-            flags |= flagMask;
-        } else {
-            flags &= ~flagMask;
+            if (was == set) {
+                return was;
+            }
+
+            int newFlags = set ? (flags | flagMask) : (flags & ~flagMask);
+
+            if (compareAndSwapInt(null, absPtr + FLAGS_OFFSET, flags, newFlags)) {
+                return was;
+            }
         }
-
-        if (volatileAccess) {
-            putIntVolatile(null, absPtr + FLAGS_OFFSET, flags);
-        } else {
-            putInt(absPtr + FLAGS_OFFSET, flags);
-        }
-
-        return was;
     }
 
     /**

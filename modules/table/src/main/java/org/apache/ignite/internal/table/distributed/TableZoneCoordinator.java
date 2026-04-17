@@ -75,8 +75,8 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.raft.DefaultTablePartitionRaftProcessor;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -316,10 +316,10 @@ class TableZoneCoordinator {
                         }
                     }
 
-                    var table = (TableImpl) tableRegistry.tables().get(tableId);
+                    var table = (TableImpl) tableRegistry.table(tableId);
 
                     return createPartitionStoragesIfAbsent(table, parts)
-                            .thenRun(() -> tableRegistry.localPartsByTableId().put(tableId, parts));
+                            .thenRun(() -> tableRegistry.setLocalPartitions(tableId, parts));
                 }, ioExecutor))
                 // If the table is already closed, it's not a problem (probably the node is stopping).
                 .exceptionally(ignoreTableClosedException())
@@ -331,7 +331,7 @@ class TableZoneCoordinator {
             }
 
             return localPartsUpdateFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                var table = (TableImpl) tableRegistry.tables().get(tableId);
+                var table = (TableImpl) tableRegistry.table(tableId);
 
                 for (int i = 0; i < zoneDescriptor.partitions(); i++) {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
@@ -350,11 +350,9 @@ class TableZoneCoordinator {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> {
-            var table = (TableImpl) tableRegistry.tables().get(tableId);
+            tableRegistry.markStarted(tableId);
 
-            tableRegistry.startedTables().put(tableId, table);
-
-            addTableToZone(zoneDescriptor.id(), table);
+            addTableToZone(zoneDescriptor.id(), (TableImpl) tableRegistry.startedTable(tableId));
         });
     }
 
@@ -458,10 +456,7 @@ class TableZoneCoordinator {
                     CompletableFuture<?>[] futures = zoneTables.stream()
                             .map(tbl -> inBusyLockAsync(busyLock, () -> {
                                 return runAsync(() -> inBusyLock(busyLock, () -> {
-                                    tableRegistry.localPartsByTableId().compute(
-                                            tbl.tableId(),
-                                            (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
-                                    );
+                                    tableRegistry.extendLocalPartitions(tbl.tableId(), partitionIndex);
 
                                     lowWatermark.getLowWatermarkSafe(lwm ->
                                             registerIndexesToTable(
@@ -622,7 +617,7 @@ class TableZoneCoordinator {
                         transactionStateResolver
                 );
 
-        TablePartitionProcessor tablePartitionProcessor = partitionResourcesFactory.createTablePartitionProcessor(
+        DefaultTablePartitionRaftProcessor tablePartitionRaftProcessor = partitionResourcesFactory.createTablePartitionProcessor(
                 zonePartitionId, table, partitionDataStorage, partitionResources);
 
         PartitionMvStorageAccess partitionStorageAccess = partitionResourcesFactory.createPartitionMvStorageAccess(
@@ -632,7 +627,7 @@ class TableZoneCoordinator {
                 zonePartitionId,
                 tableId,
                 createListener,
-                tablePartitionProcessor,
+                tablePartitionRaftProcessor,
                 partitionStorageAccess,
                 onNodeRecovery
         );
@@ -667,7 +662,7 @@ class TableZoneCoordinator {
 
         return tokenFuture
                 .thenCompose(ignore -> {
-                    TableViewInternal table = tableRegistry.tables().get(tablePartitionId.tableId());
+                    TableViewInternal table = tableRegistry.table(tablePartitionId.tableId());
                     assert table != null : tablePartitionId;
 
                     return stopAndDestroyTablePartition(tablePartitionId, table);
@@ -791,12 +786,6 @@ class TableZoneCoordinator {
 
     private Set<TableViewInternal> zoneTablesRawSet(int zoneId) {
         return tablesPerZone.getOrDefault(zoneId, Set.of());
-    }
-
-    private static PartitionSet extendPartitionSet(@Nullable PartitionSet oldPartitionSet, int partitionId) {
-        PartitionSet newPartitionSet = Objects.requireNonNullElseGet(oldPartitionSet, BitSetPartitionSet::new);
-        newPartitionSet.set(partitionId);
-        return newPartitionSet;
     }
 
     private static <T> Function<Throwable, T> ignoreTableClosedException() {

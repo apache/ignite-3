@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -27,7 +26,6 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.table.distributed.TableUtils.aliveTables;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
-import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -46,13 +44,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -60,7 +56,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableProperties;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterTablePropertiesEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -89,10 +84,10 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -108,9 +103,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -123,9 +116,6 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
-import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
-import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
@@ -150,14 +140,6 @@ import org.jetbrains.annotations.TestOnly;
 public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
-
-    private final TopologyService topologyService;
-
-    /** Lock manager. */
-    private final LockManager lockMgr;
-
-    /** Replica service. */
-    private final ReplicaService replicaSvc;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -225,35 +207,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final LowWatermark lowWatermark;
 
-    private final HybridTimestampTracker observableTimestampTracker;
-
-    /** Placement driver. */
-    private final PlacementDriver executorInclinedPlacementDriver;
-
-    /** A supplier function that returns {@link IgniteSql}. */
-    private final Supplier<IgniteSql> sql;
-
-    private final SchemaVersions schemaVersions;
-
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
-    /** Marshallers provider. */
-    private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
-
-    private final TransactionInflights transactionInflights;
-
-    private final String nodeName;
-
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
-
-    @Nullable
-    private ScheduledExecutorService streamerFlushExecutor;
-
-    @Nullable
-    private StreamerReceiverRunner streamerReceiverRunner;
 
     private final CompletableFuture<Void> readyToProcessReplicaStarts = new CompletableFuture<>();
 
@@ -268,6 +227,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final MetricManager metricManager;
 
+    private final StreamerFlushExecutorFactory streamerFlushExecutorFactory;
+
+    private final TableImplFactory tableImplFactory;
+
     private final TablePartitionResourcesFactory partitionResourcesFactory;
 
     private final TableZoneCoordinator zoneCoordinator;
@@ -275,7 +238,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Creates a new table manager.
      *
-     * @param nodeName Node name.
+     * @param localNode Local node.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
      * @param replicationConfiguration Replication configuration.
@@ -298,9 +261,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param minTimeCollectorService Collects minimum required timestamp for each partition.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param metricManager Metric manager.
+     * @param mvTableStorageFactory Factory for creating MV table storages.
      */
     public TableManager(
-            String nodeName,
+            InternalClusterNode localNode,
             RevisionListenerRegistry registry,
             GcConfiguration gcConfig,
             ReplicationConfiguration replicationConfiguration,
@@ -331,11 +295,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
-            PartitionModificationCounterFactory partitionModificationCounterFactory
+            PartitionModificationCounterFactory partitionModificationCounterFactory,
+            MvTableStorageFactory mvTableStorageFactory
     ) {
-        this.topologyService = topologyService;
-        this.lockMgr = lockMgr;
-        this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
@@ -344,18 +306,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.clockService = clockService;
         this.catalogService = catalogService;
         this.failureProcessor = failureProcessor;
-        this.observableTimestampTracker = observableTimestampTracker;
-        this.sql = sql;
         this.lowWatermark = lowWatermark;
-        this.transactionInflights = transactionInflights;
-        this.nodeName = nodeName;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.metricManager = metricManager;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
-        this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
+        PlacementDriver executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
-        schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
+        SchemaVersions schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
         tablesVv = new IncrementalVersionedValue<>("TableManager#tables", registry, 100, null);
 
@@ -364,9 +322,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assignmentsUpdatedVv = new IncrementalVersionedValue<>("TableManager#assignmentsUpdated", dependingOn(localPartitionsVv));
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
-                IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
+                IgniteThreadFactory.create(localNode.name(), "scan-query-executor", LOG, STORAGE_READ));
 
-        MvGc mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
+        MvGc mvGc = new MvGc(localNode.name(), gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 messagingService,
@@ -388,8 +346,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 lowWatermark,
                 validationSchemasSource,
                 this.executorInclinedSchemaSyncService,
-                this.executorInclinedPlacementDriver,
+                executorInclinedPlacementDriver,
                 topologyService,
+                localNode,
                 remotelyTriggeredResourceRegistry,
                 failureProcessor,
                 schemaManager,
@@ -399,6 +358,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 minTimeCollectorService,
                 mvGc,
                 fullStateTransferIndexChooser
+        );
+
+        streamerFlushExecutorFactory = new StreamerFlushExecutorFactory(localNode);
+
+        tableImplFactory = new TableImplFactory(
+                topologyService,
+                lockMgr,
+                replicaSvc,
+                txManager,
+                clockService,
+                observableTimestampTracker,
+                executorInclinedPlacementDriver,
+                transactionInflights,
+                schemaVersions,
+                sql,
+                failureProcessor,
+                mvTableStorageFactory,
+                catalogService,
+                dataStorageMgr,
+                metricManager,
+                streamerFlushExecutorFactory
         );
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
@@ -483,11 +463,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 schemaRegistry
                         );
 
-                        tableRegistry.tables().put(tableId, table);
+                        tableRegistry.register(tableId, table);
 
                         zoneCoordinator.addTableToZone(zoneDescriptor.id(), table);
 
-                        tableRegistry.startedTables().put(tableId, table);
+                        tableRegistry.markStarted(tableId);
                     }));
         });
     }
@@ -518,7 +498,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(schemaRegistry -> {
                 TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor, schemaRegistry);
 
-                tableRegistry.tables().put(tableId, table);
+                tableRegistry.register(tableId, table);
             });
         }));
 
@@ -543,7 +523,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            unregisterMetricsSource(tableRegistry.startedTables().get(parameters.tableId()));
+            unregisterMetricsSource(tableRegistry.startedTable(parameters.tableId()));
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
@@ -588,7 +568,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return failedFuture(e);
                     }
 
-                    TableViewInternal table = tableRegistry.tables().get(parameters.tableId());
+                    TableViewInternal table = tableRegistry.table(parameters.tableId());
 
                     table.updateStalenessConfiguration(parameters.staleRowsFraction(), parameters.minStaleRowsCount());
 
@@ -605,7 +585,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return failedFuture(e);
                     }
 
-                    TableViewInternal table = tableRegistry.tables().get(parameters.tableId());
+                    TableViewInternal table = tableRegistry.table(parameters.tableId());
 
                     // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
                     ((TableImpl) table).name(parameters.newTableName());
@@ -623,6 +603,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         stopManagerFuture.completeExceptionally(new NodeStoppingException());
 
+        streamerFlushExecutorFactory.beforeStop();
         busyLock.block();
 
         lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
@@ -651,17 +632,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             closeAllManually(
                     zoneCoordinator::stop,
-                    () -> closeAllManually(tableRegistry.tables().values().stream().map(table -> () -> closeTable(table))),
+                    () -> closeAllManually(tableRegistry.allRegisteredTables().values().stream().map(table -> () -> closeTable(table))),
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> {
-                        ScheduledExecutorService streamerFlushExecutor;
-
-                        synchronized (this) {
-                            streamerFlushExecutor = this.streamerFlushExecutor;
-                        }
-
-                        shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
-                    }
+                    () -> streamerFlushExecutorFactory.stop(shutdownTimeoutSeconds)
             );
         } catch (Exception e) {
             return failedFuture(e);
@@ -700,60 +673,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableName.toCanonicalForm(), tableDescriptor.id(), causalityToken);
 
-        MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
-
-        int partitions = zoneDescriptor.partitions();
-
-        InternalTableImpl internalTable = new InternalTableImpl(
+        return tableImplFactory.createTableImpl(
                 tableName,
-                zoneDescriptor.id(),
-                tableDescriptor.id(),
-                partitions,
-                topologyService,
-                txManager,
-                tableStorage,
-                replicaSvc,
-                clockService,
-                observableTimestampTracker,
-                executorInclinedPlacementDriver,
-                transactionInflights,
-                this::streamerFlushExecutor,
-                Objects.requireNonNull(streamerReceiverRunner),
-                createAndRegisterMetricsSource(tableStorage, tableName)
-        );
-
-        CatalogTableProperties descProps = tableDescriptor.properties();
-
-        return new TableImpl(
-                internalTable,
-                lockMgr,
-                schemaVersions,
-                marshallers,
-                sql.get(),
-                failureProcessor,
-                tableDescriptor.primaryKeyIndexId(),
-                new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount()),
+                tableDescriptor,
+                zoneDescriptor,
                 schemaRegistry
-        );
-    }
-
-    /**
-     * Creates data storage for the provided table.
-     *
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
-     */
-    protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
-
-        if (engine == null) {
-            // Create a placeholder to allow Table object being created.
-            engine = new NullStorageEngine();
-        }
-
-        return engine.createMvTable(
-                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
-                new CatalogStorageIndexDescriptorSupplier(catalogService, lowWatermark)
         );
     }
 
@@ -763,9 +687,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableId Table id to destroy.
      */
     private CompletableFuture<Void> destroyTableLocally(int tableId) {
-        TableViewInternal table = tableRegistry.startedTables().remove(tableId);
-
-        tableRegistry.localPartsByTableId().remove(tableId);
+        TableViewInternal table = tableRegistry.removeStarted(tableId);
 
         assert table != null : tableId;
 
@@ -774,7 +696,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return zoneCoordinator.stopAndDestroyTableProcessors(table)
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> internalTable.storage().destroy()), ioExecutor)
                 .thenAccept(unused -> inBusyLock(busyLock, () -> {
-                    tableRegistry.tables().remove(tableId);
+                    tableRegistry.unregister(tableId);
                     schemaManager.dropRegistry(tableId);
                 }))
                 .whenComplete((v, e) -> {
@@ -826,14 +748,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableViewInternal>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenApply(v -> unmodifiableMap(tableRegistry.startedTables()));
+        return assignmentsUpdatedVv.get(causalityToken).thenApply(v -> tableRegistry.allStartedTables());
     }
 
     /**
      * Returns an internal map, which contains all managed tables by their ID.
      */
     private Map<Integer, TableViewInternal> tablesById() {
-        return unmodifiableMap(tableRegistry.tables());
+        return tableRegistry.allRegisteredTables();
     }
 
     /**
@@ -841,7 +763,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     @TestOnly
     public Map<Integer, TableViewInternal> startedTables() {
-        return unmodifiableMap(tableRegistry.startedTables());
+        return tableRegistry.allStartedTables();
     }
 
     @Override
@@ -903,7 +825,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         try {
             return localPartitionsVv.get(causalityToken)
-                    .thenApply(unused -> tableRegistry.localPartsByTableId().getOrDefault(tableId, PartitionSet.EMPTY_SET));
+                    .thenApply(unused -> tableRegistry.localPartitions(tableId));
         } finally {
             busyLock.leaveBusy();
         }
@@ -945,7 +867,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<TableViewInternal> tableAsyncInternalBusy(int tableId) {
-        TableViewInternal tableImpl = tableRegistry.startedTables().get(tableId);
+        TableViewInternal tableImpl = tableRegistry.startedTable(tableId);
 
         if (tableImpl != null) {
             return completedFuture(tableImpl);
@@ -961,7 +883,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (e != null) {
                         getLatestTableFuture.completeExceptionally(e);
                     } else {
-                        getLatestTableFuture.complete(tableRegistry.startedTables().get(tableId));
+                        getLatestTableFuture.complete(tableRegistry.startedTable(tableId));
                     }
                 });
             } else {
@@ -975,7 +897,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // This check is needed for the case when we have registered tablesListener,
         // but tablesVv has already been completed, so listener would be triggered only for the next versioned value update.
-        tableImpl = tableRegistry.startedTables().get(tableId);
+        tableImpl = tableRegistry.startedTable(tableId);
 
         if (tableImpl != null) {
             assignmentsUpdatedVv.removeWhenComplete(tablesListener);
@@ -998,7 +920,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     @Override
     public @Nullable TableViewInternal cachedTable(int tableId) {
-        return tableRegistry.tables().get(tableId);
+        return tableRegistry.table(tableId);
     }
 
     /**
@@ -1008,7 +930,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     @TestOnly
     public @Nullable TableViewInternal cachedTable(String name) {
-        return findTableImplByName(tableRegistry.tables().values(), name);
+        return findTableImplByName(tableRegistry.allRegisteredTables().values(), name);
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
@@ -1109,11 +1031,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
     }
 
-    @TestOnly
-    public ReplicaService replicaService() {
-        return replicaSvc;
-    }
-
     /** Internal event. */
     private static class DestroyTableEvent {
         final int catalogVersion;
@@ -1152,26 +1069,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private synchronized ScheduledExecutorService streamerFlushExecutor() {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            if (streamerFlushExecutor == null) {
-                streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-                        IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
-            }
-
-            return streamerFlushExecutor;
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     @Override
     public void setStreamerReceiverRunner(StreamerReceiverRunner runner) {
-        this.streamerReceiverRunner = runner;
+        tableImplFactory.setStreamerReceiverRunner(runner);
     }
 
     /**
@@ -1183,46 +1083,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     public Set<TableViewInternal> zoneTables(int zoneId) throws IgniteInternalException {
         return zoneCoordinator.zoneTables(zoneId);
-    }
-
-    private ReadWriteMetricSource createAndRegisterMetricsSource(MvTableStorage tableStorage, QualifiedName tableName) {
-        StorageTableDescriptor tableDescriptor = tableStorage.getTableDescriptor();
-
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.latestCatalog().table(tableDescriptor.getId());
-
-        // The table might be created during the recovery phase.
-        // In that case, we should only register the metric source for the actual tables that exist in the latest catalog.
-        boolean registrationNeeded = catalogTableDescriptor != null;
-
-        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
-
-        // Engine can be null sometimes, see "TableManager.createTableStorage".
-        if (engine != null && registrationNeeded) {
-            StorageEngineTablesMetricSource engineMetricSource = new StorageEngineTablesMetricSource(engine.name(), tableName);
-
-            engine.addTableMetrics(tableDescriptor, engineMetricSource);
-
-            try {
-                metricManager.registerSource(engineMetricSource);
-                metricManager.enable(engineMetricSource);
-            } catch (Exception e) {
-                String message = "Failed to register storage engine metrics source for table [id={}, name={}].";
-                LOG.warn(message, e, tableDescriptor.getId(), tableName);
-            }
-        }
-
-        ReadWriteMetricSource source = new TableMetricSource(tableName);
-
-        if (registrationNeeded) {
-            try {
-                metricManager.registerSource(source);
-                metricManager.enable(source);
-            } catch (Exception e) {
-                LOG.warn("Failed to register metrics source for table [id={}, name={}].", e, tableDescriptor.getId(), tableName);
-            }
-        }
-
-        return source;
     }
 
     private void unregisterMetricsSource(TableViewInternal table) {

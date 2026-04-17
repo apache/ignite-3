@@ -26,9 +26,6 @@ import org.apache.ignite.internal.raft.Command;
  * @see RaftGroupService
  */
 public interface RaftCommandRunner {
-    /** Constant meaning that an operation will never timeout. */
-    long NO_TIMEOUT = -1;
-
     /**
      * Runs a command on a replication group leader.
      *

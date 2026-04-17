@@ -26,6 +26,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTupleRequest
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
@@ -58,6 +59,7 @@ public class ClientTupleGetAllRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             HybridTimestampTracker tsTracker,
@@ -67,7 +69,7 @@ public class ClientTupleGetAllRequest {
     ) {
         EnumSet<RequestOptions> options = supportsOptions ? of(KEY_ONLY, HAS_OPTIONS) : of(KEY_ONLY);
 
-        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, null, tsTracker, options, requestId, reqToTxMap)
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, metrics, txManager, null, tsTracker, options, requestId, reqToTxMap)
                 .thenCompose(req -> {
                     return req.table().recordView().getAllAsync(req.tx(), req.tuples())
                             .thenApply(resTuples -> out -> {

@@ -24,8 +24,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
-import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
+import org.apache.ignite.internal.partition.replicator.raft.TablePartitionRaftProcessor;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<WriteIntentSwitchCommand> {
     private static final IgniteLogger LOG = Loggers.forClass(WriteIntentSwitchCommandHandler.class);
 
-    private final IntFunction<RaftTableProcessor> tableProcessorByTableId;
+    private final IntFunction<TablePartitionRaftProcessor> tableProcessorByTableId;
 
     private final RaftTxFinishMarker txFinishMarker;
 
@@ -44,7 +44,7 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
 
     /** Constructor. */
     public WriteIntentSwitchCommandHandler(
-            IntFunction<RaftTableProcessor> tableProcessorByTableId,
+            IntFunction<TablePartitionRaftProcessor> tableProcessorByTableId,
             TxManager txManager,
             TxStatePartitionStorage txStatePartitionStorage
     ) {
@@ -68,7 +68,7 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
         boolean applied = false;
         boolean handledByAnyTable = false;
         for (int tableId : ((WriteIntentSwitchCommandV2) switchCommand).tableIds()) {
-            RaftTableProcessor tableProcessor = raftTableProcessor(tableId);
+            TablePartitionRaftProcessor tableProcessor = raftTableProcessor(tableId);
 
             if (tableProcessor == null) {
                 // This can only happen if the table in question has already been dropped and destroyed. In such case, we simply
@@ -97,7 +97,7 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
         return new CommandResult(null, applied);
     }
 
-    private @Nullable RaftTableProcessor raftTableProcessor(int tableId) {
+    private @Nullable TablePartitionRaftProcessor raftTableProcessor(int tableId) {
         return tableProcessorByTableId.apply(tableId);
     }
 }

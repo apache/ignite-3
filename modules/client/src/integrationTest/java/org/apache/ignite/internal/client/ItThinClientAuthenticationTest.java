@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
@@ -98,12 +99,17 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
         assertThat(enableAuthentication, willCompleteSuccessfully());
 
-        clientWithAuth = IgniteClient.builder()
+        Builder builder = IgniteClient.builder()
                 .authenticator(basicAuthenticator)
-                .addresses(getClientAddresses().toArray(new String[0]))
-                .build();
+                .addresses(getClientAddresses().toArray(new String[0]));
 
-        await().untilAsserted(() -> checkConnection(clientWithAuth));
+        await().untilAsserted(() -> {
+            try (IgniteClient c = builder.build()) {
+                assertThat(checkConnection(c), willCompleteSuccessfully());
+            }
+        });
+
+        clientWithAuth = builder.build();
     }
 
     @AfterEach
@@ -174,7 +180,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void renameBasicProviderAndThenChangeUserPassword() {
+    void renameBasicProviderAndThenChangeUserPassword() throws InterruptedException {
         updateClusterConfiguration("ignite {\n"
                 + "security.authentication.providers.basic={\n"
                 + "type=basic,\n"
@@ -182,23 +188,25 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                 + "security.authentication.providers.default=null\n"
                 + "}");
 
-        try (IgniteClient client = IgniteClient.builder()
-                .authenticator(BasicAuthenticator.builder().username("newuser").password("newpassword").build())
-                .addresses(getClientAddresses().toArray(new String[0]))
-                .build()) {
+        await().untilAsserted(() -> {
+            try (IgniteClient client = IgniteClient.builder()
+                    .authenticator(BasicAuthenticator.builder().username("newuser").password("newpassword").build())
+                    .addresses(getClientAddresses().toArray(new String[0]))
+                    .build()) {
 
-            checkConnection(client);
+                checkConnection(client);
 
-            securityConfiguration.authentication().providers()
-                    .get("basic")
-                    .change(change -> {
-                        change.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers()
-                                .update("newuser", user -> user.changePassword("newpassword-changed"));
-                    }).join();
+                securityConfiguration.authentication().providers()
+                        .get("basic")
+                        .change(change -> {
+                            change.convert(BasicAuthenticationProviderChange.class)
+                                    .changeUsers()
+                                    .update("newuser", user -> user.changePassword("newpassword-changed"));
+                        }).join();
 
-            await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
-        }
+                await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
+            }
+        });
     }
 
     /**

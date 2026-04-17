@@ -57,6 +57,7 @@ import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -119,6 +120,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
     @InjectConfiguration
     protected SystemLocalConfiguration systemConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     /**
      * Create executor for raft group services.
@@ -436,8 +440,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         ClusterService service = clusterService(testInfo, PORT + idx, addr);
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                service.nodeName(),
-                componentWorkDir.raftLogPath()
+                service.staticLocalNode().name(),
+                componentWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -450,7 +455,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         servers.add(server);
 
         server.startRaftNode(
-                new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
+                new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.staticLocalNode().name())),
                 initialMemberConf,
                 createListener(service, server, componentWorkDir.dbPath()),
                 defaults()

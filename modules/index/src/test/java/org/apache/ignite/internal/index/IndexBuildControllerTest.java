@@ -46,6 +46,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.util.List;
 import java.util.UUID;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
@@ -79,6 +79,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.quality.Strictness;
 
 /** For {@link IndexBuildController} testing. */
 @ExtendWith(MockitoExtension.class)
@@ -112,7 +113,9 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
             return completedFuture(mvTableStorage);
         });
 
-        ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
+        ClusterService clusterService = mock(ClusterService.class, withSettings().strictness(Strictness.LENIENT));
+
+        when(clusterService.staticLocalNode()).thenReturn(LOCAL_NODE);
 
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

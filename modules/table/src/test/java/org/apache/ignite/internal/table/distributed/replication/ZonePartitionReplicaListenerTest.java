@@ -33,7 +33,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
-import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.zonePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.replication.DefaultTablePartitionReplicaProcessorTest.zonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
@@ -187,7 +187,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -431,7 +431,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     private ZonePartitionReplicaListener zonePartitionReplicaListener;
 
     /** Partition replication listener to test. */
-    private PartitionReplicaListener tableReplicaProcessor;
+    private DefaultTablePartitionReplicaProcessor tableReplicaProcessor;
 
     private HashIndexStorage pkIndexStorage;
 
@@ -499,8 +499,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 return null;
             }
         });
-
-        when(topologySrv.localMember()).thenReturn(localNode);
 
         when(safeTimeTracker.waitFor(any())).thenReturn(nullCompletedFuture());
         when(safeTimeTracker.current()).thenReturn(HybridTimestamp.MIN_VALUE);
@@ -620,7 +618,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         clockService
                 ),
                 new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
-                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                localNode,
                 Runnable::run
         );
 
@@ -664,7 +662,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 txRecoveryEngine
         );
 
-        tableReplicaProcessor = new PartitionReplicaListener(
+        tableReplicaProcessor = new DefaultTablePartitionReplicaProcessor(
                 testMvPartitionStorage,
                 mockRaftClient,
                 txManager,

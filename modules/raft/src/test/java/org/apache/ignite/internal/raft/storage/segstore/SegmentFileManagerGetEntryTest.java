@@ -84,10 +84,11 @@ class SegmentFileManagerGetEntryTest extends IgniteAbstractTest {
     ) throws IOException {
         fileManager = new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 

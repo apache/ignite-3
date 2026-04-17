@@ -20,6 +20,7 @@ package org.apache.ignite.example.table;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * This example demonstrates the usage of the {@link RecordView} API.
@@ -78,11 +79,11 @@ public class RecordViewExample {
 
             Tuple newAccountTuple = Tuple.create()
                     .set("accountNumber", 123456)
-                    .set("firstName", "Val")
-                    .set("lastName", "Kulichenko")
+                    .set("firstName", "Jane")
+                    .set("lastName", "Doe")
                     .set("balance", 100.00d);
 
-            accounts.insert(null, newAccountTuple);
+            accounts.insert(newAccountTuple);
 
             //--------------------------------------------------------------------------------------
             //
@@ -94,7 +95,7 @@ public class RecordViewExample {
 
             Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
 
-            Tuple accountTuple = accounts.get(null, accountNumberTuple);
+            Tuple accountTuple = accounts.get(accountNumberTuple);
 
             System.out.println(
                     "\nRetrieved record:\n"

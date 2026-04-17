@@ -73,6 +73,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Authentication;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -779,7 +780,8 @@ public final class ReliableChannel implements AutoCloseable {
             return false;
         }
 
-        if (exception.code() == CLUSTER_ID_MISMATCH_ERR) {
+        if (exception.code() == CLUSTER_ID_MISMATCH_ERR
+                || exception.groupCode() == Authentication.AUTHENTICATION_ERR_GROUP.groupCode()) {
             return false;
         }
 

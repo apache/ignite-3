@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.reuse.LongListReuseBag;
@@ -50,7 +50,7 @@ public class BlobStorage extends DataStructure {
     /**
      * Creates a new instance.
      */
-    public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId) {
+    public BlobStorage(ReuseList reuseList, PartitionPageMemory pageMemory, int groupId, int partitionId) {
         super("BlobStorage", groupId, null, partitionId, pageMemory, PageIdAllocator.FLAG_AUX);
 
         super.reuseList = reuseList;

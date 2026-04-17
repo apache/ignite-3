@@ -23,21 +23,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -61,6 +66,9 @@ public class LozaTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     /**
      * Checks that the all API methods throw the exception ({@link NodeStoppingException})
      * when Loza is closed.
@@ -68,13 +76,15 @@ public class LozaTest extends IgniteAbstractTest {
      */
     @Test
     public void testLozaStop() {
-        Mockito.doReturn("test_node").when(clusterNetSvc).nodeName();
+        InternalClusterNode localNode = new ClusterNodeImpl(UUID.randomUUID(), "test_node", new NetworkAddress("foo", 123));
+        Mockito.doReturn(localNode).when(clusterNetSvc).staticLocalNode();
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
-                clusterNetSvc.nodeName(),
-                workDir.resolve("partitions/log")
+                clusterNetSvc.staticLocalNode().name(),
+                workDir.resolve("partitions/log"),
+                logStorageConfiguration
         );
 
         assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

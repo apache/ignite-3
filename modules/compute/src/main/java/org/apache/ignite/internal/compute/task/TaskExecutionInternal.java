@@ -26,6 +26,7 @@ import static org.apache.ignite.compute.TaskStatus.EXECUTING;
 import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
+import static org.apache.ignite.internal.compute.ComputeUtils.isCancellationException;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logEvent;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_CANCELED;
@@ -39,7 +40,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -191,7 +190,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     }
 
     private void captureReduceSubmitFailure(Throwable throwable) {
-        TaskStatus status = unwrapCause(throwable) instanceof CancellationException ? CANCELED : FAILED;
+        TaskStatus status = isCancellationException(throwable) ? CANCELED : FAILED;
 
         if (status == CANCELED) {
             LOG.warn("Reduce job for task {} was cancelled.", taskId);
@@ -218,8 +217,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
             if (throwable == null) {
                 logEvent(eventLog, COMPUTE_TASK_COMPLETED, eventMetadata);
             } else {
-                IgniteEventType type = unwrapCause(throwable) instanceof CancellationException
-                        ? COMPUTE_TASK_CANCELED : COMPUTE_TASK_FAILED;
+                IgniteEventType type = isCancellationException(throwable) ? COMPUTE_TASK_CANCELED : COMPUTE_TASK_FAILED;
                 logEvent(eventLog, type, eventMetadata);
             }
         });

@@ -78,6 +78,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.tx.TransactionException;
@@ -535,6 +536,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return null;
         } catch (Throwable e) {
+            if (e instanceof TraceableException) {
+                throw sneakyThrow(e);
+            }
+
             log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + ", opCode=" + opCode + "]: "
                     + e.getMessage(), e);
 
@@ -756,7 +761,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 metrics.handshakesFailedTimeoutIncrement();
                 throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
             }
+
             metrics.handshakesFailedIncrement();
+
+            if (err instanceof TraceableException) {
+                throw new IgniteClientConnectionException(((TraceableException) err).code(), "Handshake error", endpoint(), err);
+            }
+
             throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
         });
     }

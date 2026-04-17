@@ -30,8 +30,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +49,8 @@ import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.jetbrains.annotations.Nullable;
 
 /** Jobs and marshallers definitions that are used in tests. */
@@ -628,6 +632,31 @@ public class Jobs {
         @Override
         public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
             throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
+        }
+    }
+
+    /**
+     * Job returns actual partition distribution for particular table calculated by java side.
+     */
+    public static class GetPartitionDistributionByTableCppJob implements ComputeJob<String, String> {
+        @Override
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
+            PartitionDistribution pd = context.ignite().tables().table(tableName).partitionDistribution();
+
+            Map<UUID, List<Long>> distribution = new HashMap<>();
+            for (Partition partition : pd.partitions()) {
+                var primaryNode = pd.primaryReplica(partition);
+
+                distribution.computeIfAbsent(primaryNode.id(), k -> new ArrayList<>()).add(partition.id());
+            }
+
+            StringBuilder sb = new StringBuilder();
+
+            for (Entry<UUID, List<Long>> entry : distribution.entrySet()) {
+                sb.append(entry.getKey()).append("=").append(entry.getValue()).append(";");
+            }
+
+            return completedFuture(sb.toString());
         }
     }
 }

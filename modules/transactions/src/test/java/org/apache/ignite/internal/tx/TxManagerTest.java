@@ -175,7 +175,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
         placementDriver = mock(PlacementDriver.class);
 
-        when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
+        when(clusterService.staticLocalNode()).thenReturn(LOCAL_NODE);
 
         when(replicaService.invoke(any(InternalClusterNode.class), any())).thenReturn(nullCompletedFuture());
 
@@ -246,7 +246,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testEnlist() {
-        NetworkAddress addr = clusterService.topologyService().localMember().address();
+        NetworkAddress addr = clusterService.staticLocalNode().address();
 
         assertEquals(LOCAL_NODE.address(), addr);
 

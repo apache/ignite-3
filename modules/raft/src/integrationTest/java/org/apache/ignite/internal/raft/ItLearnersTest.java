@@ -60,6 +60,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -111,6 +112,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
 
     /** Mock Raft node. */
@@ -126,20 +130,21 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftNode(ClusterService clusterService) {
             this.clusterService = clusterService;
 
-            Path raftDir = workDir.resolve(clusterService.nodeName());
+            Path raftDir = workDir.resolve(clusterService.staticLocalNode().name());
 
             partitionsWorkDir = new ComponentWorkingDir(raftDir);
 
             logStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    partitionsWorkDir.raftLogPath()
+                    clusterService.staticLocalNode().name(),
+                    partitionsWorkDir.raftLogPath(),
+                    logStorageConfiguration
             );
 
             loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
         }
 
         String consistentId() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.staticLocalNode().name();
         }
 
         Peer asPeer() {

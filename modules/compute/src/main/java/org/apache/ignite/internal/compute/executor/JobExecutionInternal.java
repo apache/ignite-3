@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.compute.executor;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     private final QueueExecution<ComputeJobDataHolder> execution;
 
-    private final AtomicBoolean isInterrupted;
+    private final CancelHandle cancelHandle;
 
     private final Marshaller<R, byte[]> marshaller;
 
@@ -48,20 +48,20 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
      * Constructor.
      *
      * @param execution Internal execution state.
-     * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
+     * @param cancelHandle Cancel handle which is passed to the execution context so that the job can observe cancellation.
      * @param marshaller Result marshaller.
      * @param marshalResult Flag indicating whether the marshalling of the result will be needed.
      * @param localNode Local cluster node.
      */
     JobExecutionInternal(
             QueueExecution<ComputeJobDataHolder> execution,
-            AtomicBoolean isInterrupted,
+            CancelHandle cancelHandle,
             @Nullable Marshaller<R, byte[]> marshaller,
             boolean marshalResult,
             InternalClusterNode localNode
     ) {
         this.execution = execution;
-        this.isInterrupted = isInterrupted;
+        this.cancelHandle = cancelHandle;
         this.marshaller = marshaller;
         this.marshalResult = marshalResult;
 
@@ -80,10 +80,14 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     /**
      * Cancel job execution.
      *
+     * <p>Initiates cancellation of operations registered on the job's cancellation token (e.g., SQL queries)
+     * and interrupts the worker thread as a fallback for jobs that don't use the token. Token cancellation
+     * is asynchronous and may complete after this method returns.
+     *
      * @return {@code true} if job was successfully cancelled.
      */
     public boolean cancel() {
-        isInterrupted.set(true);
+        cancelHandle.cancelAsync();
         return execution.cancel();
     }
 

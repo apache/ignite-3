@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -49,7 +50,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -72,7 +72,6 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
@@ -115,15 +114,10 @@ import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
-import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -196,7 +190,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * Constructor.
      *
      * @param messageService Message service.
-     * @param topSrvc Topology service.
+     * @param localNode Local node.
      * @param mappingService Nodes mapping calculation service.
      * @param sqlSchemaManager Schema manager.
      * @param ddlCmdHnd Handler of the DDL commands.
@@ -211,7 +205,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      */
     public ExecutionServiceImpl(
             MessageService messageService,
-            TopologyService topSrvc,
+            InternalClusterNode localNode,
             MappingService mappingService,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCmdHnd,
@@ -227,7 +221,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             long shutdownTimeout,
             SqlPlanToTxSchemaVersionValidator planValidator
     ) {
-        this.localNode = topSrvc.localMember();
+        this.localNode = localNode;
         this.handler = handler;
         this.rowFactoryFactory = rowFactoryFactory;
         this.messageService = messageService;
@@ -249,7 +243,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * Creates the execution services.
      *
      * @param <RowT> Type of the sql row.
-     * @param topSrvc Topology service.
+     * @param localNode Local node.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
      * @param ddlCommandHandler Handler of the DDL commands.
@@ -269,7 +263,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(
-            TopologyService topSrvc,
+            InternalClusterNode localNode,
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCommandHandler,
@@ -290,7 +284,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
-                topSrvc,
+                localNode,
                 mappingService,
                 sqlSchemaManager,
                 ddlCommandHandler,
@@ -1149,7 +1143,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             } catch (Exception e) {
                 LOG.info("Unable to send error message", e);
 
-                close(CancellationReason.CANCEL);
+                try {
+                    messageService.send(
+                            initiatorNode,
+                            FACTORY.queryCloseMessage()
+                                    .queryId(executionId.queryId())
+                                    .executionToken(executionId.executionToken())
+                                    .build()
+                    );
+                } finally {
+                    close(CancellationReason.CANCEL);
+                }
             }
         }
 
@@ -1293,65 +1297,39 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         }
 
         private void enlistPartitions(MappedFragment mappedFragment, InternalTransaction tx) {
-            // no need to traverse the tree if fragment has no tables
-            if (mappedFragment.fragment().tables().isEmpty()) {
-                return;
+            boolean shouldAssignCommitPartition = tx.commitPartition() == null;
+            for (Long2ObjectMap.Entry<IgniteTable> entry : mappedFragment.fragment().tables().long2ObjectEntrySet()) {
+                long sourceId = entry.getLongKey();
+                IgniteTable table = entry.getValue();
+
+                ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(sourceId);
+                Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
+
+                if (assignments.isEmpty()) {
+                    continue;
+                }
+
+                int tableId = table.id();
+                int zoneId = table.zoneId();
+
+                if (shouldAssignCommitPartition) {
+                    tx.assignCommitPartition(new ZonePartitionId(zoneId, assignments.keySet().iterator().nextInt()));
+                    shouldAssignCommitPartition = false;
+                }
+
+                for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                    ZonePartitionId partitionId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
+
+                    NodeWithConsistencyToken assignment = partWithToken.getValue();
+
+                    tx.enlist(
+                            partitionId,
+                            tableId,
+                            assignment.name(),
+                            assignment.enlistmentConsistencyToken()
+                    );
+                }
             }
-
-            new IgniteRelShuttle() {
-                @Override
-                public IgniteRel visit(IgniteIndexScan rel) {
-                    enlist(rel);
-
-                    return super.visit(rel);
-                }
-
-                @Override
-                public IgniteRel visit(IgniteTableScan rel) {
-                    enlist(rel);
-
-                    return super.visit(rel);
-                }
-
-                @Override
-                public IgniteRel visit(IgniteTableModify rel) {
-                    enlist(rel);
-
-                    return super.visit(rel);
-                }
-
-                private void enlist(int tableId, int zoneId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
-                    if (assignments.isEmpty()) {
-                        return;
-                    }
-
-                    int partsCnt = assignments.size();
-
-                    tx.assignCommitPartition(new ZonePartitionId(zoneId, ThreadLocalRandom.current().nextInt(partsCnt)));
-
-                    for (Int2ObjectMap.Entry<NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId, partWithToken.getIntKey());
-
-                        NodeWithConsistencyToken assignment = partWithToken.getValue();
-
-                        tx.enlist(
-                                replicationGroupId,
-                                tableId,
-                                assignment.name(),
-                                assignment.enlistmentConsistencyToken()
-                        );
-                    }
-                }
-
-                private void enlist(SourceAwareIgniteRel rel) {
-                    IgniteTable igniteTable = rel.getTable().unwrap(IgniteTable.class);
-
-                    ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
-                    Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
-
-                    enlist(igniteTable.id(), igniteTable.zoneId(), assignments);
-                }
-            }.visit(mappedFragment.fragment().root());
         }
 
         private CompletableFuture<Void> close(CancellationReason reason) {
@@ -1359,19 +1337,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 return cancelFut;
             }
 
-            CompletableFuture<Void> start = new CompletableFuture<>();
-
             CompletableFuture<Void> stage;
 
             if (coordinator) {
-                stage = start.thenCompose(ignored -> closeRootNode(reason))
+                stage = closeRootNode(reason)
                         .thenCompose(ignored -> awaitFragmentInitialisationAndClose());
             } else {
-                stage = start.thenCompose(ignored -> messageService.send(coordinatorNodeName, FACTORY.queryCloseMessage()
-                                .queryId(executionId.queryId())
-                                .executionToken(executionId.executionToken())
-                                .build()).exceptionally(ignore -> null))
-                        .thenCompose(ignored -> closeLocalFragments());
+                stage = closeLocalFragments();
             }
 
             stage.whenComplete((r, e) -> {
@@ -1385,8 +1357,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
                 cancelFut.complete(null);
             }).thenRun(() -> localFragments.forEach(f -> f.context().cancel()));
-
-            start.completeAsync(() -> null, taskExecutor);
 
             return cancelFut;
         }

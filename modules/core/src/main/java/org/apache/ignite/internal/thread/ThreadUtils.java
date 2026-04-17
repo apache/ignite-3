@@ -54,6 +54,38 @@ public class ThreadUtils {
     private static final String NL = System.lineSeparator();
 
     /**
+     * Performs thread dump and prints all available info to the given log with {@code WARN} or {@code ERROR} logging level depending on
+     * {@code isErrorLevel} parameter. If there's no thread with a given ID, or ID is invalid, then nothing is printed.
+     *
+     * @param log Logger.
+     * @param threadId ID of a thread to dump.
+     * @param isErrorLevel {@code true} if thread dump must be printed with {@code ERROR} logging level, {@code false} if thread dump must
+     *      be printed with {@code WARN} logging level.
+     */
+    public static void dumpThread(IgniteLogger log, long threadId, boolean isErrorLevel) {
+        if (threadId <= 0) {
+            return;
+        }
+
+        // We don't really need a full stack, 64 as a default should be enough for debugging.
+        int maxStackElements = 64;
+
+        ThreadInfo info = ManagementFactory.getThreadMXBean().getThreadInfo(threadId, maxStackElements);
+        if (info == null) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder(THREAD_DUMP_MSG)
+                .append(THREAD_DUMP_FMT.format(Instant.ofEpochMilli(System.currentTimeMillis())))
+                .append(NL);
+
+        printThreadInfo(info, sb, Set.of());
+        sb.append(NL);
+
+        logMessage(log, sb.toString(), isErrorLevel);
+    }
+
+    /**
      * Performs thread dump and prints all available info to the given log
      * with WARN or ERROR logging level depending on {@code isErrorLevel} parameter.
      *
@@ -91,8 +123,9 @@ public class ThreadUtils {
 
             sb.append(NL);
 
-            if (info.getLockedSynchronizers() != null && info.getLockedSynchronizers().length > 0) {
-                printSynchronizersInfo(info.getLockedSynchronizers(), sb);
+            LockInfo[] lockedSynchronizers = info.getLockedSynchronizers();
+            if (lockedSynchronizers != null && lockedSynchronizers.length > 0) {
+                printSynchronizersInfo(lockedSynchronizers, sb);
 
                 sb.append(NL);
             }

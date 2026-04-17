@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-raft.
@@ -38,7 +39,11 @@ public class RaftConfigurationModule implements ConfigurationModule {
 
     @Override
     public Collection<Class<?>> schemaExtensions() {
-        return List.of(RaftExtensionConfigurationSchema.class);
+        if (IgniteSystemProperties.segmentLogStorageEnabled()) {
+            return List.of(RaftExtensionConfigurationSchema.class, LogStorageExtensionConfigurationSchema.class);
+        } else {
+            return List.of(RaftExtensionConfigurationSchema.class);
+        }
     }
 
     @Override

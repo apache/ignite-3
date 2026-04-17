@@ -93,7 +93,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
+                RowFactory<RowT> rowFactory, int indexId, @Nullable RangeCondition<RowT> cond,
 
                 int @Nullable [] requiredColumns) {
 
@@ -108,7 +108,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key,
+                RowFactory<RowT> rowFactory, int indexId, RowT key,
                 int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(

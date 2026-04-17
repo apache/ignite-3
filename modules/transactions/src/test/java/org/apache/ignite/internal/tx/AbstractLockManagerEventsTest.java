@@ -40,7 +40,7 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
 
     private final EventListener<LockEventParameters> lockEventListener = this::lockEventListener;
 
-    private final LockKey key = key(new Object());
+    private final LockKey key = lockKey(new Object());
 
     private boolean listenerAdded;
 
@@ -76,7 +76,7 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
 
-        LockKey key = key(new Object());
+        LockKey key = lockKey(new Object());
 
         xlock(tx0, key);
         xlock(tx1, key);

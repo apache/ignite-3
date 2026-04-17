@@ -25,6 +25,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTupleRequest
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -53,13 +54,14 @@ public class ClientTupleGetRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             HybridTimestampTracker tsTracker,
             long requestId,
             Map<Long, Long> reqToTxMap
     ) {
-        return readAsync(in, tables, resources, txManager, null, tsTracker, of(READ_ONLY, KEY_ONLY),  requestId, reqToTxMap)
+        return readAsync(in, tables, resources, metrics, txManager, null, tsTracker, of(READ_ONLY, KEY_ONLY), requestId, reqToTxMap)
                 .thenCompose(req -> req.table().recordView().getAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

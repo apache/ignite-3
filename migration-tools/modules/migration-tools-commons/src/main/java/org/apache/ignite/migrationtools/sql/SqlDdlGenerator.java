@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -388,6 +389,9 @@ public class SqlDdlGenerator {
             }
         }
 
+        // Tracks whether this QE maps a POJO on either Key/Value.
+        boolean mapsPojo = false;
+
         // Go over existing fields in the QE to they are correct and there are not silly nulls.
         {
             // AI2 may define primitive field types, however, they still mark them as nullable somehow.
@@ -430,6 +434,29 @@ public class SqlDdlGenerator {
 
             // Mark keyFields as not nullable.
             qe.getNotNullFields().addAll(qe.getKeyFields());
+
+            // We also want to remove fields non-compliant with AI3 so that they are handled in the extra fields.
+            for (Iterator<Entry<String, String>> it = qe.getFields().entrySet().iterator(); it.hasNext(); ) {
+                Entry<String, String> e = it.next();
+                String fieldType = ClassnameUtils.ensureWrapper(e.getValue());
+
+                boolean isNativelySupportedType;
+                try {
+                    Class<?> type = ClassUtils.getClass(this.clientClassLoader, fieldType);
+                    isNativelySupportedType = TypeInspector.isPrimitiveType(type);
+                } catch (ClassNotFoundException ignored) {
+                    // All natively supported types should be in the classpath.
+                    // Some enums might still slip through.
+                    isNativelySupportedType = false;
+                }
+
+                // Remove from the field list, we will need to map it in the extra fields.
+                if (!isNativelySupportedType) {
+                    mapsPojo = true;
+                    it.remove();
+                    qe.getKeyFields().remove(e.getKey());
+                }
+            }
         }
 
         @Nullable Map<InspectedField, String> keyFieldToColumnMap;
@@ -558,7 +585,7 @@ public class SqlDdlGenerator {
         }
 
         // Empty field lists means that the class for the type is not available on the classpath so it must be a pojo.
-        boolean mapsPojo = keyFields.isEmpty() || valFields.isEmpty();
+        mapsPojo = mapsPojo || keyFields.isEmpty() || valFields.isEmpty();
 
         // Process key fields
         {
@@ -583,7 +610,7 @@ public class SqlDdlGenerator {
 
         // Process value fields
         {
-            if (valFields.size() == 1) {
+            if (valFields.size() == 1 && !mapsPojo) {
                 InspectedField inspectedField = valFields.get(0);
                 String columnName = valFieldToColumnMap.get(inspectedField);
 

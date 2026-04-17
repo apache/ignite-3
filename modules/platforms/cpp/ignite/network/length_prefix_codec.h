@@ -19,6 +19,7 @@
 
 #include <ignite/common/ignite_error.h>
 #include <ignite/network/codec.h>
+#include <ignite/common/detail/factory.h>
 
 #include <cstddef>
 #include <vector>
@@ -83,6 +84,6 @@ private:
 };
 
 /** Factory for length_prefix_codec. */
-typedef detail::basic_factory<codec, length_prefix_codec> length_prefix_codec_factory;
+typedef ignite::detail::basic_factory<codec, length_prefix_codec> length_prefix_codec_factory;
 
 } // namespace ignite::network

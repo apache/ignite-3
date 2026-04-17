@@ -47,12 +47,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,16 +64,16 @@ public class CmgRaftService implements ManuallyCloseable {
 
     private final TimeAwareRaftGroupService raftService;
 
-    private final TopologyService topologyService;
+    private final InternalClusterNode localNode;
 
     private final LogicalTopology logicalTopology;
 
     /**
      * Creates a new instance.
      */
-    public CmgRaftService(TimeAwareRaftGroupService raftService, TopologyService topologyService, LogicalTopology logicalTopology) {
+    public CmgRaftService(TimeAwareRaftGroupService raftService, InternalClusterNode localNode, LogicalTopology logicalTopology) {
         this.raftService = raftService;
-        this.topologyService = topologyService;
+        this.localNode = localNode;
         this.logicalTopology = logicalTopology;
     }
 
@@ -90,7 +88,7 @@ public class CmgRaftService implements ManuallyCloseable {
         if (leader == null) {
             return raftService.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT).thenCompose(v -> isCurrentNodeLeader());
         } else {
-            String nodeName = topologyService.localMember().name();
+            String nodeName = localNode.name();
 
             return completedFuture(leader.consistentId().equals(nodeName));
         }
@@ -113,7 +111,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * @return Future that resolves to the current CMG state.
      */
     public CompletableFuture<ClusterState> initClusterState(ClusterState clusterState) {
-        ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember());
+        ClusterNodeMessage localNodeMessage = nodeMessage(localNode);
 
         return run(msgFactory.initCmgStateCommand().node(localNodeMessage).clusterState(clusterState).build())
                 .thenApply(response -> {
@@ -137,7 +135,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * @see ValidationManager
      */
     public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, NodeAttributes nodeAttributes) {
-        ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember(), nodeAttributes);
+        ClusterNodeMessage localNodeMessage = nodeMessage(localNode, nodeAttributes);
 
         JoinRequestCommand command = msgFactory.joinRequestCommand()
                 .node(localNodeMessage)
@@ -175,7 +173,7 @@ public class CmgRaftService implements ManuallyCloseable {
     public CompletableFuture<Void> completeJoinCluster(NodeAttributes attributes) {
         LOG.info("Node is ready to join the logical topology");
 
-        ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember(), attributes);
+        ClusterNodeMessage localNodeMessage = nodeMessage(localNode, attributes);
 
         JoinReadyCommand joinReadyCommand = msgFactory.joinReadyCommand().node(localNodeMessage).build();
         return run(joinReadyCommand)

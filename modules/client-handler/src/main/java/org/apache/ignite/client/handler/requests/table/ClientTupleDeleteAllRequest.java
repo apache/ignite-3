@@ -25,6 +25,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTuplesReques
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -54,6 +55,7 @@ public class ClientTupleDeleteAllRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
@@ -61,7 +63,7 @@ public class ClientTupleDeleteAllRequest {
             long requestId,
             Map<Long, Long> reqToTxMap
     ) {
-        return readAsync(in, tables, resources, txManager, notificationSender, tsTracker, of(KEY_ONLY), requestId, reqToTxMap)
+        return readAsync(in, tables, resources, metrics, txManager, notificationSender, tsTracker, of(KEY_ONLY), requestId, reqToTxMap)
                 .thenCompose(req -> req.table().recordView().deleteAllAsync(req.tx(), req.tuples())
                         .thenApply(skippedTuples -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

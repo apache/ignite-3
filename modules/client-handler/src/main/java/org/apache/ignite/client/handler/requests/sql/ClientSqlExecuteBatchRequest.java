@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -54,6 +55,7 @@ public class ClientSqlExecuteBatchRequest {
             ClientMessageUnpacker in,
             QueryProcessor sql,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap,
             HybridTimestampTracker tsTracker,
@@ -67,6 +69,7 @@ public class ClientSqlExecuteBatchRequest {
                 in,
                 tsTracker,
                 resources,
+                metrics,
                 null,
                 null,
                 null,

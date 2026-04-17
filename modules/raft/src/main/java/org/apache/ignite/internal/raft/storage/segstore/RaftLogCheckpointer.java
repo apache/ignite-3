@@ -66,6 +66,7 @@ class RaftLogCheckpointer {
 
     RaftLogCheckpointer(
             String nodeName,
+            String storageName,
             IndexFileManager indexFileManager,
             FailureProcessor failureProcessor,
             int maxQueueSize,
@@ -76,7 +77,7 @@ class RaftLogCheckpointer {
         this.beforeIndexFileCreated = beforeIndexFileCreated;
 
         queue = new CheckpointQueue(maxQueueSize);
-        checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint", new CheckpointTask());
+        checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint-" + storageName, new CheckpointTask());
     }
 
     void start() {

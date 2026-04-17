@@ -100,7 +100,7 @@ public class ClientSqlExecuteRequest {
             NotificationSender notificationSender,
             Map<Long, Long> reqToTxMap,
             @Nullable String username,
-            boolean sqlMultistatementsSupported,
+            boolean sqlMultistatementSupported,
             boolean sqlPartitionAwarenessQualifiedNameSupported,
             Consumer<SqlQueryType> queryTypeListener
     ) {
@@ -117,6 +117,7 @@ public class ClientSqlExecuteRequest {
                 in,
                 timestampTracker,
                 resources,
+                metrics,
                 txManager,
                 tables,
                 notificationSender,
@@ -125,7 +126,7 @@ public class ClientSqlExecuteRequest {
                 reqToTxMap
         );
 
-        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementsSupported);
+        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementSupported);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
 
@@ -150,10 +151,11 @@ public class ClientSqlExecuteRequest {
                                 resources,
                                 asyncResultSet,
                                 metrics,
+                                timestampTracker,
                                 props.pageSize(),
                                 includePartitionAwarenessMeta,
                                 sqlDirectTxMappingSupported,
-                                sqlMultistatementsSupported,
+                                sqlMultistatementSupported,
                                 sqlPartitionAwarenessQualifiedNameSupported,
                                 operationExecutor))
                 .thenApply(rsWriter -> out -> {

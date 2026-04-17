@@ -72,8 +72,6 @@ import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -95,7 +93,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -265,13 +262,19 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Lock the key in tx2.
         Transaction tx2 = client().transactions().begin();
 
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        boolean invertedWaitOrder = server0.txManager().lockManager().policy().invertedWaitOrder();
+
+        Transaction owner = invertedWaitOrder ? tx2 : tx1;
+        Transaction waiter = invertedWaitOrder ? tx1 : tx2;
+
         try {
-            kvView.put(tx2, -100, "1");
+            kvView.put(owner, -100, "1");
 
             // Get the key in tx1 - time out.
-            assertThrows(TimeoutException.class, () -> kvView.getAsync(tx1, -100).get(1, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> kvView.getAsync(waiter, -100).get(1, TimeUnit.SECONDS));
         } finally {
-            tx2.rollback();
+            owner.rollback();
         }
     }
 
@@ -1381,11 +1384,15 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
 
-        // Older is allowed to wait with wait-die.
-        CompletableFuture<?> fut = ctx.put.apply(client(), olderTxProxy, key2);
-        assertFalse(fut.isDone());
-
         IgniteImpl ignite = unwrapIgniteImpl(server);
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
+
+        ClientLazyTransaction owner = invertedWaitOrder ? youngerTxProxy : olderTxProxy;
+        ClientLazyTransaction waiter = invertedWaitOrder ? olderTxProxy : youngerTxProxy;
+
+        CompletableFuture<?> fut =
+                invertedWaitOrder ? ctx.put.apply(client(), olderTxProxy, key2) : ctx.put.apply(client(), youngerTxProxy, key);
+        assertFalse(fut.isDone());
 
         await().atMost(2, TimeUnit.SECONDS).until(() -> {
             Iterator<Lock> locks = ignite.txManager().lockManager().locks(olderTx.txId());
@@ -1393,23 +1400,17 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             return CollectionUtils.count(locks) == 2;
         });
 
-        assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
+        assertThat(waiter.rollbackAsync(), willSucceedFast());
 
         // Operation future should be failed.
         assertThat(fut, willThrowWithCauseOrSuppressed(ctx.expectedErr));
 
         // Ensure inflights cleanup.
-        assertThat(youngerTxProxy.rollbackAsync(), willSucceedFast());
+        assertThat(owner.rollbackAsync(), willSucceedFast());
 
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2)), willSucceedFast());
     }
 
-    static boolean isUsingReverseComparator() {
-        TxIdComparators comparator = IgniteTestUtils.getFieldValue(null, TxManagerImpl.class, "DEFAULT_TX_ID_COMPARATOR");
-        return comparator == TxIdComparators.REVERSED;
-    }
-
-    @EnabledIf("org.apache.ignite.internal.client.ItThinClientTransactionsTest#isUsingReverseComparator")
     @Nested
     class OnConflictDuringFirstRequest {
         class Data {
@@ -1619,10 +1620,18 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         // Should be directly mapped
         assertThat(ctx.put.apply(client(), youngerTxProxy, key3), willSucceedFast());
+        assertThat(ctx.put.apply(client(), olderTxProxy, key4), willSucceedFast());
 
-        // Younger is not allowed to wait with wait-die.
-        // Next operation should invalidate the transaction.
-        assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        boolean invertedWaitOrder = server0.txManager().lockManager().policy().invertedWaitOrder();
+
+        // Force wrong order.
+        if (invertedWaitOrder) {
+            assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+        } else {
+            assertThat(ctx.put.apply(client(), olderTxProxy, key2), willSucceedFast()); // Will invalidate younger tx.
+            assertThat(youngerTxProxy.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
+        }
 
         olderTxProxy.commit();
 
@@ -1632,7 +1641,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @MethodSource("killTestContextFactory")
-    public void testRollbackOnLocalError(KillTestContext ctx) throws Exception {
+    public void testRollbackOnLocalError(KillTestContext ctx) {
         ClientTable table = (ClientTable) table();
         ClientSql sql = (ClientSql) client().sql();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();

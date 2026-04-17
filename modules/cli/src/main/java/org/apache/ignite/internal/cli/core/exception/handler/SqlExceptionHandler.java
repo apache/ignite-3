@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Authentication;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteCheckedException;
@@ -54,6 +55,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
 
     /** Default constructor. */
     private SqlExceptionHandler() {
+        sqlExceptionMappers.put(Authentication.AUTHENTICATION_ERR_GROUP.groupCode(), SqlExceptionHandler::authnErrUiComponent);
         sqlExceptionMappers.put(Client.CLIENT_ERR_GROUP.groupCode(), SqlExceptionHandler::connectionErrUiComponent);
         sqlExceptionMappers.put(Sql.SQL_ERR_GROUP.groupCode(), SqlExceptionHandler::sqlErrUiComponent);
     }
@@ -65,15 +67,6 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
 
         if (e.getCause() instanceof IgniteClientConnectionException) {
             IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
-
-            InvalidCredentialsException invalidCredentialsException = findCause(cause, InvalidCredentialsException.class);
-            if (invalidCredentialsException != null) {
-                return ErrorUiComponent.builder()
-                        .header("Could not connect to node. Check authentication configuration")
-                        .details(invalidCredentialsException.getMessage())
-                        .verbose(extractCauseMessage(cause.getMessage()))
-                        .build();
-            }
 
             SSLHandshakeException sslHandshakeException = findCause(cause, SSLHandshakeException.class);
             if (sslHandshakeException != null) {
@@ -88,6 +81,19 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
         }
 
         return fromIgniteException(CLIENT_CONNECTION_FAILED_MESSAGE, e);
+    }
+
+    private static ErrorUiComponent authnErrUiComponent(IgniteException e) {
+        InvalidCredentialsException invalidCredentialsException = findCause(e, InvalidCredentialsException.class);
+        if (invalidCredentialsException != null) {
+            return ErrorUiComponent.builder()
+                    .header("Could not connect to node. Check authentication configuration")
+                    .details(invalidCredentialsException.getMessage())
+                    .verbose(extractCauseMessage(e.getMessage()))
+                    .build();
+        }
+
+        return fromIgniteException("Could not connect to node. Check authentication configuration", e);
     }
 
     @Nullable
