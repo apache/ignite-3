@@ -420,6 +420,7 @@ public class ClientInboundMessageHandler
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ByteBuf byteBuf = (ByteBuf) msg;
+
         // Each inbound handler in a pipeline has to release the received messages.
         var unpacker = new ClientMessageUnpacker(byteBuf);
 
@@ -881,6 +882,7 @@ public class ClientInboundMessageHandler
             if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
+
                 partitionOperationsExecutor.execute(() -> {
                     try {
                         processOperationInternal(ctx, in, requestId0, opCode0, guard);
