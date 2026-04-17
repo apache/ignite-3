@@ -17,28 +17,29 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.awaits;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.impl.WoundWaitDeadlockPreventionPolicy;
-import org.junit.jupiter.params.Parameter;
-import org.junit.jupiter.params.ParameterizedClass;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.hamcrest.Matcher;
 
 /**
- * Class that contains the tests for lock manager events producing for {@link HeapLockManager}.
+ * Test for {@link WoundWaitDeadlockPreventionPolicy} with no-op fail action.
  */
-@ParameterizedClass
-@ValueSource(classes = {WaitDieDeadlockPreventionPolicy.class, WoundWaitDeadlockPreventionPolicy.class})
-public class HeapLockManagerEventsTest extends AbstractLockManagerEventsTest {
-    @Parameter
-    Class<DeadlockPreventionPolicy> policy;
+public class WoundWaitDeadlockPreventionNoOpFailActionTest extends AbstractDeadlockPreventionTest {
+    @Override
+    protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
+        return awaits();
+    }
 
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        try {
-            return policy.getDeclaredConstructor().newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return new WoundWaitDeadlockPreventionPolicy() {
+            @Override
+            public void failAction(UUID owner) {
+                // No-op action causes wound wait to wait on conflict.
+            }
+        };
     }
 }

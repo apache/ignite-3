@@ -44,20 +44,21 @@ public:
         , m_debug(debug) {}
 
     void log_error(std::string_view message) override {
-        std::cout << "[          ] [ ERROR ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
+        std::cout << thread_info() + "[ ERROR ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
     void log_warning(std::string_view message) override {
-        std::cout << "[          ] [ WARNING ] " + get_timestamp() + std::string(message) + '\n' << std::flush;
+        std::cout << thread_info() + "[ WARNING ] " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
     void log_info(std::string_view message) override {
-        std::cout << "[          ] [ INFO ]    " + get_timestamp() + std::string(message) + '\n' << std::flush;
+        std::cout << thread_info() + "[ INFO ]    " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
     void log_debug(std::string_view message) override {
-        if (m_debug)
-            std::cout << "[          ] [ DEBUG ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
+        if (m_debug) {
+            std::cout << thread_info() + "[ DEBUG ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
+        }
     }
 
     [[nodiscard]] bool is_debug_enabled() const override { return true; }
@@ -82,6 +83,17 @@ private:
         std::stringstream ss;
         ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0')
            << (ms.count() % 1000) << " ";
+        return ss.str();
+    }
+
+    /**
+     * Create formatted string with current thread id.
+     * @return String with thread id.
+     */
+    static std::string thread_info() {
+        std::stringstream ss;
+        ss << "[" << std::hex << std::this_thread::get_id() << "] ";
+
         return ss.str();
     }
 

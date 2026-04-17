@@ -35,6 +35,8 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      */
     void start(DeadlockPreventionPolicy deadlockPreventionPolicy);
 
+    DeadlockPreventionPolicy policy();
+
     /**
      * Attempts to acquire a lock for the specified {@code lockKey} in specified {@code lockMode}.
      *

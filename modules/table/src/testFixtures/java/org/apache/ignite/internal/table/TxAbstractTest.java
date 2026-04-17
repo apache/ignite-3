@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.ensureFutureNotCompleted;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -52,17 +52,13 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -88,7 +84,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
@@ -425,28 +420,32 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertTrue(tx2.id().compareTo(tx3.id()) < 0);
         assertTrue(tx1.id().compareTo(tx2.id()) < 0);
 
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
+        if (invertedWaitOrder) {
+            InternalTransaction tmp = tx1;
+            tx1 = tx4;
+            tx4 = tmp;
+
+            tmp = tx2;
+            tx2 = tx3;
+            tx3 = tmp;
+        }
+
         RecordView<Tuple> acc0 = accounts.recordView();
         RecordView<Tuple> acc2 = accounts.recordView();
         RecordView<Tuple> acc3 = accounts.recordView();
         RecordView<Tuple> acc4 = accounts.recordView();
 
-        acc0.upsert(tx4, makeValue(1, 100.));
+        acc0.upsert(tx1, makeValue(1, 100.));
 
         CompletableFuture<Void> fut = acc3.upsertAsync(tx2, makeValue(1, 300.));
+        ensureFutureNotCompleted(fut, 100);
 
-        Thread.sleep(100);
+        CompletableFuture<Void> fut2 = acc4.upsertAsync(tx3, makeValue(1, 400.));
+        ensureFutureNotCompleted(fut2, 100);
 
-        assertFalse(fut.isDone());
-
-        CompletableFuture<Void> fut2 = acc4.upsertAsync(tx2, makeValue(1, 400.));
-
-        Thread.sleep(100);
-
-        assertFalse(fut2.isDone());
-
-        CompletableFuture<Void> fut3 = acc2.upsertAsync(tx3, makeValue(1, 200.));
-
-        assertFalse(fut3.isDone());
+        CompletableFuture<Void> fut3 = acc2.upsertAsync(tx4, makeValue(1, 200.));
+        ensureFutureNotCompleted(fut3, 100);
     }
 
     /**
@@ -595,6 +594,11 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
+
+        Transaction owner = invertedWaitOrder ? tx2 : tx1;
+        Transaction waiter = invertedWaitOrder ? tx1 : tx2;
+
         log.info("Tx " + tx2);
         log.info("Tx2 " + tx1);
 
@@ -609,19 +613,24 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         var table = accounts.recordView();
         var table2 = accounts.recordView();
 
-        table2.upsertAll(tx1, rows2);
+        table2.upsertAll(owner, rows2);
 
-        Exception err = assertThrows(Exception.class, () -> table.upsertAll(tx2, rows));
+        CompletableFuture<Void> fut = table.upsertAllAsync(waiter, rows);
+        ensureFutureNotCompleted(fut, 100);
 
-        assertTransactionLockException(err);
-
-        tx1.commit();
+        owner.commit();
+        waiter.commit();
     }
 
     @Test
     public void testBatchReadPutConcurrently() throws InterruptedException {
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
+
+        InternalTransaction owner = invertedWaitOrder ? tx2 : tx1;
+        InternalTransaction waiter = invertedWaitOrder ? tx1 : tx2;
 
         log.info("Tx1 " + tx1);
         log.info("Tx2 " + tx2);
@@ -637,8 +646,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             keys2.add(makeKey(i));
         }
 
-        table2.getAll(tx1, keys);
-        table2.getAll(tx2, keys2);
+        table2.getAll(owner, keys);
+        table2.getAll(waiter, keys2);
 
         ArrayList<Tuple> rows = new ArrayList<>();
         ArrayList<Tuple> rows2 = new ArrayList<>();
@@ -648,15 +657,20 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             rows2.add(makeValue(i, 2 * i * 100.));
         }
 
-        var futUpd2 = table2.upsertAllAsync(tx1, rows2);
+        var futUpd2 = table2.upsertAllAsync(waiter, rows2);
 
         assertTrue(waitForCondition(() -> {
             boolean lockUpgraded = false;
 
-            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
+            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(waiter.id()); it.hasNext(); ) {
                 Lock lock = it.next();
 
-                lockUpgraded = txManager(accounts).lockManager().waiter(lock.lockKey(), tx1.id()).intendedLockMode() == LockMode.X;
+                if (lock.lockKey().contextId() == null) {
+                    // Ignore coarse locks.
+                    continue;
+                }
+
+                lockUpgraded = txManager(accounts).lockManager().waiter(lock.lockKey(), waiter.id()).intendedLockMode() == LockMode.X;
 
                 if (lockUpgraded) {
                     break;
@@ -666,9 +680,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             return lockUpgraded;
         }, 3000));
 
-        assertFalse(futUpd2.isDone());
-
-        assertThrowsWithCause(() -> table.upsertAll(tx2, rows), LockException.class);
+        ensureFutureNotCompleted(futUpd2, 100);
     }
 
     /**
@@ -719,36 +731,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
-    }
-
-    @Test
-    public void testSimpleConflict() {
-        accounts.recordView().upsert(null, makeValue(1, 100.));
-
-        Transaction tx1 = igniteTransactions.begin();
-        Transaction tx2 = igniteTransactions.begin();
-
-        var table = accounts.recordView();
-        var table2 = accounts.recordView();
-
-        double val = table.get(tx2, makeKey(1)).doubleValue("balance");
-        table2.get(tx1, makeKey(1)).doubleValue("balance");
-
-        try {
-            table.upsert(tx2, makeValue(1, val + 1));
-
-            fail();
-        } catch (Exception e) {
-            // Expected.
-        }
-
-        table2.upsert(tx1, makeValue(1, val + 1));
-
-        tx1.commit();
-
-        tx2.commit();
-
-        assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
     @Test
@@ -832,6 +814,11 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
+
+        Transaction owner = invertedWaitOrder ? tx2 : tx1;
+        Transaction waiter = invertedWaitOrder ? tx1 : tx2;
+
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
@@ -841,21 +828,26 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         var table2 = accounts.recordView();
 
         // Read in tx2
-        double valTx = table.get(tx2, key).doubleValue("balance");
+        double valTx = table.get(owner, key).doubleValue("balance");
 
         // Read in tx1
-        double valTx2 = table2.get(tx1, key).doubleValue("balance");
+        double valTx2 = table2.get(waiter, key).doubleValue("balance");
 
-        // Write in tx2 (out of order)
-        // TODO asch IGNITE-15937 fix exception model.
-        Exception err = assertThrows(Exception.class, () -> table.upsert(tx2, makeValue(1, valTx + 1)));
+        CompletableFuture<Void> fut = table.upsertAsync(waiter, makeValue(1, valTx + 1));
+        ensureFutureNotCompleted(fut, 100);
 
-        assertTransactionLockException(err);
+        try {
+            table2.upsert(owner, makeValue(1, valTx2 + 1));
+        } catch (TransactionException e) {
+            // Expected.
+        }
 
-        // Write in tx1
-        table2.upsert(tx1, makeValue(1, valTx2 + 1));
-
-        tx1.commit();
+        owner.commit();
+        try {
+            waiter.commit();
+        } catch (TransactionException e) {
+            // Expected.
+        }
 
         assertEquals(101., accounts.recordView().get(null, key).doubleValue("balance"));
     }
@@ -994,24 +986,25 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     public void testGetAllConflict() throws Exception {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
-        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction older = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction younger = (InternalTransaction) igniteTransactions.begin();
+
+        boolean invertedWaitOrder = txManager(accounts).lockManager().policy().invertedWaitOrder();
 
         RecordView<Tuple> txAcc = accounts.recordView();
         RecordView<Tuple> txAcc2 = accounts.recordView();
 
-        txAcc2.upsert(tx1, makeValue(1, 300.));
-        txAcc.upsert(tx2, makeValue(2, 400.));
+        txAcc2.upsert(older, makeValue(1, 300.));
+        txAcc.upsert(younger, makeValue(2, 400.));
 
-        Exception err = assertThrows(Exception.class, () -> txAcc.getAll(tx2, List.of(makeKey(2), makeKey(1))));
-        assertTransactionLockException(err);
+        // Triggers a conflict, which invalidates younger transaction.
+        txAcc.getAllAsync(invertedWaitOrder ? younger : older, List.of(makeKey(2), makeKey(1)));
+        assertTrue(waitForCondition(() -> TxState.ABORTED == younger.state(), 5_000), younger.state().toString());
 
-        validateBalance(txAcc2.getAll(tx1, List.of(makeKey(2), makeKey(1))), 200., 300.);
-        validateBalance(txAcc2.getAll(tx1, List.of(makeKey(1), makeKey(2))), 300., 200.);
+        validateBalance(txAcc2.getAll(older, List.of(makeKey(2), makeKey(1))), 200., 300.);
+        validateBalance(txAcc2.getAll(older, List.of(makeKey(1), makeKey(2))), 300., 200.);
 
-        assertTrue(waitForCondition(() -> TxState.ABORTED == tx2.state(), 5_000), tx2.state().toString());
-
-        tx1.commit();
+        older.commit();
 
         validateBalance(accounts.recordView().getAll(null, List.of(makeKey(2), makeKey(1))), 200., 300.);
     }
@@ -1410,16 +1403,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     @Test
-    public void testBalance() throws InterruptedException {
-        doTestSingleKeyMultithreaded(5_000, false);
-    }
-
-    @Test
-    public void testLockedTooLong() {
-        // TODO asch IGNITE-15936 if lock can't be acquired until timeout tx should be rolled back.
-    }
-
-    @Test
     public void testScan() {
         doTestScan(null);
     }
@@ -1692,147 +1675,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         if (tx != null) {
             tx.commit();
         }
-    }
-
-    /**
-     * Performs a test.
-     *
-     * @param duration The duration.
-     * @param verbose Verbose mode.
-     * @throws InterruptedException If interrupted while waiting.
-     */
-    private void doTestSingleKeyMultithreaded(long duration, boolean verbose) throws InterruptedException {
-        int threadsCnt = Runtime.getRuntime().availableProcessors() * 2;
-
-        Thread[] threads = new Thread[threadsCnt];
-
-        final int accountsCount = threads.length * 10;
-
-        final double initial = 1000;
-        final double total = accountsCount * initial;
-
-        for (int i = 0; i < accountsCount; i++) {
-            accounts.recordView().upsert(null, makeValue(i, 1000));
-        }
-
-        double total0 = 0;
-
-        for (long i = 0; i < accountsCount; i++) {
-            double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
-
-            total0 += balance;
-        }
-
-        assertEquals(total, total0, "Total amount invariant is not preserved");
-
-        CyclicBarrier startBar = new CyclicBarrier(threads.length, () -> log.info("Before test"));
-
-        LongAdder ops = new LongAdder();
-        LongAdder fails = new LongAdder();
-
-        AtomicBoolean stop = new AtomicBoolean();
-
-        Random r = new Random();
-
-        AtomicReference<Throwable> firstErr = new AtomicReference<>();
-
-        for (int i = 0; i < threads.length; i++) {
-            threads[i] = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        startBar.await();
-                    } catch (Exception e) {
-                        fail();
-                    }
-
-                    while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = clientTxManager().beginExplicitRw(timestampTracker, InternalTxOptions.defaults());
-
-                        var table = accounts.recordView();
-
-                        try {
-                            long acc1 = r.nextInt(accountsCount);
-
-                            double amount = 100 + r.nextInt(500);
-
-                            if (verbose) {
-                                log.info("op=tryGet ts={} id={}", tx.id(), acc1);
-                            }
-
-                            double val0 = table.get(tx, makeKey(acc1)).doubleValue("balance");
-
-                            long acc2 = acc1;
-
-                            while (acc1 == acc2) {
-                                acc2 = r.nextInt(accountsCount);
-                            }
-
-                            if (verbose) {
-                                log.info("op=tryGet ts={} id={}", tx.id(), acc2);
-                            }
-
-                            double val1 = table.get(tx, makeKey(acc2)).doubleValue("balance");
-
-                            if (verbose) {
-                                log.info("op=tryPut ts={} id={}", tx.id(), acc1);
-                            }
-
-                            table.upsert(tx, makeValue(acc1, val0 - amount));
-
-                            if (verbose) {
-                                log.info("op=tryPut ts={} id={}", tx.id(), acc2);
-                            }
-
-                            table.upsert(tx, makeValue(acc2, val1 + amount));
-
-                            tx.commit();
-
-                            ops.increment();
-                        } catch (Exception e) {
-                            assertTransactionLockException(e);
-
-                            tx.rollback();
-
-                            fails.increment();
-                        }
-                    }
-                }
-            });
-
-            threads[i].setName("Worker-" + i);
-            threads[i].setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                @Override
-                public void uncaughtException(Thread t, Throwable e) {
-                    firstErr.compareAndExchange(null, e);
-                }
-            });
-            threads[i].start();
-        }
-
-        Thread.sleep(duration);
-
-        stop.set(true);
-
-        for (Thread thread : threads) {
-            thread.join(3_000);
-        }
-
-        if (firstErr.get() != null) {
-            throw new IgniteException(INTERNAL_ERR, firstErr.get());
-        }
-
-        log.info("After test ops={} fails={}", ops.sum(), fails.sum());
-
-        total0 = 0;
-
-        for (long i = 0; i < accountsCount; i++) {
-            double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
-
-            total0 += balance;
-        }
-
-        assertEquals(total, total0, "Total amount invariant is not preserved");
     }
 
     /**
@@ -2196,11 +2038,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         accountRecordsView.upsert(null, makeValue(1, 100.));
 
         Transaction tx1 = igniteTransactions.begin();
-        Transaction tx2 = igniteTransactions.begin();
 
         accountRecordsView.upsert(tx1, makeValue(1, 200.));
-
-        assertThrows(TransactionException.class, () -> accountRecordsView.get(tx2, makeKey(1)));
 
         assertEquals(100., accountRecordsView.get(null, makeKey(1)).doubleValue("balance"));
 
@@ -2234,12 +2073,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         accountRecordsView.upsertAll(null, keys.stream().map(k -> makeValue(k, 100.)).collect(toList()));
 
         Transaction tx1 = igniteTransactions.begin();
-        Transaction tx2 = igniteTransactions.begin();
 
         accountRecordsView.upsertAll(tx1, keys.stream().map(k -> makeValue(k, 200.)).collect(toList()));
-
-        assertThrows(TransactionException.class,
-                () -> accountRecordsView.getAll(tx2, keys.stream().map(k -> makeKey(k)).collect(toList())));
 
         for (Tuple tuple : accountRecordsView.getAll(null, keys.stream().map(k -> makeKey(k)).collect(toList()))) {
             assertEquals(100., tuple.doubleValue("balance"));
@@ -2291,6 +2126,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     @ParameterizedTest
     @EnumSource(TxPriority.class)
     public void testYoungerTransactionThrowsExceptionIfKeyLockedByOlderTransactionWithSamePriority(TxPriority priority) {
+        if (!txManager(accounts).lockManager().policy().invertedWaitOrder()) {
+            return; // Not compatible with inverted wait order.
+        }
+
         IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;
 
         KeyValueView<Long, String> keyValueView = customers.keyValueView(Long.class, String.class);

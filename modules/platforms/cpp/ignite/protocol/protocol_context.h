@@ -24,6 +24,7 @@
 #include "ignite/common/detail/server_version.h"
 #include "ignite/common/uuid.h"
 
+#include <iostream>
 #include <vector>
 
 namespace ignite::protocol {
@@ -115,7 +116,11 @@ public:
      * @return Features.
      */
     [[nodiscard]] bool is_feature_supported(bitmask_feature feature) const {
-        return bitset_span(m_features).test(static_cast<std::size_t>(feature));
+        auto features_copy = m_features;
+
+        bitset_span bs(features_copy.data(), features_copy.size());
+
+        return bs.test(static_cast<std::size_t>(feature));
     }
 
 private:

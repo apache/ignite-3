@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -28,9 +30,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -134,6 +138,14 @@ public class LeaseUpdater {
     private final String nodeName;
 
     private final Executor throttledLogExecutor;
+
+    private CompletableFuture<?> leaseUpdateFuture = nullCompletedFuture();
+
+    /**
+     * Leases cache for updating leases via {@link MetaStorageManager#invoke}. It is renewed right before the lease update, because leases
+     * in {@link LeaseTracker} may be stale a bit, which is critical for invoke.
+     */
+    private volatile Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
 
     /**
      * Constructor.
@@ -388,6 +400,8 @@ public class LeaseUpdater {
 
                 try {
                     if (active()) {
+                        waitForInflight();
+
                         updateLeaseBatchInternal();
                     }
                 } catch (Throwable e) {
@@ -408,6 +422,28 @@ public class LeaseUpdater {
             }
         }
 
+        private void waitForInflight() {
+            try {
+                leaseUpdateFuture.get(replicationConfiguration.leaseExpirationIntervalMillis().value() / 2, MILLISECONDS);
+            } catch (Exception e) {
+                LOG.info("Could not wait for the previous lease update to complete, proceeding with the next update attempt.", e);
+            }
+
+            var entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY);
+
+            if (entry != null && entry.value() != null) {
+                LeaseBatch leaseBatch = LeaseBatch.fromBytes(entry.value());
+                Map<ReplicationGroupId, Lease> newLeasesMap = newHashMap(leaseBatch.leases().size());
+                for (Lease lease : leaseBatch.leases()) {
+                    newLeasesMap.put(lease.replicationGroupId(), lease);
+                }
+
+                leases = new Leases(newLeasesMap, entry.value());
+            } else {
+                leases = leaseTracker.leasesLatest();
+            }
+        }
+
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
             HybridTimestamp currentTime = clockService.current();
@@ -418,7 +454,7 @@ public class LeaseUpdater {
 
             HybridTimestamp newExpirationTimestamp = new HybridTimestamp(currentTime.getPhysical() + leaseExpirationInterval, 0);
 
-            Leases leasesCurrent = leaseTracker.leasesLatest();
+            Leases leasesCurrent = leases;
             Map<ReplicationGroupId, LeaseAgreement> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId().size());
 
@@ -505,10 +541,11 @@ public class LeaseUpdater {
                     // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
                     // leaseholders at all.
                     if (isLeaseOutdated) {
-                        LOG.info("Lease is expired, creating a new one [groupId={}, lease={}, candidate={}]", grpId, lease, candidate);
-
                         // New lease is granted.
                         Lease newLease = writeNewLease(grpId, candidate, renewedLeases);
+
+                        LOG.info("Lease is expired, creating a new one [groupId={}, oldLease={}, newLease={}, candidate={}]",
+                                grpId, lease, newLease, candidate);
 
                         boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
 
@@ -553,7 +590,7 @@ public class LeaseUpdater {
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
-            msManager.invoke(
+            leaseUpdateFuture = msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()

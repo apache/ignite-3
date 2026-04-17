@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.replicator.PartitionInflights.removeInflight;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
 import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
@@ -82,10 +83,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -184,10 +183,12 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionInflights.CleanupContext;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ReadOnlyReplicaRequestHandler;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandler;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandlers;
+import org.apache.ignite.internal.table.distributed.replicator.handlers.ReplicaRequestHandlers.Builder;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.ScanCloseRequestHandler;
 import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.DelayedAckException;
@@ -305,7 +306,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     private final Supplier<Int2ObjectMap<IndexLocker>> indexesLockers;
 
-    private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
+    /** Used to handle race between concurrent rollback and enlist. */
+    private final PartitionInflights partitionInflights = new PartitionInflights();
 
     /** Cleanup futures. */
     private final ConcurrentHashMap<RowId, CompletableFuture<?>> rowCleanupMap = new ConcurrentHashMap<>();
@@ -429,7 +431,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         raftCommandApplicator = new ReplicationRaftCommandApplicator(raftCommandRunner, replicationGroupId);
 
-        ReplicaRequestHandlers.Builder handlersBuilder = new ReplicaRequestHandlers.Builder();
+        Builder handlersBuilder = new Builder();
 
         handlersBuilder.addHandler(
                 PartitionReplicationMessageGroup.GROUP_TYPE,
@@ -553,10 +555,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
         if (request instanceof ReadWriteReplicaRequest) {
             var req = (ReadWriteReplicaRequest) request;
 
-            // Saving state is not needed for full transactions.
-            if (!req.full()) {
-                replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
-            }
+            // Saving state for full transactions. This is required for implicit kill to work properly.
+            replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
         }
 
         if (request instanceof GetEstimatedSizeRequest) {
@@ -1528,33 +1528,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
-
-        if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
-            Throwable cause = txStateMeta.lastException();
-            boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
-            boolean isFinishedDueToError = !isFinishedDueToTimeout
-                    && txStateMeta.lastExceptionErrorCode() != null;
-            Throwable publicCause = isFinishedDueToError ? cause : null;
-            Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
-
-            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
-            // Safe to invalidate waiters, which otherwise will block the cleanup process.
-            // Using non-retriable exception intentionally to prevent unnecessary retries.
-            lockManager.failAllWaiters(request.txId(), new TransactionException(
-                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                    format("Can't acquire a lock because {} [{}].",
-                            finishedTransactionErrorMessage(
-                                    isFinishedDueToTimeout,
-                                    isFinishedDueToError,
-                                    causeErrorCode,
-                                    publicCause != null
-                            ).toLowerCase(Locale.ROOT),
-                            formatTxInfo(request.txId(), txManager)),
-                    publicCause
-            ));
-        }
-
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
                     if (res.shouldApplyWriteIntent()) {
@@ -1566,35 +1539,49 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId) {
-        AtomicBoolean cleanupNeeded = new AtomicBoolean(true);
-        AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
+        CleanupContext cleanupContext = partitionInflights.lockForCleanup(txId);
 
-        txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
-            // Cleanup operations (both read and update) aren't registered in two cases:
-            // - there were no actions in the transaction
-            // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
-            // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
-            // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
-            // txCleanupState.hadWrites() returns false).
-            boolean forceCleanup = txCleanupState == null || !txCleanupState.hadAnyOperations();
+        // Perform waiters fail after inflights barrier.
+        if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
+            Throwable cause = txStateMeta.lastException();
+            boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
+            boolean isFinishedDueToError = !isFinishedDueToTimeout
+                    && txStateMeta.lastExceptionErrorCode() != null;
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
 
-            if (txCleanupState == null) {
-                return null;
-            }
+            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
+            // Safe to invalidate waiters, which otherwise will block the cleanup process.
+            // Using non-retriable exception intentionally to prevent unnecessary retries.
+            // Killed state will be propagated in the cause.
+            partitionInflights.runClosure(txId, () -> {
+                lockManager.failAllWaiters(txId, new TransactionException(
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format("Can't acquire a lock because {} [{}].",
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        causeErrorCode,
+                                        publicCause != null
+                                ).toLowerCase(Locale.ROOT),
+                                formatTxInfo(txId, txManager)),
+                        publicCause
+                ));
+            });
+        }
 
-            cleanupNeeded.set(txCleanupState.hadWrites() || forceCleanup);
-
-            CompletableFuture<Void> fut = txCleanupState.lockAndAwaitInflights();
-            cleanupReadyFutureRef.set(fut);
-
-            return txCleanupState;
-        });
-
-        return cleanupReadyFutureRef.get()
-                .thenApplyAsync(v -> new FuturesCleanupResult(cleanupNeeded.get()), txManager.writeIntentSwitchExecutor())
-                // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
-                .whenComplete((v, e) -> txCleanupReadyFutures.remove(txId));
+        if (cleanupContext == null) {
+            return CompletableFuture.supplyAsync(() -> new FuturesCleanupResult(true), txManager.writeIntentSwitchExecutor());
+        } else {
+            return cleanupContext.finishFut
+                    .thenApplyAsync(v -> new FuturesCleanupResult(cleanupContext.hasWrites), txManager.writeIntentSwitchExecutor())
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
+                    .whenComplete((v, e) -> {
+                        partitionInflights.erase(txId);
+                    });
+        }
     }
 
     private void applyWriteIntentSwitchCommandLocally(WriteIntentSwitchReplicaRequestBase request) {
@@ -1694,36 +1681,25 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             Supplier<CompletableFuture<T>> op
     ) {
         if (full) {
-            return op.get().whenComplete((v, th) -> {
+            AtomicReference<CompletableFuture<T>> futRef = new AtomicReference<>();
+
+            partitionInflights.runClosure(txId, () -> futRef.set(op.get()));
+
+            return futRef.get().whenComplete((v, th) -> {
                 // Fast unlock.
                 releaseTxLocks(txId);
+                // Drop volatile state.
+                txManager.updateTxMeta(txId, ignored -> null);
             });
         }
 
-        AtomicBoolean inflightStarted = new AtomicBoolean(false);
-
-        TxCleanupReadyState txCleanupReadyState = txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
-            // First check whether the transaction has already been finished.
-            // And complete cleanupReadyFut with exception if it is the case.
+        // It's important to test partition state under txn cleanup lock to avoid a data race.
+        @Nullable CleanupContext ctx = partitionInflights.addInflight(txId, uuid -> {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
+            return txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING;
+        }, requestType);
 
-            if (txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING) {
-                // Don't start inflight.
-                return txCleanupState;
-            }
-
-            // Otherwise start new inflight in txCleanupState.
-            if (txCleanupState == null) {
-                txCleanupState = new TxCleanupReadyState();
-            }
-
-            boolean started = txCleanupState.startInflight(requestType);
-            inflightStarted.set(started);
-
-            return txCleanupState;
-        });
-
-        if (!inflightStarted.get()) {
+        if (ctx == null) {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
@@ -1751,32 +1727,36 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
             ));
         }
 
-        CompletableFuture<T> fut = op.get();
+        try {
+            AtomicReference<CompletableFuture<T>> futRef = new AtomicReference<>();
 
-        // If inflightStarted then txCleanupReadyState is not null.
-        requireNonNull(txCleanupReadyState, "txCleanupReadyState cannot be null here.");
+            partitionInflights.runClosure(txId, () -> futRef.set(op.get()));
 
-        fut.whenComplete((v, th) -> {
-            if (th != null) {
-                txCleanupReadyState.completeInflight(txId);
-            } else {
-                if (v instanceof ReplicaResult) {
-                    ReplicaResult res = (ReplicaResult) v;
-
-                    if (res.applyResult().replicationFuture() != null) {
-                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-                            txCleanupReadyState.completeInflight(txId);
-                        });
-                    } else {
-                        txCleanupReadyState.completeInflight(txId);
-                    }
+            futRef.get().whenComplete((v, th) -> {
+                if (th != null) {
+                    removeInflight(ctx);
                 } else {
-                    txCleanupReadyState.completeInflight(txId);
-                }
-            }
-        });
+                    if (v instanceof ReplicaResult) {
+                        ReplicaResult res = (ReplicaResult) v;
 
-        return fut;
+                        if (res.applyResult().replicationFuture() != null) {
+                            res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
+                                removeInflight(ctx);
+                            });
+                        } else {
+                            removeInflight(ctx);
+                        }
+                    } else {
+                        removeInflight(ctx);
+                    }
+                }
+            });
+
+            return futRef.get();
+        } catch (Throwable err) {
+            removeInflight(ctx);
+            throw err;
+        }
     }
 
     /**
@@ -2949,6 +2929,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
                 });
             }
             case RW_UPSERT: {
+                // TODO IGNITE-28450 Acquire an X lock for PK.
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 
@@ -3808,107 +3789,6 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     private static ZonePartitionIdMessage replicationGroupIdMessage(ZonePartitionId groupId) {
         return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, groupId);
-    }
-
-    /**
-     * Class that stores a counter of inflight operations for a transaction.
-     *
-     * <p>Synchronization model:
-     * <ul>
-     *     <li>{@code hadAnyOperations}, {@code hadWrites} — plain fields, only accessed inside {@code compute()} critical section.</li>
-     *     <li>{@code inflightOperationsCount} — {@link AtomicInteger}, cross-thread safe.</li>
-     *     <li>{@code completionFuture} — volatile, written from {@code compute()}, read cross-thread.
-     *         Non-null value also serves as the "locked" indicator (no new inflights accepted).</li>
-     * </ul>
-     */
-    private static class TxCleanupReadyState {
-        // Only accessed inside compute() critical section.
-        boolean hadAnyOperations = false;
-        boolean hadWrites = false;
-
-        final AtomicInteger inflightOperationsCount = new AtomicInteger(0);
-
-        // Non-null means locked (no new inflights accepted). Written from compute(), read cross-thread.
-        volatile CompletableFuture<Void> completionFuture = null;
-
-        // Should be called inside critical section on transaction.
-        boolean hadAnyOperations() {
-            return hadAnyOperations;
-        }
-
-        // Should be called inside critical section on transaction.
-        boolean hadWrites() {
-            return hadWrites;
-        }
-
-        // Should be called inside critical section on transaction.
-        CompletableFuture<Void> lockAndAwaitInflights() {
-            CompletableFuture<Void> f = completionFuture;
-
-            if (f != null) {
-                return f; // Already locked.
-            }
-
-            if (inflightOperationsCount.get() == 0) {
-                f = nullCompletedFuture();
-                completionFuture = f;
-                return f;
-            }
-
-            f = new CompletableFuture<>();
-            completionFuture = f;
-
-            // Recheck: a cross-thread completeInflight() may have decremented to 0
-            // before seeing completionFuture != null.
-            if (inflightOperationsCount.get() == 0) {
-                f.complete(null);
-            }
-
-            return f;
-        }
-
-        // Should be called inside critical section on transaction.
-        boolean startInflight(RequestType requestType) {
-            if (completionFuture != null) {
-                return false;
-            }
-
-            hadAnyOperations = true;
-
-            if (requestType.isWrite()) {
-                hadWrites = true;
-            }
-
-            inflightOperationsCount.incrementAndGet();
-
-            return true;
-        }
-
-        // Cross-thread.
-        void completeInflight(UUID txId) {
-            int remaining = inflightOperationsCount.decrementAndGet();
-
-            if (remaining < 0) {
-                LOG.error("Removed inflight when there were no inflights [txId={}]", txId);
-            }
-
-            if (remaining == 0) {
-                completeFutureIfAny();
-            }
-        }
-
-        private void completeFutureIfAny() {
-            CompletableFuture<Void> f = completionFuture;
-
-            if (f == null || f.isDone()) {
-                return;
-            }
-
-            // Double check inflightOperationsCount after locked, because we are outside of critical section.
-            if (inflightOperationsCount.get() == 0) {
-                f.complete(null);
-            }
-        }
     }
 
     @Override

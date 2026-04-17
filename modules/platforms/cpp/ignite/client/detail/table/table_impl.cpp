@@ -605,7 +605,9 @@ void table_impl::load_partition_assignment_async(ignite_callback<std::shared_ptr
 
     auto pa = get_partition_assignment();
     if (pa && !pa->is_outdated(timestamp)) {
-        m_connection->get_logger()->log_debug("Partition assignment for table " + get_name() + " is up to date.");
+        if (m_connection->get_logger()->is_debug_enabled()) {
+            m_connection->get_logger()->log_debug("Partition assignment for table " + get_name() + " is up to date.");
+        }
 
         callback(std::move(pa));
         return;
