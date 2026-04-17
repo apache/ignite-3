@@ -1108,6 +1108,7 @@ public class ItTxTestCluster {
                 txManager,
                 txManager.lockManager(),
                 Runnable::run,
+                Runnable::run,
                 replicationGroupId,
                 tableId,
                 indexesLockers,

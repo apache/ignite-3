@@ -89,9 +89,13 @@ public class ClientTransaction implements Transaction {
     /** Transaction id. */
     private final long id;
 
-    /** The future used on repeated commit/rollback. */
+    /** The future is used on repeated direct (via API) commit/rollback. */
     @IgniteToStringExclude
     private volatile CompletableFuture<Void> finishFut;
+
+    /** The future is used when a transaction is finished implicitly on enlistment failure or kill. */
+    @IgniteToStringExclude
+    private volatile CompletableFuture<Void> implicitRollbackFut;
 
     /** State. */
     private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
@@ -247,8 +251,14 @@ public class ClientTransaction implements Transaction {
             if (finishFut != null) {
                 return finishFut;
             } else {
-                finishFut = new CompletableFuture<>();
+                if (implicitRollbackFut == null) {
+                    implicitRollbackFut = new CompletableFuture<>();
+                } else {
+                    return implicitRollbackFut;
+                }
             }
+
+            setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
         } finally {
             enlistPartitionLock.writeLock().unlock();
         }
@@ -265,16 +275,18 @@ public class ClientTransaction implements Transaction {
         // It's safe to rollback proxy and direct parts of transactions concurrently.
         // Write intent resolution will ignore WIs from PENDING transactions.
         return CompletableFuture.allOf(rollbackFut, sendDiscardRequests()).handle((r, e) -> {
-            setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
             ch.inflights().erase(txId());
-            this.finishFut.complete(null);
+            if (e == null) {
+                this.implicitRollbackFut.complete(null);
+            } else {
+                this.implicitRollbackFut.completeExceptionally(e); // Keep the error.
+            }
+
             return null;
         });
     }
 
     private CompletableFuture<Void> sendDiscardRequests() {
-        assert finishFut != null;
-
         if (!ch.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING_SEND_DISCARD)) {
             return nullCompletedFuture();
         }
@@ -327,7 +339,12 @@ public class ClientTransaction implements Transaction {
             if (finishFut != null) {
                 return finishFut;
             } else {
-                finishFut = new CompletableFuture<>();
+                if (implicitRollbackFut != null) {
+                    finishFut = nullCompletedFuture();
+                    return implicitRollbackFut;
+                } else {
+                    finishFut = new CompletableFuture<>();
+                }
             }
         } finally {
             enlistPartitionLock.writeLock().unlock();
@@ -363,14 +380,14 @@ public class ClientTransaction implements Transaction {
                 // Failed to commit for some reason, need to discard direct mappings.
                 Throwable cause = ExceptionUtils.unwrapCause(e);
 
-                sendDiscardRequests().handle((r, e0) -> {
-                    setState(cause instanceof ClientTransactionKilledException ? STATE_KILLED : STATE_ROLLED_BACK);
+                setState(cause instanceof ClientTransactionKilledException ? STATE_KILLED : STATE_ROLLED_BACK);
+
+                sendDiscardRequests().whenComplete((r, e0) -> {
                     ch.inflights().erase(txId());
                     this.finishFut.complete(null);
-                    return null;
                 });
 
-                return null;
+                throw sneakyThrow(e); // Fail commit future.
             }
 
             setState(STATE_COMMITTED);
@@ -421,8 +438,15 @@ public class ClientTransaction implements Transaction {
             if (finishFut != null) {
                 return finishFut;
             } else {
-                finishFut = new CompletableFuture<>();
+                if (implicitRollbackFut != null) {
+                    finishFut = nullCompletedFuture();
+                    return implicitRollbackFut;
+                } else {
+                    finishFut = new CompletableFuture<>();
+                }
             }
+
+            setState(STATE_ROLLED_BACK);
         } finally {
             enlistPartitionLock.writeLock().unlock();
         }
@@ -437,7 +461,6 @@ public class ClientTransaction implements Transaction {
         }, r -> null);
 
         mainFinishFut.handle((res, e) -> {
-            setState(STATE_ROLLED_BACK);
             ch.inflights().erase(txId());
             this.finishFut.complete(null);
             return null;
@@ -596,7 +619,7 @@ public class ClientTransaction implements Transaction {
     }
 
     private void checkEnlistPossible() {
-        if (finishFut != null) {
+        if (finishFut != null || implicitRollbackFut != null) {
             throw exceptionForState(state.get(), this);
         }
     }
