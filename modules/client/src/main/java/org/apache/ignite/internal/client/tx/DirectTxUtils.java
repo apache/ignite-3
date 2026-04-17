@@ -285,7 +285,7 @@ public class DirectTxUtils {
     }
 
     /**
-     * If the current request is the first request of a direct translation, add a listener to the {@link PayloadWriter}.
+     * If the current request is the first request of a direct tx, add a listener to the {@link PayloadWriter}.
      *
      * @param ctx The {@link WriteContext} that holds transactional context information.
      * @param tx The client transaction associated with the request, or {@code null} if none.
