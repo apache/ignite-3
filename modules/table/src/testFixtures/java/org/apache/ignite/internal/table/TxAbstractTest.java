@@ -1893,7 +1893,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     @Test
-    public void testTransactionAlreadyCommitted() {
+    public void testTransactionAlreadyCommitted() throws InterruptedException {
         testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
             transaction.commit();
 
@@ -1902,7 +1902,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     @Test
-    public void testTransactionAlreadyRolledback() {
+    public void testTransactionAlreadyRolledback() throws InterruptedException {
         testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
             transaction.rollback();
 
@@ -2177,7 +2177,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             boolean commit,
             boolean checkLocks,
             BiConsumer<Transaction, UUID> finisher
-    ) {
+    ) throws InterruptedException {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2204,7 +2204,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertThrowsTxFinishedException(() -> accountsRv.upsert(tx, makeValue(2, 300.)));
 
         if (checkLocks) {
-            assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+            assertTrue(waitForCondition(() -> CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)), 2000));
         }
 
         if (commit) {

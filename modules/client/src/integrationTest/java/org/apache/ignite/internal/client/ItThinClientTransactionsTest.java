@@ -459,7 +459,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Tuple key2 = tuples.get(1);
         assertThat(ctx.put.apply(client, tx, key2), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
 
-        assertThat(tx.commitAsync(), willSucceedFast());
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
 
         // Validate lock possibility.
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key, key2)), willSucceedFast());
@@ -572,7 +572,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         await().atMost(3, TimeUnit.SECONDS).until(() -> tx.startedTx().killed());
 
-        assertThat(tx.commitAsync(), willSucceedFast());
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
 
         // Validate lock possibility.
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key1, key2)), willSucceedFast());
@@ -1500,6 +1500,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
         } else {
             assertThat(ctx.put.apply(client(), olderTxProxy, key2), willSucceedFast()); // Will invalidate younger tx.
+
+            await().atMost(2, TimeUnit.SECONDS).until(() -> youngerTxProxy.startedTx().killed());
             assertThat(youngerTxProxy.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
         }
 

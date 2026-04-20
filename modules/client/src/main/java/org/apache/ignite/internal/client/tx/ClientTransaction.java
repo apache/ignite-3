@@ -274,15 +274,15 @@ public class ClientTransaction implements Transaction {
 
         // It's safe to rollback proxy and direct parts of transactions concurrently.
         // Write intent resolution will ignore WIs from PENDING transactions.
-        return CompletableFuture.allOf(rollbackFut, sendDiscardRequests()).handle((r, e) -> {
+        return CompletableFuture.allOf(rollbackFut, sendDiscardRequests()).whenComplete((r, e) -> {
             ch.inflights().erase(txId());
-            if (e == null) {
-                this.implicitRollbackFut.complete(null);
-            } else {
-                this.implicitRollbackFut.completeExceptionally(e); // Keep the error.
+            TransactionException ex = exceptionForState(state.get(), this);
+
+            if (e != null) {
+                ex.addSuppressed(e);
             }
 
-            return null;
+            this.implicitRollbackFut.completeExceptionally(ex);
         });
     }
 
