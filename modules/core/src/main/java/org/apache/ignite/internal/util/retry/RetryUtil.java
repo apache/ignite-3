@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.util.retry;
 
-import static java.util.Optional.empty;
-
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for scheduling asynchronous retry operations.
@@ -54,7 +52,7 @@ public class RetryUtil {
             TimeUnit unit,
             ScheduledExecutorService executor
     ) {
-        return scheduleRetry(operation, delay, unit, executor, empty());
+        return scheduleRetry(operation, delay, unit, executor, null);
     }
 
     /**
@@ -80,7 +78,7 @@ public class RetryUtil {
             long delay,
             TimeUnit unit,
             ScheduledExecutorService executor,
-            Optional<Runnable> onComplete
+            @Nullable Runnable onComplete
     ) {
         CompletableFuture<T> future = new CompletableFuture<>();
 
@@ -93,12 +91,17 @@ public class RetryUtil {
                             } else {
                                 future.completeExceptionally(e);
                             }
-                            onComplete.ifPresent(Runnable::run);
+
+                            if (onComplete != null) {
+                                onComplete.run();
+                            }
                         });
             } catch (Exception e) {
                 future.completeExceptionally(e);
 
-                onComplete.ifPresent(Runnable::run);
+                if (onComplete != null) {
+                    onComplete.run();
+                }
             }
         }, delay, unit);
 

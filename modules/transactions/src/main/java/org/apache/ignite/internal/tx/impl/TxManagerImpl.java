@@ -51,7 +51,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -902,7 +901,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     retryContext.updateAndGetState(timeoutKey).getTimeout(),
                                     MILLISECONDS,
                                     commonScheduler,
-                                    Optional.of(() -> retryContext.resetState(timeoutKey))
+                                    () -> retryContext.resetState(timeoutKey)
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx {}.", ex,

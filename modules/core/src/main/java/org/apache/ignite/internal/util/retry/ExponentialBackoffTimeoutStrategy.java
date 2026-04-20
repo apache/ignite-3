@@ -127,6 +127,6 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
         int lo = raw / 2;
         int hi = raw + lo;
 
-        return Math.min(lo + ThreadLocalRandom.current().nextInt(hi - lo + 1), maxTimeout);
+        return lo + ThreadLocalRandom.current().nextInt(hi - lo + 1);
     }
 }
