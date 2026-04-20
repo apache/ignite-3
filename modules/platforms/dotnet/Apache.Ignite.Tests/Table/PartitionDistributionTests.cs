@@ -100,7 +100,7 @@ public class PartitionDistributionTests : IgniteTestsBase
     public void TestPartitionedJobNegativePartitionIdThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new HashPartition(-1)), JavaJobs.PartitionJob, 1));
+            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new HashPartition(-1)), JavaJobs.GetPartitionJob, null));
 
         Assert.AreEqual("Partition id can't be negative: HashPartition { Id = -1 }", ex.Message);
     }
@@ -118,7 +118,7 @@ public class PartitionDistributionTests : IgniteTestsBase
     public void TestPartitionedJobPartitionIdOutOfRangeThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new HashPartition(10)), JavaJobs.PartitionJob, 1));
+            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new HashPartition(10)), JavaJobs.GetPartitionJob, null));
 
         Assert.AreEqual("Partition id can't be greater than 9: HashPartition { Id = 10 }", ex.Message);
     }
@@ -136,7 +136,7 @@ public class PartitionDistributionTests : IgniteTestsBase
     public void TestPartitionedJobUnknownPartitionClassThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new MyPartition()), JavaJobs.PartitionJob, 1));
+            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new MyPartition()), JavaJobs.GetPartitionJob, 1));
 
         Assert.AreEqual($"Unsupported partition type: {typeof(MyPartition)}", ex.Message);
     }

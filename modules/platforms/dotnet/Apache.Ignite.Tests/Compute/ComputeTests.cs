@@ -145,24 +145,21 @@ namespace Apache.Ignite.Tests.Compute
         {
             var table = await Client.Tables.GetTableAsync(TableName);
             var partitions = await table!.PartitionDistribution.GetPartitionsAsync();
-            long[] partitionIds = partitions.Select(p => p.Id).Order().ToArray();
+            var partitionIds = partitions.Select(p => p.Id).Order();
 
-            IBroadcastExecution<int> broadcastExecution = await Client.Compute.SubmitBroadcastAsync(
+            IBroadcastExecution<long> broadcastExecution = await Client.Compute.SubmitBroadcastAsync(
                 BroadcastJobTarget.Table(TableName),
-                PartitionJob,
-                1);
+                GetPartitionJob,
+                null);
 
-            List<long> taskResults = [];
-            foreach (var x in broadcastExecution.JobExecutions)
-            {
-                taskResults.Add(await x.GetResultAsync());
-            }
+            long[] taskResults = await Task
+                .WhenAll(broadcastExecution.JobExecutions.Select(x => x.GetResultAsync()));
 
-            Assert.AreEqual(partitionIds.Length, taskResults.Count);
+            Assert.AreEqual(partitionIds, taskResults.Order());
         }
 
         [Test]
-        public async Task TestBroadcastTableOverloads()
+        public void TestBroadcastTableOverloads()
         {
             var target1 = BroadcastJobTarget.Table(TableName);
             var target2 = BroadcastJobTarget.Table(QualifiedName.Parse(TableName));
@@ -872,14 +869,11 @@ namespace Apache.Ignite.Tests.Compute
             var cts = new CancellationTokenSource();
 
             var exec = await Client.Compute.SubmitBroadcastAsync(
-                BroadcastJobTarget.Table(TableName), PartitionJob, 1, cts.Token);
+                BroadcastJobTarget.Table(TableName), GetPartitionJob, null, cts.Token);
 
-            foreach (var jobExec in exec.JobExecutions)
-            {
-                await jobExec.GetResultAsync();
-            }
+            await Task.WhenAll(exec.JobExecutions.Select(t => t.GetResultAsync()));
 
-            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+            Assert.That(TestUtils.HasCallbacks(cts), Is.False);
         }
 
         [Test]
