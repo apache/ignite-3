@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.Comparator;
-import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.Waiter;
 
 /**
  * Implements a deadlock prevention policy that resolves conflicts between two transactions (tx1 and tx2) contending for the same key. When
@@ -28,22 +28,27 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
  * <ul>
  *     <li>tx2 is older than tx1.</li>
  *     <li>tx2 is younger than tx1 but has a higher {@link org.apache.ignite.internal.tx.TxPriority}.</li>
- *     <li>The wait timeout is greater than 0.</li>
- * </ul>
+  * </ul>
  * If none of these conditions are met, tx2 is aborted to prevent deadlock.
  */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
-    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
-
-    /** {@inheritDoc} */
-    @Override
-    public Comparator<UUID> txIdComparator() {
-        return TX_ID_PRIORITY_COMPARATOR;
-    }
-
     /** {@inheritDoc} */
     @Override
     public long waitTimeout() {
         return 0;
+    }
+
+    @Override
+    public final Waiter allowWait(Waiter waiter, Waiter owner) {
+        int res = TransactionIds.compare(waiter.txId(), owner.txId());
+        assert res != 0;
+
+        // Waiter is allowed to wait for owner if it has higher priority.
+        return res < 0 ? null : waiter;
+    }
+
+    @Override
+    public final boolean invertedWaitOrder() {
+        return true;
     }
 }

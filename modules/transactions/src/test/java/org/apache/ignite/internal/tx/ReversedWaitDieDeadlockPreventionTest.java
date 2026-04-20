@@ -20,40 +20,27 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.tx.test.LockConflictMatcher.conflictsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
-import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.tx.impl.ReversedWaitDieDeadlockPreventionPolicy;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for WOUND-WAIT deadlock prevention policy.
+ * Test for reversed WAIT_DIE deadlock prevention policy.
  */
-public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
-    private long counter;
-
-    @BeforeEach
-    public void before() {
-        counter = 0;
-    }
-
+public class ReversedWaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
-    protected UUID beginTx() {
-        return beginTx(TxPriority.NORMAL);
-    }
-
-    @Override
-    protected UUID beginTx(TxPriority priority) {
-        counter++;
-        return TransactionIds.transactionId(Long.MAX_VALUE - counter, 1, priority);
+    protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
+        return conflictsWith(txId);
     }
 
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicyImpl(TxIdComparators.REVERSED, 0);
+        return new ReversedWaitDieDeadlockPreventionPolicy();
     }
 
     @Test
@@ -61,7 +48,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
         var oldNormalTx = beginTx(TxPriority.NORMAL);
         var youngLowTx = beginTx(TxPriority.LOW);
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(xlock(oldNormalTx, key1), willSucceedFast());
 
@@ -77,7 +64,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
         var tx1 = beginTx(TxPriority.LOW);
         var tx2 = beginTx(TxPriority.NORMAL);
 
-        var key1 = key("test");
+        var key1 = lockKey("test");
 
         assertThat(xlock(tx1, key1), willSucceedFast());
 

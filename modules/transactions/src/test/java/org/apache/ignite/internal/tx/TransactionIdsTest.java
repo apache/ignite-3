@@ -19,9 +19,12 @@ package org.apache.ignite.internal.tx;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -40,5 +43,14 @@ class TransactionIdsTest {
         assertThat(extractedTs, is(beginTs));
         assertThat(extractedNodeId, is(1));
         assertThat(extractedPriority, is(priority));
+    }
+
+    @RepeatedTest(10)
+    public void testHash() {
+        Random r = new Random(0);
+        UUID id = UUID.randomUUID();
+        int div = 1 + r.nextInt(32);
+        int hash = TransactionIds.hash(id, div);
+        assertTrue(hash >= 0 && hash < div, id + " " + div);
     }
 }

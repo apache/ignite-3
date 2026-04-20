@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.WorkDirectoryExtension.zi
 import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -700,6 +701,19 @@ public final class IgniteTestUtils {
         }
 
         return false;
+    }
+
+    /**
+     * Ensure the future is not completed for a duration.
+     *
+     * @param future The future.
+     * @param durationMillis Milliseconds to check for condition.
+     */
+    public static void ensureFutureNotCompleted(CompletableFuture<?> future, long durationMillis) {
+        Awaitility.await()
+                .pollInterval(10, TimeUnit.MILLISECONDS)
+                .during(durationMillis, TimeUnit.MILLISECONDS)
+                .until(future::isDone, is(false));
     }
 
     /**

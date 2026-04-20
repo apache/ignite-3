@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.tx.impl;
 
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.Waiter;
 
 /**
- * Processor of replica requests targeted at a particular table.
+ * Nowait deadlock prevention policy.
  */
-public interface ReplicaTableProcessor {
-    /**
-     * Processes replica request.
-     *
-     * @param request Replica request.
-     * @param replicaPrimacy Replica primacy info.
-     * @param senderId ID of the node that sent the request.
-     * @return Future completed with the result of processing.
-     */
-    CompletableFuture<ReplicaResult> process(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId);
+public class NoWaitDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+    /** {@inheritDoc} */
+    @Override
+    public long waitTimeout() {
+        return 0;
+    }
 
-    /** Callback on replica shutdown. */
-    void onShutdown();
+    /** {@inheritDoc} */
+    @Override
+    public Waiter allowWait(Waiter waiter, Waiter owner) {
+        return waiter;
+    }
 }

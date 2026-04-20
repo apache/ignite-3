@@ -49,7 +49,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.DefaultTablePartitionReplicaProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteAbstractTransactionImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
@@ -277,13 +277,13 @@ public class ItTransactionTestUtils {
      * @param tableId Table id.
      * @return Partition replica listener.
      */
-    public static PartitionReplicaListener partitionReplicaListener(IgniteImpl node, ZonePartitionId groupId, int tableId) {
+    public static DefaultTablePartitionReplicaProcessor partitionReplicaListener(IgniteImpl node, ZonePartitionId groupId, int tableId) {
         CompletableFuture<Replica> replicaFut = node.replicaManager().replica(groupId);
         assertThat(replicaFut, willSucceedFast());
         Replica replica = replicaFut.join();
 
         ZonePartitionReplicaListener listener = (ZonePartitionReplicaListener) replica.listener();
-        return (PartitionReplicaListener) listener.tableReplicaProcessors().get(tableId);
+        return (DefaultTablePartitionReplicaProcessor) listener.tableReplicaProcessors().get(tableId);
     }
 
     /**

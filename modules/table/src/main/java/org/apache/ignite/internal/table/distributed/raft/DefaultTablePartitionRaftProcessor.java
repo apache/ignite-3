@@ -44,7 +44,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
-import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.TablePartitionRaftProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -71,8 +71,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-public class TablePartitionProcessor implements RaftTableProcessor {
-    private static final IgniteLogger LOG = Loggers.forClass(TablePartitionProcessor.class);
+public class DefaultTablePartitionRaftProcessor implements TablePartitionRaftProcessor {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultTablePartitionRaftProcessor.class);
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -104,7 +104,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
-    public TablePartitionProcessor(
+    public DefaultTablePartitionRaftProcessor(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,

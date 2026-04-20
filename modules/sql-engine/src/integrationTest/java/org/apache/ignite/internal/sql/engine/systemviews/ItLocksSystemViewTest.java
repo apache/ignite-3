@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.systemviews;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.hamcrest.CoreMatchers.hasItem;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockMode;
@@ -123,7 +125,8 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     void testLocksViewWorksCorrectlyWhenTxConflict() {
-        Ignite ignite = CLUSTER.aliveNode();
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        boolean invertedWaitOrder = ignite.txManager().lockManager().policy().invertedWaitOrder();
 
         ignite.sql().executeScript("CREATE TABLE testTable (accountNumber INT PRIMARY KEY, balance DOUBLE)");
 
@@ -133,14 +136,20 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
 
         IgniteTransactions igniteTransactions = igniteTx();
 
-        InternalTransaction tx1 = unwrapInternalTransaction(igniteTransactions.begin());
-        InternalTransaction tx2 = unwrapInternalTransaction(igniteTransactions.begin());
+        InternalTransaction owner = unwrapInternalTransaction(igniteTransactions.begin());
+        InternalTransaction waiter = unwrapInternalTransaction(igniteTransactions.begin());
+
+        if (invertedWaitOrder) {
+            InternalTransaction tmp = owner;
+            owner = waiter;
+            waiter = tmp;
+        }
 
         var table = test.recordView();
 
-        table.upsert(tx2, makeValue(1, 1.0));
+        table.upsert(owner, makeValue(1, 1.0));
 
-        var fut = table.upsertAsync(tx1, makeValue(1, 2.0));
+        var fut = table.upsertAsync(waiter, makeValue(1, 2.0));
 
         assertFalse(fut.isDone());
 
@@ -149,19 +158,19 @@ public class ItLocksSystemViewTest extends AbstractSystemViewTest {
         // pk lock, row lock, partition lock
         assertThat(rows.size(), is(3));
 
-        verifyTxIdAndLockMode(rows, tx2.id().toString(), LockMode.X.name());
-        verifyTxIdAndLockMode(rows, tx2.id().toString(), LockMode.IX.name());
+        verifyTxIdAndLockMode(rows, owner.id().toString(), LockMode.X.name());
+        verifyTxIdAndLockMode(rows, owner.id().toString(), LockMode.IX.name());
 
-        tx2.commit();
+        owner.commit();
 
         rows = sql("SELECT * FROM SYSTEM.LOCKS");
 
         assertThat(rows.size(), is(3));
 
-        verifyTxIdAndLockMode(rows, tx1.id().toString(), LockMode.X.name());
-        verifyTxIdAndLockMode(rows, tx1.id().toString(), LockMode.IX.name());
+        verifyTxIdAndLockMode(rows, waiter.id().toString(), LockMode.X.name());
+        verifyTxIdAndLockMode(rows, waiter.id().toString(), LockMode.IX.name());
 
-        tx1.commit();
+        waiter.commit();
     }
 
     /**

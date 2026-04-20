@@ -78,7 +78,11 @@ public class SegmentLogStorageManager implements LogStorageManager {
 
     @Override
     public void destroyLogStorage(String raftNodeStorageId) {
-        // TODO IGNITE-28527 Implement.
+        try {
+            fileManager.destroyGroup(convertNodeId(raftNodeStorageId));
+        } catch (IOException e) {
+            throw new LogStorageException(String.format("Failed to destroy log storage [storageId=%s]", raftNodeStorageId), e);
+        }
     }
 
     @Override

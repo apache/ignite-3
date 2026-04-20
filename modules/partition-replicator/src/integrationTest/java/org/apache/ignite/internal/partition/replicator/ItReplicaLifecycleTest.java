@@ -66,7 +66,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.TablePartitionRaftProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -795,7 +795,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-        RaftTableProcessor tableProcessor = ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(tableId);
+        TablePartitionRaftProcessor tableProcessor = ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(tableId);
 
         return tableProcessor != null;
     }

@@ -25,7 +25,7 @@ namespace {
 using namespace ignite;
 
 qualified_name unpack_qualified_name(protocol::reader &reader, const protocol::protocol_context &context) {
-    if (context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)) {
+    if (context.is_feature_supported(protocol::bitmask_feature::TABLE_GET_REQS_USE_QUALIFIED_NAME)) {
         auto schema_name = reader.read_string();
         auto object_name = reader.read_string();
 
@@ -46,7 +46,7 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
 
 void tables_impl::get_table_async(const qualified_name &name, ignite_callback<std::optional<table>> callback) {
     auto writer_func = [&name](protocol::writer &writer, const protocol::protocol_context &context) {
-        if (context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)) {
+        if (context.is_feature_supported(protocol::bitmask_feature::TABLE_GET_REQS_USE_QUALIFIED_NAME)) {
             writer.write(name.get_schema_name());
             writer.write(name.get_object_name());
         } else {
@@ -68,7 +68,7 @@ void tables_impl::get_table_async(const qualified_name &name, ignite_callback<st
     };
 
     const auto operation_func = [](const protocol::protocol_context &context) -> protocol::client_operation {
-        return context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)
+        return context.is_feature_supported(protocol::bitmask_feature::TABLE_GET_REQS_USE_QUALIFIED_NAME)
             ? protocol::client_operation::TABLE_GET_QUALIFIED
             : protocol::client_operation::TABLE_GET;
     };
@@ -96,7 +96,7 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
     };
 
     const auto operation_func = [](const protocol::protocol_context &context) -> protocol::client_operation {
-        return context.is_feature_supported(protocol::bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME)
+        return context.is_feature_supported(protocol::bitmask_feature::TABLE_GET_REQS_USE_QUALIFIED_NAME)
             ? protocol::client_operation::TABLES_GET_QUALIFIED
             : protocol::client_operation::TABLES_GET;
     };

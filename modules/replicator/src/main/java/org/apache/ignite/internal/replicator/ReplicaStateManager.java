@@ -283,6 +283,8 @@ class ReplicaStateManager {
                     // If is primary, turning off the primary first.
                     context.replicaState = ReplicaState.RESTART_PLANNED;
 
+                    LOG.info("Stopping lease prolongation due to partition restart [groupId={}].", groupId);
+
                     return replicaManager.stopLeaseProlongation(groupId, null)
                             .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
                 } else {
@@ -319,6 +321,8 @@ class ReplicaStateManager {
         // These is some probability that the replica would be reserved after the previous lease is expired and before this method
         // is called, so reservation state needs to be checked again.
         if (context.reservedForPrimary) {
+            LOG.info("Stopping lease prolongation due to replica stop [groupId={}].", groupId);
+
             return replicaManager.stopLeaseProlongation(groupId, null)
                     .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
         }

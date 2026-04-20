@@ -42,15 +42,6 @@ public:
         , m_size(size) {}
 
     /**
-     * Constructor.
-     *
-     * @param mask Mask bytes.
-     */
-    bitset_span(std::vector<std::byte> mask)
-        : m_data(mask.data())
-        , m_size(mask.size()) {}
-
-    /**
      * Reset bitset.
      */
     void reset() {

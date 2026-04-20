@@ -142,7 +142,7 @@ import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.index.IndexMetasAccess;
-import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.TablePartitionRaftProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -1948,7 +1948,7 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             int tableId,
             TablePartitionReplicaProcessorFactory tablePartitionReplicaProcessorFactory,
-            RaftTableProcessor raftTableProcessor,
+            TablePartitionRaftProcessor raftTableProcessor,
             PartitionMvStorageAccess partitionMvStorageAccess,
             boolean onNodeRecovery
     ) {
@@ -2346,6 +2346,9 @@ public class PartitionReplicaLifecycleManager extends
          * @param transactionStateResolver Transaction state resolver.
          * @return Table partition replica processor.
          */
-        ReplicaTableProcessor createProcessor(RaftCommandRunner raftCommandRunner, TransactionStateResolver transactionStateResolver);
+        TablePartitionReplicaProcessor createProcessor(
+                RaftCommandRunner raftCommandRunner,
+                TransactionStateResolver transactionStateResolver
+        );
     }
 }

@@ -18,9 +18,13 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.tx.test.LockWaiterMatcher.awaits;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,12 +36,17 @@ public class NoneDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
         return DeadlockPreventionPolicy.NO_OP;
     }
 
+    @Override
+    protected Matcher<CompletableFuture<Lock>> conflictMatcher(UUID txId) {
+        return awaits();
+    }
+
     @Test
     public void allowDeadlockOnOneKey() {
         var tx0 = beginTx();
         var tx1 = beginTx();
 
-        var key = key("test0");
+        var key = lockKey("test0");
 
         assertThat(slock(tx0, key), willSucceedFast());
         assertThat(slock(tx1, key), willSucceedFast());
@@ -51,8 +60,8 @@ public class NoneDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
         var tx0 = beginTx();
         var tx1 = beginTx();
 
-        var key0 = key("test0");
-        var key1 = key("test1");
+        var key0 = lockKey("test0");
+        var key1 = lockKey("test1");
 
         assertThat(xlock(tx0, key0), willSucceedFast());
         assertThat(xlock(tx1, key1), willSucceedFast());
