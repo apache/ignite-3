@@ -172,6 +172,11 @@ class DirectTransactionWithFirstRequest implements InternalTransaction, Wrapper 
         return base.isReadOnly();
     }
 
+    @Override
+    public RuntimeException enlistFailedException() {
+        return base.enlistFailedException();
+    }
+
     public InternalTransaction base() {
         return base;
     }
