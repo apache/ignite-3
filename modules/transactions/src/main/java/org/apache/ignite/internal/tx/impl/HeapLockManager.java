@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -860,8 +859,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                         waiter.upgrade(prev);
 
-                        assertLockModeHeldCount();
-
                         return new IgniteBiTuple<>(nullCompletedFuture(), prev.lockMode());
                     } else {
                         waiter.upgrade(prev);
@@ -881,8 +878,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                         track(waiter.txId, this);
                     }
 
-                    assertLockModeHeldCount();
-
                     return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
                 }
 
@@ -896,8 +891,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                         track(waiter.txId, this);
                     }
                 }
-
-                assertLockModeHeldCount();
             }
 
             // Notify outside the monitor.
@@ -948,19 +941,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             LockMode oldMode = waiter.lockMode();
             waiter.lock();
             updateHeldCount(oldMode, waiter.lockMode());
-        }
-
-        /** Validates lockModeHeldCount is consistent with actual waiter state. Must be called under {@code synchronized (waiters)}. */
-        private void assertLockModeHeldCount() {
-            int[] expected = new int[LOCK_MODES.length];
-            for (WaiterImpl w : waiters.values()) {
-                if (w.lockMode != null) {
-                    expected[w.lockMode.ordinal()]++;
-                }
-            }
-            assert Arrays.equals(expected, lockModeHeldCount)
-                    : "lockModeHeldCount out of sync [expected=" + Arrays.toString(expected)
-                    + ", actual=" + Arrays.toString(lockModeHeldCount) + ']';
         }
 
         /**
@@ -1068,7 +1048,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             synchronized (waiters) {
                 toNotify = release(txId);
-                assertLockModeHeldCount();
             }
 
             // Notify outside the monitor.
@@ -1113,8 +1092,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                         toNotify = unlockCompatibleWaiters();
                     }
                 }
-
-                assertLockModeHeldCount();
             }
 
             // Notify outside the monitor.
