@@ -19,11 +19,13 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static io.micronaut.http.HttpStatus.BAD_REQUEST;
 import static io.micronaut.http.HttpStatus.OK;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 
@@ -36,20 +38,33 @@ import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Test for disaster recovery restart partitions command. */
 @MicronautTest
 public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPerClassIntegrationTest {
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private static final String FIRST_ZONE = "first_ZONE";
@@ -65,8 +80,15 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @BeforeAll
     public void setUp() {
         sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
-        sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME,
+        sql(String.format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME,
                 FIRST_ZONE));
+    }
+
+    @BeforeEach
+    public void beforeEach() {
+        for (IgniteImpl node : runningNodesList()) {
+            node.stopDroppingMessages();
+        }
     }
 
     @Test
@@ -135,7 +157,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26377")
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(0, 1));
 
@@ -147,6 +168,64 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, Set.of());
+
+        assertThat(client.toBlocking().exchange(post), hasStatus(OK));
+    }
+
+    @Test
+    public void testRestartPartitionDuringLeaseNegotiation() {
+        IgniteImpl node = anyNode();
+
+        int zoneId = Wrappers.unwrap(node.tables().table(TABLE_NAME), TableImpl.class).zoneId();
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = anyNode().placementDriver().awaitPrimaryReplica(
+                partId,
+                node.clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        log.info("Test: primary replica [groupId={}, leaseholder={}]", partId, primaryReplicaFut.join().getLeaseholder());
+
+        CompletableFuture<?> newNegotiationFuture = new CompletableFuture<>();
+
+        for (IgniteImpl n : runningNodesList()) {
+            n.dropMessages((recp, msg) -> {
+                if (msg instanceof LeaseGrantedMessage) {
+                    LeaseGrantedMessage lgm = (LeaseGrantedMessage) msg;
+                    if (lgm.groupId().equals(partId)) {
+                        log.info("Test: new negotiation begins [groupId={}, leaseholder={}]", lgm.groupId(), recp);
+                        newNegotiationFuture.complete(null);
+                    }
+                }
+
+                if (msg instanceof LeaseGrantedMessageResponse) {
+                    log.info("Test: lease negotiation tries to finish [accepted={}]", ((LeaseGrantedMessageResponse) msg).accepted());
+                    return true;
+                }
+
+                return false;
+            });
+        }
+
+        StopLeaseProlongationMessage stopMsg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                .groupId(partId)
+                .build();
+
+        for (IgniteImpl n : runningNodesList()) {
+            for (IgniteImpl recp : runningNodesList()) {
+                n.clusterService().messagingService().invoke(recp.clusterService().topologyService().localMember(), stopMsg, 3000);
+            }
+        }
+
+        assertThat(newNegotiationFuture, willCompleteSuccessfully());
+
+        log.info("Test: partition restart");
+
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, Set.of(0));
 
         assertThat(client.toBlocking().exchange(post), hasStatus(OK));
     }

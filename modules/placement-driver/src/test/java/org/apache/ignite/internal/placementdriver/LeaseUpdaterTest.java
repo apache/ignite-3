@@ -162,7 +162,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         when(clusterService.messagingService()).thenReturn(messagingService);
 
-        lenient().when(leaseTracker.leasesLatest()).thenReturn(leases);
+        lenient().when(leaseTracker.latestLeases()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
 
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
@@ -410,7 +410,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         Leases currentLeases = new Leases(staleLeasesByGroup, BYTE_EMPTY_ARRAY);
 
-        lenient().when(leaseTracker.leasesLatest()).thenReturn(currentLeases);
+        lenient().when(leaseTracker.latestLeases()).thenReturn(currentLeases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenAnswer(invocation ->
                 currentLeases.leaseByGroupId().getOrDefault(invocation.getArgument(0), Lease.emptyLease(invocation.getArgument(0))));
 
@@ -501,7 +501,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         Leases currentLeases = new Leases(leasesByGroup, BYTE_EMPTY_ARRAY);
 
-        lenient().when(leaseTracker.leasesLatest()).thenReturn(currentLeases);
+        lenient().when(leaseTracker.latestLeases()).thenReturn(currentLeases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenAnswer(invocation ->
                 currentLeases.leaseByGroupId().getOrDefault(invocation.getArgument(0), Lease.emptyLease(invocation.getArgument(0))));
 

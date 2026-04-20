@@ -261,7 +261,7 @@ public class LeaseUpdater {
 
         leaseNegotiator.cancelAgreement(grpId);
 
-        Leases leasesCurrent = leaseTracker.leasesLatest();
+        Leases leasesCurrent = leaseTracker.latestLeases();
 
         Collection<Lease> currentLeases = leasesCurrent.leaseByGroupId().values();
 
@@ -440,7 +440,7 @@ public class LeaseUpdater {
 
                 leases = new Leases(newLeasesMap, entry.value());
             } else {
-                leases = leaseTracker.leasesLatest();
+                leases = leaseTracker.latestLeases();
             }
         }
 
@@ -815,6 +815,21 @@ public class LeaseUpdater {
                             clusterService.messagingService().respond(sender, response, correlationId);
                         }
                     });
+                } else {
+                    // Return non null value to prevent retries from non-leaseholder.
+                    long time = clockService.currentLong();
+
+                    LOG.info("Stop lease prolongation message was received from non-leaseholder "
+                                    + "[groupId={}, sender={}, leaseholder={}, time={}]", grpId, sender, lease.getLeaseholder(), time);
+
+                    if (correlationId != null) {
+                        StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
+                                .stopLeaseProlongationMessageResponse()
+                                .deniedLeaseExpirationTimeLong(time)
+                                .build();
+
+                        clusterService.messagingService().respond(sender, response, correlationId);
+                    }
                 }
             } else {
                 LOG.warn("Unknown message type [msg={}]", msg.getClass().getSimpleName());

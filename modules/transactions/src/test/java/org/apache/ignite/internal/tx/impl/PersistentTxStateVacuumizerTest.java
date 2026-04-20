@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -117,7 +118,7 @@ class PersistentTxStateVacuumizerTest extends BaseIgniteAbstractTest {
 
         // Each request should have at most VACUUM_BATCH_SIZE tx IDs.
         assertThat(
-                requestCaptor.getAllValues().stream().map(r -> r.transactionIds().size()).toList(),
+                requestCaptor.getAllValues().stream().map(r -> r.transactionIds().size()).collect(Collectors.toUnmodifiableList()),
                 everyItem(lessThanOrEqualTo(VACUUM_BATCH_SIZE))
         );
 

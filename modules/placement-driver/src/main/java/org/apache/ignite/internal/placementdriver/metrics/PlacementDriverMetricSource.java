@@ -97,7 +97,7 @@ public class PlacementDriverMetricSource extends AbstractMetricSource<Holder> {
             int count = 0;
             HybridTimestamp now = clockService.current();
 
-            for (Lease lease : leaseTracker.leasesLatest().leaseByGroupId().values()) {
+            for (Lease lease : leaseTracker.latestLeases().leaseByGroupId().values()) {
                 // Expired leases can be ignored.
                 if (lease != null && accepted == lease.isAccepted() && clockService.before(lease.getExpirationTime(), now)) {
                     count++;
