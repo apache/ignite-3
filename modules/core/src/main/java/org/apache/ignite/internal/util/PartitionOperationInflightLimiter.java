@@ -45,9 +45,9 @@ public class PartitionOperationInflightLimiter {
     /** Running total of in-flight bytes. */
     private final AtomicLong inFlightBytes = new AtomicLong();
 
-    private static final IgniteLogger LOG = Loggers.forClass(PartitionOperationInflightLimiter.class);
+    private final IgniteLogger log = Loggers.forClass(PartitionOperationInflightLimiter.class);
 
-    private static final IgniteThrottledLogger throttledLog = Loggers.toThrottledLogger(LOG);
+    private final IgniteThrottledLogger throttledLog = Loggers.toThrottledLogger(log);
 
     /**
      * Constructor.
