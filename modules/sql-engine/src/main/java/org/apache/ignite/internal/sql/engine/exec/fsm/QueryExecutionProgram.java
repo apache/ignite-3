@@ -161,7 +161,8 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
     }
 
     private static boolean groupOverloaded(Throwable th) {
-        return ExceptionUtils.extractCodeFrom(th) == Replicator.GROUP_OVERLOADED_ERR;
+        int code = ExceptionUtils.extractCodeFrom(th);
+        return code == Replicator.GROUP_OVERLOADED_ERR || code == Replicator.REPLICA_OVERLOADED_ERR;
     }
 
     private static boolean replicaAbsent(Throwable th) {

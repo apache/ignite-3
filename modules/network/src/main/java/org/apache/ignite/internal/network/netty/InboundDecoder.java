@@ -52,6 +52,9 @@ public class InboundDecoder extends ByteToMessageDecoder {
     /** Message group type, for partially read message headers. */
     private static final AttributeKey<Short> GROUP_TYPE_KEY = AttributeKey.valueOf("GROUP_TYPE");
 
+    /** Bytes consumed so far for the current message (header + body), accumulated across partial reads. */
+    private static final AttributeKey<Integer> MESSAGE_SIZE_KEY = AttributeKey.valueOf("MESSAGE_SIZE");
+
     private final MessageFormat messageFormat;
 
     /** Serialization service. */
@@ -84,6 +87,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
         Attribute<Short> groupTypeAttr = ctx.channel().attr(GROUP_TYPE_KEY);
 
+        Attribute<Integer> messageSizeAttr = ctx.channel().attr(MESSAGE_SIZE_KEY);
+
         reader.setBuffer(buffer);
 
         while (buffer.hasRemaining()) {
@@ -100,7 +105,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
                         groupType = reader.readHeaderShort();
 
                         if (!reader.isLastRead()) {
-                            fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+                            int readBytes = fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+                            messageSizeAttr.set(orZero(messageSizeAttr.get()) + readBytes);
 
                             break;
                         }
@@ -111,7 +117,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     if (!reader.isLastRead()) {
                         groupTypeAttr.set(groupType);
 
-                        fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+                        int readBytes = fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+                        messageSizeAttr.set(readBytes + orZero(messageSizeAttr.get()));
 
                         break;
                     }
@@ -133,18 +140,23 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 int readBytes = fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
 
                 if (finished) {
+                    int totalMessageSize = orZero(messageSizeAttr.get()) + readBytes;
+
                     reader.reset();
                     deserializerAttr.set(null);
+                    messageSizeAttr.set(null);
 
                     NetworkMessage message = deserializer.getMessage();
 
                     if (message instanceof ClassDescriptorListMessage) {
                         onClassDescriptorMessage((ClassDescriptorListMessage) message);
                     } else {
+                        message.setMessageSize(totalMessageSize);
                         out.add(message);
                     }
                 } else {
                     deserializerAttr.set(deserializer);
+                    messageSizeAttr.set(orZero(messageSizeAttr.get()) + readBytes);
                 }
 
                 if (readBytes == 0) {
@@ -174,5 +186,9 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
     private void onClassDescriptorMessage(ClassDescriptorListMessage msg) {
         serializationService.mergeDescriptors(msg.messages());
+    }
+
+    private static int orZero(Integer value) {
+        return value == null ? 0 : value;
     }
 }

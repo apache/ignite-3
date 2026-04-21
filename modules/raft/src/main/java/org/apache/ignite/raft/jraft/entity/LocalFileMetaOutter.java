@@ -19,6 +19,7 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
+import org.apache.ignite.internal.network.annotations.MessageSerialVersionUid;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -61,6 +62,7 @@ public final class LocalFileMetaOutter {
     }
 
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_FILE_META)
+    @MessageSerialVersionUid(-9146300188186546998L)
     public interface LocalFileMeta extends Message {
         int sourceNumber();
 

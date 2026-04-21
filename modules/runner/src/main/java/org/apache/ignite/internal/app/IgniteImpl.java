@@ -302,6 +302,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
+import org.apache.ignite.internal.util.PartitionOperationInflightLimiter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
@@ -993,6 +994,10 @@ public class IgniteImpl implements Ignite {
 
         var validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager, indexMetaStorage);
 
+        PartitionOperationInflightLimiter partitionOperationInFlightLimiter = new PartitionOperationInflightLimiter(
+                () -> replicationConfig.partitionOperationHeapUsagePercent().value()
+        );
+
         replicaMgr = new ReplicaManager(
                 clusterSvc,
                 cmgMgr,
@@ -1001,6 +1006,7 @@ public class IgniteImpl implements Ignite {
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                partitionOperationInFlightLimiter,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureManager,
                 raftMarshaller,

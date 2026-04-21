@@ -73,4 +73,14 @@ public class ReplicationConfigurationSchema {
     @Range(min = 1)
     @Value(hasDefault = true)
     public int batchSizeBytes = DEFAULT_BATCH_SIZE_BYTES;
+
+    /**
+     * Percentage of JVM max heap memory to use as the limit for total in-flight partition operation bytes on this node.
+     * When the limit is reached, new partition operation requests are rejected with an overload error.
+     * Applies to the replica manager (inter-node) partition operations.
+     * Zero means no limit.
+     */
+    @Range(min = 0, max = 100)
+    @Value(hasDefault = true)
+    public int partitionOperationHeapUsagePercent = 50;
 }
