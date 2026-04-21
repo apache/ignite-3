@@ -43,7 +43,10 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private static final CompletableFuture<?> NOT_SUPPORTED_FUTURE =
+    private static final CompletableFuture<Void> TX_INFO_ALREADY_RECEIVED_FUTURE =
+            failedFuture(new UnsupportedOperationException("TX_ROLLBACK_USING_FIRST_REQUEST was skipped because tx info already present."));
+
+    private static final CompletableFuture<Void> NOT_SUPPORTED_FUTURE =
             failedFuture(new UnsupportedOperationException("TX_ROLLBACK_USING_FIRST_REQUEST is not supported"));
 
     private final long observableTimestamp;
@@ -55,6 +58,8 @@ public class ClientLazyTransaction implements Transaction {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
     private final CompletableFuture<RequestInfo> requestInfoFuture = new CompletableFuture<>();
+
+    private final CompletableFuture<Void> rollbackFuture = new CompletableFuture<>();
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
@@ -111,10 +116,15 @@ public class ClientLazyTransaction implements Transaction {
             return nullCompletedFuture();
         }
 
-        // If the transaction is not started. Issue the rollback and wait for the server response.
-        if (!tx0.isDone() && cancelled.compareAndSet(false, true)) {
-            return requestInfoFuture
-                    .thenCompose(reqInfo -> {
+        if (cancelled.compareAndSet(false, true)) {
+            return CompletableFuture.anyOf(requestInfoFuture, tx0)
+                    .thenCompose(input -> {
+                        if (tx0.isDone()) {
+                            return TX_INFO_ALREADY_RECEIVED_FUTURE;
+                        }
+
+                        // The input must be from requestInfoFuture
+                        RequestInfo reqInfo = (RequestInfo) input;
                         ClientChannel ch = reqInfo.ch;
                         if (ch.protocolContext().isFeatureSupported(TX_ROLLBACK_USING_FIRST_REQUEST)) {
                             return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(-reqInfo.firstReqId), r -> null);
@@ -130,9 +140,16 @@ public class ClientLazyTransaction implements Transaction {
                             return tx0.thenCompose(ClientTransaction::rollbackAsync);
                         }
                     })
-                    .thenCompose(f -> (CompletableFuture<Void>) f);
+                    .thenCompose(f -> (CompletableFuture<Void>) f)
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            rollbackFuture.completeExceptionally(e);
+                        } else {
+                            rollbackFuture.complete(null);
+                        }
+                    });
         } else {
-            return tx0.thenCompose(ClientTransaction::rollbackAsync);
+            return rollbackFuture;
         }
     }
 
