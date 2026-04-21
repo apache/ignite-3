@@ -317,6 +317,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int anotherPartId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
+
+        if (!node0.txManager().lockManager().policy().invertedWaitOrder()) {
+            // Not compatible with inverted wait order.
+            // An older transaction can attempt to request a lock after partition reset, because it's not dead, and disrupts test logic.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-28365
+            return;
+        }
+
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, anotherPartId);

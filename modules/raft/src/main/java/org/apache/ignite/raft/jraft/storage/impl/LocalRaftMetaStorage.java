@@ -21,8 +21,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.StablePBMeta;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -50,7 +50,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
     /** blank votedFor information */
     private PeerId votedFor = PeerId.emptyPeer();
     private final RaftOptions raftOptions;
-    private NodeMetrics nodeMetrics;
+    private RaftMetricSource metrics;
     private NodeImpl node;
 
     public LocalRaftMetaStorage(final String path, final RaftOptions raftOptions) {
@@ -66,7 +66,8 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         this.node = opts.getNode();
-        this.nodeMetrics = this.node.getNodeMetrics();
+        this.metrics = node.getOptions().getRaftMetrics();
+
         File dir = new File(this.path);
 
         if (!Utils.mkdir(dir)) {
@@ -127,9 +128,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         }
         finally {
             long cost = Utils.monotonicMs() - start;
-            if (this.nodeMetrics != null) {
-                this.nodeMetrics.recordLatency("save-raft-meta", cost);
-            }
+                this.metrics.onSaveMeta(cost);
             if (cost > SAVE_RAFT_META_COST_MS_SOFT_LIMIT) {
                 LOG.info("Save raft meta, [node={}, path={}, term={}, votedFor={}, costTimeMs={} ms].",
                     this.node.getNodeId(), this.path, this.term, this.votedFor, cost);

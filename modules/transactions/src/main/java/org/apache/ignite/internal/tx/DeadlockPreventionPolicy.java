@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Comparator;
 import java.util.UUID;
+import org.apache.ignite.internal.tx.impl.TxIdPriorityComparator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,27 +28,30 @@ import org.jetbrains.annotations.Nullable;
  * See also {@link org.apache.ignite.internal.tx.impl.HeapLockManager}.
  */
 public interface DeadlockPreventionPolicy {
+    /** Default comparator. */
+    TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
+
     /**
      * No-op policy which does nothing to prevent deadlocks.
      */
     DeadlockPreventionPolicy NO_OP = new DeadlockPreventionPolicy() {};
 
     /**
-     * Comparator for transaction ids that allows to set transaction priority, if deadlock prevention policy requires this priority.
-     * The transaction with higher id has lower priority. If this comparator is {@code null} then behavior of any transaction
-     * in case of conflict depends only on whether this transaction holds a lock or makes a request for lock acquisition.
+     * A comparator for transaction ids that orders transactions according to their priority. Transactions with higher priority
+     * will acquire locks first. Also, the priority is used to prevent deadlocks, if a policy supports deadlock prevention.
      *
      * @return Transaction id comparator.
      */
-    @Nullable default Comparator<UUID> txIdComparator() {
-        return null;
+    default Comparator<UUID> txIdComparator() {
+        return TX_ID_PRIORITY_COMPARATOR;
     }
 
     /**
      * Timeout (in milliseconds) to wait before aborting a lock attempt that is made by a transaction in case of a conflict
-     * of this transaction with another one on certain key. If transaction priority is applicable (see {@link #txIdComparator()})
-     * then this timeout is applied only for transaction with lower priority. If this method returns {@code 0} this means that
+     * of this transaction with another one on certain key. If a policy allows deadlock prevention,
+     * then this timeout is applied only to a waiting transaction. If this method returns {@code 0} this means that
      * the lock attempt is aborted instantly (timeout is zero). If lesser that {@code 0}, it means that the wait time is infinite.
+     * TODO IGNITE-28507 make configurable.
      *
      * @return Timeout, in milliseconds.
      */
@@ -56,11 +60,36 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Whether transaction priority if used for conflict resolution.
+     * Invokes fail action on the owner.
      *
-     * @return Whether priority is used.
+     * @param owner The owner.
      */
-    default boolean usePriority() {
-        return txIdComparator() != null;
+    default void failAction(UUID owner) {
+        // No-op.
+    }
+
+    /**
+     * Tests if waiter is allowed to wait for owner.
+     *
+     * @param waiter The waiter.
+     * @param owner The owner.
+     *
+     * @return Waiter to fail or {@code null} if waiting is allowed.
+     */
+    default @Nullable Waiter allowWait(Waiter waiter, Waiter owner) {
+        return null;
+    }
+
+    /**
+     * Returns {@code true}, if wait order is inverted: high priority (older) transactions are allowed to wait for low priority (younger)
+     * transactions.
+     *
+     * <p>Must be consistent with {@code allowWait} implementation: for example, if higher priority is allowed to wait for lower priority,
+     * a search should start from low priority first, to have a chance of finding a valid waiter-owner pair.
+     *
+     * @return If {@code true} for inverted wait order.
+     */
+    default boolean invertedWaitOrder() {
+        return false;
     }
 }

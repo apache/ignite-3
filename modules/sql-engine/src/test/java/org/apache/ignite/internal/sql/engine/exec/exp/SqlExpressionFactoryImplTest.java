@@ -48,6 +48,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -826,6 +827,145 @@ public class SqlExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(makeLit.apply(BigDecimal.ONE, decimal5), decimal5, BigDecimal.ONE, false),
                 Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal52), decimal52, new BigDecimal("1.00"), false)
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("approximateTypeSpecialValuesComparisonArgs")
+    public void testApproximateTypeSpecialValuesComparison(
+            SqlTypeName type,
+            SqlOperator op,
+            Number left,
+            Number right,
+            boolean expected
+    ) {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType colType = tf.createSqlType(type);
+        RelDataType rowType = new Builder(tf)
+                .add("c1", colType)
+                .add("c2", colType)
+                .build();
+
+        RexInputRef ref1 = rexBuilder.makeInputRef(rowType, 0);
+        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 1);
+        RexNode filter = rexBuilder.makeCall(op, List.of(ref1, ref2));
+
+        SqlPredicate predicate = expFactory.predicate(filter, rowType);
+        assertEquals(expected, predicate.test(ctx, new Object[]{left, right}),
+                "Failed for " + left + " " + op.getName() + " " + right);
+    }
+
+    private static List<Arguments> approximateTypeSpecialValuesComparisonArgs() {
+        List<Arguments> args = new ArrayList<>();
+
+        args.addAll(makeApproximateTypeSpecialValuesComparisonArgs(
+                SqlTypeName.FLOAT,
+                Float.NaN,
+                Float.POSITIVE_INFINITY,
+                Float.NEGATIVE_INFINITY,
+                1.0f,
+                0.0f,
+                -0.0f
+        ));
+        args.addAll(makeApproximateTypeSpecialValuesComparisonArgs(
+                SqlTypeName.DOUBLE,
+                Double.NaN,
+                Double.POSITIVE_INFINITY,
+                Double.NEGATIVE_INFINITY,
+                1.0d,
+                0.0d,
+                -0.0d
+        ));
+
+        return args;
+    }
+
+    private static List<Arguments> makeApproximateTypeSpecialValuesComparisonArgs(
+            SqlTypeName type,
+            Number nan,
+            Number posInf,
+            Number negInf,
+            Number one,
+            Number zero,
+            Number negZero
+    ) {
+        List<Arguments> args = new ArrayList<>();
+
+        // NaN = NaN : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, nan, nan, true));
+        // NaN = 1.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, nan, one, false));
+        // 1.0 = NaN : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, one, nan, false));
+        // -0.0 = -0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, negZero, negZero, true));
+        // -0.0 = 0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, negZero, zero, false));
+        // 1.0 = 1.0  : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, one, one, true));
+
+        // NaN <> NaN should be false
+        args.add(Arguments.of(type, SqlStdOperatorTable.NOT_EQUALS, nan, nan, false));
+        // NaN <> 1.0 should be true
+        args.add(Arguments.of(type, SqlStdOperatorTable.NOT_EQUALS, nan, one, true));
+        // -0.0 <> -0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.NOT_EQUALS, negZero, negZero, false));
+        // -0.0 <> 0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.NOT_EQUALS, negZero, zero, true));
+
+        // NaN > any non-NaN value : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, nan, one, true));
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, nan, posInf, true));
+        // any non-NaN > NaN : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, one, nan, false));
+        // NaN > NaN : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, nan, nan, false));
+        // -0.0 > -0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, negZero, negZero, false));
+        // -0.0 > 0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, negZero, zero, false));
+        // 0.0 > -0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN, zero, negZero, true));
+
+        // NaN >= NaN : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, nan, nan, true));
+        // 1.0 >= NaN : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, one, nan, false));
+        // -0.0 >= -0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, negZero, negZero, true));
+        // -0.0 >= 0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, negZero, zero, false));
+        // 0.0 >= -0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, zero, negZero, true));
+
+        // 1.0 < NaN : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, one, nan, true));
+        // NaN < 1.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, nan, one, false));
+        // NaN < NaN : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, nan, nan, false));
+        // -0.0 < -0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, negZero, negZero, false));
+        // -0.0 < 0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, negZero, zero, true));
+        // 0.0 < -0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, zero, negZero, false));
+
+        // NaN <= NaN : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN_OR_EQUAL, nan, nan, true));
+        // -0.0 <= -0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN_OR_EQUAL, negZero, negZero, true));
+        // -0.0 <= 0.0 : true
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN_OR_EQUAL, negZero, zero, true));
+        // 0.0 <= -0.0 : false
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN_OR_EQUAL, zero, negZero, false));
+
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, posInf, posInf, true));
+        args.add(Arguments.of(type, SqlStdOperatorTable.LESS_THAN, negInf, posInf, true));
+        args.add(Arguments.of(type, SqlStdOperatorTable.EQUALS, zero, zero, true));
+
+        return args;
     }
 
     private static List<Arguments> rowSourceTestArgs() {

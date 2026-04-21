@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static java.lang.Integer.max;
+import static java.lang.Integer.min;
+
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -24,8 +27,6 @@ import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
@@ -35,10 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
@@ -64,14 +62,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final @Nullable Comparator<RowT> comp;
 
-    private final List<String> columns;
-
     /**
      * Constructor.
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param tableDescriptor Table descriptor.
      * @param partitionProvider Partition provider.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
@@ -84,7 +79,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             ScannableTable table,
-            TableDescriptor tableDescriptor,
             PartitionProvider<RowT> partitionProvider,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
@@ -101,12 +95,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;
-
-        columns = schemaIndex.collation().getFieldCollations().stream()
-                .map(RelFieldCollation::getFieldIndex)
-                .map(tableDescriptor::columnDescriptor)
-                .map(ColumnDescriptor::name)
-                .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -131,8 +119,18 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 partWithConsistencyToken -> partitionPublisher(partWithConsistencyToken, cond)
         );
 
+        int bufferSize = context().bufferSize();
+
+        // Let's prefetch equal share of a buffer from each partition.
+        int fetchSize = max(bufferSize / partsWithConsistencyTokens.size(), 1);
+
+        // Adds some buffer to improve chances to fulfill entire request without need go to storage once again.
+        // This renders over-prefetching over all local partitions in total, but at least it's capped now at
+        // 2x bufferSize within up to 512 local partitions.
+        fetchSize = min(fetchSize * 2, bufferSize);
+
         if (comp != null) {
-            return SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, it);
+            return SubscriptionUtils.orderedMerge(comp, fetchSize, it);
         } else {
             return SubscriptionUtils.concat(it);
         }
@@ -147,12 +145,10 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
         switch (schemaIndex.type()) {
             case SORTED:
-                return table.indexRangeScan(ctx, partWithConsistencyToken, factory, indexId,
-                        columns, cond, requiredColumns);
+                return table.indexRangeScan(ctx, partWithConsistencyToken, factory, indexId, cond, requiredColumns);
 
             case HASH:
-                return table.indexLookup(ctx, partWithConsistencyToken, factory, indexId,
-                        columns, cond.lower(), requiredColumns);
+                return table.indexLookup(ctx, partWithConsistencyToken, factory, indexId, cond.lower(), requiredColumns);
 
             default:
                 throw new AssertionError("Unexpected index type: " + schemaIndex.type());

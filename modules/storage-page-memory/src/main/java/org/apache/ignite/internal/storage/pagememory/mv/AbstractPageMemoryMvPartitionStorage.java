@@ -37,8 +37,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -97,7 +96,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final int partitionId;
 
-    protected final AbstractPageMemoryTableStorage tableStorage;
+    protected final AbstractPageMemoryTableStorage<?> tableStorage;
 
     final PageMemoryIndexes indexes;
 
@@ -113,8 +112,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     volatile RenewablePartitionStorageState renewableState;
 
-    protected final DataPageReader rowVersionDataPageReader;
-
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -126,7 +123,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     AbstractPageMemoryMvPartitionStorage(
             int partitionId,
-            AbstractPageMemoryTableStorage tableStorage,
+            AbstractPageMemoryTableStorage<?> tableStorage,
             RenewablePartitionStorageState renewableState,
             ExecutorService destructionExecutor,
             FailureProcessor failureProcessor
@@ -137,10 +134,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
         this.failureProcessor = failureProcessor;
         this.indexes = new PageMemoryIndexes(this.destructionExecutor, failureProcessor, this::runConsistently);
-
-        PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
-
-        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -194,6 +187,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     void updateRenewableState(
+            PartitionPageMemory partitionPageMemory,
             VersionChainTree versionChainTree,
             FreeListImpl freeList,
             IndexMetaTree indexMetaTree,
@@ -201,7 +195,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     ) {
         var newState = new RenewablePartitionStorageState(
                 tableStorage,
-                partitionId,
+                partitionPageMemory,
                 versionChainTree,
                 freeList,
                 indexMetaTree,
@@ -277,7 +271,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         ReadRowVersion read = new ReadRowVersion(partitionId);
 
         try {
-            rowVersionDataPageReader.traverse(rowVersionLink, read, loadValue);
+            renewableState.rowVersionDataPageReader().traverse(rowVersionLink, read, loadValue);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Row version lookup failed: [link={}, {}]", e, rowVersionLink, createStorageInfo());
         }
@@ -291,7 +285,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         FindRowVersion findRowVersion = new FindRowVersion(partitionId, loadValueBytes);
 
         try {
-            rowVersionDataPageReader.traverse(versionChain.headLink(), findRowVersion, filter);
+            renewableState.rowVersionDataPageReader().traverse(versionChain.headLink(), findRowVersion, filter);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error when looking up row version in version chain: [rowId={}, headLink={}, {}]",

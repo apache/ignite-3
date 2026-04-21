@@ -57,9 +57,11 @@ public:
     inline static const std::string ERROR_JOB = JOBS + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = JOBS + "$EchoJob";
     inline static const std::string RETURN_NULL_JOB = JOBS + "$ReturnNullJob";
+    inline static const std::string GET_PART_DISTRIBUTION_JOB = JOBS + "$GetPartitionDistributionByTableCppJob";
 
     static constexpr const char *KEY_COLUMN = "KEY";
     static constexpr const char *VAL_COLUMN = "VAL";
+    static constexpr const char *PART_PSEUDOCOLUMN = "__partition_id";
 
     /**
      * Get logger.
@@ -67,6 +69,26 @@ public:
      * @return Logger for tests.
      */
     static std::shared_ptr<gtest_logger> get_logger() { return std::make_shared<gtest_logger>(false, true); }
+
+    /**
+     * Get tuple for specified column names and values.
+     *
+     * @param col_names Array with column names, should be same size as @c col_values.
+     * @param col_values Array with column values, should be same size as @c col_names.
+     * @return Ignite tuple with provided values and columns.
+     */
+    static ignite_tuple get_tuple(const std::vector<std::string>& col_names, const std::vector<primitive>& col_values) {
+        assert(col_values.size() == col_names.size());
+        assert(!col_values.empty());
+
+        ignite_tuple res;
+
+        for (size_t i = 0; i < col_names.size(); ++i) {
+            res.set(col_names[i], col_values[i]);
+        }
+
+        return res;
+    }
 
     /**
      * Get tuple for specified column values.

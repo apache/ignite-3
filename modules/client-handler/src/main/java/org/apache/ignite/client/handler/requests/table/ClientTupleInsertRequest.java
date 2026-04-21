@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.readAsync;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -51,12 +52,13 @@ public class ClientTupleInsertRequest {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return readAsync(in, tables, resources, txManager, notificationSender, tsTracker, noneOf(RequestOptions.class))
+        return readAsync(in, tables, resources, metrics, txManager, notificationSender, tsTracker, noneOf(RequestOptions.class))
                 .thenCompose(req -> req.table().recordView().insertAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);

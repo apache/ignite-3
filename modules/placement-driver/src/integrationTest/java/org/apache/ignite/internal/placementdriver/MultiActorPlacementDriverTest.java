@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.PhysicalTopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -81,8 +82,10 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -116,6 +119,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -183,7 +189,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                 return;
             }
 
-            var handlerNode = handlerService.topologyService().localMember();
+            var handlerNode = handlerService.staticLocalNode();
 
             log.info("Lease is being granted [actor={}, recipient={}, force={}]", sender, handlerNode.name(),
                     ((LeaseGrantedMessage) msg).force());
@@ -274,8 +280,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
             LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
+                    clusterService.staticLocalNode().name(),
+                    workingDir.raftLogPath(),
+                    logStorageConfiguration
             );
 
             var raftManager = TestLozaFactory.create(
@@ -295,19 +302,26 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_metastorage"));
 
             LogStorageManager msLogStorageManager =
-                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+                    SharedLogStorageManagerUtils.create(clusterService.staticLocalNode().name(), metastorageWorkDir.raftLogPath(),
+                            logStorageConfiguration);
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
-            var metaStorageManager = new MetaStorageManagerImpl(
+            var msRaftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
                     clusterService,
+                    eventsClientListener,
+                    mock(FailureProcessor.class)
+            );
+
+            var metaStorageManager = new MetaStorageManagerImpl(
+                    clusterService.staticLocalNode(),
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
                     storage,
                     nodeClock,
-                    topologyAwareRaftGroupServiceFactory,
+                    msRaftServiceFactory,
                     new NoOpMetricManager(),
                     systemDistributedConfiguration,
                     msRaftConfigurer,
@@ -394,14 +408,14 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        CompletableFuture<RaftGroupService> msRaftClientFuture = metaStorageManager.metaStorageService()
+        CompletableFuture<TimeAwareRaftGroupService> msRaftClientFuture = metaStorageManager.metaStorageService()
                 .thenApply(MetaStorageServiceImpl::raftGroupService);
 
         assertThat(msRaftClientFuture, willCompleteSuccessfully());
 
-        RaftGroupService msRaftClient = msRaftClientFuture.join();
+        TimeAwareRaftGroupService msRaftClient = msRaftClientFuture.join();
 
-        assertThat(msRaftClient.refreshLeader(), willCompleteSuccessfully());
+        assertThat(msRaftClient.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         Peer previousLeader = msRaftClient.leader();
 
@@ -409,11 +423,17 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         log.info("The placement driver group active actor is transferring [from={}, to={}]", previousLeader, newLeader);
 
-        assertThat(msRaftClient.transferLeadership(newLeader), willCompleteSuccessfully());
+        assertThat(msRaftClient.transferLeadership(newLeader, TimeAwareRaftGroupService.NO_TIMEOUT), willCompleteSuccessfully());
 
         waitForProlong(grpPart0, lease);
 
-        assertEquals(newLeader, msRaftClient.leader());
+        CompletableFuture<LeaderWithTerm> actualLeaderFut = msRaftClient.refreshAndGetLeaderWithTerm(TimeAwareRaftGroupService.NO_TIMEOUT);
+
+        assertThat(actualLeaderFut, willCompleteSuccessfully());
+
+        Peer actualLeader = actualLeaderFut.join().leader();
+
+        assertEquals(newLeader, actualLeader);
     }
 
     @Test
@@ -495,7 +515,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         String proposedLeaseholder = nodeNames.stream().filter(n -> !n.equals(fLease.getLeaseholder())).findAny().orElseThrow();
 
         service.messagingService().send(
-                clusterServices.get(activeActorRef.get()).topologyService().localMember(),
+                clusterServices.get(activeActorRef.get()).staticLocalNode(),
                 PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                         .groupId(grpPart)
                         .redirectProposal(proposedLeaseholder)

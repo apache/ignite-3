@@ -119,6 +119,9 @@ enum class client_operation {
     /** Close the cursor. */
     SQL_CURSOR_CLOSE = 52,
 
+    /** Get partition assignment. */
+    PARTITION_ASSIGNMENT_GET = 53,
+
     /** Execute SQL script. */
     SQL_EXEC_SCRIPT = 56,
 

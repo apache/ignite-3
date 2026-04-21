@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,6 +60,8 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
     private ReuseList reuseList;
 
     private PageMemory pageMemory;
+
+    private PartitionPageMemory partitionPageMemory;
 
     @Captor
     private ArgumentCaptor<ReuseBag> reuseBagCaptor;
@@ -78,7 +82,14 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         ));
 
-        blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1);
+        partitionPageMemory = spy(pageMemory.createPartitionPageMemory(1, 1));
+
+        blobStorage = new BlobStorage(reuseList, partitionPageMemory, 1, 1);
+    }
+
+    @AfterEach
+    void destroyStorage() {
+        pageMemory.stop(true);
     }
 
     @Test
@@ -92,7 +103,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
     void allocatesOnlyRequiredNumberOfPages() throws Exception {
         blobStorage.addBlob(new byte[(int) (PAGE_SIZE * 1.5)]);
 
-        verify(pageMemory, times(2)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
+        verify(partitionPageMemory, times(2)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
     }
 
     @Test
@@ -101,7 +112,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
 
         blobStorage.updateBlob(pageId, new byte[(int) (PAGE_SIZE * 2.5)]);
 
-        verify(pageMemory, times(3)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
+        verify(partitionPageMemory, times(3)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
     }
 
     @Test
@@ -110,7 +121,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
 
         blobStorage.updateBlob(pageId, new byte[(int) (PAGE_SIZE * 0.5)]);
 
-        verify(pageMemory, times(2)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
+        verify(partitionPageMemory, times(2)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
     }
 
     @Test
@@ -156,7 +167,7 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
 
         blobStorage.updateBlob(pageId, new byte[0]);
 
-        verify(pageMemory, times(3)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
+        verify(partitionPageMemory, times(3)).allocatePageNoReuse(anyInt(), anyInt(), anyByte());
 
         verify(reuseList).addForRecycle(reuseBagCaptor.capture());
 

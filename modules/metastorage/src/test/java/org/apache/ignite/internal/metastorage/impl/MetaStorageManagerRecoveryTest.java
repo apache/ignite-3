@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageM
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -51,17 +50,12 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.NodeMetadata;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -82,7 +76,6 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private HybridClock clock;
 
     private void createMetaStorage(long remoteRevision) throws Exception {
-        ClusterService clusterService = clusterService();
         ClusterManagementGroupManager cmgManager = clusterManagementManager();
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
         RaftManager raftManager = raftManager(remoteRevision);
@@ -92,14 +85,16 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         clock = new HybridClockImpl();
         kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker));
 
+        var localNode = new ClusterNodeImpl(UUID.randomUUID(), NODE_NAME, new NetworkAddress("foo", 123));
+
         metaStorageManager = new MetaStorageManagerImpl(
-                clusterService,
+                localNode,
                 cmgManager,
                 topologyService,
                 raftManager,
                 kvs,
                 clock,
-                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(TimeAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 systemConfiguration,
                 RaftGroupOptionsConfigurer.EMPTY,
@@ -110,55 +105,15 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static RaftManager raftManager(long remoteRevision) throws Exception {
         RaftManager raft = mock(RaftManager.class);
 
-        RaftGroupService service = mock(TopologyAwareRaftGroupService.class);
+        PhysicalTopologyAwareRaftGroupService service = mock(PhysicalTopologyAwareRaftGroupService.class);
 
         when(service.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(remoteRevision, -1)));
 
-        when(raft.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+        when(raft.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> service);
 
         return raft;
-    }
-
-    private ClusterService clusterService() {
-        return new ClusterService() {
-            @Override
-            public String nodeName() {
-                return "node";
-            }
-
-            @Override
-            public TopologyService topologyService() {
-                TopologyService topologyService = mock(TopologyService.class);
-                when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(
-                        UUID.randomUUID(),
-                        "node",
-                        null
-                ));
-
-                return topologyService;
-            }
-
-            @Override
-            public MessagingService messagingService() {
-                return null;
-            }
-
-            @Override
-            public MessageSerializationRegistry serializationRegistry() {
-                return null;
-            }
-
-            @Override
-            public void updateMetadata(NodeMetadata metadata) {
-            }
-
-            @Override
-            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-                return nullCompletedFuture();
-            }
-        };
     }
 
     private static ClusterManagementGroupManager clusterManagementManager() {

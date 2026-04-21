@@ -76,7 +76,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public String generateURIForCopy() {
-        String localNodeName = snapshotStorage.topologyService().localMember().name();
+        String localNodeName = snapshotStorage.localNodeName();
 
         return SnapshotUri.toStringUri(id, localNodeName);
     }

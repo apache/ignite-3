@@ -40,10 +40,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
-import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.TableAwareReplicaRequestPreProcessor;
+import org.apache.ignite.internal.partition.replicator.TablePartitionReplicaProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -74,7 +74,7 @@ public class WriteIntentSwitchRequestHandler {
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    private final IntFunction<ReplicaTableProcessor> replicaListenerByTableId;
+    private final IntFunction<TablePartitionReplicaProcessor> replicaListenerByTableId;
 
     private final ClockService clockService;
 
@@ -89,7 +89,7 @@ public class WriteIntentSwitchRequestHandler {
 
     /** Constructor. */
     public WriteIntentSwitchRequestHandler(
-            IntFunction<ReplicaTableProcessor> replicaListenerByTableId,
+            IntFunction<TablePartitionReplicaProcessor> replicaListenerByTableId,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
@@ -174,7 +174,7 @@ public class WriteIntentSwitchRequestHandler {
         // Using empty primacy because the request is not a PrimaryReplicaRequest.
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(tableSpecificRequest)
                 .thenCompose(ignored -> {
-                    ReplicaTableProcessor replicaProcessor = replicaTableProcessor(tableId);
+                    TablePartitionReplicaProcessor replicaProcessor = replicaTableProcessor(tableId);
 
                     if (replicaProcessor == null) {
                         // Most of the times this condition should be false. This block handles a case when a request got stuck
@@ -215,7 +215,7 @@ public class WriteIntentSwitchRequestHandler {
         return new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId);
     }
 
-    private ReplicaTableProcessor replicaTableProcessor(int tableId) {
+    private TablePartitionReplicaProcessor replicaTableProcessor(int tableId) {
         return replicaListenerByTableId.apply(tableId);
     }
 }

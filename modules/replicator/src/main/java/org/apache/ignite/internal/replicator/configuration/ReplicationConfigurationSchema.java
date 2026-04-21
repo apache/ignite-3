@@ -31,6 +31,9 @@ public class ReplicationConfigurationSchema {
     /** Default value for {@link #idleSafeTimePropagationDurationMillis}. */
     public static final long DEFAULT_IDLE_SAFE_TIME_PROP_DURATION = TimeUnit.SECONDS.toMillis(1);
 
+    /** Default value for {@link #leaseExpirationIntervalMillis}. */
+    public static final long DEFAULT_LEASE_EXPIRATION_INTERVAL_MILLIS = 5000;
+
     /** Default value for {@link #batchSizeBytes}. */
     public static final int DEFAULT_BATCH_SIZE_BYTES = 8192;
 
@@ -57,7 +60,7 @@ public class ReplicationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 2000, max = 120000)
     @PublicName(legacyNames = "leaseExpirationInterval")
-    public long leaseExpirationIntervalMillis = 5_000;
+    public long leaseExpirationIntervalMillis = DEFAULT_LEASE_EXPIRATION_INTERVAL_MILLIS;
 
     @Value(hasDefault = true)
     @Range(max = 10_000)

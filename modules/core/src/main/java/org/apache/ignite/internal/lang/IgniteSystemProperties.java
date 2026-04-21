@@ -43,6 +43,9 @@ public final class IgniteSystemProperties {
     /** Skip storage update in a benchmark. */
     public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
 
+    /** Use segment storage for Raft log. */
+    public static final String SEGSTORE_ENABLED_PROPERTY = "SEGSTORE_ENABLED";
+
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this feature flag.
     /**
      * Enables zone based replication (aka colocation) feature.
@@ -71,6 +74,11 @@ public final class IgniteSystemProperties {
     @Deprecated(since = "3.1", forRemoval = true)
     public static boolean colocationEnabled() {
         return getBoolean(COLOCATION_FEATURE_FLAG, true);
+    }
+
+    /** Feature flag for segment log storage. */
+    public static boolean segmentLogStorageEnabled() {
+        return getBoolean(SEGSTORE_ENABLED_PROPERTY, false);
     }
 
     /**

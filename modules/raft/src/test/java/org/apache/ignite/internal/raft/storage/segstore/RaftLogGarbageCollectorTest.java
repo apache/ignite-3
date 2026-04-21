@@ -29,8 +29,10 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -89,10 +91,11 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     void setUp() throws IOException {
         fileManager = new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
@@ -129,7 +132,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         FileProperties fileProperties = SegmentFile.fileProperties(segmentFilePath);
 
-        runCompaction(segmentFilePath);
+        garbageCollector.runCompaction(fileProperties);
 
         assertThat(segmentFilePath, not(exists()));
         assertThat(indexFileManager.indexFilePath(fileProperties), not(exists()));
@@ -165,7 +168,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         FileProperties originalFileProperties = SegmentFile.fileProperties(firstSegmentFile);
 
-        runCompaction(firstSegmentFile);
+        garbageCollector.runCompaction(originalFileProperties);
 
         // Segment file should be replaced by a new one with increased generation.
         assertThat(firstSegmentFile, not(exists()));
@@ -287,7 +290,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
                     long sizeBeforeCompaction = Files.size(curSegmentFilePath);
 
-                    runCompaction(curSegmentFilePath);
+                    garbageCollector.runCompaction(fileProperties);
 
                     FileProperties newFileProperties = new FileProperties(fileProperties.ordinal(), fileProperties.generation() + 1);
 
@@ -411,10 +414,11 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         fileManager = new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
@@ -590,8 +594,8 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     /**
-     * Reproducer for the stale-deque-entry corruption bug: after fully deleting a middle segment file, its {@link IndexFileMeta} remains
-     * in the same deque block as the preceding file's meta. When the preceding file is subsequently partially compacted (its live log range
+     * Reproducer for the stale-deque-entry corruption bug: after fully deleting a middle segment file, its {@link IndexFileMeta} remains in
+     * the same deque block as the preceding file's meta. When the preceding file is subsequently partially compacted (its live log range
      * shrinks), {@link IndexFileMetaArray#onIndexCompacted} asserts that the new meta's {@code lastLogIndexExclusive} equals the next
      * entry's {@code firstLogIndexInclusive}.
      */
@@ -643,6 +647,124 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         });
     }
 
+    /**
+     * Verifies that after {@link SegmentFileManager#destroyGroup} is called, the GC can remove segment files belonging
+     * to the destroyed group.
+     */
+    @Test
+    void testSegmentFilesRemovedByGcAfterGroupDestroy() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(equalTo(segmentFiles().size() - 1)));
+
+        List<Path> oldSegmentFiles = segmentFiles().subList(0, segmentFiles().size() - 1);
+        List<Path> oldIndexFiles = indexFiles();
+
+        fileManager.destroyGroup(GROUP_ID_1);
+
+        // The destroy tombstone is in the current segment file's memtable. Trigger a rollover using a different group so the
+        // checkpoint thread processes the tombstone and removes GROUP_ID_1 from the in-memory index.
+        triggerAndAwaitCheckpoint(GROUP_ID_2, 0);
+
+        for (Path segmentFile : oldSegmentFiles) {
+            runCompaction(segmentFile);
+        }
+
+        for (Path segmentFile : oldSegmentFiles) {
+            assertThat(segmentFile, not(exists()));
+        }
+
+        for (Path indexFile : oldIndexFiles) {
+            assertThat(indexFile, not(exists()));
+        }
+
+        for (int i = 0; i < batches.size(); i++) {
+            int index = i;
+
+            fileManager.getEntry(GROUP_ID_1, index, bs -> {
+                fail("Entry for index " + index + " must be missing");
+
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Verifies that when a group is destroyed while another group shares the same segment files, GC compacts each shared file by dropping
+     * only the destroyed group's entries while preserving the surviving group's entries.
+     */
+    @Test
+    void testSegmentFilesCompactedByGcAfterGroupDestroyWithSurvivingGroup() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+            appendBytes(GROUP_ID_2, batches.get(i), i);
+        }
+
+        await().until(this::indexFiles, hasSize(equalTo(segmentFiles().size() - 1)));
+
+        List<Path> oldSegmentFiles = segmentFiles().subList(0, segmentFiles().size() - 1);
+
+        // Destroy one group while the other remains active.
+        fileManager.destroyGroup(GROUP_ID_1);
+
+        // Trigger a rollover using GROUP_ID_2 so the checkpoint thread processes the tombstone and removes GROUP_ID_1 from
+        // the in-memory index, enabling GC to compact the shared segment files.
+        triggerAndAwaitCheckpoint(GROUP_ID_2, batches.size() - 1);
+
+        for (Path segmentFile : oldSegmentFiles) {
+            FileProperties originalProperties = SegmentFile.fileProperties(segmentFile);
+
+            runCompaction(segmentFile);
+
+            // Original file must have been replaced by a compacted generation (GROUP_ID_2 entries survive).
+            assertThat(segmentFile, not(exists()));
+
+            var newFileProperties = new FileProperties(originalProperties.ordinal(), originalProperties.generation() + 1);
+
+            assertThat(fileManager.segmentFilesDir().resolve(SegmentFile.fileName(newFileProperties)), exists());
+        }
+
+        // GROUP_ID_2 entries must all still be readable.
+        for (int i = 0; i < batches.size(); i++) {
+            int index = i;
+
+            fileManager.getEntry(GROUP_ID_2, i, bs -> {
+                assertThat(bs, is(batches.get(index)));
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void testLogSizeBytesInitializedCorrectlyOnStartup() throws Exception {
+        // Fill multiple segment files to create both segment and index files.
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        // Wait for at least one checkpoint so index files exist.
+        await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(1)));
+
+        long expectedSize = totalLogSizeFromDisk(fileManager);
+
+        assertThat(garbageCollector.logSizeBytes(), is(expectedSize));
+
+        restartSegmentFileManager();
+
+        assertThat(garbageCollector.logSizeBytes(), is(expectedSize));
+    }
+
+    private void runCompaction(Path segmentFilePath) throws IOException {
+        garbageCollector.runCompaction(SegmentFile.fileProperties(segmentFilePath));
+    }
+
     private List<Path> segmentFiles() throws IOException {
         try (Stream<Path> files = Files.list(fileManager.segmentFilesDir())) {
             return files
@@ -690,13 +812,17 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     private void triggerAndAwaitCheckpoint(long lastGroupIndex) throws IOException {
+        triggerAndAwaitCheckpoint(GROUP_ID_1, lastGroupIndex);
+    }
+
+    private void triggerAndAwaitCheckpoint(long groupId, long lastGroupIndex) throws IOException {
         List<Path> segmentFilesBeforeCheckpoint = segmentFiles();
 
         // Insert some entries to trigger a rollover (and a checkpoint).
         List<byte[]> batches = createRandomData(FILE_SIZE / 4, 5);
 
         for (int i = 0; i < batches.size(); i++) {
-            appendBytes(GROUP_ID_1, batches.get(i), lastGroupIndex + i + 1);
+            appendBytes(groupId, batches.get(i), lastGroupIndex + i + 1);
         }
 
         List<Path> segmentFilesAfterCheckpoint = segmentFiles();
@@ -712,23 +838,31 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         fileManager = new SegmentFileManager(
                 NODE_NAME,
+                NODE_NAME,
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                raftConfiguration,
+                raftConfiguration.fsync().value(),
                 storageConfiguration
         );
 
         fileManager.start();
+
+        indexFileManager = fileManager.indexFileManager();
+        garbageCollector = fileManager.garbageCollector();
     }
 
-    private void runCompaction(Path segmentFilePath) throws IOException {
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
-
-        try {
-            garbageCollector.runCompaction(segmentFile);
-        } finally {
-            segmentFile.close();
+    private static long totalLogSizeFromDisk(SegmentFileManager manager) throws IOException {
+        try (Stream<Path> files = Stream.concat(Files.list(manager.segmentFilesDir()), Files.list(manager.indexFilesDir()))) {
+            return files
+                    .mapToLong(p -> {
+                        try {
+                            return Files.size(p);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .sum();
         }
     }
 }

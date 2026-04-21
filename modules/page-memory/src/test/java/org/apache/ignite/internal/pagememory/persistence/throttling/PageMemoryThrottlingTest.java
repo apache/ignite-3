@@ -53,6 +53,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
@@ -113,6 +114,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private CheckpointManager checkpointManager;
 
     private PersistentPageMemory pageMemory;
+
+    private PartitionPageMemory partitionPageMemory;
 
     private FileIoFactory fileIoFactory;
 
@@ -186,6 +189,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 checkpointManager.partitionDestructionLockManager()
         );
 
+        partitionPageMemory = pageMemory.createPartitionPageMemory(GROUP_ID, PART_ID);
+
         pageStoreManager.start();
 
         dataRegion = new TestDataRegion<>(pageMemory);
@@ -233,7 +238,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
         try {
-            pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
+            partitionPageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
             verify(writeThrottle).onMarkDirty(eq(false));
         } finally {
@@ -254,7 +259,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
         try {
-            pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
+            pageId = partitionPageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
             initPage(pageId);
         } finally {
@@ -288,7 +293,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         AtomicLong pageId = new AtomicLong();
 
         runInLock(() -> {
-            pageId.set(pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX));
+            pageId.set(partitionPageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX));
 
             initPage(pageId.get());
         });
@@ -318,7 +323,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         AtomicLong pageId = new AtomicLong();
 
         runInLock(() -> {
-            pageId.set(pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX));
+            pageId.set(partitionPageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX));
 
             initPage(pageId.get());
         });
@@ -346,7 +351,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         runInLock(() -> {
             for (int i = 0; i < pages; i++) {
-                long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
+                long pageId = partitionPageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
                 pageIds[i] = pageId;
 
@@ -413,7 +418,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
             // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
             checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
-            long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
+            long pageId = partitionPageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
             pageIds[i] = pageId;
 
@@ -447,34 +452,34 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     }
 
     private void initPage(long pageId) throws IgniteInternalCheckedException {
-        long page = pageMemory.acquirePage(GROUP_ID, pageId);
+        long page = partitionPageMemory.acquirePage(GROUP_ID, pageId);
 
         try {
-            long pageAddr = pageMemory.writeLock(GROUP_ID, pageId, page, true);
+            long pageAddr = partitionPageMemory.writeLockForce(GROUP_ID, pageId, page);
 
             try {
                 PagesListNodeIo.VERSIONS.latest().initNewPage(pageAddr, pageId, PAGE_SIZE);
             } finally {
-                pageMemory.writeUnlock(GROUP_ID, pageId, page, true);
+                partitionPageMemory.writeUnlock(GROUP_ID, pageId, page, true);
             }
         } finally {
-            pageMemory.releasePage(GROUP_ID, pageId, page);
+            partitionPageMemory.releasePage(GROUP_ID, pageId, page);
         }
     }
 
     private void acquireAndReleaseWriteLock(long pageId, boolean markDirty) throws IgniteInternalCheckedException {
-        long page = pageMemory.acquirePage(GROUP_ID, pageId);
+        long page = partitionPageMemory.acquirePage(GROUP_ID, pageId);
 
         try {
-            long pageAddr = pageMemory.writeLock(GROUP_ID, pageId, page);
+            long pageAddr = partitionPageMemory.writeLock(GROUP_ID, pageId, page);
 
             try {
                 assertNotEquals(0L, pageAddr);
             } finally {
-                pageMemory.writeUnlock(GROUP_ID, pageId, page, markDirty);
+                partitionPageMemory.writeUnlock(GROUP_ID, pageId, page, markDirty);
             }
         } finally {
-            pageMemory.releasePage(GROUP_ID, pageId, page);
+            partitionPageMemory.releasePage(GROUP_ID, pageId, page);
         }
     }
 }

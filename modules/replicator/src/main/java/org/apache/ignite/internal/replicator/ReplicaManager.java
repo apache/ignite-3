@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -177,6 +176,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Cluster network service. */
     private final ClusterService clusterNetSvc;
 
+    /** Local node. */
+    private final InternalClusterNode localNode;
+
     /** Cluster group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
@@ -233,10 +235,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final ReplicaStateManager replicaStateManager;
 
-    private volatile UUID localNodeId;
-
-    private volatile String localNodeConsistentId;
-
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
     private final Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier;
@@ -244,7 +242,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Constructor for a replica service.
      *
-     * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
      * @param stableAssignmentsSupplier Supplier of stable assignments.
@@ -266,7 +263,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
     public ReplicaManager(
-            String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
             Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier,
@@ -287,6 +283,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Executor throttledLogExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;
+        this.localNode = clusterNetSvc.staticLocalNode();
         this.cmgMgr = cmgMgr;
         this.stableAssignmentsSupplier = stableAssignmentsSupplier;
         this.clockService = clockService;
@@ -307,6 +304,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.replicaLifecycleExecutor = replicaLifecycleExecutor;
 
         this.replicaStateManager = new ReplicaStateManager(
+                localNode.id(),
                 replicaLifecycleExecutor,
                 placementDriver,
                 this,
@@ -316,7 +314,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
-                IgniteThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
+                IgniteThreadFactory.create(localNode.name(), "scheduled-idle-safe-time-sync-thread", LOG)
         );
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
@@ -639,7 +637,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            InternalClusterNode localNode = clusterNetSvc.topologyService().localMember();
+            InternalClusterNode localNode = clusterNetSvc.staticLocalNode();
 
             return startReplicaInternal(
                     replicaGrpId,
@@ -717,7 +715,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftClient -> {
                         var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
                                 replicaGrpId,
-                                clusterNetSvc.topologyService().localMember(),
+                                clusterNetSvc.staticLocalNode(),
                                 placementDriver,
                                 clockService,
                                 replicaStateManager::reserveReplica,
@@ -748,7 +746,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             boolean isVolatileStorage,
             Function<TopologyAwareRaftGroupService, Replica> replicaFactory
     ) throws NodeStoppingException {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode.name()));
 
         RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, snapshotStorageFactory);
 
@@ -815,7 +813,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @VisibleForTesting
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long sequenceToken) {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode.name()));
         Loza loza = (Loza) raftManager;
         Status status = loza.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
 
@@ -936,7 +934,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
-                        InternalClusterNode localMember = clusterNetSvc.topologyService().localMember();
+                        InternalClusterNode localMember = clusterNetSvc.staticLocalNode();
 
                         replicaFuture.completeExceptionally(new ReplicaStoppingException(grpId, localMember));
 
@@ -1007,11 +1005,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
         });
 
-        localNodeId = clusterNetSvc.topologyService().localMember().id();
-
-        localNodeConsistentId = clusterNetSvc.topologyService().localMember().name();
-
-        replicaStateManager.start(localNodeId);
+        replicaStateManager.start();
 
         return nullCompletedFuture();
     }
@@ -1072,7 +1066,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         if (replicaIsAbsent && (groupId instanceof ZonePartitionId)) {
             replicaInAssignmentsFuture = stableAssignmentsSupplier.apply((ZonePartitionId) groupId)
-                    .thenApply(assignments -> assignments.contains(localNodeConsistentId));
+                    .thenApply(assignments -> assignments.contains(localNode.name()));
         } else {
             replicaInAssignmentsFuture = trueCompletedFuture();
         }
@@ -1084,11 +1078,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 e = new ReplicaUnavailableException(
                         REPLICA_ABSENT_ERR,
                         format("Replica is absent on this node and not in assignments, the request should be retried on another node "
-                                        + "[groupId={}, nodeName={}]", groupId, localNodeConsistentId
+                                        + "[groupId={}, nodeName={}]", groupId, localNode.name()
                         )
                 );
             } else {
-                e = new ReplicaUnavailableException(groupId, clusterNetSvc.topologyService().localMember());
+                e = new ReplicaUnavailableException(groupId, clusterNetSvc.staticLocalNode());
             }
 
             NetworkMessage msg;
@@ -1210,7 +1204,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .groupId(toReplicationGroupIdMessage(replicaGroupId))
                 .build();
 
-        replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
+        replica.processRequest(req, localNode.id()).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (hasCause(ex, TimeoutException.class, ReplicationTimeoutException.class)) {
                     tryToLogTimeoutFailure(replicaGroupId, ex);
@@ -1377,7 +1371,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public void destroyReplicationProtocolStorages(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
             throws NodeStoppingException {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode.name()));
         RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
 
         ((Loza) raftManager).destroyRaftNodeStorages(raftNodeId, groupOptions);
@@ -1395,7 +1389,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public void destroyReplicationProtocolStoragesDurably(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
             throws NodeStoppingException {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode.name()));
         RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
 
         ((Loza) raftManager).destroyRaftNodeStoragesDurably(raftNodeId, groupOptions);
@@ -1408,7 +1402,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws NodeStoppingException If the node is being stopped.
      */
     public void createMetaStorage(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
-        var raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        var raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode.name()));
 
         ((Loza) raftManager).createMetaStorage(raftNodeId);
     }

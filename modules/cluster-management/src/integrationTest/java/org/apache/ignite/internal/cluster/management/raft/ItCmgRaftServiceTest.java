@@ -73,6 +73,7 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -101,6 +102,9 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     private class Node {
@@ -127,8 +131,9 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             workingDir = new ComponentWorkingDir(workDir);
 
             partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    workingDir.raftLogPath()
+                    clusterService.staticLocalNode().name(),
+                    workingDir.raftLogPath(),
+                    logStorageConfiguration
             );
             this.eventsClientListener = new RaftGroupEventsClientListener();
             this.failureManager = new NoOpFailureManager();
@@ -198,7 +203,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     );
                 }
 
-                this.raftService = new CmgRaftService(raftService, clusterService.topologyService(), logicalTopology);
+                this.raftService = new CmgRaftService(raftService, clusterService.staticLocalNode(), logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }
@@ -219,7 +224,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         InternalClusterNode localMember() {
-            return clusterService.topologyService().localMember();
+            return clusterService.staticLocalNode();
         }
 
         private CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
@@ -494,7 +499,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         // Node has not passed validation.
         String errMsg = String.format(
                 "JoinReady request denied, reason: Node \"%s\" has not yet passed the validation step",
-                cluster.get(0).clusterService.topologyService().localMember()
+                cluster.get(0).clusterService.staticLocalNode()
         );
 
         assertThrowsWithCause(

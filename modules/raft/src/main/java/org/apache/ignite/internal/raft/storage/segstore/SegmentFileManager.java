@@ -42,7 +42,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.LogStorageView;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.segstore.EntrySearchResult.SearchOutcome;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -115,6 +114,15 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     static final byte[] SWITCH_SEGMENT_RECORD = new byte[8]; // 8 zero bytes.
 
+    /**
+     * Special "destroy group" sentinel value for the log reset index.
+     *
+     * <p>Must not overlap with a valid stored log index.
+     */
+    static final long GROUP_DESTROY_LOG_INDEX = Long.MIN_VALUE;
+
+    private final String storageName;
+
     private final Path segmentFilesDir;
 
     /** Number of stripes used by the index memtable. Should be equal to the number of stripes in the Raft server's Disruptor. */
@@ -156,15 +164,20 @@ class SegmentFileManager implements ManuallyCloseable {
 
     SegmentFileManager(
             String nodeName,
+            String storageName,
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
-            RaftConfiguration raftConfiguration,
+            boolean isSync,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
-        this.segmentFilesDir = baseDir.resolve("segments");
+        this.storageName = storageName;
+
+        Path storageDir = baseDir.resolve(storageName);
+
+        this.segmentFilesDir = storageDir.resolve("segments");
         this.stripes = stripes;
-        this.isSync = raftConfiguration.fsync().value();
+        this.isSync = isSync;
 
         Files.createDirectories(segmentFilesDir);
 
@@ -174,20 +187,33 @@ class SegmentFileManager implements ManuallyCloseable {
 
         maxLogEntrySize = maxLogEntrySize(logStorageView);
 
-        indexFileManager = new IndexFileManager(baseDir);
+        indexFileManager = new IndexFileManager(storageDir);
+
+        garbageCollector = new RaftLogGarbageCollector(
+                nodeName,
+                storageName,
+                segmentFilesDir,
+                indexFileManager,
+                logStorageView.softLogSizeLimitBytes(),
+                new MostGarbageFirstCompactionStrategy(segmentFilesDir, indexFileManager),
+                failureProcessor
+        );
 
         checkpointer = new RaftLogCheckpointer(
                 nodeName,
+                storageName,
                 indexFileManager,
                 failureProcessor,
-                logStorageView.maxCheckpointQueueSize()
+                logStorageView.maxCheckpointQueueSize(),
+                garbageCollector::onLogStorageSizeIncreased
         );
-
-        garbageCollector = new RaftLogGarbageCollector(segmentFilesDir, indexFileManager);
     }
 
     void start() throws IOException {
-        LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, segmentFileSize);
+        LOG.info(
+                "Starting segment file manager [storageName={}, segmentFilesDir={}, fileSize={}].",
+                storageName, segmentFilesDir, segmentFileSize
+        );
 
         indexFileManager.cleanupLeftoverFiles();
         garbageCollector.cleanupLeftoverFiles();
@@ -231,6 +257,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
         // Index File Manager must be started strictly before the checkpointer.
         indexFileManager.start();
+
+        garbageCollector.start();
 
         checkpointer.start();
     }
@@ -401,6 +429,14 @@ class SegmentFileManager implements ManuallyCloseable {
         }
     }
 
+    /**
+     * Destroys all log data for the given group. Writes a tombstone using {@link #GROUP_DESTROY_LOG_INDEX} so that the GC can discard
+     * the group's entries on the next compaction pass.
+     */
+    void destroyGroup(long groupId) throws IOException {
+        reset(groupId, GROUP_DESTROY_LOG_INDEX);
+    }
+
     private WriteBufferWithMemtable reserveBytesWithRollover(int size) throws IOException {
         while (true) {
             SegmentFileWithMemtable segmentFileWithMemtable = currentSegmentFile();
@@ -461,11 +497,18 @@ class SegmentFileManager implements ManuallyCloseable {
         return indexFileManager.lastLogIndexExclusive(groupId);
     }
 
+    /** Returns current size of all log storage files in bytes. */
+    long logSizeBytes() {
+        return garbageCollector.logSizeBytes();
+    }
+
     /**
      * Returns the current segment file possibly waiting for an ongoing rollover to complete.
      */
     private SegmentFileWithMemtable currentSegmentFile() {
         SegmentFileWithMemtable segmentFile = currentSegmentFile.get();
+
+        assert segmentFile != null : "Segment file manager is not started";
 
         if (!segmentFile.readOnly()) {
             return segmentFile;
@@ -512,6 +555,8 @@ class SegmentFileManager implements ManuallyCloseable {
                 throw new IgniteInternalException(NODE_STOPPING_ERR);
             }
 
+            garbageCollector.onLogStorageSizeIncreased(segmentFileSize);
+
             currentSegmentFile.set(allocateNewSegmentFile(++curSegmentFileOrdinal));
 
             rolloverLock.notifyAll();
@@ -538,6 +583,7 @@ class SegmentFileManager implements ManuallyCloseable {
         }
 
         checkpointer.stop();
+        garbageCollector.stop();
     }
 
     private static void writeHeader(SegmentFile segmentFile) {

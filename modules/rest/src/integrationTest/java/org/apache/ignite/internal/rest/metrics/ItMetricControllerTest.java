@@ -23,7 +23,7 @@ import static io.micronaut.http.HttpRequest.POST;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
@@ -39,7 +39,12 @@ import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.metric.MetricSource;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricSources;
@@ -49,41 +54,6 @@ import org.junit.jupiter.api.Test;
 
 @MicronautTest
 class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
-    private static final MetricSource[] ALL_METRIC_SOURCES = {
-            new MetricSource("jvm", true),
-            new MetricSource("os", true),
-            new MetricSource("raft", true),
-            new MetricSource("metastorage", true),
-            new MetricSource("schema.sync", true),
-            new MetricSource("client.handler", true),
-            new MetricSource("sql.client", true),
-            new MetricSource("sql.plan.cache", true),
-            new MetricSource("sql.queries", true),
-            new MetricSource("storage.aipersist.default", true),
-            new MetricSource("storage.aipersist.default_aipersist", true),
-            new MetricSource("storage.aipersist.checkpoint", true),
-            new MetricSource("storage.aipersist.io", true),
-            new MetricSource("storage.aipersist", true),
-            new MetricSource("topology.cluster", true),
-            new MetricSource("topology.local", true),
-            new MetricSource("thread.pools.partitions-executor", true),
-            new MetricSource("thread.pools.sql-executor", true),
-            new MetricSource("thread.pools.sql-planning-executor", true),
-            new MetricSource("transactions", true),
-            new MetricSource("resource.vacuum", true),
-            new MetricSource("placement-driver", true),
-            new MetricSource("zones.Default", true),
-            new MetricSource("clock.service", true),
-            new MetricSource("index.builder", true),
-            new MetricSource("raft.snapshots", true),
-            new MetricSource("messaging", true),
-            new MetricSource("log.storage", true),
-            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default", true),
-            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits", true),
-            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube", true),
-            new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound", true),
-    };
-
     @Inject
     @Client("http://localhost:10300/management/v1/metric/node/")
     HttpClient node0Client;
@@ -104,7 +74,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
     void listNodeMetrics() {
         HttpResponse<List<MetricSource>> response = node0Client.toBlocking().exchange(GET("source"), listOf(MetricSource.class));
         assertThat(response, hasStatus(HttpStatus.OK));
-        assertThat(response.body(), containsInAnyOrder(ALL_METRIC_SOURCES));
+        assertThat(response.body(), containsInAnyOrder(getExpectedNodeMetrics(CLUSTER.node(0))));
     }
 
     private static Matcher<NodeMetricSources> hasNodeName(Matcher<String> nodeNameMatcher) {
@@ -134,7 +104,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
         assertThat(response, hasStatus(HttpStatus.OK));
 
         List<Matcher<? super NodeMetricSources>> matchers = CLUSTER.runningNodes()
-                .map(ignite -> both(hasNodeName(is(ignite.name()))).and(hasSources(containsInAnyOrder(ALL_METRIC_SOURCES))))
+                .map(ignite -> both(hasNodeName(is(ignite.name()))).and(hasSources(containsInAnyOrder(getExpectedNodeMetrics(ignite)))))
                 .collect(toList());
 
         assertThat(response.body(), containsInAnyOrder(matchers));
@@ -194,5 +164,64 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
         HttpResponse<List<MetricSource>> sources = client.toBlocking().exchange(GET("source"), listOf(MetricSource.class));
         assertThat(sources, hasStatus(HttpStatus.OK));
         assertThat(sources.body(), hasItem(new MetricSource("jvm", enabled)));
+    }
+
+    /** Returns all metric sources that are expected to be present on all nodes combined. */
+    public static MetricSource[] getExpectedClusterMetrics() {
+        Set<MetricSource> result = new HashSet<>();
+
+        for (var node : CLUSTER.nodes()) {
+            result.addAll(List.of(getExpectedNodeMetrics(node)));
+        }
+
+        return result.toArray(MetricSource[]::new);
+    }
+
+    /** Returns all metric sources that are expected to be present on a specific node. */
+    public static MetricSource[] getExpectedNodeMetrics(Ignite ignite) {
+        MetricSource[] commonMetrics = {new MetricSource("client.handler", true),
+                new MetricSource("clock.service", true),
+                new MetricSource("index.builder", true),
+                new MetricSource("jvm", true),
+                new MetricSource("log.storage", true),
+                new MetricSource("messaging", true),
+                new MetricSource("metastorage", true),
+                new MetricSource("os", true),
+                new MetricSource("placement-driver", true),
+                new MetricSource("raft", true),
+                new MetricSource("raft.snapshots", true),
+                new MetricSource("resource.vacuum", true),
+                new MetricSource("schema.sync", true),
+                new MetricSource("sql.client", true),
+                new MetricSource("sql.plan.cache", true),
+                new MetricSource("sql.queries", true),
+                new MetricSource("storage.aipersist", true),
+                new MetricSource("storage.aipersist.checkpoint", true),
+                new MetricSource("storage.aipersist.default", true),
+                new MetricSource("storage.aipersist.default_aipersist", true),
+                new MetricSource("storage.aipersist.io", true),
+                new MetricSource("thread.pools.messaging.outbound", true),
+                new MetricSource("thread.pools.partitions-executor", true),
+                new MetricSource("thread.pools.sql-executor", true),
+                new MetricSource("thread.pools.sql-planning-executor", true),
+                new MetricSource("thread.pools.striped.messaging.inbound.default", true),
+                new MetricSource("thread.pools.striped.messaging.inbound.deploymentunits", true),
+                new MetricSource("thread.pools.striped.messaging.inbound.scalecube", true),
+                new MetricSource("topology.cluster", true),
+                new MetricSource("topology.local", true),
+                new MetricSource("transactions", true),
+                new MetricSource("zones.Default", true)
+        };
+
+        List<MetricSource> metrics = new ArrayList<>(Arrays.asList(commonMetrics));
+
+        for (var node : unwrapIgniteImpl(ignite).raftManager().localNodes()) {
+            metrics.add(new MetricSource("raft.fsmcaller." + node.groupId().toString(), true));
+            metrics.add(new MetricSource("raft.logmanager." + node.groupId().toString(), true));
+            metrics.add(new MetricSource("raft.node." + node.groupId().toString(), true));
+            metrics.add(new MetricSource("raft.readonlyservice." + node.groupId().toString(), true));
+        }
+
+        return metrics.toArray(MetricSource[]::new);
     }
 }

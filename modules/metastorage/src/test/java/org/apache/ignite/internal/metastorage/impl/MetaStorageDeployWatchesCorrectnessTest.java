@@ -46,13 +46,12 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.TimeAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.client.PhysicalTopologyAwareRaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -76,21 +75,17 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         String mcNodeName = "mc-node-1";
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
-        ClusterService clusterService = mock(ClusterService.class);
         RaftManager raftManager = mock(RaftManager.class);
-        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
+        PhysicalTopologyAwareRaftGroupService raftGroupService = mock(PhysicalTopologyAwareRaftGroupService.class);
 
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
         ));
         configureCmgManagerToStartMetastorage(cmgManager);
 
-        TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, null));
+        var localNode = new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, new NetworkAddress("foo", 123));
 
-        when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(clusterService.topologyService()).thenReturn(topologyService);
-        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(0, -1)));
@@ -99,13 +94,13 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         return Stream.of(
                 new MetaStorageManagerImpl(
-                        clusterService,
+                        localNode,
                         cmgManager,
                         mock(LogicalTopologyService.class),
                         raftManager,
                         new SimpleInMemoryKeyValueStorage(mcNodeName, readOperationForCompactionTracker),
                         clock,
-                        mock(TopologyAwareRaftGroupServiceFactory.class),
+                        mock(TimeAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         systemConfiguration,
                         RaftGroupOptionsConfigurer.EMPTY,

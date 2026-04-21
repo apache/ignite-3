@@ -19,12 +19,13 @@ package org.apache.ignite.internal.compute;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.sameInstance;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.CancelHandle;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -37,21 +38,31 @@ class JobExecutionContextImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void returnsIgnite() {
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, new AtomicBoolean(), null, null);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, CancelHandle.create(), null, null);
 
         assertThat(context.ignite(), is(sameInstance(ignite)));
     }
 
     @Test
     void returnsInterruptedFlag() {
-        AtomicBoolean isInterrupted = new AtomicBoolean();
+        CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, null, null);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, cancelHandle, null, null);
 
         assertThat(context.isCancelled(), is(false));
 
-        isInterrupted.set(true);
+        cancelHandle.cancel();
 
         assertThat(context.isCancelled(), is(true));
+    }
+
+    @Test
+    void returnsCancellationToken() {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, cancelHandle, null, null);
+
+        assertThat(context.cancellationToken(), is(notNullValue()));
+        assertThat(context.cancellationToken(), is(sameInstance(cancelHandle.token())));
     }
 }

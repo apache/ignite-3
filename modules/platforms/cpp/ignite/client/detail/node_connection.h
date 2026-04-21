@@ -151,7 +151,8 @@ public:
 
         if (m_logger->is_debug_enabled()) {
             m_logger->log_debug(
-                "Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(req_id));
+                "Performing request: op=" + std::to_string(int(op)) + ", conn_id=" + std::to_string(id())
+                    + ", req_id=" + std::to_string(req_id));
         }
 
         bool sent = m_pool->send(m_id, std::move(message));
@@ -232,7 +233,19 @@ public:
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
 
+    /**
+     * Cancels waiting for over-due responses.
+     */
     void handle_timeouts();
+
+    /**
+     * Name of the node this connection is tethered to.
+     *
+     * @return Name of the node.
+     */
+    const std::string& get_node_name() const {
+        return m_node_name;
+    }
 
 private:
     /**
@@ -334,6 +347,12 @@ private:
 
     /** Timer thread. */
     std::weak_ptr<thread_timer> m_timer_thread;
+
+    /** Node id. */
+    uuid m_node_id{};
+
+    /** Name of the node this connection is tethered to. */
+    std::string m_node_name{};
 };
 
 } // namespace ignite::detail

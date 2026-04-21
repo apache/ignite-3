@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -49,9 +50,10 @@ public class ClientSqlQueryMetadataRequest {
             ClientMessageUnpacker in,
             QueryProcessor processor,
             ClientResourceRegistry resources,
+            ClientHandlerMetricSource metrics,
             HybridTimestampTracker tsTracker
     ) {
-        CompletableFuture<InternalTransaction> txFut = readTx(in, tsTracker, resources, null, null, null, null);
+        CompletableFuture<InternalTransaction> txFut = readTx(in, tsTracker, resources, metrics, null, null, null, null);
 
         String schema = in.unpackString();
         String query = in.unpackString();

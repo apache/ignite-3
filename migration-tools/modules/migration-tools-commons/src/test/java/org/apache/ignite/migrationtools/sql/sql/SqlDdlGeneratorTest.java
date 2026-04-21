@@ -64,6 +64,7 @@ import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryMapImpl
 import org.apache.ignite.migrationtools.tests.models.ComplexKeyIntStr;
 import org.apache.ignite.migrationtools.tests.models.IdentifiedPojo;
 import org.apache.ignite.migrationtools.tests.models.InterceptingFieldsModel;
+import org.apache.ignite.migrationtools.tests.models.NestedPojoWithAnnotations;
 import org.apache.ignite.migrationtools.tests.models.SimplePojo;
 import org.apache.ignite3.catalog.ColumnSorted;
 import org.apache.ignite3.catalog.definitions.ColumnDefinition;
@@ -343,6 +344,28 @@ class SqlDdlGeneratorTest {
                         entry("name", "name"),
                         entry("amount", "amount"),
                         entry("decimalAmount", "decimalAmount")
+                )
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideCacheConfigSupplier")
+    void testTableDefWithNestedPojoWithAnnotations(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
+        var cacheCfg = cacheConfigSupplier.apply(String.class, NestedPojoWithAnnotations.class);
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                List.of(
+                        primaryKey("KEY", "VARCHAR"),
+                        nonKey("id", "BIGINT", false)
+                ),
+                entry(String.class.getName(), NestedPojoWithAnnotations.class.getName()),
+                emptyMap(),
+                Map.ofEntries(
+                        entry("id", "id")
                 )
         );
     }

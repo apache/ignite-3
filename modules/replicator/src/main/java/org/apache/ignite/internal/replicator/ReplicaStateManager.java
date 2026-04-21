@@ -61,24 +61,25 @@ class ReplicaStateManager {
 
     private final FailureProcessor failureProcessor;
 
-    private volatile UUID localNodeId;
+    private final UUID localNodeId;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     ReplicaStateManager(
+            UUID localNodeId,
             Executor replicaStartStopExecutor,
             PlacementDriver placementDriver,
             ReplicaManager replicaManager,
             FailureProcessor failureProcessor
     ) {
+        this.localNodeId = localNodeId;
         this.replicaStartStopExecutor = replicaStartStopExecutor;
         this.placementDriver = placementDriver;
         this.replicaManager = replicaManager;
         this.failureProcessor = failureProcessor;
     }
 
-    void start(UUID localNodeId) {
-        this.localNodeId = localNodeId;
+    void start() {
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
@@ -282,6 +283,8 @@ class ReplicaStateManager {
                     // If is primary, turning off the primary first.
                     context.replicaState = ReplicaState.RESTART_PLANNED;
 
+                    LOG.info("Stopping lease prolongation due to partition restart [groupId={}].", groupId);
+
                     return replicaManager.stopLeaseProlongation(groupId, null)
                             .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
                 } else {
@@ -318,6 +321,8 @@ class ReplicaStateManager {
         // These is some probability that the replica would be reserved after the previous lease is expired and before this method
         // is called, so reservation state needs to be checked again.
         if (context.reservedForPrimary) {
+            LOG.info("Stopping lease prolongation due to replica stop [groupId={}].", groupId);
+
             return replicaManager.stopLeaseProlongation(groupId, null)
                     .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
         }

@@ -22,7 +22,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Represents properties common for some file types (namely Segment and Index files) used by the log storage.
  */
-class FileProperties {
+class FileProperties implements Comparable<FileProperties> {
     /** File ordinal. Incremented each time a new file is created. */
     private final int ordinal;
 
@@ -52,6 +52,17 @@ class FileProperties {
 
     int generation() {
         return generation;
+    }
+
+    @Override
+    public int compareTo(FileProperties o) {
+        int cmp = Integer.compare(ordinal, o.ordinal);
+
+        if (cmp != 0) {
+            return cmp;
+        }
+
+        return Integer.compare(generation, o.generation);
     }
 
     @Override

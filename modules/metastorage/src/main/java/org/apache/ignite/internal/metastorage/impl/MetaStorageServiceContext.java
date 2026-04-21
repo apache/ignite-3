@@ -21,7 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -30,7 +30,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 class MetaStorageServiceContext implements ManuallyCloseable {
     /** Meta storage raft group service. */
-    private final RaftGroupService raftService;
+    private final TimeAwareRaftGroupService raftService;
 
     /** Commands factory. */
     private final MetaStorageCommandsFactory commandsFactory;
@@ -41,7 +41,7 @@ class MetaStorageServiceContext implements ManuallyCloseable {
     private final IgniteSpinBusyLock busyLock;
 
     MetaStorageServiceContext(
-            RaftGroupService raftService,
+            TimeAwareRaftGroupService raftService,
             MetaStorageCommandsFactory commandsFactory,
             ExecutorService executorService,
             IgniteSpinBusyLock busyLock
@@ -52,7 +52,7 @@ class MetaStorageServiceContext implements ManuallyCloseable {
         this.busyLock = busyLock;
     }
 
-    RaftGroupService raftService() {
+    TimeAwareRaftGroupService raftService() {
         return raftService;
     }
 

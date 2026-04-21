@@ -86,7 +86,7 @@ public class ItTransactionsSystemViewTest extends AbstractSystemViewTest {
                 txs.add(transactions.beginWithPriority(false, priority));
             }
 
-            InternalClusterNode localMember = unwrapIgniteImpl(node).clusterService().topologyService().localMember();
+            InternalClusterNode localMember = unwrapIgniteImpl(node).clusterService().staticLocalNode();
 
             nodeIdToName.put(localMember.id(), localMember.name());
         });

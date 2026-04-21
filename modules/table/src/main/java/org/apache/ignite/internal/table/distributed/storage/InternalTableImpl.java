@@ -56,10 +56,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -130,11 +126,13 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.RetriableReplicaRequestException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -651,32 +649,8 @@ public class InternalTableImpl implements InternalTable {
             if (req.isWrite()) {
                 // Track only write requests from explicit transactions.
                 if (!tx.remote() && !transactionInflights.addInflight(tx.id())) {
-                    TxStateMeta txStateMeta = txManager.stateMeta(tx.id());
-                    Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
-                    boolean isFinishedDueToTimeout = txStateMeta == null
-                            ? tx.isRolledBackWithTimeoutExceeded()
-                            : txStateMeta.isFinishedDueToTimeoutOrFalse();
-                    boolean isFinishedDueToError = !isFinishedDueToTimeout
-                            && txStateMeta != null
-                            && txStateMeta.lastExceptionErrorCode() != null;
-                    Throwable publicCause = isFinishedDueToError ? cause : null;
-                    Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
-                    int code = finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError);
-
-                    return failedFuture(
-                            new TransactionException(code, format(
-                                    finishedTransactionErrorMessage(
-                                            isFinishedDueToTimeout,
-                                            isFinishedDueToError,
-                                            causeErrorCode,
-                                            publicCause != null
-                                    )
-                                            + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
-                                    tableName,
-                                    partId,
-                                    tx.state(),
-                                    isFinishedDueToTimeout
-                            ), publicCause));
+                    // TODO IGNITE-28461 fail fast if TxContext.err != null.
+                    return failedFuture(tx.enlistFailedException());
                 }
 
                 return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).thenApply(res -> {
@@ -1194,6 +1168,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable Long txStartTs
     ) {
         InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
+
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
@@ -2326,16 +2301,7 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean exceptionAllowsImplicitTxRetry(Throwable e) {
-        return matchAny(
-                unwrapCause(e),
-                ACQUIRE_LOCK_ERR,
-                GROUP_OVERLOADED_ERR,
-                REPLICA_MISS_ERR,
-                REPLICA_UNAVAILABLE_ERR,
-                REPLICA_ABSENT_ERR,
-                PRIMARY_REPLICA_AWAIT_ERR,
-                PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR
-        );
+        return ExceptionUtils.hasCause(e, RetriableTransactionException.class);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicationGroupId, HybridTimestamp timestamp) {

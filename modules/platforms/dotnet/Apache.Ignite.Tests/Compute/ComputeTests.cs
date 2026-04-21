@@ -684,7 +684,8 @@ namespace Apache.Ignite.Tests.Compute
 
             await cts.CancelAsync();
 
-            await AssertWaitJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+            // SleepJob throws RuntimeException on interrupt, not CancellationException.
+            await AssertWaitJobStatus(jobExecution, JobStatus.Failed, beforeStart);
 
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
 
@@ -711,7 +712,8 @@ namespace Apache.Ignite.Tests.Compute
 
             foreach (var jobExec in jobExecution.JobExecutions)
             {
-                await AssertWaitJobStatus(jobExec, JobStatus.Canceled, beforeStart);
+                // SleepJob throws RuntimeException on interrupt, not CancellationException.
+                await AssertWaitJobStatus(jobExec, JobStatus.Failed, beforeStart);
 
                 var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
 
@@ -728,6 +730,14 @@ namespace Apache.Ignite.Tests.Compute
 
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 10_000, cts.Token);
 
+            // Wait until all jobs are executing to avoid timing-dependent status.
+            await TestUtils.WaitForConditionAsync(
+                async () =>
+                {
+                    var states = await taskExec.GetJobStatesAsync();
+                    return states.All(s => s?.Status == JobStatus.Executing);
+                });
+
             await cts.CancelAsync();
 
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
@@ -737,12 +747,13 @@ namespace Apache.Ignite.Tests.Compute
 
             foreach (var jobState in jobStates)
             {
-                Assert.AreEqual(JobStatus.Canceled, jobState?.Status);
+                // SleepJob throws RuntimeException, not CancellationException.
+                Assert.AreEqual(JobStatus.Failed, jobState?.Status);
             }
 
             TaskState? state = await taskExec.GetStateAsync();
 
-            Assert.AreEqual(TaskStatus.Canceled, state?.Status);
+            Assert.AreEqual(TaskStatus.Canceled, state?.Status); // Task was explicitly cancelled.
         }
 
         [Test]

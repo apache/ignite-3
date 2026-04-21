@@ -31,4 +31,18 @@ public interface ColumnsExtractor {
      * @return Subset of columns, packed into a {@code BinaryTuple}.
      */
     BinaryTuple extractColumns(BinaryRow row);
+
+    /**
+     * Checks whether index columns match the given table row.
+     *
+     * <p>The default implementation extracts columns and compares the resulting byte buffer.
+     * Implementations may override this to avoid the allocation.
+     *
+     * @param tableRow Row with data from table.
+     * @param indexColumns Binary tuple representation of indexed columns.
+     * @return {@code true} if the index columns match the table row, {@code false} otherwise.
+     */
+    default boolean columnsMatch(BinaryRow tableRow, BinaryTuple indexColumns) {
+        return extractColumns(tableRow).byteBuffer().equals(indexColumns.byteBuffer());
+    }
 }

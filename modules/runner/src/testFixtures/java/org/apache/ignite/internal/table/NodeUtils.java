@@ -176,7 +176,7 @@ public class NodeUtils {
                 .build();
 
         nodes.forEach(
-                n -> leaseholderNode.clusterService().messagingService().send(n.clusterService().topologyService().localMember(), msg)
+                n -> leaseholderNode.clusterService().messagingService().send(n.clusterService().staticLocalNode(), msg)
         );
     }
 

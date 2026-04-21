@@ -82,6 +82,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -143,6 +144,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     protected PageMemory pageMem;
 
     @Nullable
+    protected PartitionPageMemory partitionPageMemory;
+
+    @Nullable
     private ReuseList reuseList;
 
     /** Stop. */
@@ -165,8 +169,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         rnd = new Random(seed);
 
         pageMem = createPageMemory();
+        partitionPageMemory = pageMem.createPartitionPageMemory(GROUP_ID, 0);
 
-        reuseList = createReuseList(GROUP_ID, 0, pageMem, 0, true);
+        reuseList = createReuseList(GROUP_ID, 0, partitionPageMemory, 0, true);
     }
 
     @AfterEach
@@ -234,7 +239,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     protected abstract @Nullable ReuseList createReuseList(
             int grpId,
             int partId,
-            PageMemory pageMem,
+            PartitionPageMemory pageMem,
             long rootId,
             boolean initNew
     ) throws Exception;
@@ -662,10 +667,20 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertNoLocks();
     }
 
+    private static void iterate(
+            TestTree tree, long lower, long upper, TreeRowMapClosure<Long, Long, Long> c
+    ) throws IgniteInternalCheckedException {
+        try (Cursor<Long> cursor = tree.find(lower, upper, c, null)) {
+            while (cursor.hasNext()) {
+                cursor.next();
+            }
+        }
+    }
+
     private void checkIterate(TestTree tree, long lower, long upper, Long exp, boolean expFound) throws IgniteInternalCheckedException {
         TestTreeRowClosure c = new TestTreeRowClosure(exp);
 
-        tree.iterate(lower, upper, c);
+        iterate(tree, lower, upper, c);
 
         assertEquals(expFound, c.found);
     }
@@ -679,7 +694,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     ) throws IgniteInternalCheckedException {
         c.found = false;
 
-        tree.iterate(lower, upper, c);
+        iterate(tree, lower, upper, c);
 
         assertEquals(expFound, c.found);
     }
@@ -2568,7 +2583,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private TestTree reCreateTestTree(TestTree tree, long globalRmvId) throws Exception {
-        return new TestTree(tree.metaFullPageId(), reuseList, tree.canGetRow, pageMem, new AtomicLong(globalRmvId), false);
+        return new TestTree(tree.metaFullPageId(), reuseList, tree.canGetRow, partitionPageMemory, new AtomicLong(globalRmvId), false);
     }
 
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
@@ -2707,7 +2722,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
                 TestTreeFindFirstClosure cl = new TestTreeFindFirstClosure();
 
-                tree.iterate((long) low, (long) high, cl);
+                iterate(tree, low, high, cl);
 
                 last = cl.val;
 
@@ -2762,7 +2777,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private TestTree createTestTree(boolean canGetRow, AtomicLong globalRmvId) throws Exception {
-        var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem, globalRmvId, true);
+        var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, partitionPageMemory, globalRmvId, true);
 
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
@@ -2775,7 +2790,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private FullPageId allocateMetaPage() throws Exception {
-        return new FullPageId(pageMem.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+        return new FullPageId(partitionPageMemory.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /** Test tree. */
@@ -2802,7 +2817,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 FullPageId metaPageId,
                 @Nullable ReuseList reuseList,
                 boolean canGetRow,
-                PageMemory pageMem,
+                PartitionPageMemory pageMem,
                 AtomicLong globalRmvId,
                 boolean initNew
         ) throws Exception {
@@ -3014,9 +3029,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
-    static class TestTreeRowClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeRowClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Long expVal;
 
         private boolean found;
@@ -3033,33 +3048,33 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         /** {@inheritDoc} */
         @Override
         public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
-            assertFalse(found);
+            if (expVal == null || io.getLookupRow(tree, pageAddr, idx).equals(expVal)) {
+                found = true;
+            }
 
-            found = expVal == null || io.getLookupRow(tree, pageAddr, idx).equals(expVal);
-
-            return !found;
+            return true;
         }
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
-    static class TestTreeFindFirstClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeFindFirstClosure implements TreeRowMapClosure<Long, Long, Long> {
         private Long val;
 
         /** {@inheritDoc} */
         @Override
         public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
-            assertNull(val);
-
-            val = io.getLookupRow(tree, pageAddr, idx);
+            if (val == null) {
+                val = io.getLookupRow(tree, pageAddr, idx);
+            }
 
             return false;
         }
     }
 
     /**
-     * {@link TreeRowClosure} implementation for the test.
+     * {@link TreeRowMapClosure} implementation for the test.
      */
     static class TestTreeFindFilteredClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Set<Long> vals;

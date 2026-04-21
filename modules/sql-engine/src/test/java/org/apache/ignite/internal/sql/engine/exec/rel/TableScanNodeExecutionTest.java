@@ -29,6 +29,7 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Spliterator;
@@ -155,14 +156,14 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         String leaseholder = "local";
 
+        InternalClusterNode localNode = new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"));
+
         TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(
-                new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"))
-        );
 
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
+        when(clusterService.staticLocalNode()).thenReturn(localNode);
 
         for (int size : sizes) {
             log.info("Check: size=" + size);
@@ -227,7 +228,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, Int2ObjectMaps.emptyMap(), rf -> rowConverter);
             PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partsWithConsistencyTokens);
             IgniteTable schemaTable = mock(IgniteTable.class);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, schemaTable, scanableTable,

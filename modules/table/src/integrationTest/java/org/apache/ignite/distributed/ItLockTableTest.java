@@ -37,6 +37,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -107,6 +108,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     private static SystemDistributedConfiguration systemDistributedConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     @InjectExecutorService
     protected ScheduledExecutorService commonExecutor;
 
@@ -128,6 +132,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                logStorageConfiguration,
                 txConfiguration,
                 systemLocalConfiguration,
                 systemDistributedConfiguration,

@@ -148,15 +148,21 @@ public class IndexHintPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSingleTable() throws Exception {
-        var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'";
+        var sql1 = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'";
+        var sql2 = "SELECT * FROM TBL1 /*+ FORCE_INDEX({}) */ WHERE val2 = 'v' AND val3 = 'v'";
 
-        assertCertainIndex(format(sql, ""), TBL1, "IDX_VAL2_VAL3");
+        assertCertainIndex(format(sql1, ""), TBL1, "IDX_VAL2_VAL3");
+        assertCertainIndex(format(sql2, ""), TBL1, "IDX_VAL2_VAL3");
 
-        assertPlan(format(sql, "IDX_VAL2_VAL3, IDX_VAL3"), SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL2_VAL3")
+        assertPlan(format(sql1, "IDX_VAL1, IDX_VAL3"), SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL1")
+                .or(isIndexScan(TBL1, "IDX_VAL3"))));
+        assertPlan(format(sql2, "IDX_VAL1, IDX_VAL3"), SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL1")
                 .or(isIndexScan(TBL1, "IDX_VAL3"))));
 
-        assertPlan("SELECT /*+ FORCE_INDEX(IDX_VAL2_VAL3), FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'", SCHEMA,
-                nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL2_VAL3").or(isIndexScan(TBL1, "IDX_VAL3"))));
+        assertPlan("SELECT /*+ FORCE_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'", SCHEMA,
+                nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL1").or(isIndexScan(TBL1, "IDX_VAL3"))));
+        assertPlan("SELECT * FROM TBL1 /*+ FORCE_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3) */  WHERE val2 = 'v' AND val3 = 'v'", SCHEMA,
+                nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL1").or(isIndexScan(TBL1, "IDX_VAL3"))));
     }
 
     @Test

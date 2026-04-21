@@ -468,7 +468,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         stopNode(2);
 
         Set<LogicalNode> expectedNodes = runningNodes()
-                .map(n -> unwrapIgniteImpl(n).clusterService().topologyService().localMember())
+                .map(n -> unwrapIgniteImpl(n).clusterService().staticLocalNode())
                 .map(LogicalNode::new)
                 .collect(Collectors.toUnmodifiableSet());
 

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
@@ -67,9 +68,13 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     @Nullable
     protected PageMemory pageMem;
 
+    @Nullable
+    protected PartitionPageMemory partitionPageMemory;
+
     @BeforeEach
     protected void beforeEach() throws Exception {
         pageMem = createPageMemory();
+        partitionPageMemory = pageMem.createPartitionPageMemory(GROUP_ID, 0);
     }
 
     @AfterEach
@@ -92,7 +97,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     private FullPageId allocateMetaPage() throws IgniteInternalCheckedException {
-        return new FullPageId(pageMem.allocatePageNoReuse(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+        return new FullPageId(partitionPageMemory.allocatePageNoReuse(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /**
@@ -126,7 +131,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
          */
         public TestPairTree(
                 FullPageId metaPageId,
-                PageMemory pageMem
+                PartitionPageMemory pageMem
         ) throws IgniteInternalCheckedException {
             super(
                     "test",
@@ -419,7 +424,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TestPairTree prepareBplusTree() throws Exception {
-        TestPairTree tree = new TestPairTree(allocateMetaPage(), pageMem);
+        TestPairTree tree = new TestPairTree(allocateMetaPage(), partitionPageMemory);
 
         tree.putx(new Pair(1, 0));
         tree.putx(new Pair(2, 0));

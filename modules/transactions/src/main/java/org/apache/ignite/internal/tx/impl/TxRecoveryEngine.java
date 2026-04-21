@@ -22,17 +22,20 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ABORTED_DUE_TO_RECOVERY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -87,13 +90,12 @@ public class TxRecoveryEngine {
         // If the transaction state is pending, then the transaction should be rolled back,
         // meaning that the state is changed to aborted and a corresponding cleanup request
         // is sent in a common durable manner to a partition that has initiated recovery.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
         return txManager.finish(
                         HybridTimestampTracker.emptyTracker(),
                         // Tx recovery is executed on the commit partition.
                         commitPartitionId,
                         false,
-                        new TransactionInternalException(TX_ROLLBACK_ERR, format("Transaction has been aborted"
+                        new TransactionInternalException(TX_ABORTED_DUE_TO_RECOVERY_ERR, format("Transaction has been aborted"
                                 + " due to transaction recovery {}.", formatTxInfo(txId, txManager))),
                         true,
                         false,
@@ -127,10 +129,20 @@ public class TxRecoveryEngine {
                 })
                 .thenCompose(Function.identity())
                 .whenComplete((v, ex) -> {
-                    runCleanupOnNode(commitPartitionId, txId, commitPartitionNode);
+                    // Cleanup must use the actual resolved tx state; using commit=false unconditionally
+                    // would corrupt data when the tx is actually COMMITTED (abort cleanup races with
+                    // commit cleanup, producing a mix of committed and aborted rows).
+                    boolean commit = v != null && v.txState() == COMMITTED;
+                    @Nullable HybridTimestamp commitTs = v != null ? v.commitTimestamp() : null;
+
+                    runCleanupOnNode(commitPartitionId, txId, commitPartitionNode, commit, commitTs);
 
                     if (senderGroupId != null && senderId != null) {
-                        runCleanupOnNode(senderGroupId, txId, senderId);
+                        String senderConsistentId = clusterNodeResolver.getConsistentIdById(senderId);
+
+                        if (senderConsistentId != null) {
+                            runCleanupOnNode(senderGroupId, txId, senderConsistentId, commit, commitTs);
+                        }
                     }
                 });
     }
@@ -163,13 +175,21 @@ public class TxRecoveryEngine {
      *
      * @param groupId Group id.
      * @param txId Transaction id.
-     * @param nodeId Node id (inconsistent).
+     * @param nodeId Node id (ephemeral).
+     * @param commit Whether the transaction was committed.
+     * @param commitTimestamp Commit timestamp, if committed.
      */
-    public CompletableFuture<Void> runCleanupOnNode(ZonePartitionId groupId, UUID txId, UUID nodeId) {
-        // Get node id of the sender to send back cleanup requests.
+    public CompletableFuture<Void> runCleanupOnNode(
+            ZonePartitionId groupId,
+            UUID txId,
+            UUID nodeId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
         String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
 
-        return nodeConsistentId == null ? nullCompletedFuture() : runCleanupOnNode(groupId, txId, nodeConsistentId);
+        return nodeConsistentId == null ? nullCompletedFuture()
+                : runCleanupOnNode(groupId, txId, nodeConsistentId, commit, commitTimestamp);
     }
 
     /**
@@ -178,8 +198,16 @@ public class TxRecoveryEngine {
      * @param commitPartitionId Commit partition id.
      * @param txId Transaction id.
      * @param nodeName Node consistent id.
+     * @param commit Whether the transaction was committed.
+     * @param commitTimestamp Commit timestamp, if committed.
      */
-    private CompletableFuture<Void> runCleanupOnNode(ZonePartitionId commitPartitionId, UUID txId, String nodeName) {
-        return txManager.cleanup(commitPartitionId, nodeName, txId);
+    private CompletableFuture<Void> runCleanupOnNode(
+            ZonePartitionId commitPartitionId,
+            UUID txId,
+            String nodeName,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return txManager.cleanup(commitPartitionId, nodeName, txId, commit, commitTimestamp);
     }
 }

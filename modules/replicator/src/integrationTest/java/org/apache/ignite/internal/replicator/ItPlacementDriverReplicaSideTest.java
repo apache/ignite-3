@@ -91,6 +91,7 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -139,6 +140,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
+
     private final HybridClock clock = new HybridClockImpl();
 
     private final ClockService testClockService = new TestClockService(clock);
@@ -185,7 +189,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
 
-        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
+        Supplier<InternalClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).staticLocalNode();
 
         for (String nodeName : nodeNames) {
             ClusterService clusterService = clusterServices.get(nodeName);
@@ -195,8 +199,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
             LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                    clusterService.nodeName(),
-                    partitionsWorkDir.raftLogPath()
+                    clusterService.staticLocalNode().name(),
+                    partitionsWorkDir.raftLogPath(),
+                    logStorageConfiguration
             );
 
             RaftGroupOptionsConfigurer partitionsConfigurer =
@@ -224,7 +229,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
 
             var replicaManager = new ReplicaManager(
-                    nodeName,
                     clusterService,
                     cmgManager,
                     groupId -> completedFuture(Assignments.EMPTY),
@@ -326,7 +330,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 return;
             }
 
-            var handlerNode = handlerService.topologyService().localMember();
+            var handlerNode = handlerService.staticLocalNode();
 
             log.info("Lease is denied [replica={}, actor={}, redirect={}]", sender, handlerNode.name(),
                     ((StopLeaseProlongationMessage) msg).redirectProposal());

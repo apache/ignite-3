@@ -159,6 +159,14 @@ public partial class LinqSqlGenerationTests
                 .ToList());
 
     [Test]
+    public void TestContains() =>
+        AssertSql("select (_T0.KEY IN (?, ?)) from PUBLIC.TBL1 as _T0", q =>
+        {
+            var keys = new long[] { 4, 2 };
+            return q.Select(x => keys.Contains(x.Key)).ToList();
+        });
+
+    [Test]
     public void TestFirst() =>
         AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 limit 1", q => q.First());
 

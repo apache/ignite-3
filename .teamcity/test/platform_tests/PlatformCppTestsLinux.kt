@@ -20,10 +20,10 @@ object PlatformCppTestsLinux : BuildType({
         %PATH__UNIT_TESTS_RESULT% => test_logs
         %PATH__CLIENT_TEST_RESULTS% => test_logs
         %PATH__CMAKE_BUILD_DIRECTORY%/core => core_dumps
+        %PATH__CMAKE_BUILD_DIRECTORY%/**/*.log => cmake_logs
     """.trimIndent()
 
     params {
-        param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         param("PATH__CMAKE_BUILD_DIRECTORY", "%PATH__WORKING_DIR%/cmake-build-debug")
         param("PATH__CLIENT_TEST_RESULTS", "%PATH__WORKING_DIR%/cpp_client_tests_results.xml")
         param("PATH__UNIT_TESTS_RESULT", "%PATH__WORKING_DIR%/cpp_unit_test_results.xml")

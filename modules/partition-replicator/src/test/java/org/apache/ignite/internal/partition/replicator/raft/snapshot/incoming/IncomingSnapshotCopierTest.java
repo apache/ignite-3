@@ -415,6 +415,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
         var storage = new PartitionSnapshotStorage(
+                NODE_NAME,
                 new PartitionKey(ZONE_ID, PARTITION_ID),
                 topologyService,
                 outgoingSnapshotsManager,

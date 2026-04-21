@@ -59,7 +59,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
-import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -109,7 +108,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 new PlacementDriverHelper(placementDriver, clockService),
                 txMessageSender,
                 new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
-                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                mock(InternalClusterNode.class),
                 Runnable::run
         );
 

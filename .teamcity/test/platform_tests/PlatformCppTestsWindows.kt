@@ -23,6 +23,7 @@ object PlatformCppTestsWindows : BuildType({
         %PATH__UNIT_TESTS_RESULT% => test_logs
         %PATH__CLIENT_TEST_RESULTS% => test_logs
         %PATH__CRASH_DUMPS% => crash_dumps
+        %PATH__CMAKE_BUILD_DIRECTORY%/**/*.log => cmake_logs
     """.trimIndent()
 
     params {

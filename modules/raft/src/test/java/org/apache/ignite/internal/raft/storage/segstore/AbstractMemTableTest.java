@@ -26,8 +26,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
@@ -80,9 +78,7 @@ abstract class AbstractMemTableTest<T extends WriteModeIndexMemTable & ReadModeI
         memTable.appendSegmentFileOffset(1, 0, 3);
         memTable.appendSegmentFileOffset(1, 1, 4);
 
-        Iterator<Entry<Long, SegmentInfo>> it = memTable.iterator();
-
-        it.forEachRemaining(entry -> {
+        memTable.forEach(entry -> {
             long groupId = entry.getKey();
             SegmentInfo segmentInfo = entry.getValue();
 

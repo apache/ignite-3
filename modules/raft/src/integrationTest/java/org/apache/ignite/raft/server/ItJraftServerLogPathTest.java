@@ -120,8 +120,9 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
         ComponentWorkingDir workingDir = partitionsPath(systemConfiguration, dataPath);
 
         partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                service.nodeName(),
-                workingDir.raftLogPath()
+                service.staticLocalNode().name(),
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

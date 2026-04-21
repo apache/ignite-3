@@ -55,7 +55,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -394,9 +394,9 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
     }
 
     private Node transferLeadership(Node firstNode, Node secondNode) {
-        RaftGroupService svc = getMetastorageService(firstNode);
+        TimeAwareRaftGroupService svc = getMetastorageService(firstNode);
 
-        CompletableFuture<Node> future = svc.refreshLeader()
+        CompletableFuture<Node> future = svc.refreshLeader(TimeAwareRaftGroupService.NO_TIMEOUT)
                 .thenCompose(v -> {
                     Peer leader = svc.leader();
 
@@ -409,7 +409,7 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
                     Node newLeaderNode = newLeader.consistentId().equals(firstNode.name()) ? firstNode : secondNode;
 
-                    return svc.transferLeadership(newLeader).thenApply(unused -> newLeaderNode);
+                    return svc.transferLeadership(newLeader, TimeAwareRaftGroupService.NO_TIMEOUT).thenApply(unused -> newLeaderNode);
                 });
 
         assertThat(future, willCompleteSuccessfully());
@@ -417,8 +417,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         return future.join();
     }
 
-    private RaftGroupService getMetastorageService(Node node) {
-        CompletableFuture<RaftGroupService> future = node.metaStorageManager.metaStorageService()
+    private TimeAwareRaftGroupService getMetastorageService(Node node) {
+        CompletableFuture<TimeAwareRaftGroupService> future = node.metaStorageManager.metaStorageService()
                 .thenApply(MetaStorageServiceImpl::raftGroupService);
 
         assertThat(future, willCompleteSuccessfully());

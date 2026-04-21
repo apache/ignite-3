@@ -60,6 +60,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -99,6 +100,9 @@ public class ItLozaTest extends IgniteAbstractTest {
     private Loza loza;
 
     private final List<IgniteComponent> allComponents = new ArrayList<>();
+
+    @InjectConfiguration
+    private static LogStorageConfiguration logStorageConfiguration;
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
@@ -173,8 +177,9 @@ public class ItLozaTest extends IgniteAbstractTest {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                spyService.nodeName(),
-                partitionsWorkDir.raftLogPath()
+                spyService.staticLocalNode().name(),
+                partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         RaftGroupOptionsConfigurer partitionsConfigurer =
@@ -203,7 +208,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
             RaftGroupService client = startClient(
                     new TestReplicationGroupId(Integer.toString(i)),
-                    spyService.topologyService().localMember(),
+                    spyService.staticLocalNode(),
                     partitionsConfigurer
             );
 
@@ -228,8 +233,9 @@ public class ItLozaTest extends IgniteAbstractTest {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
-                partitionsWorkDir.raftLogPath()
+                clusterService.staticLocalNode().name(),
+                partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         allComponents.add(logStorageManager);
@@ -240,7 +246,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
-        String nodeName = clusterService.nodeName();
+        String nodeName = clusterService.staticLocalNode().name();
 
         var volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("spill"));
 
@@ -318,8 +324,9 @@ public class ItLozaTest extends IgniteAbstractTest {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
-                clusterService.nodeName(),
-                partitionsWorkDir.raftLogPath()
+                clusterService.staticLocalNode().name(),
+                partitionsWorkDir.raftLogPath(),
+                logStorageConfiguration
         );
         logStorageManager = spy(logStorageManager);
 
@@ -331,8 +338,8 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(clusterService.nodeName()));
-        Peer peer = configuration.peer(clusterService.nodeName());
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(clusterService.staticLocalNode().name()));
+        Peer peer = configuration.peer(clusterService.staticLocalNode().name());
 
         RaftGroupListener raftGroupListener = new DrainingRaftGroupListener();
 

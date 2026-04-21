@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.pagememory.PartitionPageMemory;
 import org.apache.ignite.internal.pagememory.benchmark.VolatilePageMemoryBenchmarkBase;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -118,13 +119,14 @@ public class SortedIndexTreeInsertBenchmark extends VolatilePageMemoryBenchmarkB
 
         StorageSortedIndexDescriptor indexDescriptor = new StorageSortedIndexDescriptor(INDEX_ID, columnTypes.columnDescriptors(), false);
 
+        PartitionPageMemory partitionPageMemory = volatilePageMemory.createPartitionPageMemory(GROUP_ID, PARTITION_ID);
         sortedIndexTree = SortedIndexTree.createNew(
                 GROUP_ID,
                 "sortedIndex",
                 PARTITION_ID,
-                volatilePageMemory,
+                partitionPageMemory,
                 new AtomicLong(),
-                volatilePageMemory.allocatePageNoReuse(GROUP_ID, PARTITION_ID, FLAG_AUX),
+                partitionPageMemory.allocatePageNoReuse(GROUP_ID, PARTITION_ID, FLAG_AUX),
                 freeList,
                 indexDescriptor,
                 createNewJitComparator(indexDescriptor)

@@ -93,7 +93,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         }
 
         for (ClusterService service : services) {
-            assertTrue(waitForTopology(service, nodeCount, 5_000), service.topologyService().localMember().toString()
+            assertTrue(waitForTopology(service, nodeCount, 5_000), service.staticLocalNode().toString()
                     + ", topSize=" + service.topologyService().allMembers().size());
         }
 
@@ -117,7 +117,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         services.set(idx2, svc2);
 
         for (ClusterService service : services) {
-            assertTrue(waitForTopology(service, 5, 10_000), service.topologyService().localMember().toString()
+            assertTrue(waitForTopology(service, 5, 10_000), service.staticLocalNode().toString()
                     + ", topSize=" + service.topologyService().allMembers().size());
         }
     }

@@ -52,6 +52,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
@@ -65,6 +66,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -72,12 +76,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test how OrphanDetector reacts on tx lock conflicts.
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ParameterizedClass
+@ValueSource(classes = {WaitDieDeadlockPreventionPolicy.class, WoundWaitDeadlockPreventionPolicy.class})
 public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     private static final InternalClusterNode LOCAL_NODE =
             new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
     private static final InternalClusterNode REMOTE_NODE =
             new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
+
+    @Parameter
+    private Class<DeadlockPreventionPolicy> policy;
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private TopologyService topologyService;
@@ -88,7 +97,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     @Mock
     private PlacementDriver placementDriver;
 
-    private final LockManager lockManager = lockManager();
+    private LockManager lockManager;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -105,14 +114,22 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     private OrphanDetector orphanDetector;
 
-    private static LockManager lockManager() {
-        HeapLockManager lockManager = HeapLockManager.smallInstance();
-        lockManager.start(new WaitDieDeadlockPreventionPolicy());
-        return lockManager;
+    private LockManager lockManager() {
+        try {
+            HeapLockManager lockManager = HeapLockManager.smallInstance();
+            DeadlockPreventionPolicy deadlockPreventionPolicy = policy.getDeclaredConstructor().newInstance();
+
+            lockManager.start(deadlockPreventionPolicy);
+            return lockManager;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @BeforeEach
     public void setup() {
+        lockManager = lockManager();
+
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);

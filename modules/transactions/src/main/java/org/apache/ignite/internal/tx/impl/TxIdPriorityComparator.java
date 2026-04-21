@@ -20,26 +20,14 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.TxPriority;
 
 /**
  * Comparator for transaction IDs based on their associated priorities and the IDs themselves. The IDs with higher priorities are sorted
  * first. If the priorities are equal, the IDs are sorted by their natural order.
  */
 public class TxIdPriorityComparator implements Comparator<UUID> {
-    private static final Comparator<TxPriority> TX_PRIORITY_COMPARATOR = TxPriority::compareTo;
-
     @Override
     public int compare(UUID o1, UUID o2) {
-        TxPriority priority1 = TransactionIds.priority(o1);
-        TxPriority priority2 = TransactionIds.priority(o2);
-
-        int priorityComparison = TX_PRIORITY_COMPARATOR.compare(priority1, priority2);
-
-        if (priorityComparison == 0) {
-            return o1.compareTo(o2);
-        } else {
-            return priorityComparison * -1; // Reverse order.
-        }
+        return TransactionIds.compare(o1, o2);
     }
 }

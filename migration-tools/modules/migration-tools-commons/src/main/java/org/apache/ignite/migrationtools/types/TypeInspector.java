@@ -133,7 +133,13 @@ public class TypeInspector {
         }
     }
 
-    private static boolean isPrimitiveType(Class<?> type) {
+    /**
+     * Whether the provided class, or its derivatives, is natively supported.
+     *
+     * @param type Type.
+     * @return True or false.
+     */
+    public static boolean isPrimitiveType(Class<?> type) {
         return type.isEnum() || Mapper.nativelySupported(type) || COL_TYPE_REF.containsKey(type);
     }
 

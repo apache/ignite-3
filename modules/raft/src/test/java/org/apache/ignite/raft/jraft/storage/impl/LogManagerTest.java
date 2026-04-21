@@ -23,11 +23,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -35,11 +41,11 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
@@ -84,23 +90,23 @@ public class LogManagerTest extends BaseStorageTest {
 
     @BeforeEach
     public void setup() throws Exception {
+        String groupId = "foo";
         this.confManager = new ConfigurationManager();
         this.raftOptions = new RaftOptions();
         this.logStorage = newLogStorage(raftOptions);
-        this.logManager = new LogManagerImpl();
+        this.logManager = new LogManagerImpl(new TestMetricManager(), groupId);
         final LogManagerOptions opts = new LogManagerOptions();
 
         NodeOptions nodeOptions = new NodeOptions();
         executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
-        Mockito.when(node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));
+        Mockito.when(node.getNodeId()).thenReturn(new NodeId(groupId, new PeerId("bar")));
 
         opts.setConfigurationManager(this.confManager);
         opts.setLogEntryCodecFactory(LogEntryV1CodecFactory.getInstance());
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(node);
-        opts.setNodeMetrics(new NodeMetrics(false));
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
         opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("test", "TestLogManagerDisruptor",
@@ -110,7 +116,8 @@ public class LogManagerTest extends BaseStorageTest {
                 1,
                 false,
                 false,
-                null));
+                null
+        ));
         assertTrue(this.logManager.init(opts));
     }
 
@@ -475,5 +482,47 @@ public class LogManagerTest extends BaseStorageTest {
         this.logManager.shutdown();
         Exception e = assertThrows(IllegalStateException.class, () -> this.logManager.getLastLogIndex(true));
         assertEquals("Node is shutting down", e.getMessage());
+    }
+
+    /** Suffix truncation below appliedId must report error and abort the append. */
+    @Test
+    public void testSuffixTruncationBelowAppliedIndexReportsError() {
+        List<LogEntry> entries = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            entries.add(TestUtils.mockEntry(i, 1));
+        }
+        assertThat("Initial entries should be appended successfully", appendEntries(entries), willBe(true));
+        assertEquals(10, this.logManager.getLastLogIndex());
+
+        this.logManager.getLastLogId(true); // Flush disruptor so setDiskId() completes.
+        this.logManager.setAppliedId(new LogId(8, 1));
+
+        // Conflicting entries at index 6+ (term 2 vs existing term 1) trigger unsafeTruncateSuffix(5).
+        // Since 5 < appliedId.index (8), this must be rejected.
+        List<LogEntry> conflicting = new ArrayList<>();
+        for (int i = 6; i <= 12; i++) {
+            conflicting.add(TestUtils.mockEntry(i, 2));
+        }
+        assertThat("Append should fail due to suffix conflict with applied entries", appendEntries(conflicting), willBe(false));
+
+        verify(fsmCaller).onError(any(RaftException.class));
+        assertEquals(10, this.logManager.getLastLogIndex());
+
+        for (int i = 1; i <= 10; i++) {
+            LogEntry entry = this.logManager.getEntry(i);
+            assertEquals(i, entry.getId().getIndex());
+            assertEquals(1, entry.getId().getTerm());
+        }
+    }
+
+    private CompletableFuture<Boolean> appendEntries(List<LogEntry> entries) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        this.logManager.appendEntries(new ArrayList<>(entries), new LogManager.StableClosure() {
+            @Override
+            public void run(Status status) {
+                future.complete(status.isOk());
+            }
+        });
+        return future;
     }
 }

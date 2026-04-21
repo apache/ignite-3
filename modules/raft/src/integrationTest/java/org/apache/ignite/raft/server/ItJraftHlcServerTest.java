@@ -146,8 +146,9 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("node" + idx));
 
         LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
-                service.nodeName(),
-                workingDir.raftLogPath()
+                service.staticLocalNode().name(),
+                workingDir.raftLogPath(),
+                logStorageConfiguration
         );
 
         assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -178,7 +179,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         ThreadLocalOptimizedMarshaller commandsMarshaller = new ThreadLocalOptimizedMarshaller(defaultSerializationRegistry());
 
         startServer(0, raftServer -> {
-            String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+            String localNodeName = raftServer.clusterService().staticLocalNode().name();
 
             Peer localNode = initialConf.peer(localNodeName);
 
@@ -194,7 +195,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         for (int j = 0; j < servers.size(); j++) {
             JraftServerImpl server = servers.get(j);
 
-            String localNodeName = server.clusterService().topologyService().localMember().name();
+            String localNodeName = server.clusterService().staticLocalNode().name();
 
             Peer localNode = initialConf.peer(localNodeName);
 

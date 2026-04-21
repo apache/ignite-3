@@ -131,7 +131,7 @@ public interface IgniteTransactions {
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
      * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      * <br>
-     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException},
      * exceptions related to the primary replica change, etc.
      *
      * @param clo The closure.
@@ -174,7 +174,7 @@ public interface IgniteTransactions {
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
      * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      * <br>
-     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException},
      * exceptions related to the primary replica change, etc.
      *
      * @param options Transaction options.
@@ -223,7 +223,7 @@ public interface IgniteTransactions {
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
      * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      * <br>
-     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException},
      * exceptions related to the primary replica change, etc.
      *
      * @param clo Closure.
@@ -268,7 +268,7 @@ public interface IgniteTransactions {
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
      * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      * <br>
-     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException},
      * exceptions related to the primary replica change, etc.
      *
      * @param clo The closure.
@@ -304,7 +304,7 @@ public interface IgniteTransactions {
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
      * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      * <br>
-     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException},
      * exceptions related to the primary replica change, etc.
      *
      * @param clo The closure.
@@ -333,7 +333,7 @@ public interface IgniteTransactions {
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
      * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      * <br>
-     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException},
      * exceptions related to the primary replica change, etc.
      *
      *

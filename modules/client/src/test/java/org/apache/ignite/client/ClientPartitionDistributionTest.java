@@ -62,8 +62,8 @@ public class ClientPartitionDistributionTest extends AbstractClientTest {
         // Before update.
         Map<Partition, ClusterNode> map = partDistribution.primaryReplicasAsync().join();
         assertEquals(4, map.size());
-        assertEquals("s", map.get(part0).name());
-        assertEquals("s", partDistribution.primaryReplicaAsync(part2).join().name());
+        assertEquals("server-1", map.get(part0).name());
+        assertEquals("server-1", partDistribution.primaryReplicaAsync(part2).join().name());
 
         // Update.
         updateServerReplicas(List.of("foo", "bar", "baz", "qux"));

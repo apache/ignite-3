@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.GROUP_DESTROY_LOG_INDEX;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 import static org.apache.ignite.internal.util.IgniteUtils.fsyncFile;
 
@@ -51,6 +52,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * File manager responsible for persisting {@link ReadModeIndexMemTable}s to index files.
@@ -136,7 +138,6 @@ class IndexFileManager {
     /**
      * Index file metadata grouped by Raft Group ID.
      */
-    // FIXME: This map is never cleaned up, see https://issues.apache.org/jira/browse/IGNITE-27926.
     private final Map<Long, GroupIndexMeta> groupIndexMetas = new ConcurrentHashMap<>();
 
     IndexFileManager(Path baseDir) throws IOException {
@@ -215,10 +216,8 @@ class IndexFileManager {
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
             os.write(fileHeaderWithIndexMetas.header());
 
-            Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-            while (it.hasNext()) {
-                SegmentInfo segmentInfo = it.next().getValue();
+            for (Entry<Long, SegmentInfo> longSegmentInfoEntry : indexMemTable) {
+                SegmentInfo segmentInfo = longSegmentInfoEntry.getValue();
 
                 // Segment Info may not contain payload in case of suffix truncation, see "IndexMemTable#truncateSuffix".
                 if (segmentInfo.size() > 0) {
@@ -385,11 +384,7 @@ class IndexFileManager {
 
         var metaSpecs = new ArrayList<IndexMetaSpec>(numGroups);
 
-        Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
-
-        while (it.hasNext()) {
-            Entry<Long, SegmentInfo> entry = it.next();
-
+        for (Entry<Long, SegmentInfo> entry : indexMemTable) {
             // Using the boxed value to avoid unnecessary autoboxing later.
             Long groupId = entry.getKey();
 
@@ -435,6 +430,10 @@ class IndexFileManager {
             return null;
         }
 
+        if (firstIndexKept == GROUP_DESTROY_LOG_INDEX) {
+            return null;
+        }
+
         if (firstIndexKept == -1 || firstIndexKept <= firstLogIndexInclusive) {
             // No prefix truncation required, simply create a new meta.
             return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileProperties);
@@ -449,12 +448,18 @@ class IndexFileManager {
     }
 
     private void putIndexFileMeta(IndexMetaSpec metaSpec) {
-        IndexFileMeta indexFileMeta = metaSpec.indexFileMeta();
-
         // Using boxed value to avoid unnecessary autoboxing later.
         Long groupId = metaSpec.groupId();
 
         long firstIndexKept = metaSpec.firstIndexKept();
+
+        if (firstIndexKept == GROUP_DESTROY_LOG_INDEX) {
+            groupIndexMetas.remove(groupId);
+
+            return;
+        }
+
+        IndexFileMeta indexFileMeta = metaSpec.indexFileMeta();
 
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 
@@ -504,6 +509,19 @@ class IndexFileManager {
         return payloadBuffer.array();
     }
 
+    /**
+     * Computes the size in bytes that the index file for the given {@code indexMemTable} will occupy on disk.
+     */
+    static long computeIndexFileSize(ReadModeIndexMemTable indexMemTable) {
+        long total = headerSize(indexMemTable.numGroups());
+
+        for (Entry<Long, SegmentInfo> longSegmentInfoEntry : indexMemTable) {
+            total += payloadSize(longSegmentInfoEntry.getValue());
+        }
+
+        return total;
+    }
+
     private static int headerSize(int numGroups) {
         return COMMON_META_SIZE + numGroups * GROUP_META_SIZE;
     }
@@ -512,7 +530,8 @@ class IndexFileManager {
         return segmentInfo.size() * Integer.BYTES;
     }
 
-    private static String indexFileName(FileProperties fileProperties) {
+    @VisibleForTesting
+    static String indexFileName(FileProperties fileProperties) {
         return String.format(INDEX_FILE_NAME_FORMAT, fileProperties.ordinal(), fileProperties.generation());
     }
 
