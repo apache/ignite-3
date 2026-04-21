@@ -150,6 +150,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -719,7 +720,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 new TestLowWatermark(),
                 COMMON_SCHEDULER,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                new NoopTimeoutStrategy()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

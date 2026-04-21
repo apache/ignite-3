@@ -81,6 +81,7 @@ import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaReques
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -162,7 +163,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         transactionInflights,
                         lowWatermark,
                         commonExecutor,
-                        new NoOpMetricManager()
+                        new NoOpMetricManager(),
+                        new NoopTimeoutStrategy()
                 ) {
                     @Override
                     public Executor writeIntentSwitchExecutor() {

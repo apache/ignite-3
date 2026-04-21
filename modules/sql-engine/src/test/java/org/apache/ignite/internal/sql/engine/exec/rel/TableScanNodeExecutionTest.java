@@ -101,6 +101,7 @@ import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -197,7 +198,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     transactionInflights,
                     new TestLowWatermark(),
                     commonExecutor,
-                    new NoOpMetricManager()
+                    new NoOpMetricManager(),
+                    new NoopTimeoutStrategy()
             );
 
             assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
