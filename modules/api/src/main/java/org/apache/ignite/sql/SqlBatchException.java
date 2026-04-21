@@ -77,4 +77,15 @@ public class SqlBatchException extends SqlException {
     public long[] updateCounters() {
         return updCntrs;
     }
+
+    /**
+     * Copy the exception.
+     *
+     * @param src Exception to copy.
+     * @return new copied exception.
+     */
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    private static SqlBatchException copy(SqlBatchException src) {
+        return new SqlBatchException(src.traceId(), src.code(), src.updateCounters(), src.getMessage(), src.getCause());
+    }
 }

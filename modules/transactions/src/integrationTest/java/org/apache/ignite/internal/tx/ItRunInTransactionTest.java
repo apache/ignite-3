@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import static java.lang.String.format;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.withPublicExceptionAssertions;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -230,24 +231,24 @@ public class ItRunInTransactionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static CompletableFuture<Void> putSqlAsync(Ignite client, Transaction tx, Tuple key) {
-        return client.sql()
+        return withPublicExceptionAssertions(client.sql())
                 .executeAsync(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.intValue(0),
                         key.intValue(0) + "").thenApply(r -> null);
     }
 
     private static Void putKv(Ignite client, Transaction tx, Tuple key) {
-        client.tables().tables().get(0).keyValueView().put(tx, key, val(key.intValue(0) + ""));
+        withPublicExceptionAssertions(client.tables().tables().get(0).keyValueView()).put(tx, key, val(key.intValue(0) + ""));
         return null;
     }
 
     private static Void putSql(Ignite client, @Nullable Transaction tx, Tuple key) {
-        client.sql()
+        withPublicExceptionAssertions(client.sql())
                 .execute(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.intValue(0),
                         key.intValue(0) + "");
         return null;
     }
 
     private static CompletableFuture<Void> putKvAsync(Ignite client, Transaction tx, Tuple key) {
-        return client.tables().tables().get(0).keyValueView().putAsync(tx, key, val(key.intValue(0) + ""));
+        return withPublicExceptionAssertions(client.tables().tables().get(0).keyValueView()).putAsync(tx, key, val(key.intValue(0) + ""));
     }
 }

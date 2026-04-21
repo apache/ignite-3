@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicExceptionWithHint;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CLIENT_CONNECTION_CLOSED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CLIENT_CONNECTION_ESTABLISHED;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
@@ -37,9 +38,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.log4j2.EventLogInspector;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -126,17 +129,14 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     @Test
     void testExceptionHasHint() {
         // Execute on all nodes to collect all types of exception.
-        List<String> causes = IntStream.range(0, client().configuration().addresses().length)
+        List<IgniteException> causes = IntStream.range(0, client().configuration().addresses().length)
                 .mapToObj(i -> {
-                    IgniteException ex = assertThrows(IgniteException.class, () -> client().sql().execute("select x from bad"));
-
-                    return ex.getCause().getCause().getCause().getCause().getMessage();
+                    return assertThrows(IgniteException.class, () -> client().sql().execute("select x from bad"));
                 })
                 .collect(Collectors.toList());
 
         assertThat(causes,
-                hasItem(containsString("To see the full stack trace, "
-                        + "set clientConnector.sendServerExceptionStackTraceToClient:true on the server")));
+                hasItem(publicExceptionWithHint(SqlException.class, Sql.STMT_VALIDATION_ERR, "Object 'BAD' not found")));
     }
 
     @Test

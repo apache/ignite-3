@@ -74,7 +74,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
@@ -437,7 +436,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     return completedFuture(complete(payloadReader, notificationFut, unpacker, opCode));
                 } catch (Throwable t) {
                     expectedException = true;
-                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
+                    throw sneakyThrow(t);
                 }
             }
 
@@ -469,7 +468,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw sneakyThrow(ViewUtils.ensurePublicException(t));
+            throw sneakyThrow(t);
         }
     }
 
@@ -485,11 +484,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             assert unpacker == null : "unpacker must be null if err is not null";
 
             try {
-                asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(err)));
+                asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(err));
             } catch (Throwable execError) {
                 // Executor error, complete directly.
                 execError.addSuppressed(err);
-                resFut.completeExceptionally(ViewUtils.ensurePublicException(execError));
+                resFut.completeExceptionally(execError);
             }
 
             return;
@@ -502,14 +501,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 try {
                     resFut.complete(complete(payloadReader, notificationFut, unpacker, opCode));
                 } catch (Throwable t) {
-                    resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
+                    resFut.completeExceptionally(t);
                 }
             });
         } catch (Throwable execErr) {
             unpacker.close();
 
             // Executor error, complete directly.
-            resFut.completeExceptionally(ViewUtils.ensurePublicException(execErr));
+            resFut.completeExceptionally(execErr);
         }
     }
 
@@ -652,12 +651,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
-        boolean retriable = false;
+        @Nullable String causeStr = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
-        IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
+        String msg;
+        if (causeStr == null) {
+            msg = errMsg;
+        } else if (errMsg == null) {
+            msg = causeStr;
+        } else {
+            // Remove some duplication between errorMsg and cause.
+            int idx = causeStr.indexOf(errMsg);
+            msg = (idx == -1) ? errMsg + '\n' + causeStr : causeStr.substring(idx);
+        }
 
         int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
         int expectedSchemaVersion = -1;
+        boolean retriable = false;
 
         for (int i = 0; i < extSize; i++) {
             String key = unpacker.unpackString();
@@ -667,14 +676,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
                 // Deprecated format, keep for compat with older servers.
                 return new SqlBatchException(traceId, code, unpacker.unpackLongArray(),
-                        errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
+                        msg != null ? msg : "SQL batch execution error", null);
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS_2)) {
                 return new SqlBatchException(traceId, code, unpacker.unpackLongArrayAsBinary(),
-                        errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
+                        msg != null ? msg : "SQL batch execution error", null);
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
+                Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.TX_KILL)) {
-                return new ClientTransactionKilledException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
+                Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
+                return new ClientTransactionKilledException(traceId, code, msg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.FLAGS)) {
                 EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
                 retriable = flags.contains(ErrorFlags.RETRIABLE);
@@ -685,23 +696,32 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
+            Throwable causeWithStackTrace = createException(errClassName, traceId, code, msg, false);
             if (expectedSchemaVersion == -1) {
                 return new IgniteException(
                         traceId, PROTOCOL_ERR, "Expected schema version is not specified in error extension map.", causeWithStackTrace);
             }
 
-            return new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
+            return new ClientSchemaVersionMismatchException(traceId, code, msg, expectedSchemaVersion, null);
         }
 
+        return createException(errClassName, traceId, code, msg, retriable);
+    }
+
+    private static Throwable createException(String errClassName, UUID traceId, int code, String msg, boolean isRetriable) {
         try {
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
-            return copyExceptionWithCause(errCls, traceId, code, errMsg,
-                    retriable ? new ClientRetriableTransactionException(code, causeWithStackTrace) : causeWithStackTrace);
-        } catch (ClassNotFoundException ignored) {
-            // Ignore: incompatible exception class. Fall back to generic exception.
-        }
+            @Nullable Throwable ex = copyExceptionWithCause(errCls, traceId, code, msg, null);
+            if (ex == null) {
+                ex = new IgniteException(traceId, code, msg);
+            }
 
-        return new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
+            return isRetriable
+                    ? new ClientRetriableTransactionException(code, msg, ex)
+                    : ex;
+        } catch (ClassNotFoundException ignored) {
+            return new IgniteException(traceId, code, errClassName + ": " + msg);
+        }
     }
 
     /** {@inheritDoc} */

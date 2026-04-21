@@ -39,7 +39,7 @@ public class TraceableExceptionMatcher extends TypeSafeMatcher<Exception> {
 
     private Matcher<Integer> codeMatcher;
 
-    private final Matcher<UUID> traceIdMatcher = is(notNullValue(UUID.class));
+    private Matcher<UUID> traceIdMatcher = is(notNullValue(UUID.class));
 
     private Matcher<String> messageMatcher;
 
@@ -83,6 +83,11 @@ public class TraceableExceptionMatcher extends TypeSafeMatcher<Exception> {
         return this;
     }
 
+    public TraceableExceptionMatcher withTraceId(Matcher<UUID> traceIdMatcher) {
+        this.traceIdMatcher = traceIdMatcher;
+        return this;
+    }
+
     @Override
     protected boolean matchesSafely(Exception item) {
         Throwable throwable = ExceptionUtils.unwrapCause(item);
@@ -99,6 +104,10 @@ public class TraceableExceptionMatcher extends TypeSafeMatcher<Exception> {
     }
 
     private boolean matchesWithCause(Throwable e) {
+        if (e == null) {
+            return causeMatcher.matches(e);
+        }
+
         for (Throwable current = e; current != null; current = current.getCause()) {
             if (causeMatcher.matches(current) || Arrays.stream(current.getSuppressed()).anyMatch(this::matchesWithCause)) {
                 return true;

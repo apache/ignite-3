@@ -65,8 +65,8 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
             return fromIgniteException("Client error", e);
         }
 
-        if (e.getCause() instanceof IgniteClientConnectionException) {
-            IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
+        if (e instanceof IgniteClientConnectionException) {
+            IgniteClientConnectionException cause = (IgniteClientConnectionException) e;
 
             SSLHandshakeException sslHandshakeException = findCause(cause, SSLHandshakeException.class);
             if (sslHandshakeException != null) {
@@ -86,9 +86,23 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     private static ErrorUiComponent authnErrUiComponent(IgniteException e) {
         InvalidCredentialsException invalidCredentialsException = findCause(e, InvalidCredentialsException.class);
         if (invalidCredentialsException != null) {
+            String msg = invalidCredentialsException.getMessage();
+
+            String details = msg;
+            if (msg != null) {
+                var headerIdx = msg.indexOf('\n');
+                if (headerIdx != -1) {
+                    details = msg.substring(0, headerIdx);
+                    int traceInfoIdx = details.indexOf(" TraceId:");
+                    if (traceInfoIdx != -1) {
+                        details = details.substring(0, traceInfoIdx);
+                    }
+                }
+            }
+
             return ErrorUiComponent.builder()
                     .header("Could not connect to node. Check authentication configuration")
-                    .details(invalidCredentialsException.getMessage())
+                    .details(details)
                     .verbose(extractCauseMessage(e.getMessage()))
                     .build();
         }
