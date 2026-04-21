@@ -71,7 +71,6 @@ public class ClientTransactionRollbackRequest {
             long reqId = -resourceId;
             var actualResourceId = reqToTxMap.get(reqId);
 
-            // Is it ok to reuse this error??
             if (actualResourceId == null) {
                 throw new IgniteException(Client.RESOURCE_NOT_FOUND_ERR, "Failed to find resource from requestId: " + reqId);
             }
