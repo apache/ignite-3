@@ -774,16 +774,16 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
-        private PooledArrayBuffer ComputeExecute(MsgPackReader reader, ClientOp optCode)
+        private PooledArrayBuffer ComputeExecute(MsgPackReader reader, ClientOp opCode)
         {
             // Colocated: table id, schema version, key.
             // Partitioned: table id, partition id.
             // Else: node names.
-            if (optCode == ClientOp.ComputeExecuteColocated)
+            if (opCode == ClientOp.ComputeExecuteColocated)
             {
                 reader.Skip(4);
             }
-            else if (optCode == ClientOp.ComputeExecutePartitioned)
+            else if (opCode == ClientOp.ComputeExecutePartitioned)
             {
                 reader.ReadInt32();
                 reader.ReadInt64();

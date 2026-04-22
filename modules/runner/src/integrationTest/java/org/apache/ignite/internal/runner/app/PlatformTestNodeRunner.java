@@ -871,6 +871,7 @@ public class PlatformTestNodeRunner {
         }
     }
 
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class GetPartitionJob implements ComputeJob<Void, Long> {
         @Override
         public CompletableFuture<Long> executeAsync(JobExecutionContext context, Void arg) {

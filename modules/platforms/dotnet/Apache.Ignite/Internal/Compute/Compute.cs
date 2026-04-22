@@ -102,9 +102,6 @@ namespace Apache.Ignite.Internal.Compute
                 BroadcastJobTarget.AllNodesTarget allNodes => await SubmitBroadcastAsyncInternal(allNodes.Data)
                     .ConfigureAwait(false),
 
-                BroadcastJobTarget.TableTarget table => await SubmitBroadcastAsyncTable(table.Data)
-                    .ConfigureAwait(false),
-
                 _ => throw new ArgumentException("Unsupported broadcast job target: " + target)
             };
 
@@ -115,22 +112,6 @@ namespace Apache.Ignite.Internal.Compute
                 foreach (var node in nodes)
                 {
                     IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    jobExecutions.Add(jobExec);
-                }
-
-                return new BroadcastExecution<TResult>(jobExecutions);
-            }
-
-            async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsyncTable(QualifiedName tableName)
-            {
-                var jobExecutions = new List<IJobExecution<TResult>>();
-                var table = await GetTableAsync(tableName).ConfigureAwait(false);
-                var partitions = await table.PartitionDistribution.GetPartitionsAsync().ConfigureAwait(false);
-                foreach (var partition in partitions)
-                {
-                    IJobExecution<TResult> jobExec = await ExecuteOnPartition(table, partition, jobDescriptor, arg, cancellationToken)
                         .ConfigureAwait(false);
 
                     jobExecutions.Add(jobExec);

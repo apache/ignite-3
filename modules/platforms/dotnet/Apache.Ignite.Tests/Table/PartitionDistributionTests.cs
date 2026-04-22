@@ -142,6 +142,21 @@ public class PartitionDistributionTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestPartitionForPartitionJob()
+    {
+        var partitions = await Table.PartitionDistribution.GetPartitionsAsync();
+        foreach (var partition in partitions)
+        {
+            var jobTarget = JobTarget.Partition(Table.QualifiedName, partition);
+
+            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.GetPartitionJob, null);
+            var expectedPartition = await partitionJobExec.GetResultAsync();
+
+            Assert.AreEqual(expectedPartition, partition.Id);
+        }
+    }
+
+    [Test]
     public async Task TestGetPartitionForKey([Values(true, false)] bool poco, [Values(true, false)] bool withMapper)
     {
         var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());

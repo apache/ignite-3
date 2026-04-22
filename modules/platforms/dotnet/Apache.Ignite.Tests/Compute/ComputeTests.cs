@@ -141,33 +141,6 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestBroadcastTable()
-        {
-            var table = await Client.Tables.GetTableAsync(TableName);
-            var partitions = await table!.PartitionDistribution.GetPartitionsAsync();
-            var partitionIds = partitions.Select(p => p.Id).Order();
-
-            IBroadcastExecution<long> broadcastExecution = await Client.Compute.SubmitBroadcastAsync(
-                BroadcastJobTarget.Table(TableName),
-                GetPartitionJob,
-                null);
-
-            long[] taskResults = await Task
-                .WhenAll(broadcastExecution.JobExecutions.Select(x => x.GetResultAsync()));
-
-            Assert.AreEqual(partitionIds, taskResults.Order());
-        }
-
-        [Test]
-        public void TestBroadcastTableOverloads()
-        {
-            var target1 = BroadcastJobTarget.Table(TableName);
-            var target2 = BroadcastJobTarget.Table(QualifiedName.Parse(TableName));
-            Assert.AreEqual(target1.Data.ObjectName, target2.Data.ObjectName);
-            Assert.AreEqual(target1.Data.ObjectName, target2.Data.ObjectName);
-        }
-
-        [Test]
         public async Task TestExecuteWithNullArgs()
         {
             var res = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ConcatJob, null);
@@ -215,16 +188,6 @@ namespace Apache.Ignite.Tests.Compute
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
-        }
-
-        [Test]
-        public void TestUnknownTableSubmitBroadcastThrows()
-        {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(
-                async () => await Client.Compute.SubmitBroadcastAsync(BroadcastJobTarget.Table("unknownTable"), EchoJob, "unused"));
-
-            Assert.AreEqual("Table 'PUBLIC.UNKNOWNTABLE' does not exist.", ex!.Message);
-            Assert.AreEqual(ErrorGroups.Client.TableIdNotFound, ex.Code);
         }
 
         [Test]
@@ -732,7 +695,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCancelAllNodesTargetBroadcast()
+        public async Task TestCancelBroadcast()
         {
             const int sleepMs = 10_000;
             var beforeStart = GetCurrentInstant();
@@ -741,35 +704,6 @@ namespace Apache.Ignite.Tests.Compute
 
             IBroadcastExecution<string> jobExecution = await Client.Compute.SubmitBroadcastAsync(
                 BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()),
-                SleepJob,
-                sleepMs,
-                cts.Token);
-
-            await cts.CancelAsync();
-
-            foreach (var jobExec in jobExecution.JobExecutions)
-            {
-                // SleepJob throws RuntimeException on interrupt, not CancellationException.
-                await AssertWaitJobStatus(jobExec, JobStatus.Failed, beforeStart);
-
-                var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
-
-                Assert.AreEqual(
-                    "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
-                    ex.Message);
-            }
-        }
-
-        [Test]
-        public async Task TestCancelTableTargetBroadcast()
-        {
-            const int sleepMs = 10_000;
-            var beforeStart = GetCurrentInstant();
-
-            var cts = new CancellationTokenSource();
-
-            IBroadcastExecution<string> jobExecution = await Client.Compute.SubmitBroadcastAsync(
-                BroadcastJobTarget.Table(FakeServer.ExistingTableName),
                 SleepJob,
                 sleepMs,
                 cts.Token);
@@ -848,7 +782,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestAllNodesTargetBroadcastCancellationTokenRegistrationCleanup()
+        public async Task TestBroadcastCancellationTokenRegistrationCleanup()
         {
             var cts = new CancellationTokenSource();
 
@@ -861,19 +795,6 @@ namespace Apache.Ignite.Tests.Compute
             }
 
             Assert.IsFalse(TestUtils.HasCallbacks(cts));
-        }
-
-        [Test]
-        public async Task TestTableTargetBroadcastCancellationTokenRegistrationCleanup()
-        {
-            var cts = new CancellationTokenSource();
-
-            var exec = await Client.Compute.SubmitBroadcastAsync(
-                BroadcastJobTarget.Table(TableName), GetPartitionJob, null, cts.Token);
-
-            await Task.WhenAll(exec.JobExecutions.Select(t => t.GetResultAsync()));
-
-            Assert.That(TestUtils.HasCallbacks(cts), Is.False);
         }
 
         [Test]

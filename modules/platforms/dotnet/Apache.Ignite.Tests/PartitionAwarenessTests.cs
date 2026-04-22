@@ -431,7 +431,9 @@ public class PartitionAwarenessTests
 
         var jobTarget = JobTarget.Partition(FakeServer.ExistingTableName, new Internal.Table.HashPartition(partitionId));
         var jobDescriptor = new JobDescriptor<object?, object?>("job");
-        var jobExecution = await client.Compute.SubmitAsync(jobTarget, jobDescriptor, null);
+
+        // Warm up.
+        await client.Compute.SubmitAsync(jobTarget, jobDescriptor, null);
 
         await AssertOpOnNode(
             _ => client.Compute.SubmitAsync(jobTarget, jobDescriptor, null),

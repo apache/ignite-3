@@ -146,6 +146,26 @@ public static class JobTarget
         Partition(QualifiedName.Parse(tableName), partition);
 
     /// <summary>
+    /// Creates a job target for a specific partition.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="partitionId">The Partition ID.</param>
+    /// <returns>Partition job target.</returns>
+    public static IJobTarget<IPartition> Partition(QualifiedName tableName, long partitionId)
+     =>
+        Partition(tableName, new HashPartition(partitionId));
+
+    /// <summary>
+    /// Creates a job target for a specific partition.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="partitionId">The Partition ID.</param>
+    /// <returns>Partition job target.</returns>
+    public static IJobTarget<IPartition> Partition(string tableName, long partitionId)
+     =>
+        Partition(QualifiedName.Parse(tableName), new HashPartition(partitionId));
+
+    /// <summary>
     /// Single node job target.
     /// </summary>
     /// <param name="Data">Cluster node.</param>
