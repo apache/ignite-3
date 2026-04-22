@@ -250,12 +250,10 @@ public class ClientTransaction implements Transaction {
         try {
             if (finishFut != null) {
                 return finishFut;
+            } else if (implicitRollbackFut == null) {
+                implicitRollbackFut = new CompletableFuture<>();
             } else {
-                if (implicitRollbackFut == null) {
-                    implicitRollbackFut = new CompletableFuture<>();
-                } else {
-                    return implicitRollbackFut;
-                }
+                return implicitRollbackFut;
             }
 
             setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
@@ -338,13 +336,11 @@ public class ClientTransaction implements Transaction {
         try {
             if (finishFut != null) {
                 return finishFut;
+            } else if (implicitRollbackFut != null) {
+                finishFut = nullCompletedFuture();
+                return implicitRollbackFut;
             } else {
-                if (implicitRollbackFut != null) {
-                    finishFut = nullCompletedFuture();
-                    return implicitRollbackFut;
-                } else {
-                    finishFut = new CompletableFuture<>();
-                }
+                finishFut = new CompletableFuture<>();
             }
         } finally {
             enlistPartitionLock.writeLock().unlock();
@@ -437,13 +433,11 @@ public class ClientTransaction implements Transaction {
         try {
             if (finishFut != null) {
                 return finishFut;
+            } else if (implicitRollbackFut != null) {
+                finishFut = nullCompletedFuture();
+                return implicitRollbackFut;
             } else {
-                if (implicitRollbackFut != null) {
-                    finishFut = nullCompletedFuture();
-                    return implicitRollbackFut;
-                } else {
-                    finishFut = new CompletableFuture<>();
-                }
+                finishFut = new CompletableFuture<>();
             }
 
             setState(STATE_ROLLED_BACK);
