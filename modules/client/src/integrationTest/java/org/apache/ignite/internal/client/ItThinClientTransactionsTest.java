@@ -20,6 +20,8 @@ package org.apache.ignite.internal.client;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicExceptionWithHint;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
@@ -29,6 +31,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,6 +77,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -326,11 +330,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         };
 
         var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
-
-        String expected = "Unsupported transaction implementation: "
-                + "'class org.apache.ignite.internal.client.ItThinClientTransactionsTest";
-
-        assertThat(ex.getMessage(), containsString(expected));
+        assertThat(ex,
+                publicException(
+                    IgniteException.class,
+                    Common.INTERNAL_ERR,
+                    format("Unsupported transaction implementation: 'class %s'", tx.getClass().getName()),
+                    emptyList()
+                )
+        );
     }
 
     @Test
@@ -342,8 +349,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
 
             var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
-
-            assertThat(ex.getMessage(), containsString("Transaction belongs to a different client instance"));
+            assertThat(ex,
+                    publicException(
+                            IgniteException.class,
+                            Common.INTERNAL_ERR,
+                            "Transaction belongs to a different client instance",
+                            emptyList()
+                    ).withCause(isA(IllegalArgumentException.class))
+            );
         }
     }
 
@@ -376,8 +389,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
 
-        assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
-        assertEquals(ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, ex.code());
+        assertThat(ex,
+                publicExceptionWithHint(
+                    TransactionException.class,
+                    ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    "Failed to enlist read-write operation into read-only transaction"
+                )
+        );
     }
 
     @ParameterizedTest

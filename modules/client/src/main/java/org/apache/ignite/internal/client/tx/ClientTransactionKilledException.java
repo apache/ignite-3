@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.tx.RetriableTransactionException;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Reports a killed transaction.
  */
-public class ClientTransactionKilledException extends TransactionException implements RetriableTransactionException {
+public class ClientTransactionKilledException extends IgniteInternalException implements RetriableTransactionException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 

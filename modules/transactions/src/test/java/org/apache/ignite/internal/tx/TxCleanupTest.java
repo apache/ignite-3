@@ -66,6 +66,8 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestSender;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.NoopTimeoutStrategy;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -147,7 +149,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 mock(VolatileTxStateMetaStorage.class),
                 testSyncExecutorService(),
                 testSyncScheduledExecutorService(),
-                topologyService
+                topologyService,
+                new KeyBasedRetryContext(new NoopTimeoutStrategy())
         );
     }
 

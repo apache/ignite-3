@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
-
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.tx.RetriableTransactionException;
+package org.apache.ignite.internal.util.retry;
 
 /**
- * Wraps client exception cause for retry purposes, which is based on marker interface RetriableTransactionException.
+ * A {@link TimeoutStrategy} that returns the current timeout unchanged on every call.
+ *
+ * <p>Useful when retry backoff is not desired — for example, in tests or when a flat
+ * retry interval is intentional. The timeout passed to {@link #next(int)} is returned
+ * as-is, so the retry interval remains constant across all attempts.
+ *
+ * <p>This class is stateless and thread-safe.
  */
-public class ClientRetriableTransactionException extends IgniteInternalException implements RetriableTransactionException {
-    public ClientRetriableTransactionException(int code, String msg, Throwable cause) {
-        super(code, msg, cause);
+public class NoopTimeoutStrategy implements TimeoutStrategy {
+    /**
+     * Returns {@code currentTimeout} unchanged.
+     *
+     * @param currentTimeout current retry timeout in milliseconds.
+     * @return the same {@code currentTimeout} value, unmodified.
+     */
+    @Override
+    public int next(int currentTimeout) {
+        return currentTimeout;
     }
 }
