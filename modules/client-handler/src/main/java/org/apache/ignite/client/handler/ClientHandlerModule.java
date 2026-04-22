@@ -103,7 +103,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD,
-            ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2
+            ProtocolBitmaskFeature.SQL_UPDATE_COUNTERS_2,
+            ProtocolBitmaskFeature.TX_ROLLBACK_USING_FIRST_REQUEST
     ));
 
     /** Connection id generator.

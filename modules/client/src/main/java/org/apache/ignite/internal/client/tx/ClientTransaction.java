@@ -86,7 +86,7 @@ public class ClientTransaction implements Transaction {
     @IgniteToStringExclude
     private final ClientChannel ch;
 
-    /** Transaction id. */
+    /** Node-local resource id for the Transaction. */
     private final long id;
 
     /** The future used on repeated commit/rollback. */

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ROLLBACK_USING_FIRST_REQUEST;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -96,6 +97,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataReque
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerWithReceiverBatchSendRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetQualifiedRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
@@ -190,6 +192,7 @@ import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -291,6 +294,24 @@ public class ClientInboundMessageHandler
     private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
 
     private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
+
+    /**
+     * Tracks mappings between the first {@code requestId} and the {@code resourceId}
+     * holding the Tx object for directly mapped transactions. The process is not localized.
+     *
+     * <p><b>Mappings are created:</b>
+     * <ul>
+     *     <li>When a direct transaction is created in {@link ClientTableCommon#readTx(ClientMessageUnpacker, HybridTimestampTracker,
+     *     ClientResourceRegistry, TxManager, IgniteTables, NotificationSender, long[], long, Map)}.
+     *     </li>
+     * </ul>
+     *
+     * <p><b>Mappings are removed:</b>
+     * <ul>
+     *     <li>During a commit or rollback request. Hook is added at creation.</li>
+     * </ul>
+     */
+    private final Map<Long, Long> firstReqToTxResMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -557,6 +578,7 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
             actualFeatures.clear(TX_ALLOW_NOOP_ENLIST.featureId());
+            actualFeatures.clear(TX_ROLLBACK_USING_FIRST_REQUEST.featureId());
 
             actualFeatures.clear(SQL_DIRECT_TX_MAPPING.featureId());
         } else {
@@ -946,69 +968,239 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TUPLE_UPSERT:
                 return ClientTupleUpsertRequest.process(
-                        in, igniteTables, resources, metrics, txManager, clockService, notificationSender(requestId), tsTracker);
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_GET:
-                return ClientTupleGetRequest.process(in, igniteTables, resources, metrics, txManager, clockService, tsTracker);
+                return ClientTupleGetRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleUpsertAllRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, igniteTables, resources, metrics, txManager, clockService, tsTracker,
-                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
+                return ClientTupleGetAllRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS)
+                );
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                return ClientTupleGetAndUpsertRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleGetAndUpsertRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleInsertRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_INSERT_ALL:
-                return ClientTupleInsertAllRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleInsertAllRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_REPLACE:
-                return ClientTupleReplaceRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleReplaceRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_REPLACE_EXACT:
-                return ClientTupleReplaceExactRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleReplaceExactRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleGetAndReplaceRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_DELETE:
-                return ClientTupleDeleteRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleDeleteRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleDeleteAllRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                return ClientTupleDeleteExactRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleDeleteExactRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                return ClientTupleDeleteAllExactRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleDeleteAllExactRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_GET_AND_DELETE:
-                return ClientTupleGetAndDeleteRequest.process(in, igniteTables, resources, metrics, txManager, clockService,
-                        notificationSender(requestId), tsTracker);
+                return ClientTupleGetAndDeleteRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        notificationSender(requestId),
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_CONTAINS_KEY:
-                return ClientTupleContainsKeyRequest.process(in, igniteTables, resources, metrics, txManager, clockService, tsTracker);
+                return ClientTupleContainsKeyRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
+                );
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, metrics, txManager, clockService, tsTracker,
-                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS));
+                return ClientTupleContainsAllKeysRequest.process(
+                        in,
+                        igniteTables,
+                        resources,
+                        metrics,
+                        txManager,
+                        clockService,
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap,
+                        clientContext.hasFeature(TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS)
+                );
 
             case ClientOp.JDBC_CONNECT:
                 return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler, resolveCurrentUsername());
@@ -1057,8 +1249,14 @@ public class ClientInboundMessageHandler
                         clientContext.hasFeature(TX_PIGGYBACK), clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES), tsTracker);
 
             case ClientOp.TX_ROLLBACK:
-                return ClientTransactionRollbackRequest.process(in, resources, metrics, igniteTables,
-                        clientContext.hasFeature(TX_PIGGYBACK), clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES));
+                return ClientTransactionRollbackRequest.process(in,
+                        resources,
+                        metrics,
+                        igniteTables,
+                        firstReqToTxResMap,
+                        clientContext.hasFeature(TX_PIGGYBACK),
+                        clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES)
+                );
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId), clientContext);
@@ -1112,6 +1310,7 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clockService,
                         notificationSender(requestId),
+                        firstReqToTxResMap,
                         resolveCurrentUsername(),
                         clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT),
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS_TABLE_NAME),
@@ -1143,12 +1342,26 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, metrics, tsTracker
+                        partitionOperationsExecutor,
+                        in,
+                        queryProcessor,
+                        resources,
+                        metrics,
+                        tsTracker,
+                        requestId,
+                        firstReqToTxResMap
                 );
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        in, queryProcessor, resources, metrics, requestId, cancelHandles, tsTracker,
+                        in,
+                        queryProcessor,
+                        resources,
+                        metrics,
+                        requestId,
+                        cancelHandles,
+                        tsTracker,
+                        firstReqToTxResMap,
                         resolveCurrentUsername()
                 );
 

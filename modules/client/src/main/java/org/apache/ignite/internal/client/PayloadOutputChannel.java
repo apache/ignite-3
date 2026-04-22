@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Thin client payload output channel.
@@ -33,8 +34,8 @@ public class PayloadOutputChannel implements AutoCloseable {
     /** Client request ID. */
     private final long requestId;
 
-    /** Action to be executed when the payload is sent. */
-    private volatile @Nullable Runnable onSentAction;
+    /** Actions to be executed when the payload is sent. */
+    private final List<Runnable> onSentActions;
 
     /**
      * Constructor.
@@ -47,6 +48,7 @@ public class PayloadOutputChannel implements AutoCloseable {
         this.ch = ch;
         this.out = out;
         this.requestId = requestId;
+        this.onSentActions = new ArrayList<>();
     }
 
     /**
@@ -88,11 +90,11 @@ public class PayloadOutputChannel implements AutoCloseable {
      * @param action Action to be executed.
      */
     public void onSent(Runnable action) {
-        this.onSentAction = action;
+        this.onSentActions.add(action);
     }
 
     /** Returns an action, if any, that should be executed when the payload is sent successfully. */
-    @Nullable Runnable onSentAction() {
-        return onSentAction;
+    List<Runnable> onSentActions() {
+        return onSentActions;
     }
 }

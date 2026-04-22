@@ -337,13 +337,21 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation),
+                DirectTxUtils.payloadWriter(
+                        ctx,
+                        transaction,
+                        payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation)
+                ),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
                 false
         ).handle((BiFunction<AsyncResultSet<T>, Throwable, CompletableFuture<AsyncResultSet<T>>>) (r, err) -> {
             if (err != null) {
+                if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch)) {
+                    return failedFuture(err);
+                }
+
                 if (tx != null && shouldRecordTransactionFailure(err)) {
                     tx.recordOperationFailure(err);
                 }
@@ -352,26 +360,7 @@ public class ClientSql implements IgniteSql {
                     return failedFuture(err);
                 }
 
-                if (ctx.enlistmentToken != null) {
-                    // In case of direct mapping error need to rollback the tx on coordinator.
-                    return tx.rollbackAsync().handle((ignored, err0) -> {
-                        if (err0 != null) {
-                            err.addSuppressed(err0);
-                        }
-
-                        sneakyThrow(err);
-                        return null;
-                    });
-                } else {
-                    return tx.rollbackAndDiscardDirectMappings(false).handle((ignored, err0) -> {
-                        if (err0 != null) {
-                            err.addSuppressed(err0);
-                        }
-
-                        sneakyThrow(err);
-                        return null;
-                    });
-                }
+                return DirectTxUtils.handleErrorOnOtherRequests(ctx, tx, err);
             }
 
             return completedFuture(r);

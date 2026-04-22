@@ -497,7 +497,7 @@ public class ClientTable implements Table {
                     return txStartFut.thenCompose(tx0 -> {
                         return ch.serviceAsync(
                                 opCode,
-                                w -> writer.accept(schema, w, ctx),
+                                DirectTxUtils.payloadWriter(ctx, tx, w -> writer.accept(schema, w, ctx)),
                                 r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
                                 () -> DirectTxUtils.resolveChannel(ctx, ch, ClientOp.isWrite(opCode), tx0, pm),
                                 retryPolicyOverride,
@@ -508,13 +508,7 @@ public class ClientTable implements Table {
                                     if (ex != null) {
                                         Throwable cause = ex;
 
-                                        if (ctx.firstReqFut != null) {
-                                            // Create failed transaction.
-                                            ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null,
-                                                    ctx.pm, null, ch.observableTimestamp(), 0);
-                                            failed.fail();
-                                            ctx.firstReqFut.complete(failed);
-                                            // Txn was not started, rollback is not required.
+                                        if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch)) {
                                             fut.completeExceptionally(unwrapCause(ex));
                                             return null;
                                         }
@@ -547,37 +541,20 @@ public class ClientTable implements Table {
 
                                                 cause = cause.getCause();
                                             }
-
-                                            if (tx0 == null) {
-                                                fut.completeExceptionally(ex);
-                                            } else {
-                                                tx0.rollbackAndDiscardDirectMappings(false).handle((ignored, err0) -> {
-                                                    if (err0 != null) {
-                                                        ex.addSuppressed(err0);
-                                                    }
-
-                                                    fut.completeExceptionally(ex);
-
-                                                    return (T) null;
-                                                });
-                                            }
-                                        } else {
-                                            // In case of direct mapping error we need to rollback the tx on coordinator.
-                                            tx0.rollbackAsync().handle((ignored, err0) -> {
-                                                if (err0 != null) {
-                                                    ex.addSuppressed(err0);
-                                                }
-
-                                                fut.completeExceptionally(ex);
-
-                                                return (T) null;
-                                            });
                                         }
+
+                                        if (tx0 == null) {
+                                            fut.completeExceptionally(ex);
+                                        } else {
+                                            DirectTxUtils.handleErrorOnOtherRequests(ctx, tx0, ex)
+                                                    .whenComplete((ignored, err0) -> fut.completeExceptionally(err0));
+                                        }
+
+                                        return null;
                                     } else {
                                         fut.complete(ret);
+                                        return null;
                                     }
-
-                                    return null;
                                 });
                     });
                 }).exceptionally(ex -> {

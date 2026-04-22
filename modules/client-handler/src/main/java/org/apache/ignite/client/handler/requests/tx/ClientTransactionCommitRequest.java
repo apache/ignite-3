@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -89,7 +90,7 @@ public class ClientTransactionCommitRequest {
                 // Update causality. Used to assign commit timestamp after all enlistments.
                 clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
 
-                ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
+                ReadWriteTransactionImpl tx0 = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
                 // Enforce cleanup.
                 tx0.noRemoteWrites(sendRemoteWritesFlag && in.unpackBoolean());
