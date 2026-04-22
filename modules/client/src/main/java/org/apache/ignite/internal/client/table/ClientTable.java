@@ -507,7 +507,7 @@ public class ClientTable implements Table {
                                     if (ex != null) {
                                         Throwable cause = ex;
 
-                                        if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch, id)) {
+                                        if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch)) {
                                             fut.completeExceptionally(unwrapCause(ex));
                                             return null;
                                         }

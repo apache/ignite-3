@@ -377,7 +377,7 @@ public class ClientSql implements IgniteSql {
                 false
         ).handle((BiFunction<AsyncResultSet<T>, Throwable, CompletableFuture<AsyncResultSet<T>>>) (r, err) -> {
             if (err != null) {
-                if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch, -1)) {
+                if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch)) {
                     return failedFuture(err);
                 }
 

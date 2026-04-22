@@ -313,17 +313,26 @@ public class DirectTxUtils {
      *
      * @param ctx The {@link WriteContext} that holds transactional context information.
      * @param ch The {@link ReliableChannel} used to resolve the actual communication channel.
-     * @param id Client Table Id.
      * @return Whether the error was handled or not.
      */
-    public static boolean tryHandleErrorOnFirstRequest(WriteContext ctx, ReliableChannel ch, long id) {
+    public static boolean tryHandleErrorOnFirstRequest(WriteContext ctx, ReliableChannel ch) {
         if (ctx.firstReqFut == null) {
             return false;
         }
 
         // Create failed transaction.
-        ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null,
-                ctx.pm, null, ch.observableTimestamp(), 0);
+        ClientTransaction failed = new ClientTransaction(
+                ctx.channel,
+                ch,
+                -1,
+                ctx.readOnly,
+                null,
+                ctx.pm,
+                null,
+                ch.observableTimestamp(),
+                0
+        );
+
         failed.fail();
         ctx.firstReqFut.complete(failed);
         // Txn was not started, rollback is not required.
