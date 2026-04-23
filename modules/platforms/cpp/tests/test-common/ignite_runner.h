@@ -78,7 +78,11 @@ public:
      *
      * @return @c true if tests run in single node mode.
      */
-    static bool single_node_mode() { return ignite::detail::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value(); }
+    static bool single_node_mode() {
+        auto env = ignite::detail::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE");
+
+        return env.has_value() ? *env == "true" : false;
+    }
 
     /**
      * Get node addresses to use for tests.
