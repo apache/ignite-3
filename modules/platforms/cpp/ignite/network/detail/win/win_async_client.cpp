@@ -63,6 +63,7 @@ bool win_async_client::shutdown(std::optional<ignite_error> err) {
 }
 
 bool win_async_client::close() {
+    std::unique_lock lock(m_send_mutex);
     if (state::CLOSED == m_state)
         return false;
 
