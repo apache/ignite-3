@@ -486,6 +486,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
+                Runnable::run,
                 zonePartitionId,
                 tableId,
                 () -> Int2ObjectMaps.singleton(pkLocker.id(), pkLocker),

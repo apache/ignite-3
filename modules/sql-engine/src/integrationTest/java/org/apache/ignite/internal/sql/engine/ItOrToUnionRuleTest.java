@@ -86,6 +86,9 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 {23, null, 0, null, 41, null},
         });
 
+        // TODO IGNITE-28578
+        assertQuery("select count(*) from products").returns(23L).check();
+
         gatherStatistics();
     }
 

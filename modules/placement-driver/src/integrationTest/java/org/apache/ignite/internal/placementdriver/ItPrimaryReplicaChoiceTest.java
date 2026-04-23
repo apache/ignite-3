@@ -72,6 +72,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -281,7 +282,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         rwTx.rollback();
 
-        assertFalse(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertTrue(waitForCondition(() -> CollectionUtils.nullOrEmpty(primaryIgnite.txManager().lockManager().locks(rwTx.id())), 2000));
         assertEquals(3, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
     }
 
