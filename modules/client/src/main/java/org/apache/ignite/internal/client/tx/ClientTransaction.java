@@ -93,7 +93,13 @@ public class ClientTransaction implements Transaction {
     @IgniteToStringExclude
     private volatile CompletableFuture<Void> finishFut;
 
-    /** The future is used when a transaction is finished implicitly on enlistment failure or kill. */
+    /**
+     *  The future is used to track outcome of the implicit rollback operation (for example, a transaction is killed).
+     *  There is a scenario, when both futures are required.
+     *  1. implicit rollback is in progress
+     *  2. commit is called first time - an implicit rollback future outcome should be reported
+     *  3. commit is called second time - a completed future should be reported (this is a contract both for subsequent commit/rollback)
+     */
     @IgniteToStringExclude
     private volatile CompletableFuture<Void> implicitRollbackFut;
 
