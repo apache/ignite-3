@@ -41,6 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.StopOnAfterEachFailureExtension;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
@@ -63,6 +64,7 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
  */
 @SuppressWarnings("ALL")
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(StopOnAfterEachFailureExtension.class)
 public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
