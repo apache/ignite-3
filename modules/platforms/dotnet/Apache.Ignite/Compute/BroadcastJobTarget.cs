@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Compute;
 
 using System.Collections.Generic;
+using Apache.Ignite.Table;
 using Internal.Common;
 using Network;
 

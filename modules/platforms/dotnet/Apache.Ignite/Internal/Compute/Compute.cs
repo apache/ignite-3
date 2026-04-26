@@ -79,6 +79,7 @@ namespace Apache.Ignite.Internal.Compute
                 JobTarget.SingleNodeTarget singleNode => SubmitAsync([singleNode.Data], jobDescriptor, arg, cancellationToken),
                 JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg, cancellationToken),
                 JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg, cancellationToken),
+                JobTarget.PartitionTarget partition => SubmitAsync(partition, jobDescriptor, arg, cancellationToken),
 
                 _ => throw new ArgumentException("Unsupported job target: " + target)
             };
@@ -582,6 +583,43 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
+        private async Task<IJobExecution<TResult>> ExecuteOnPartition<TArg, TResult>(
+            Table table,
+            IPartition partition,
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            TArg arg,
+            CancellationToken cancellationToken)
+        {
+            var preferredNode = await table.GetPreferredNode(partition).ConfigureAwait(false);
+            using var writer = ProtoCommon.GetMessageWriter();
+
+            using var res = await _socket.DoOutInOpAndGetSocketAsync(
+                ClientOp.ComputeExecutePartitioned,
+                tx: null,
+                arg: (writer, table, partition, jobDescriptor, arg, _socket, cancellationToken),
+                requestWriter: static (socket, args) =>
+                {
+                    args.writer.Reset();
+                    var w = args.writer.MessageWriter;
+
+                    w.Write(args.table.Id);
+                    w.Write(args.partition.Id);
+
+                    WriteJob(args.writer, args.jobDescriptor, CanWriteJobExecType(socket));
+
+                    ComputePacker.PackArgOrResult(
+                        ref w, args.arg, args.jobDescriptor.ArgMarshaller, GetObservableTimestamp(socket, args._socket));
+
+                    return args.writer;
+                },
+                preferredNode,
+                expectNotifications: true,
+                cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            return GetJobExecution(res.Buffer, readSchema: true, jobDescriptor.ResultMarshaller, cancellationToken);
+        }
+
         private async Task<IJobExecution<TResult>> SubmitAsync<TArg, TResult>(
             IEnumerable<IClusterNode> nodes,
             JobDescriptor<TArg, TResult> jobDescriptor,
@@ -651,6 +689,21 @@ namespace Apache.Ignite.Internal.Compute
 
                 return table.GetRecordViewInternal<TKey>().RecordSerializer.Handler;
             }
+        }
+
+        private async Task<IJobExecution<TResult>> SubmitAsync<TArg, TResult>(
+            JobTarget.PartitionTarget target,
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            TArg arg,
+            CancellationToken cancellationToken)
+        {
+            IgniteArgumentCheck.NotNull(target);
+            IgniteArgumentCheck.NotNull(jobDescriptor);
+            IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
+            var table = await GetTableAsync(target.TableName).ConfigureAwait(false);
+
+            return await ExecuteOnPartition(table, target.Data, jobDescriptor, arg, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         private async Task<bool?> CancelJobAsync(Guid jobId)

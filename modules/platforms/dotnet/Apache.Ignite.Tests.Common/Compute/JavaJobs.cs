@@ -60,4 +60,6 @@ public static class JavaJobs
         new(Jobs + "$MapReduceExceptionOnReduceTask");
 
     public static readonly JobDescriptor<int, string> ExceptionCodeAsStringJob = new(PlatformTestNodeRunner + "$ExceptionCodeAsStringJob");
+
+    public static readonly JobDescriptor<object?, long> GetPartitionJob = new(PlatformTestNodeRunner + "$GetPartitionJob");
 }

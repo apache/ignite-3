@@ -148,6 +148,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Check if all tuples with the given keys collection exist. */
         TupleContainsAllKeys = 67,
 
+        /** Execute partitioned compute job. */
+        ComputeExecutePartitioned = 69,
+
         /** Cancel an operation. */
         OperationCancel = 70,
 

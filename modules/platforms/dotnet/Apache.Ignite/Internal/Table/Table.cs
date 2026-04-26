@@ -279,6 +279,20 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
+        /// Gets the preferred node by partition.
+        /// </summary>
+        /// <param name="partition">Partition.</param>
+        /// <returns>Preferred node.</returns>
+        internal async ValueTask<PreferredNode> GetPreferredNode(IPartition partition)
+        {
+            IgniteArgumentCheck.NotNull(partition);
+
+            var node = await PartitionDistribution.GetPrimaryReplicaAsync(partition).ConfigureAwait(false);
+
+            return PreferredNode.FromName(node.Name);
+        }
+
+        /// <summary>
         /// Gets the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>

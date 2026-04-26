@@ -872,6 +872,14 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
+    private static class GetPartitionJob implements ComputeJob<Void, Long> {
+        @Override
+        public CompletableFuture<Long> executeAsync(JobExecutionContext context, Void arg) {
+            return completedFuture(context.partition().id());
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class MarshallerReceiver implements DataStreamerReceiver<Nested, MyArg, MyResult> {
         @Override
         public @Nullable Marshaller<Nested, byte[]> payloadMarshaller() {

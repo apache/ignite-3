@@ -97,10 +97,28 @@ public class PartitionDistributionTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestPartitionedJobNegativePartitionIdThrows()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new HashPartition(-1)), JavaJobs.GetPartitionJob, null));
+
+        Assert.AreEqual("Partition id can't be negative: HashPartition { Id = -1 }", ex.Message);
+    }
+
+    [Test]
     public void TestGetPrimaryReplicaPartitionIdOutOfRangeThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new HashPartition(10)));
+
+        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { Id = 10 }", ex.Message);
+    }
+
+    [Test]
+    public void TestPartitionedJobPartitionIdOutOfRangeThrows()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new HashPartition(10)), JavaJobs.GetPartitionJob, null));
 
         Assert.AreEqual("Partition id can't be greater than 9: HashPartition { Id = 10 }", ex.Message);
     }
@@ -112,6 +130,30 @@ public class PartitionDistributionTests : IgniteTestsBase
             async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new MyPartition()));
 
         Assert.AreEqual($"Unsupported partition type: {typeof(MyPartition)}", ex.Message);
+    }
+
+    [Test]
+    public void TestPartitionedJobUnknownPartitionClassThrows()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Client.Compute.SubmitAsync(JobTarget.Partition(TableName, new MyPartition()), JavaJobs.GetPartitionJob, 1));
+
+        Assert.AreEqual($"Unsupported partition type: {typeof(MyPartition)}", ex.Message);
+    }
+
+    [Test]
+    public async Task TestPartitionForPartitionJob()
+    {
+        var partitions = await Table.PartitionDistribution.GetPartitionsAsync();
+        foreach (var partition in partitions)
+        {
+            var jobTarget = JobTarget.Partition(Table.QualifiedName, partition);
+
+            var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.GetPartitionJob, null);
+            var expectedPartition = await partitionJobExec.GetResultAsync();
+
+            Assert.AreEqual(expectedPartition, partition.Id);
+        }
     }
 
     [Test]
