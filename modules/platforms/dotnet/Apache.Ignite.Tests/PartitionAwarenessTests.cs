@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Apache.Ignite.Internal.Table;
 using Ignite.Compute;
 using Ignite.Table;
 using Ignite.Table.Mapper;
@@ -36,6 +37,11 @@ using NUnit.Framework;
 /// </summary>
 public class PartitionAwarenessTests
 {
+    private const long PartitionId = 123456;
+
+    private static readonly QualifiedName QualifiedName =
+        QualifiedName.Parse(FakeServer.ExistingTableName);
+
     private static readonly object[] PartitionNodeCases =
     {
         new object[] { 0, 1 },
@@ -500,6 +506,38 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => recordView.UpsertAsync(tx, 1), ClientOp.TupleUpsert, _server2);
     }
 
+    [Test]
+    public void TestPartitionTargetStringTableNameLongPartitionIdOverload()
+    {
+        var partitionJobTarget = JobTarget.Partition(FakeServer.ExistingTableName, PartitionId);
+
+        TestPartitionTarget(partitionJobTarget);
+    }
+
+    [Test]
+    public void TestPartitionTargetStringTableNameHashPartitionIdOverload()
+    {
+        var partitionJobTarget = JobTarget.Partition(FakeServer.ExistingTableName, new HashPartition(PartitionId));
+
+        TestPartitionTarget(partitionJobTarget);
+    }
+
+    [Test]
+    public void TestPartitionTargetQualifiedTableNameLongPartitionIdOverload()
+    {
+        var partitionJobTarget = JobTarget.Partition(QualifiedName, PartitionId);
+
+        TestPartitionTarget(partitionJobTarget);
+    }
+
+    [Test]
+    public void TestPartitionTargetQualifiedTableNameHashPartitionIdOverload()
+    {
+        var partitionJobTarget = JobTarget.Partition(QualifiedName, new HashPartition(PartitionId));
+
+        TestPartitionTarget(partitionJobTarget);
+    }
+
     private static async Task AssertOpOnNode(
         Func<ITransaction?, Task> action,
         ClientOp op,
@@ -555,6 +593,13 @@ public class PartitionAwarenessTests
         {
             CollectionAssert.IsEmpty(node2.ClientOps);
         }
+    }
+
+    private static void TestPartitionTarget(IJobTarget<IPartition> partitionJobTarget)
+    {
+        var partitionTarget = (Ignite.Compute.JobTarget.PartitionTarget)partitionJobTarget;
+        Assert.AreEqual(PartitionId, partitionTarget.Data.Id);
+        Assert.AreEqual(QualifiedName, partitionTarget.TableName);
     }
 
     private async Task TestClientReceivesPartitionAssignmentUpdates(Func<IRecordView<int>, ITransaction?, Task> func, ClientOp op)

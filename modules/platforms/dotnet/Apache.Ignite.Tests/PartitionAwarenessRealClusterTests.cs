@@ -35,7 +35,6 @@ using static Common.Table.TestTables;
 public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 {
     private const int Iterations = 50;
-    private const long PartitionId = 123456;
 
     private string _tableName = string.Empty;
 
@@ -301,38 +300,6 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             ClientOp.SqlExec);
     }
 
-    [Test]
-    public void TestPartitionTargetStringTableNameLongPartitionIdOverload()
-    {
-        var partitionJobTarget = JobTarget.Partition(TableName, PartitionId);
-
-        TestPartitionTarget(partitionJobTarget);
-    }
-
-    [Test]
-    public void TestPartitionTargetQualifiedTableNameLongPartitionIdOverload()
-    {
-        var partitionJobTarget = JobTarget.Partition(Table.QualifiedName, PartitionId);
-
-        TestPartitionTarget(partitionJobTarget);
-    }
-
-    [Test]
-    public void TestPartitionTargetQualifiedTableNameHashPartitionIdOverload()
-    {
-        var partitionJobTarget = JobTarget.Partition(Table.QualifiedName, new HashPartition(PartitionId));
-
-        TestPartitionTarget(partitionJobTarget);
-    }
-
-    [Test]
-    public void TestPartitionTargetStringTableNameHashPartitionIdOverload()
-    {
-        var partitionJobTarget = JobTarget.Partition(TableName, new HashPartition(PartitionId));
-
-        TestPartitionTarget(partitionJobTarget);
-    }
-
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
     {
         var primaryNodeNameExec = await client.Compute.SubmitAsync(
@@ -385,12 +352,5 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         _tableName = $"{nameof(PartitionAwarenessRealClusterTests)}_{TestContext.CurrentContext.Test.Name}";
 
         await Client.Sql.ExecuteScriptAsync($"CREATE TABLE {_tableName} {columns}");
-    }
-
-    private void TestPartitionTarget(IJobTarget<IPartition> partitionJobTarget)
-    {
-        var partitionTarget = (Ignite.Compute.JobTarget.PartitionTarget)partitionJobTarget;
-        Assert.AreEqual(PartitionId, partitionTarget.Data.Id);
-        Assert.AreEqual(Table.QualifiedName, partitionTarget.TableName);
     }
 }
