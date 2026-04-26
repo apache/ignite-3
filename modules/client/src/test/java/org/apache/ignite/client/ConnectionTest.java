@@ -77,7 +77,7 @@ public class ConnectionTest extends AbstractClientTest {
         var ex = assertThrows(IgniteClientConnectionException.class,
                 () -> testConnection("127.0.0.1:47500"));
 
-        String errMsg = ex.getCause().getMessage();
+        String errMsg = ex.getMessage();
 
         // It does not seem possible to verify that it's a 'Connection refused' exception because with different
         // user locales the message differs, so let's just check that the message ends with the known suffix.

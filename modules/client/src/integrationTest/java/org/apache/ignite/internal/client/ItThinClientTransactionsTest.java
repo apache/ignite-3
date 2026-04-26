@@ -20,12 +20,18 @@ package org.apache.ignite.internal.client;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicExceptionWithHint;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,6 +64,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
@@ -70,6 +77,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -87,7 +95,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -322,11 +330,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         };
 
         var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
-
-        String expected = "Unsupported transaction implementation: "
-                + "'class org.apache.ignite.internal.client.ItThinClientTransactionsTest";
-
-        assertThat(ex.getMessage(), containsString(expected));
+        assertThat(ex,
+                publicException(
+                    IgniteException.class,
+                    Common.INTERNAL_ERR,
+                    format("Unsupported transaction implementation: 'class %s'", tx.getClass().getName()),
+                    emptyList()
+                )
+        );
     }
 
     @Test
@@ -338,8 +349,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
 
             var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
-
-            assertThat(ex.getMessage(), containsString("Transaction belongs to a different client instance"));
+            assertThat(ex,
+                    publicException(
+                            IgniteException.class,
+                            Common.INTERNAL_ERR,
+                            "Transaction belongs to a different client instance",
+                            emptyList()
+                    ).withCause(isA(IllegalArgumentException.class))
+            );
         }
     }
 
@@ -372,8 +389,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
 
-        assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
-        assertEquals(ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, ex.code());
+        assertThat(ex,
+                publicExceptionWithHint(
+                    TransactionException.class,
+                    ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    "Failed to enlist read-write operation into read-only transaction"
+                )
+        );
     }
 
     @ParameterizedTest
@@ -459,7 +481,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Tuple key2 = tuples.get(1);
         assertThat(ctx.put.apply(client, tx, key2), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
 
-        assertThat(tx.commitAsync(), willSucceedFast());
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
 
         // Validate lock possibility.
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key, key2)), willSucceedFast());
@@ -572,7 +594,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         await().atMost(3, TimeUnit.SECONDS).until(() -> tx.startedTx().killed());
 
-        assertThat(tx.commitAsync(), willSucceedFast());
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
 
         // Validate lock possibility.
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key1, key2)), willSucceedFast());
@@ -1407,34 +1429,160 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2)), willSucceedFast());
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27947")
-    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() throws InterruptedException {
-        // Note: reversed tx priority is required for this test.
-        ClientTable table = (ClientTable) table();
-        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+    @Nested
+    class OnConflictDuringFirstRequest {
+        class Data {
+            final IgniteImpl ignite;
+            final List<Tuple> tuples;
+            final ClientLazyTransaction tx1;
+            final ClientLazyTransaction tx2;
+            final CompletableFuture<?> req2Fut;
 
-        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
-        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
+            Data(
+                    IgniteImpl ignite,
+                    List<Tuple> tuples,
+                    ClientLazyTransaction tx1,
+                    ClientLazyTransaction tx2,
+                    CompletableFuture<?> req2Fut
+            ) {
+                this.ignite = ignite;
+                this.tuples = tuples;
+                this.tx1 = tx1;
+                this.tx2 = tx2;
+                this.req2Fut = req2Fut;
+            }
+        }
 
-        // We need a waiter for this scenario.
-        Tuple key = tuples0.get(0);
-        Tuple val = val("1");
+        Data prepareBlockedTransaction(KillTestContext ctx) throws InterruptedException {
+            ClientTable table = (ClientTable) table();
+            ClientSql sql = (ClientSql) client().sql();
 
-        ClientLazyTransaction tx1 = (ClientLazyTransaction) client().transactions().begin();
-        ClientLazyTransaction tx2 = (ClientLazyTransaction) client().transactions().begin();
+            Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+            Entry<Partition, ClusterNode> mapping = map.entrySet().iterator().next();
+            List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, (int) mapping.getKey().id(), table);
+            Ignite server = server(mapping.getValue());
+            IgniteImpl ignite = unwrapIgniteImpl(server);
 
-        kvView.put(tx1, key, val);
+            // Init SQL mappings.
+            Tuple key0 = tuples0.get(0);
+            sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                    key0.intValue(0), key0.intValue(0) + "");
+            await().atMost(2, TimeUnit.SECONDS)
+                    .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
 
-        // Will wait for lock.
-        CompletableFuture<Void> fut2 = kvView.putAsync(tx2, key, val);
-        assertFalse(fut2.isDone());
+            // We need a waiter for this scenario.
+            Tuple key = tuples0.get(1);
 
-        Thread.sleep(500);
+            ClientLazyTransaction tx2 = (ClientLazyTransaction) client().transactions().begin();
+            ClientLazyTransaction tx1 = (ClientLazyTransaction) client().transactions().begin();
 
-        // Rollback should not be blocked.
-        assertThat(tx2.rollbackAsync(), willSucceedFast());
-        assertThat(tx1.rollbackAsync(), willSucceedFast());
+            // Starts the transaction.
+            assertThat(ctx.put.apply(client(), tx1, key), willSucceedIn(120, TimeUnit.SECONDS));
+
+            await().atMost(3, TimeUnit.SECONDS).until(() -> {
+                Iterator<Lock> locks = ignite.txManager().lockManager().locks(tx1.startedTx().txId());
+
+                int count = CollectionUtils.count(locks);
+                return count == 2;
+            });
+
+            // Will wait for lock.
+            CompletableFuture<?> fut2 = ctx.put.apply(client(), tx2, key);
+            Thread.sleep(500);
+
+            assertThat(fut2.isDone(), is(false));
+            IgniteTestUtils.assertThrows(AssertionError.class, () -> ClientTransaction.get(tx2), "Transaction is starting");
+
+            return new Data(ignite, tuples0, tx1, tx2, fut2);
+        }
+
+        @ParameterizedTest
+        @MethodSource("org.apache.ignite.internal.client.ItThinClientTransactionsTest#killTestContextFactory")
+        public void testRollbackDoesNotBlock(KillTestContext ctx) throws InterruptedException {
+            var test = prepareBlockedTransaction(ctx);
+
+            // Rollback should not be blocked.
+            assertThat(test.tx2.rollbackAsync(), willSucceedIn(1, TimeUnit.SECONDS));
+            assertThat(test.req2Fut, willThrowFast(
+                    ctx.expectedErr,
+                    "Can't acquire a lock because transaction is already finished"));
+
+            assertThat(test.tx1.rollbackAsync(), willSucceedIn(1, TimeUnit.SECONDS));
+
+            var ex = assertThrows(TransactionException.class, () -> ClientTransaction.get(test.tx2));
+            assertThat(ex.getMessage(), containsString("Transaction is already finished"));
+            assertThat(ex.getMessage(), containsString("committed=false"));
+
+            KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+            assertThat(kvView.removeAllAsync(null, test.tuples.subList(0, 2)), willSucceedIn(5, TimeUnit.SECONDS));
+        }
+
+        @ParameterizedTest
+        @MethodSource("org.apache.ignite.internal.client.ItThinClientTransactionsTest#killTestContextFactory")
+        public void testOperationsBlockWaitingForLock(KillTestContext ctx) throws InterruptedException {
+            var test = prepareBlockedTransaction(ctx);
+
+            CompletableFuture<?> fut3 = ctx.put.apply(client(), test.tx2, test.tuples.get(2));
+
+            assertDoesNotThrow(test.tx1::startedTx);
+
+            assertThat(test.tx1.rollbackAsync(), willSucceedIn(1, TimeUnit.SECONDS));
+
+            // After the lock is open, the requests are free to complete.
+            assertThat(test.req2Fut, willSucceedIn(1, TimeUnit.SECONDS));
+            assertThat(fut3, willSucceedIn(1, TimeUnit.SECONDS));
+
+            assertThat(test.tx2.rollbackAsync(), willSucceedIn(1, TimeUnit.SECONDS));
+
+            KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+            assertThat(kvView.removeAllAsync(null, test.tuples.subList(0, 3)), willSucceedIn(5, TimeUnit.SECONDS));
+        }
+
+        @ParameterizedTest
+        @MethodSource("org.apache.ignite.internal.client.ItThinClientTransactionsTest#killTestContextFactory")
+        public void testCancelByRequestIdNotAvailable(KillTestContext ctx) throws InterruptedException {
+            var test = prepareBlockedTransaction(ctx);
+
+            // Remove firstReqMapping from the server side.
+            {
+                Map<Long, Long> firstReqToTxResMap = IgniteTestUtils.getFieldValue(
+                        test.ignite.clientInboundMessageHandler(),
+                        ClientInboundMessageHandler.class,
+                        "firstReqToTxResMap"
+                );
+
+                CompletableFuture<Object> reqInfoFut = IgniteTestUtils.getFieldValue(test.tx2, ClientLazyTransaction.class,
+                        "requestInfoFuture");
+                Object requestInfo = reqInfoFut.join();
+                long firstReqId = IgniteTestUtils.getFieldValue(requestInfo, "firstReqId");
+                firstReqToTxResMap.remove(firstReqId);
+            }
+
+            // Will block because of the error.
+            var rollbackTx2Fut1 = test.tx2.rollbackAsync();
+            Thread.sleep(1_000);
+            assertThat(rollbackTx2Fut1.isDone(), is(false));
+
+            // Do another concurrent rollback call just to make sure.
+            // If we allow multiple rollback requests by id to be sent concurrently, the outcome might be different.
+            var rollbackTx2Fut2 = test.tx2.rollbackAsync();
+            Thread.sleep(1_000);
+            assertThat(rollbackTx2Fut2.isDone(), is(false));
+
+            // Now unblock the transaction.
+            assertThat(test.tx1.rollbackAsync(), willSucceedIn(1, TimeUnit.SECONDS));
+
+            // Requests should rollback.
+            assertThat(rollbackTx2Fut1, willSucceedIn(1, TimeUnit.SECONDS));
+            assertThat(rollbackTx2Fut2, willSucceedIn(1, TimeUnit.SECONDS));
+
+            var ex = assertThrows(TransactionException.class, () -> ClientTransaction.get(test.tx2));
+            assertThat(ex.getMessage(), containsString("Transaction is already finished"));
+            assertThat(ex.getMessage(), containsString("committed=false"));
+
+            KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+            assertThat(kvView.removeAllAsync(null, test.tuples.subList(0, 2)), willSucceedIn(5, TimeUnit.SECONDS));
+        }
     }
 
     @ParameterizedTest
@@ -1500,6 +1648,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
         } else {
             assertThat(ctx.put.apply(client(), olderTxProxy, key2), willSucceedFast()); // Will invalidate younger tx.
+
+            await().atMost(2, TimeUnit.SECONDS).until(() -> youngerTxProxy.startedTx().killed());
             assertThat(youngerTxProxy.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class));
         }
 

@@ -611,7 +611,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             marsh = marshallerFactory.apply(registry.schema(schemaVersion));
             this.marsh = marsh;
         } catch (Exception ex) {
-            throw new MarshallerException(ex.getMessage(), ex);
+            if (ex instanceof MarshallerException) {
+                throw ex;
+            } else {
+                throw new MarshallerException(ex.getMessage(), ex);
+            }
         }
 
         return marsh;

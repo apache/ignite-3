@@ -565,6 +565,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(16);
             expected.set(17);
             expected.set(18);
+            expected.set(19);
 
             assertEquals(expected, supportedFeatures);
 

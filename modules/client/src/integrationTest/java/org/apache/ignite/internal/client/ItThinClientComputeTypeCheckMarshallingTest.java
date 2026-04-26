@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.FAILED;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.hasMessage;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
@@ -37,6 +38,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.IgniteExceptionTestUtils.Cause;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -139,7 +141,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         assertResultFailsWithErr(
                 result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
                 "Exception in user-defined marshaller",
-                hasMessage(containsString("java.lang.RuntimeException: User defined error."))
+                List.of(Cause.of(RuntimeException.class, "User defined error."))
         );
     }
 
@@ -205,10 +207,6 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         }
     }
 
-    private static void assertResultFailsWithErr(JobExecution<?> result, int errCode, String expectedMessage) {
-        assertResultFailsWithErr(result, errCode, expectedMessage, null);
-    }
-
     private static void assertResultFailsWithErr(
             JobExecution<?> result,
             int errCode,
@@ -218,6 +216,26 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         assertThat(
                 result.resultAsync(),
                 willThrow(traceableException(ComputeException.class, errCode, expectedMessage).withCause(causeMatcher))
+        );
+    }
+
+    private static void assertResultFailsWithErr(JobExecution<?> result, int errCode, String expectedMessage) {
+        assertResultFailsWithErr(result, errCode, expectedMessage, emptyList());
+    }
+
+    private static void assertResultFailsWithErr(
+            JobExecution<?> result,
+            int errCode,
+            String expectedMessage,
+            List<Cause> causes
+    ) {
+        assertThat(
+                result.resultAsync(),
+                willThrow(
+                        publicException(
+                                ComputeException.class, errCode, expectedMessage, causes
+                        )
+                )
         );
     }
 }

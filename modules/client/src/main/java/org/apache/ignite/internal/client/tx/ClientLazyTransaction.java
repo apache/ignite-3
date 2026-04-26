@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ROLLBACK_USING_FIRST_REQUEST;
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -39,11 +43,23 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
+    private static final CompletableFuture<Void> TX_INFO_ALREADY_RECEIVED_FUTURE =
+            failedFuture(new UnsupportedOperationException("TX_ROLLBACK_USING_FIRST_REQUEST was skipped because tx info already present."));
+
+    private static final CompletableFuture<Void> NOT_SUPPORTED_FUTURE =
+            failedFuture(new UnsupportedOperationException("TX_ROLLBACK_USING_FIRST_REQUEST is not supported"));
+
     private final long observableTimestamp;
 
     private final @Nullable TransactionOptions options;
 
     private final EnumSet<ClientInternalTxOptions> txOptions;
+
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+    private final CompletableFuture<RequestInfo> requestInfoFuture = new CompletableFuture<>();
+
+    private final CompletableFuture<Void> rollbackFuture = new CompletableFuture<>();
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
@@ -94,12 +110,47 @@ public class ClientLazyTransaction implements Transaction {
     public CompletableFuture<Void> rollbackAsync() {
         var tx0 = tx;
 
+        // TODO: IGNITE-28405 This is really fishy. It will probably let you reuse a transaction after calling a rollback :(
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
             return nullCompletedFuture();
         }
 
-        return tx0.thenCompose(ClientTransaction::rollbackAsync);
+        if (cancelled.compareAndSet(false, true)) {
+            return CompletableFuture.anyOf(requestInfoFuture, tx0)
+                    .thenCompose(input -> {
+                        if (tx0.isDone()) {
+                            return TX_INFO_ALREADY_RECEIVED_FUTURE;
+                        }
+
+                        // The input must be from requestInfoFuture
+                        RequestInfo reqInfo = (RequestInfo) input;
+                        ClientChannel ch = reqInfo.ch;
+                        if (ch.protocolContext().isFeatureSupported(TX_ROLLBACK_USING_FIRST_REQUEST)) {
+                            return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(-reqInfo.firstReqId), r -> null);
+                        } else {
+                            return NOT_SUPPORTED_FUTURE;
+                        }
+                    })
+                    .handle((res, e) -> {
+                        // If ok, we don't need to wait for the response. If error, let's block.
+                        if (e == null) {
+                            return nullCompletedFuture();
+                        } else {
+                            return tx0.thenCompose(ClientTransaction::rollbackAsync);
+                        }
+                    })
+                    .thenCompose(f -> (CompletableFuture<Void>) f)
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            rollbackFuture.completeExceptionally(e);
+                        } else {
+                            rollbackFuture.complete(null);
+                        }
+                    });
+        } else {
+            return rollbackFuture;
+        }
     }
 
     @Override
@@ -221,8 +272,23 @@ public class ClientLazyTransaction implements Transaction {
         return txOptions;
     }
 
+    public void updateRequestInfo(long firstReqId, ClientChannel ch) {
+        boolean s = this.requestInfoFuture.complete(new RequestInfo(firstReqId, ch));
+        assert s : "Transaction request info was previously set";
+    }
+
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    private static class RequestInfo {
+        private final long firstReqId;
+        private final ClientChannel ch;
+
+        private RequestInfo(long firstReqId, ClientChannel ch) {
+            this.firstReqId = firstReqId;
+            this.ch = ch;
+        }
     }
 }

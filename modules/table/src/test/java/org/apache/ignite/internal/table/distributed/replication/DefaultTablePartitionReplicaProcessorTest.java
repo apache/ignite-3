@@ -663,6 +663,7 @@ public class DefaultTablePartitionReplicaProcessorTest extends IgniteAbstractTes
                 txManager,
                 lockManager,
                 Runnable::run,
+                Runnable::run,
                 new ZonePartitionId(tableDescriptor.zoneId(), PART_ID),
                 TABLE_ID,
                 () -> Int2ObjectMap.ofEntries(

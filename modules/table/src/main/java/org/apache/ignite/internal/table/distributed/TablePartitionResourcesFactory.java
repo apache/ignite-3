@@ -285,6 +285,7 @@ class TablePartitionResourcesFactory {
                 txManager,
                 lockManager,
                 scanRequestExecutor,
+                partitionOperationsExecutor,
                 replicationGroupId,
                 table.tableId(),
                 table.indexesLockers(partitionIndex),

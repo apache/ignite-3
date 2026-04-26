@@ -117,7 +117,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Client supports SQL_UPDATE_COUNTERS_2 error extension (single binary value instead of array).
      */
-    SQL_UPDATE_COUNTERS_2(18);
+    SQL_UPDATE_COUNTERS_2(18),
+
+    /**
+     * Allow rolling back direct transactions using the first request id.
+     */
+    TX_ROLLBACK_USING_FIRST_REQUEST(19);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

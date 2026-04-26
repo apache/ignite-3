@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.retry.RetryUtil.scheduleRetry;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -121,6 +122,9 @@ import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.RetryContext;
+import org.apache.ignite.internal.util.retry.TimeoutStrategy;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -242,6 +246,8 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
 
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    private final RetryContext retryContext;
+
     /**
      * Test-only constructor.
      *
@@ -260,6 +266,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param metricManager Metric manager.
+     * @param timeoutStrategy Timeout strategy.
      */
     @TestOnly
     public TxManagerImpl(
@@ -278,7 +285,8 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TimeoutStrategy timeoutStrategy
     ) {
         this(
                 clusterService.staticLocalNode(),
@@ -300,7 +308,8 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                metricManager
+                metricManager,
+                timeoutStrategy
         );
     }
 
@@ -324,6 +333,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param metricManager Metric manager.
+     * @param timeoutStrategy Timeout strategy.
      */
     public TxManagerImpl(
             InternalClusterNode localNode,
@@ -345,7 +355,8 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TimeoutStrategy timeoutStrategy
     ) {
         this.txConfig = txConfig;
         this.systemCfg = systemCfg;
@@ -404,13 +415,16 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
 
+        retryContext = new KeyBasedRetryContext(timeoutStrategy);
+
         txCleanupRequestSender = new TxCleanupRequestSender(
                 txMessageSender,
                 placementDriverHelper,
                 txStateVolatileStorage,
                 writeIntentSwitchPool,
                 commonScheduler,
-                topologyService
+                topologyService,
+                retryContext
         );
 
         txMetrics = new TransactionMetricsSource(clockService);
@@ -827,7 +841,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            ZonePartitionId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commit,
             Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
@@ -871,14 +885,23 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
                             LOG.debug("Failed to finish Tx. The operation will be retried {}.", ex,
                                     formatTxInfo(txId, txStateVolatileStorage));
-                            return supplyAsync(() -> durableFinish(
-                                    observableTimestampTracker,
-                                    commitPartition,
-                                    commit,
-                                    enlistedPartitions,
-                                    txId,
-                                    commitTimestamp,
-                                    txFinishFuture
+
+                            String timeoutKey = commitPartition == null ? txId.toString() : commitPartition.toString();
+
+                            return supplyAsync(() -> scheduleRetry(
+                                    () -> durableFinish(
+                                            observableTimestampTracker,
+                                            commitPartition,
+                                            commit,
+                                            enlistedPartitions,
+                                            txId,
+                                            commitTimestamp,
+                                            txFinishFuture
+                                    ),
+                                    retryContext.updateAndGetState(timeoutKey).getTimeout(),
+                                    MILLISECONDS,
+                                    commonScheduler,
+                                    () -> retryContext.resetState(timeoutKey)
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx {}.", ex,
@@ -1385,5 +1408,10 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
     @TestOnly
     public void clearLocalRwTxCounter() {
         localRwTxCounter.clear();
+    }
+
+    @TestOnly
+    public RetryContext retryContext() {
+        return retryContext;
     }
 }

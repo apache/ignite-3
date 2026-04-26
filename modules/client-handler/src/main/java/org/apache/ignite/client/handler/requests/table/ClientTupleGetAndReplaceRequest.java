@@ -21,6 +21,7 @@ import static java.util.EnumSet.noneOf;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.readAsync;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -45,6 +46,8 @@ public class ClientTupleGetAndReplaceRequest {
      * @param tables Ignite tables.
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
+     * @param requestId Id of the request.
+     * @param reqToTxMap Tracker for first request of direct transactions.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -55,13 +58,27 @@ public class ClientTupleGetAndReplaceRequest {
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            long requestId,
+            Map<Long, Long> reqToTxMap
     ) {
-        return readAsync(in, tables, resources, metrics, txManager, notificationSender, tsTracker, noneOf(RequestOptions.class))
+        return readAsync(
+                in,
+                tables,
+                resources,
+                metrics,
+                txManager,
+                notificationSender,
+                tsTracker,
+                noneOf(RequestOptions.class),
+                requestId,
+                reqToTxMap
+        )
                 .thenCompose(req -> req.table().recordView().getAndReplaceAsync(req.tx(), req.tuple())
                         .thenApply(resTuple -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req);
                             ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, req.table().schemaView());
-                        }));
+                        })
+                );
     }
 }

@@ -111,6 +111,11 @@ class ItComputeStandaloneTest extends ItComputeBaseTest {
         return units;
     }
 
+    @Override
+    protected ClientType clientType() {
+        return ClientType.EMBEDDED;
+    }
+
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26546")
     @Override
     void executesFailingJobLocally() {

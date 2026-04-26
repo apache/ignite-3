@@ -264,6 +264,7 @@ public class DefaultTablePartitionReplicaProcessorIndexLockingTest extends Ignit
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
+                Runnable::run,
                 new ZonePartitionId(ZONE_ID, PART_ID),
                 TABLE_ID,
                 () -> Int2ObjectMap.ofEntries(

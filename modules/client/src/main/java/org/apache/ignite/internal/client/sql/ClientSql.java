@@ -28,6 +28,8 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ViewUtils.ensurePublicException;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -38,7 +40,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -148,12 +148,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments
     ) {
         Objects.requireNonNull(query);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, query, arguments).join());
-        } catch (CompletionException e) {
-            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return new SyncResultSetAdapter<>(sync(executeAsync(transaction, cancellationToken, query, arguments)));
     }
 
     /** {@inheritDoc} */
@@ -165,12 +160,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments
     ) {
         Objects.requireNonNull(statement);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return new SyncResultSetAdapter<>(sync(executeAsync(transaction, cancellationToken, statement, arguments)));
     }
 
     /** {@inheritDoc} */
@@ -183,12 +173,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments
     ) {
         Objects.requireNonNull(query);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, cancellationToken, query, arguments).join());
-        } catch (CompletionException e) {
-            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return new SyncResultSetAdapter<>(sync(executeAsync(transaction, mapper, cancellationToken, query, arguments)));
     }
 
     /** {@inheritDoc} */
@@ -201,12 +186,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments
     ) {
         Objects.requireNonNull(statement);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, cancellationToken, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return new SyncResultSetAdapter<>(sync(executeAsync(transaction, mapper, cancellationToken, statement, arguments)));
     }
 
     /** {@inheritDoc} */
@@ -228,11 +208,7 @@ public class ClientSql implements IgniteSql {
             Statement dmlStatement,
             BatchedArguments batch
     ) {
-        try {
-            return executeBatchAsync(transaction, cancellationToken, dmlStatement, batch).join();
-        } catch (CompletionException e) {
-            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlStatement, batch));
     }
 
     /** {@inheritDoc} */
@@ -245,12 +221,7 @@ public class ClientSql implements IgniteSql {
     @Override
     public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
-
-        try {
-            executeScriptAsync(cancellationToken, query, arguments).join();
-        } catch (CompletionException e) {
-            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        sync(executeScriptAsync(cancellationToken, query, arguments));
     }
 
     /** {@inheritDoc} */
@@ -366,13 +337,21 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation),
+                DirectTxUtils.payloadWriter(
+                        ctx,
+                        transaction,
+                        payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation)
+                ),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
                 false
         ).handle((BiFunction<AsyncResultSet<T>, Throwable, CompletableFuture<AsyncResultSet<T>>>) (r, err) -> {
             if (err != null) {
+                if (DirectTxUtils.tryHandleErrorOnFirstRequest(ctx, ch)) {
+                    return failedFuture(err);
+                }
+
                 if (tx != null && shouldRecordTransactionFailure(err)) {
                     tx.recordOperationFailure(err);
                 }
@@ -381,26 +360,7 @@ public class ClientSql implements IgniteSql {
                     return failedFuture(err);
                 }
 
-                if (ctx.enlistmentToken != null) {
-                    // In case of direct mapping error need to rollback the tx on coordinator.
-                    return tx.rollbackAsync().handle((ignored, err0) -> {
-                        if (err0 != null) {
-                            err.addSuppressed(err0);
-                        }
-
-                        sneakyThrow(err);
-                        return null;
-                    });
-                } else {
-                    return tx.rollbackAndDiscardDirectMappings(false).handle((ignored, err0) -> {
-                        if (err0 != null) {
-                            err.addSuppressed(err0);
-                        }
-
-                        sneakyThrow(err);
-                        return null;
-                    });
-                }
+                return DirectTxUtils.handleErrorOnOtherRequests(ctx, tx, err);
             }
 
             return completedFuture(r);
@@ -693,7 +653,8 @@ public class ClientSql implements IgniteSql {
     }
 
     private static <T> T handleException(Throwable e) {
-        Throwable ex = unwrapCause(e);
+        Throwable ex = ensurePublicException(unwrapCause(e));
+
         if (ex instanceof TransactionException) {
             var te = (TransactionException) ex;
             throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
