@@ -74,7 +74,15 @@ internal record IgniteToStringBuilder
 
         _builder.Append(name);
         _builder.Append(" = ");
-        _builder.Append(value);
+
+        if (value != null)
+        {
+            _builder.Append(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            _builder.Append(value);
+        }
 
         return this;
     }
