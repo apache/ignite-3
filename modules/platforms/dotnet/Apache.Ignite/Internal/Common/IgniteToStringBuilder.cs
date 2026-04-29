@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Common;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -74,7 +75,15 @@ internal record IgniteToStringBuilder
 
         _builder.Append(name);
         _builder.Append(" = ");
-        _builder.Append(value);
+
+        if (value != null)
+        {
+            _builder.Append(Convert.ToString(value, CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            _builder.Append(value);
+        }
 
         return this;
     }
