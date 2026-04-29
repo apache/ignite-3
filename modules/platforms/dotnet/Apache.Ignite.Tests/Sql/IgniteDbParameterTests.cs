@@ -19,7 +19,9 @@ namespace Apache.Ignite.Tests.Sql;
 
 using System;
 using System.Data;
-using Ignite.Sql;
+using System.Globalization;
+using System.Threading;
+using Apache.Ignite.Sql;
 using NUnit.Framework;
 
 public class IgniteDbParameterTests
@@ -56,6 +58,19 @@ public class IgniteDbParameterTests
 
     [Test]
     public void TestToString()
+    {
+        var param = new IgniteDbParameter { Value = 12.3 };
+
+        Assert.AreEqual("IgniteDbParameter { Value = 12.3 }", param.ToString());
+    }
+
+    /// <summary>
+    /// Tests that <see cref="IgniteDbParameter.ToString"/> uses invariant culture
+    /// and does not change based on the system locale (e.g. comma vs dot decimal separator).
+    /// </summary>
+    [Test]
+    [SetCulture("de-DE")]
+    public void TestToStringNonInvariantCulture()
     {
         var param = new IgniteDbParameter { Value = 12.3 };
 
