@@ -30,6 +30,6 @@ public class PersistentPageMemoryStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("persistent").run();
+        new StorageEngineExample("default").run();
     }
 }
