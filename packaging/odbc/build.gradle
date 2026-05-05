@@ -98,14 +98,61 @@ distZip {
     }
 
     dependsOn replacePackageScriptVars
+
+    // ZIP format does not support symlinks. Exclude symlink files to avoid duplicating
+    // the library content. Users should create symlinks manually after extraction if needed.
+    eachFile { details ->
+        if (java.nio.file.Files.isSymbolicLink(details.file.toPath())) {
+            details.exclude()
+        }
+    }
 }
 
-distTar {
+// Disable the default distTar task because Gradle's Tar resolves symlinks, duplicating files.
+distTar.enabled = false
+
+// Custom tar task that preserves symlinks using the system 'tar' command.
+// Gradle's Tar and Copy tasks always resolve symlinks, so we stage files with 'cp -P'
+// (which preserves symlinks) and then create the tar archive manually.
+def odbcDistTar = tasks.register('odbcDistTar') {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
 
     dependsOn replacePackageScriptVars
+
+    def archiveName = "ignite3-odbc-${project.version}.tar.gz"
+    def outputFile = file("${buildDir}/distributions/${archiveName}")
+    def stageDir = file("${buildDir}/tar-stage/ignite3-odbc-${project.version}")
+
+    outputs.file outputFile
+
+    doLast {
+        delete stageDir
+        stageDir.mkdirs()
+        file("${buildDir}/distributions").mkdirs()
+
+        // Stage ODBC library files preserving symlinks
+        configurations.odbc.files.each { f ->
+            exec {
+                commandLine 'cp', '-P', f.absolutePath, stageDir.absolutePath
+            }
+        }
+
+        // Stage ini file
+        def iniFile = file("${buildDir}/scripts/ignite3-odbc.ini")
+        def tmpDir = new File(stageDir, 'tmp')
+        tmpDir.mkdirs()
+        exec {
+            commandLine 'cp', iniFile.absolutePath, tmpDir.absolutePath
+        }
+
+        // Create tar.gz archive
+        exec {
+            workingDir "${buildDir}/tar-stage"
+            commandLine 'tar', '-czf', outputFile.absolutePath, "ignite3-odbc-${project.version}"
+        }
+    }
 }
 
 buildRpm {
